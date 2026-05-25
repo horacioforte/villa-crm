@@ -1,0 +1,400 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PapelUsuario {
+  ADMIN
+  GERENTE
+  COMERCIAL
+  OPERACIONAL
+}
+
+enum TipoPessoa {
+  CONTATO
+  DECISOR
+  RESPONSAVEL_OBRA
+  FINANCEIRO
+}
+
+enum InfluenciaDecisao {
+  DECISOR
+  INFLUENCIADOR
+  TECNICO
+  OPERACIONAL
+  BLOQUEADOR
+}
+
+enum NivelRelacionamento {
+  FRIO
+  NEUTRO
+  BOM
+  EXCELENTE
+}
+
+enum StatusObra {
+  PLANEJADA
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
+}
+
+enum TipoOperacao {
+  LOCACAO
+  VENDA
+}
+
+enum StatusOportunidade {
+  NOVA
+  EM_ATENDIMENTO
+  PROPOSTA_ENVIADA
+  NEGOCIACAO
+  GANHA
+  PERDIDA
+}
+
+enum TipoContato {
+  TELEFONE
+  WHATSAPP
+  EMAIL
+  REUNIAO
+  VISITA
+  OUTRO
+}
+
+enum TipoEquipamento {
+  BOMBA_CONCRETO
+  BETONEIRA
+  OUTRO
+}
+
+enum StatusEquipamento {
+  DISPONIVEL
+  LOCADO
+  MANUTENCAO
+  VENDIDO
+  INATIVO
+}
+
+model Usuario {
+  id          String       @id @default(cuid())
+  nome        String
+  email       String       @unique
+  senhaHash   String?
+  telefone    String?
+  cargo       String?
+  papel       PapelUsuario @default(COMERCIAL)
+  ativo       Boolean      @default(true)
+  lastLoginAt DateTime?
+
+  filialId String?
+  filial   Filial? @relation(fields: [filialId], references: [id], onDelete: SetNull)
+
+  oportunidades Oportunidade[]
+  historicos    HistoricoContato[]
+
+  empresasCriadas              Empresa[]          @relation("EmpresaCreatedBy")
+  empresasAtualizadas          Empresa[]          @relation("EmpresaUpdatedBy")
+  pessoasCriadas               Pessoa[]           @relation("PessoaCreatedBy")
+  pessoasAtualizadas           Pessoa[]           @relation("PessoaUpdatedBy")
+  obrasCriadas                 Obra[]             @relation("ObraCreatedBy")
+  obrasAtualizadas             Obra[]             @relation("ObraUpdatedBy")
+  oportunidadesCriadas         Oportunidade[]     @relation("OportunidadeCreatedBy")
+  oportunidadesAtualizadas     Oportunidade[]     @relation("OportunidadeUpdatedBy")
+  equipamentosCriados          Equipamento[]      @relation("EquipamentoCreatedBy")
+  equipamentosAtualizados      Equipamento[]      @relation("EquipamentoUpdatedBy")
+  historicosContatoCriados     HistoricoContato[] @relation("HistoricoContatoCreatedBy")
+  historicosContatoAtualizados HistoricoContato[] @relation("HistoricoContatoUpdatedBy")
+  auditLogs                    AuditLog[]
+
+  createdAt DateTime @default(now()) @map("criadoEm")
+  updatedAt DateTime @updatedAt @map("atualizadoEm")
+
+  @@index([filialId])
+}
+
+model Filial {
+  id       String  @id @default(cuid())
+  nome     String
+  telefone String?
+  email    String?
+  endereco String?
+  cidade   String
+  estado   String
+  cep      String?
+  ativa    Boolean @default(true)
+
+  usuarios     Usuario[]
+  empresas     Empresa[]
+  obras        Obra[]
+  equipamentos Equipamento[]
+
+  createdAt DateTime @default(now()) @map("criadoEm")
+  updatedAt DateTime @updatedAt @map("atualizadoEm")
+}
+
+model Empresa {
+  id           String  @id @default(cuid())
+  razaoSocial  String
+  nomeFantasia String?
+  cnpj         String? @unique
+  segmento     String?
+  telefone     String?
+  email        String?
+  site         String?
+  endereco     String?
+  cidade       String?
+  estado       String?
+  cep          String?
+  responsavel  String?
+  observacoes  String?
+  ativa        Boolean @default(true)
+
+  filialId String?
+  filial   Filial? @relation(fields: [filialId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   Usuario? @relation("EmpresaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   Usuario? @relation("EmpresaUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  pessoas       Pessoa[]
+  obras         Obra[]
+  oportunidades Oportunidade[]
+  historicos    HistoricoContato[]
+
+  createdAt DateTime @default(now()) @map("criadoEm")
+  updatedAt DateTime @updatedAt @map("atualizadoEm")
+
+  @@index([filialId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([razaoSocial])
+}
+
+model Pessoa {
+  id                  String              @id @default(cuid())
+  nome                String
+  email               String?
+  telefone            String?
+  whatsapp            String?
+  cargo               String?
+  tipoCargo           String?
+  tipo                TipoPessoa          @default(CONTATO)
+  influenciaDecisao   InfluenciaDecisao   @default(INFLUENCIADOR)
+  nivelRelacionamento NivelRelacionamento @default(NEUTRO)
+  aniversario         DateTime?
+  observacoes         String?
+  ativa               Boolean             @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   Usuario? @relation("PessoaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   Usuario? @relation("PessoaUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  obrasResponsavel Obra[]
+  oportunidades    Oportunidade[]
+  historicos       HistoricoContato[]
+
+  createdAt DateTime @default(now()) @map("criadoEm")
+  updatedAt DateTime @updatedAt @map("atualizadoEm")
+
+  @@index([empresaId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([nome])
+}
+
+model Obra {
+  id             String     @id @default(cuid())
+  nome           String
+  descricao      String?
+  endereco       String?
+  cidade         String?
+  estado         String?
+  cep            String?
+  volumeEstimado Decimal?   @db.Decimal(12, 2)
+  status         StatusObra @default(PLANEJADA)
+  dataInicio     DateTime?
+  dataTermino    DateTime?
+  ativa          Boolean    @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  filialId String?
+  filial   Filial? @relation(fields: [filialId], references: [id], onDelete: SetNull)
+
+  responsavelId String?
+  responsavel   Pessoa? @relation(fields: [responsavelId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   Usuario? @relation("ObraCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   Usuario? @relation("ObraUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  oportunidades Oportunidade[]
+
+  createdAt DateTime @default(now()) @map("criadoEm")
+  updatedAt DateTime @updatedAt @map("atualizadoEm")
+
+  @@index([empresaId])
+  @@index([filialId])
+  @@index([responsavelId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model Oportunidade {
+  id                 String             @id @default(cuid())
+  titulo             String
+  descricao          String?
+  tipo               TipoOperacao
+  status             StatusOportunidade @default(NOVA)
+  valor              Decimal?           @db.Decimal(12, 2)
+  probabilidade      Int?
+  origem             String?
+  motivoPerda        String?
+  previsaoFechamento DateTime?
+  fechadaEm          DateTime?
+  ativa              Boolean            @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  pessoaId String?
+  pessoa   Pessoa? @relation(fields: [pessoaId], references: [id], onDelete: SetNull)
+
+  obraId String?
+  obra   Obra?   @relation(fields: [obraId], references: [id], onDelete: SetNull)
+
+  responsavelId String?
+  responsavel   Usuario? @relation(fields: [responsavelId], references: [id], onDelete: SetNull)
+
+  equipamentoId String?
+  equipamento   Equipamento? @relation(fields: [equipamentoId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   Usuario? @relation("OportunidadeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   Usuario? @relation("OportunidadeUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  historicos HistoricoContato[]
+
+  createdAt DateTime @default(now()) @map("criadoEm")
+  updatedAt DateTime @updatedAt @map("atualizadoEm")
+
+  @@index([empresaId])
+  @@index([pessoaId])
+  @@index([obraId])
+  @@index([responsavelId])
+  @@index([equipamentoId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([ativa])
+  @@index([status])
+}
+
+model HistoricoContato {
+  id             String      @id @default(cuid())
+  tipo           TipoContato
+  resumo         String
+  detalhes       String?
+  dataContato    DateTime    @default(now())
+  proximoContato DateTime?
+
+  oportunidadeId String?
+  oportunidade   Oportunidade? @relation(fields: [oportunidadeId], references: [id], onDelete: Cascade)
+
+  empresaId String?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  pessoaId String?
+  pessoa   Pessoa? @relation(fields: [pessoaId], references: [id], onDelete: SetNull)
+
+  usuarioId String?
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   Usuario? @relation("HistoricoContatoCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   Usuario? @relation("HistoricoContatoUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("criadoEm")
+  updatedAt DateTime @updatedAt @map("atualizadoEm")
+
+  @@index([oportunidadeId])
+  @@index([empresaId])
+  @@index([pessoaId])
+  @@index([usuarioId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([dataContato])
+}
+
+model Equipamento {
+  id           String            @id @default(cuid())
+  codigo       String            @unique
+  nome         String
+  tipo         TipoEquipamento
+  marca        String?
+  modelo       String?
+  ano          Int?
+  numeroSerie  String?
+  status       StatusEquipamento @default(DISPONIVEL)
+  valorLocacao Decimal?          @db.Decimal(12, 2)
+  valorVenda   Decimal?          @db.Decimal(12, 2)
+  observacoes  String?
+
+  filialId String?
+  filial   Filial? @relation(fields: [filialId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   Usuario? @relation("EquipamentoCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   Usuario? @relation("EquipamentoUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  oportunidades Oportunidade[]
+
+  createdAt DateTime @default(now()) @map("criadoEm")
+  updatedAt DateTime @updatedAt @map("atualizadoEm")
+
+  @@index([filialId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([status])
+}
+
+model AuditLog {
+  id        String  @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  metadata  Json?
+  ip        String?
+  userAgent String?
+
+  userId String?
+  user   Usuario? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}

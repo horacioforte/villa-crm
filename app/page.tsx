@@ -1,65 +1,187 @@
-import Image from "next/image";
+import {
+  Building2,
+  CalendarDays,
+  ChartNoAxesCombined,
+  ClipboardList,
+  HardHat,
+  Menu,
+  Phone,
+  Search,
+  Settings,
+  Truck,
+  UserCog,
+  Users,
+} from "lucide-react";
+
+import { LogoutButton } from "@/components/auth/LogoutButton";
 
 export default function Home() {
+  const menuItems = [
+    { label: "Dashboard", icon: ChartNoAxesCombined, href: "/", active: true },
+    { label: "Empresas", icon: Building2, href: "/empresas" },
+    { label: "Pessoas", icon: Users, href: "/contatos" },
+    { label: "Obras", icon: HardHat, href: "/obras" },
+    { label: "Oportunidades", icon: ClipboardList, href: "/oportunidades" },
+    { label: "Equipamentos", icon: Truck, href: "#" },
+    { label: "Usuarios", icon: UserCog, href: "/usuarios" },
+    { label: "Agenda", icon: CalendarDays, href: "#" },
+  ];
+
+  const metrics = [
+    { label: "Oportunidades abertas", value: "24", detail: "+8 nesta semana" },
+    { label: "Propostas enviadas", value: "12", detail: "R$ 860 mil em pipeline" },
+    { label: "Equipamentos disponiveis", value: "18", detail: "Bombas e betoneiras" },
+  ];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="min-h-screen bg-[#F4F6FA] text-[#172033]">
+      <aside className="fixed inset-y-0 left-0 hidden w-72 flex-col bg-[#1A2E5A] text-white lg:flex">
+        <div className="border-b border-white/10 px-8 py-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/60">
+            Villa
           </p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight">Villa CRM</h1>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+        <nav className="flex flex-1 flex-col gap-2 px-4 py-6">
+          {menuItems.map((item) => (
+            <a
+              key={item.label}
+              href={item.href}
+              className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                item.active
+                  ? "bg-white text-[#1A2E5A] shadow-lg shadow-black/10"
+                  : "text-white/75 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <item.icon className="size-5" />
+              {item.label}
+            </a>
+          ))}
+        </nav>
+        <div className="border-t border-white/10 p-4">
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#"
+            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/10 hover:text-white"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
+            <Settings className="size-5" />
+            Configuracoes
           </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          <LogoutButton />
         </div>
-      </main>
+      </aside>
+
+      <div className="lg:pl-72">
+        <header className="sticky top-0 z-10 border-b border-[#D7DEEA] bg-white/90 backdrop-blur">
+          <div className="flex h-20 items-center justify-between gap-4 px-5 sm:px-8">
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                className="rounded-xl border border-[#D7DEEA] p-2 text-[#1A2E5A] lg:hidden"
+                aria-label="Abrir menu"
+              >
+                <Menu className="size-5" />
+              </button>
+              <div>
+                <p className="text-sm font-semibold text-[#1E4FAB]">
+                  Sprint 1
+                </p>
+                <h2 className="text-xl font-bold text-[#1A2E5A] sm:text-2xl">
+                  Painel comercial
+                </h2>
+              </div>
+            </div>
+            <div className="hidden min-w-72 items-center gap-3 rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-4 py-3 text-sm text-[#667085] md:flex">
+              <Search className="size-4" />
+              Buscar empresas, obras ou oportunidades
+            </div>
+          </div>
+        </header>
+
+        <main className="px-5 py-8 sm:px-8">
+          <section className="rounded-3xl bg-[#1A2E5A] p-8 text-white shadow-xl shadow-[#1A2E5A]/10">
+            <div className="max-w-3xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white/60">
+                Villa Empreendimentos
+              </p>
+              <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+                Gestao de locacao e venda de bombas de concreto e betoneiras
+              </h1>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-white/75">
+                Centralize empresas, contatos, obras, oportunidades e historico
+                comercial em um fluxo unico para o time da Villa.
+              </p>
+            </div>
+          </section>
+
+          <section className="mt-8 grid gap-5 md:grid-cols-3">
+            {metrics.map((metric) => (
+              <article
+                key={metric.label}
+                className="rounded-3xl border border-[#D7DEEA] bg-white p-6 shadow-sm"
+              >
+                <p className="text-sm font-semibold text-[#667085]">
+                  {metric.label}
+                </p>
+                <strong className="mt-3 block text-4xl font-bold text-[#1A2E5A]">
+                  {metric.value}
+                </strong>
+                <p className="mt-2 text-sm text-[#1E4FAB]">{metric.detail}</p>
+              </article>
+            ))}
+          </section>
+
+          <section className="mt-8 grid gap-5 xl:grid-cols-[1.4fr_0.8fr]">
+            <article className="rounded-3xl border border-[#D7DEEA] bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-[#1E4FAB]">
+                    Pipeline
+                  </p>
+                  <h3 className="mt-1 text-2xl font-bold text-[#1A2E5A]">
+                    Oportunidades recentes
+                  </h3>
+                </div>
+                <ClipboardList className="size-7 text-[#1E4FAB]" />
+              </div>
+              <div className="mt-6 space-y-4">
+                {["Locacao de bomba estacionaria", "Venda de betoneira 400L", "Contrato mensal para obra residencial"].map(
+                  (title) => (
+                    <div
+                      key={title}
+                      className="rounded-2xl border border-[#D7DEEA] p-4"
+                    >
+                      <p className="font-semibold text-[#1A2E5A]">{title}</p>
+                      <p className="mt-1 text-sm text-[#667085]">
+                        Proxima acao: contato comercial e envio de proposta.
+                      </p>
+                    </div>
+                  ),
+                )}
+              </div>
+            </article>
+
+            <article className="rounded-3xl border border-[#D7DEEA] bg-white p-6 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-[#E8EEFB] p-3 text-[#1E4FAB]">
+                  <Phone className="size-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[#667085]">
+                    Proximo contato
+                  </p>
+                  <h3 className="text-xl font-bold text-[#1A2E5A]">
+                    Construtora Almeida
+                  </h3>
+                </div>
+              </div>
+              <p className="mt-5 text-sm leading-6 text-[#667085]">
+                Retornar sobre disponibilidade de bomba de concreto para obra
+                em andamento e registrar historico da negociacao.
+              </p>
+            </article>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ZodError } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { PageNavigation } from "@/components/layout/PageNavigation";
 import {
   Card,
   CardContent,
@@ -163,6 +164,7 @@ export default function NovaObraPage() {
   return (
     <main className="min-h-screen bg-[#F4F6FA] px-5 py-8 text-[#172033] sm:px-8">
       <div className="mx-auto max-w-4xl">
+        <PageNavigation currentPage="Nova obra" currentHref="/obras" />
         <Button
           variant="ghost"
           render={<Link href="/obras" />}

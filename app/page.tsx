@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Building2,
   CalendarDays,
@@ -36,12 +37,16 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#F4F6FA] text-[#172033]">
       <aside className="fixed inset-y-0 left-0 hidden w-72 flex-col bg-[#1A2E5A] text-white lg:flex">
-        <div className="border-b border-white/10 px-8 py-7">
+        <Link
+          href="/"
+          className="border-b border-white/10 px-8 py-7 transition hover:bg-white/10"
+          aria-label="Ir para o dashboard"
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/60">
             Villa
           </p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight">Villa CRM</h1>
-        </div>
+        </Link>
         <nav className="flex flex-1 flex-col gap-2 px-4 py-6">
           {menuItems.map((item) => (
             <a

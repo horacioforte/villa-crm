@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageNavigation } from "@/components/layout/PageNavigation";
 import {
   Card,
   CardContent,
@@ -98,6 +99,7 @@ export default function ObrasPage() {
   return (
     <main className="min-h-screen bg-[#F4F6FA] px-5 py-8 text-[#172033] sm:px-8">
       <div className="mx-auto max-w-7xl">
+        <PageNavigation currentPage="Obras" currentHref="/obras" />
         <header className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#1E4FAB]">

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/card";
 import { OportunidadeDetalhe } from "@/components/kanban/OportunidadeDetalhe";
 import { OportunidadeModal } from "@/components/kanban/OportunidadeModal";
+import { PageNavigation } from "@/components/layout/PageNavigation";
 import { statusOportunidadeValues } from "@/lib/validations/oportunidade";
 
 type StatusOportunidade = (typeof statusOportunidadeValues)[number];
@@ -218,6 +219,10 @@ export default function OportunidadesPage() {
   return (
     <main className="min-h-screen bg-[#F4F6FA] px-5 py-8 text-[#172033] sm:px-8">
       <div className="mx-auto max-w-[1600px]">
+        <PageNavigation
+          currentPage="Pipeline de oportunidades"
+          currentHref="/oportunidades"
+        />
         <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#1E4FAB]">

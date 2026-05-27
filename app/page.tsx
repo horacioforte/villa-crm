@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   Building2,
   CalendarDays,
@@ -14,9 +15,47 @@ import {
   Users,
 } from "lucide-react";
 
+import {
+  StatusEquipamento,
+  StatusOportunidade,
+} from "@/app/generated/prisma/client";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { getCurrentUser } from "@/lib/auth/session";
+import { prisma } from "@/lib/prisma";
 
-export default function Home() {
+export default async function Home() {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser) {
+    redirect("/login");
+  }
+
+  const [
+    oportunidadesAbertas,
+    propostasEnviadas,
+    equipamentosDisponiveis,
+  ] = await Promise.all([
+    prisma.oportunidade.count({
+      where: {
+        ativa: true,
+        status: {
+          notIn: [StatusOportunidade.GANHA, StatusOportunidade.PERDIDA],
+        },
+      },
+    }),
+    prisma.oportunidade.count({
+      where: {
+        ativa: true,
+        status: StatusOportunidade.PROPOSTA_ENVIADA,
+      },
+    }),
+    prisma.equipamento.count({
+      where: {
+        status: StatusEquipamento.DISPONIVEL,
+      },
+    }),
+  ]);
+
   const menuItems = [
     { label: "Dashboard", icon: ChartNoAxesCombined, href: "/", active: true },
     { label: "Empresas", icon: Building2, href: "/empresas" },
@@ -29,9 +68,21 @@ export default function Home() {
   ];
 
   const metrics = [
-    { label: "Oportunidades abertas", value: "24", detail: "+8 nesta semana" },
-    { label: "Propostas enviadas", value: "12", detail: "R$ 860 mil em pipeline" },
-    { label: "Equipamentos disponiveis", value: "18", detail: "Bombas e betoneiras" },
+    {
+      label: "Oportunidades abertas",
+      value: oportunidadesAbertas.toString(),
+      detail: "Ativas, sem ganhas ou perdidas",
+    },
+    {
+      label: "Propostas enviadas",
+      value: propostasEnviadas.toString(),
+      detail: "Oportunidades ativas em proposta",
+    },
+    {
+      label: "Equipamentos disponiveis",
+      value: equipamentosDisponiveis.toString(),
+      detail: "Status DISPONIVEL no cadastro",
+    },
   ];
 
   return (

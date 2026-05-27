@@ -4,6 +4,7 @@ import {
   ChartNoAxesCombined,
   ClipboardList,
   HardHat,
+  Truck,
   UserCog,
   Users,
 } from "lucide-react";
@@ -16,6 +17,7 @@ const menuItems = [
   { label: "Contatos", href: "/contatos", icon: Users },
   { label: "Obras", href: "/obras", icon: HardHat },
   { label: "Oportunidades", href: "/oportunidades", icon: ClipboardList },
+  { label: "Equipamentos", href: "/equipamentos", icon: Truck },
   { label: "Usuarios", href: "/usuarios", icon: UserCog },
 ];
 

@@ -23,7 +23,7 @@ export default function Home() {
     { label: "Pessoas", icon: Users, href: "/contatos" },
     { label: "Obras", icon: HardHat, href: "/obras" },
     { label: "Oportunidades", icon: ClipboardList, href: "/oportunidades" },
-    { label: "Equipamentos", icon: Truck, href: "#" },
+    { label: "Equipamentos", icon: Truck, href: "/equipamentos" },
     { label: "Usuarios", icon: UserCog, href: "/usuarios" },
     { label: "Agenda", icon: CalendarDays, href: "#" },
   ];

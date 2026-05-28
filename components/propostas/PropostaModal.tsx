@@ -26,7 +26,11 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { renderPropostaHtml } from "@/lib/propostas/render";
-import { PROPOSTA_TEMPLATES, getPropostaTemplate } from "@/lib/propostas/templates";
+import {
+  PROPOSTA_TEMPLATES,
+  buildTemplateBlocosSnapshot,
+  getPropostaTemplate,
+} from "@/lib/propostas/templates";
 
 type OportunidadeProposta = {
   id: string;
@@ -118,12 +122,33 @@ export function PropostaModal({
       return "";
     }
 
+    const cliente =
+      oportunidade.empresa.nomeFantasia ?? oportunidade.empresa.razaoSocial;
+    const blocos = buildTemplateBlocosSnapshot(templateUtilizado, {
+      numero_proposta: "PREVIEW",
+      cliente,
+      obra: oportunidade.obra?.nome ?? "Obra nao informada",
+      telefone: "",
+      email: "",
+      cidade: oportunidade.obra?.cidade ?? "",
+      estado: oportunidade.obra?.estado ?? "",
+      quantidade: "01",
+      descricao_comercial: "Caminhao Betoneira - 8m3",
+      horas_garantidas: "180h",
+      preco_unitario: valorTotal || "0",
+      valor: valorTotal || "0",
+      prazo: prazoExecucao,
+      validade: validadeProposta,
+      responsavel: oportunidade.responsavel?.nome ?? "Equipe Comercial Villa",
+      data: new Date().toLocaleDateString("pt-BR"),
+      observacoes_comerciais: observacoesComerciais,
+    });
+
     return renderPropostaHtml({
       numeroProposta: "PREVIEW",
       versao: 1,
       templateUtilizado,
-      cliente:
-        oportunidade.empresa.nomeFantasia ?? oportunidade.empresa.razaoSocial,
+      cliente,
       obra: oportunidade.obra?.nome ?? "Obra nao informada",
       cidade: oportunidade.obra?.cidade,
       estado: oportunidade.obra?.estado,
@@ -134,6 +159,7 @@ export function PropostaModal({
       observacoesComerciais,
       observacoesTecnicas,
       condicoesPagamento,
+      blocos,
     });
   }, [
     condicoesPagamento,

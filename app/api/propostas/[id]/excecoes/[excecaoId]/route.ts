@@ -138,8 +138,10 @@ export async function PATCH(
           excecaoId: excecao.id,
           usuarioId: authResult.id,
           campo: excecao.campo,
-          valorAnterior: excecao.valorAnterior,
-          valorNovo: aprovado ? excecao.valorProposto : excecao.valorAnterior,
+          valorAnterior: excecao.valorAnterior ?? undefined,
+          valorNovo: aprovado
+            ? (excecao.valorProposto ?? undefined)
+            : (excecao.valorAnterior ?? undefined),
           justificativa: data.motivo ?? excecao.justificativa,
           statusAnterior: before.status,
           statusNovo: nextStatus,

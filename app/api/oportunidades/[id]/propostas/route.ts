@@ -169,13 +169,11 @@ export async function POST(
           auditorias: {
             create: {
               campo: "proposta",
-              valorAnterior: null,
               valorNovo: {
                 status: "RASCUNHO",
                 template: data.templateUtilizado,
               },
               justificativa: "Criacao da proposta a partir do template master CBSO.",
-              statusAnterior: null,
               statusNovo: "RASCUNHO",
               versao,
               usuarioId: authResult.id,

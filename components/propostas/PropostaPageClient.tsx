@@ -85,32 +85,47 @@ export function PropostaPageClient({ id }: { id: string }) {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [decidingId, setDecidingId] = useState<string | null>(null);
 
-  async function loadProposta() {
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`/api/propostas/${id}`);
-
-      if (!response.ok) {
-        throw new Error("Falha ao carregar proposta.");
-      }
-
-      const data: PropostaDetalhe = await response.json();
-      setProposta(data);
-      setConteudos(
-        Object.fromEntries(
-          data.blocos.map((bloco) => [bloco.id, bloco.conteudoAtual]),
-        ),
-      );
-    } catch {
-      toast.error("Nao foi possivel carregar a proposta.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   useEffect(() => {
+    let active = true;
+
+    async function loadProposta() {
+      setIsLoading(true);
+
+      try {
+        const response = await fetch(`/api/propostas/${id}`);
+
+        if (!response.ok) {
+          throw new Error("Falha ao carregar proposta.");
+        }
+
+        const data: PropostaDetalhe = await response.json();
+
+        if (!active) {
+          return;
+        }
+
+        setProposta(data);
+        setConteudos(
+          Object.fromEntries(
+            data.blocos.map((bloco) => [bloco.id, bloco.conteudoAtual]),
+          ),
+        );
+      } catch {
+        if (active) {
+          toast.error("Nao foi possivel carregar a proposta.");
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+
     loadProposta();
+
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   async function salvarBloco(bloco: PropostaBloco) {

@@ -44,22 +44,27 @@ export async function GET(
     );
   }
 
-  const propostas = await prisma.propostaComercial.findMany({
-    where: {
-      oportunidadeId: id,
-    },
-    orderBy: [
-      {
-        versao: "desc",
+  try {
+    const propostas = await prisma.propostaComercial.findMany({
+      where: {
+        oportunidadeId: id,
       },
-      {
-        createdAt: "desc",
-      },
-    ],
-    include: propostaInclude,
-  });
+      orderBy: [
+        {
+          versao: "desc",
+        },
+        {
+          createdAt: "desc",
+        },
+      ],
+      include: propostaInclude,
+    });
 
-  return NextResponse.json(propostas);
+    return NextResponse.json(propostas);
+  } catch (error) {
+    console.error("Falha ao carregar propostas da oportunidade", error);
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(
@@ -212,8 +217,11 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { message: "Nao foi possivel criar a proposta comercial." },
-      { status: 500 },
+      {
+        message:
+          "O modulo de propostas ainda precisa da migration do banco para salvar rascunhos.",
+      },
+      { status: 503 },
     );
   }
 }

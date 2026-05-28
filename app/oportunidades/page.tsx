@@ -167,13 +167,18 @@ export default function OportunidadesPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Falha ao atualizar status.");
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message ?? "Falha ao atualizar status.");
       }
 
       toast.success("Status da oportunidade atualizado.");
-    } catch {
+    } catch (error) {
       setOportunidades(previous);
-      toast.error("Nao foi possivel mover a oportunidade.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel mover a oportunidade.",
+      );
     }
   }
 

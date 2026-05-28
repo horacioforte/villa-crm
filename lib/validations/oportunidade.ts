@@ -70,12 +70,13 @@ export const statusOportunidadeValues = [
   "PERDIDA",
 ] as const;
 
-export const oportunidadeSchema = z.object({
+const oportunidadeBaseSchema = z.object({
   titulo: z.string().trim().min(2, "Informe o titulo da oportunidade."),
   descricao: optionalText,
   tipo: z.enum(tipoOperacaoValues),
   status: z.enum(statusOportunidadeValues).default("NOVA"),
   valor: optionalNumber,
+  motivoPerda: optionalText,
   empresaId: requiredRelationId("Selecione a empresa."),
   pessoaId: optionalRelationId,
   obraId: requiredRelationId("Selecione a obra."),
@@ -83,7 +84,25 @@ export const oportunidadeSchema = z.object({
   equipamentoId: optionalRelationId,
 });
 
-export const oportunidadePatchSchema = oportunidadeSchema.partial();
+function validateMotivoPerda(
+  data: Partial<z.output<typeof oportunidadeBaseSchema>>,
+  ctx: z.RefinementCtx,
+) {
+  if (data.status === "PERDIDA" && !data.motivoPerda) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["motivoPerda"],
+      message: "Informe o motivo da perda.",
+    });
+  }
+}
+
+export const oportunidadeSchema =
+  oportunidadeBaseSchema.superRefine(validateMotivoPerda);
+
+export const oportunidadePatchSchema = oportunidadeBaseSchema
+  .partial()
+  .superRefine(validateMotivoPerda);
 
 export const oportunidadeStatusSchema = z.object({
   status: z.enum(statusOportunidadeValues),

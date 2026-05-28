@@ -232,7 +232,7 @@ export default function EmpresaDetalhePage() {
               >
                 <Field label="Nome fantasia" error={errors.nomeFantasia}>
                   <Input
-                    value={form.nomeFantasia}
+                    value={form.nomeFantasia ?? ""}
                     onChange={(event) =>
                       updateField("nomeFantasia", event.target.value)
                     }
@@ -263,7 +263,7 @@ export default function EmpresaDetalhePage() {
 
                 <Field label="Segmento" error={errors.segmento}>
                   <Select
-                    value={form.segmento}
+                    value={form.segmento ?? ""}
                     onValueChange={(value) =>
                       updateField("segmento", value ?? "")
                     }
@@ -283,7 +283,7 @@ export default function EmpresaDetalhePage() {
 
                 <Field label="Cidade" error={errors.cidade}>
                   <Input
-                    value={form.cidade}
+                    value={form.cidade ?? ""}
                     onChange={(event) =>
                       updateField("cidade", event.target.value)
                     }
@@ -294,7 +294,7 @@ export default function EmpresaDetalhePage() {
 
                 <Field label="Estado" error={errors.estado}>
                   <Select
-                    value={form.estado}
+                    value={form.estado ?? ""}
                     onValueChange={(value) => updateField("estado", value ?? "")}
                   >
                     <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
@@ -316,7 +316,7 @@ export default function EmpresaDetalhePage() {
                   className="md:col-span-2"
                 >
                   <Input
-                    value={form.responsavel}
+                    value={form.responsavel ?? ""}
                     onChange={(event) =>
                       updateField("responsavel", event.target.value)
                     }

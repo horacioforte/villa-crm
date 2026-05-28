@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, HardHat, Loader2 } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
+import { ArrowLeft, Loader2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { ZodError } from "zod";
 
-import { PageNavigation } from "@/components/layout/PageNavigation";
 import { Button } from "@/components/ui/button";
+import { PageNavigation } from "@/components/layout/PageNavigation";
 import {
   Card,
   CardContent,
@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { obraSchema, type ObraInput } from "@/lib/validations/obra";
+import { contatoSchema, type ContatoInput } from "@/lib/validations/contato";
 
 type EmpresaOption = {
   id: string;
@@ -32,68 +32,62 @@ type EmpresaOption = {
   nomeFantasia: string | null;
 };
 
-type ObraDetalhe = {
+type ContatoDetalhe = {
   id: string;
   nome: string;
   empresaId: string;
-  cidade: string | null;
-  estado: string | null;
-  volumeEstimado: string | number | null;
-  dataInicio: string | null;
-  dataTermino: string | null;
-  status: "PLANEJADA" | "EM_ANDAMENTO" | "CONCLUIDA" | "CANCELADA";
-  empresa: EmpresaOption;
+  cargo: string | null;
+  tipoCargo: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  influenciaDecisao:
+    | "DECISOR"
+    | "INFLUENCIADOR"
+    | "TECNICO"
+    | "OPERACIONAL"
+    | "BLOQUEADOR";
+  nivelRelacionamento: "FRIO" | "NEUTRO" | "BOM" | "EXCELENTE";
+  aniversario: string | null;
 };
 
-const initialForm: ObraInput = {
+const initialForm: ContatoInput = {
   nome: "",
   empresaId: "",
-  cidade: "",
-  estado: "",
-  volumeEstimado: "",
-  dataInicio: "",
-  dataTermino: "",
-  status: "PLANEJADA",
+  cargo: "",
+  tipoCargo: "",
+  whatsapp: "",
+  email: "",
+  influenciaDecisao: "INFLUENCIADOR",
+  nivelRelacionamento: "NEUTRO",
+  aniversario: "",
 };
 
-const estados = [
-  "AC",
-  "AL",
-  "AP",
-  "AM",
-  "BA",
-  "CE",
-  "DF",
-  "ES",
-  "GO",
-  "MA",
-  "MT",
-  "MS",
-  "MG",
-  "PA",
-  "PB",
-  "PR",
-  "PE",
-  "PI",
-  "RJ",
-  "RN",
-  "RS",
-  "RO",
-  "RR",
-  "SC",
-  "SP",
-  "SE",
-  "TO",
+const tipoCargoOptions = [
+  "Diretoria",
+  "Engenharia",
+  "Compras",
+  "Operacao",
+  "Financeiro",
+  "Administrativo",
+  "Outro",
 ];
 
-const statusOptions = [
-  { value: "PLANEJADA", label: "Planejada" },
-  { value: "EM_ANDAMENTO", label: "Em andamento" },
-  { value: "CONCLUIDA", label: "Concluida" },
-  { value: "CANCELADA", label: "Cancelada" },
+const influenciaOptions = [
+  { value: "DECISOR", label: "Decisor" },
+  { value: "INFLUENCIADOR", label: "Influenciador" },
+  { value: "TECNICO", label: "Tecnico" },
+  { value: "OPERACIONAL", label: "Operacional" },
+  { value: "BLOQUEADOR", label: "Bloqueador" },
 ] as const;
 
-type FieldErrors = Partial<Record<keyof ObraInput, string>>;
+const relacionamentoOptions = [
+  { value: "FRIO", label: "Frio" },
+  { value: "NEUTRO", label: "Neutro" },
+  { value: "BOM", label: "Bom" },
+  { value: "EXCELENTE", label: "Excelente" },
+] as const;
+
+type FieldErrors = Partial<Record<keyof ContatoInput, string>>;
 
 function formatDateInput(value: string | null) {
   if (!value) {
@@ -103,65 +97,50 @@ function formatDateInput(value: string | null) {
   return new Date(value).toISOString().slice(0, 10);
 }
 
-export default function ObraDetalhePage() {
+export default function ContatoDetalhePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const [form, setForm] = useState<ObraInput>(initialForm);
-  const [obra, setObra] = useState<ObraDetalhe | null>(null);
+  const [form, setForm] = useState<ContatoInput>(initialForm);
+  const [contato, setContato] = useState<ContatoDetalhe | null>(null);
   const [empresas, setEmpresas] = useState<EmpresaOption[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const empresaItems = useMemo(
-    () =>
-      empresas.map((empresa) => ({
-        value: empresa.id,
-        label: empresa.nomeFantasia ?? empresa.razaoSocial,
-      })),
-    [empresas],
-  );
-  const estadoItems = useMemo(
-    () => estados.map((estado) => ({ value: estado, label: estado })),
-    [],
-  );
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [obraResponse, empresasResponse] = await Promise.all([
-          fetch(`/api/obras/${params.id}`),
+        const [contatoResponse, empresasResponse] = await Promise.all([
+          fetch(`/api/contatos/${params.id}`),
           fetch("/api/empresas"),
         ]);
 
-        if (!obraResponse.ok) {
-          throw new Error("Falha ao carregar obra.");
+        if (!contatoResponse.ok) {
+          throw new Error("Falha ao carregar contato.");
         }
 
         if (!empresasResponse.ok) {
           throw new Error("Falha ao carregar empresas.");
         }
 
-        const [obraData, empresasData]: [ObraDetalhe, EmpresaOption[]] =
-          await Promise.all([obraResponse.json(), empresasResponse.json()]);
+        const [contatoData, empresasData]: [ContatoDetalhe, EmpresaOption[]] =
+          await Promise.all([contatoResponse.json(), empresasResponse.json()]);
 
-        setObra(obraData);
+        setContato(contatoData);
         setEmpresas(empresasData);
         setForm({
-          nome: obraData.nome ?? "",
-          empresaId: obraData.empresaId ?? "",
-          cidade: obraData.cidade ?? "",
-          estado: obraData.estado ?? "",
-          volumeEstimado:
-            obraData.volumeEstimado === null ||
-            obraData.volumeEstimado === undefined
-              ? ""
-              : String(obraData.volumeEstimado),
-          dataInicio: formatDateInput(obraData.dataInicio),
-          dataTermino: formatDateInput(obraData.dataTermino),
-          status: obraData.status,
+          nome: contatoData.nome ?? "",
+          empresaId: contatoData.empresaId ?? "",
+          cargo: contatoData.cargo ?? "",
+          tipoCargo: contatoData.tipoCargo ?? "",
+          whatsapp: contatoData.whatsapp ?? "",
+          email: contatoData.email ?? "",
+          influenciaDecisao: contatoData.influenciaDecisao,
+          nivelRelacionamento: contatoData.nivelRelacionamento,
+          aniversario: formatDateInput(contatoData.aniversario),
         });
       } catch {
-        toast.error("Nao foi possivel carregar a obra.");
+        toast.error("Nao foi possivel carregar o contato.");
       } finally {
         setIsLoading(false);
       }
@@ -170,7 +149,7 @@ export default function ObraDetalhePage() {
     loadData();
   }, [params.id]);
 
-  function updateField(field: keyof ObraInput, value: string) {
+  function updateField(field: keyof ContatoInput, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
   }
@@ -181,8 +160,8 @@ export default function ObraDetalhePage() {
     setErrors({});
 
     try {
-      const data = obraSchema.parse(form);
-      const response = await fetch(`/api/obras/${params.id}`, {
+      const data = contatoSchema.parse(form);
+      const response = await fetch(`/api/contatos/${params.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -192,20 +171,20 @@ export default function ObraDetalhePage() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.message ?? "Falha ao salvar obra.");
+        throw new Error(payload?.message ?? "Falha ao salvar contato.");
       }
 
-      const savedObra: ObraDetalhe = await response.json();
-      setObra(savedObra);
-      toast.success("Obra atualizada com sucesso.");
-      router.push("/obras");
+      const savedContato: ContatoDetalhe = await response.json();
+      setContato(savedContato);
+      toast.success("Contato atualizado com sucesso.");
+      router.push("/contatos");
       router.refresh();
     } catch (error) {
       if (error instanceof ZodError) {
         const fieldErrors: FieldErrors = {};
 
         for (const issue of error.issues) {
-          const field = issue.path[0] as keyof ObraInput | undefined;
+          const field = issue.path[0] as keyof ContatoInput | undefined;
 
           if (field && !fieldErrors[field]) {
             fieldErrors[field] = issue.message;
@@ -218,7 +197,7 @@ export default function ObraDetalhePage() {
         toast.error(
           error instanceof Error
             ? error.message
-            : "Nao foi possivel salvar a obra.",
+            : "Nao foi possivel salvar o contato.",
         );
       }
     } finally {
@@ -229,28 +208,28 @@ export default function ObraDetalhePage() {
   return (
     <main className="min-h-screen bg-[#F4F6FA] px-5 py-8 text-[#172033] sm:px-8">
       <div className="mx-auto max-w-4xl">
-        <PageNavigation currentPage={obra?.nome ?? "Obra"} currentHref="/obras" />
+        <PageNavigation currentPage={contato?.nome ?? "Contato"} currentHref="/contatos" />
         <Button
           variant="ghost"
-          render={<Link href="/obras" />}
+          render={<Link href="/contatos" />}
           className="mb-6 text-[#1A2E5A] hover:bg-[#E8EEFB]"
         >
           <ArrowLeft className="size-4" />
-          Voltar para obras
+          Voltar para contatos
         </Button>
 
         <Card className="rounded-[2rem] border-[#D7DEEA] bg-white shadow-xl shadow-[#1A2E5A]/10">
           <CardHeader className="border-b border-[#D7DEEA] p-8">
             <div className="flex items-center gap-4">
               <div className="rounded-2xl bg-[#1A2E5A] p-4 text-white">
-                <HardHat className="size-7" />
+                <UserRound className="size-7" />
               </div>
               <div>
                 <CardDescription className="font-semibold uppercase tracking-[0.18em] text-[#1E4FAB]">
                   Cadastro
                 </CardDescription>
                 <CardTitle className="mt-1 text-3xl font-bold text-[#1A2E5A]">
-                  {isLoading ? "Carregando obra..." : "Editar obra"}
+                  {isLoading ? "Carregando contato..." : "Editar contato"}
                 </CardTitle>
               </div>
             </div>
@@ -263,25 +242,21 @@ export default function ObraDetalhePage() {
                 Carregando cadastro...
               </div>
             ) : (
-              <form
-                onSubmit={handleSubmit}
-                className="grid gap-6 md:grid-cols-2"
-              >
-                <Field label="Nome da obra" error={errors.nome}>
+              <form onSubmit={handleSubmit} className="grid gap-6 md:grid-cols-2">
+                <Field label="Nome" error={errors.nome}>
                   <Input
                     value={form.nome}
                     onChange={(event) => updateField("nome", event.target.value)}
-                    placeholder="Residencial Jardim Villa"
+                    placeholder="Maria Oliveira"
                     className="h-11 rounded-2xl bg-[#F4F6FA]"
                   />
                 </Field>
 
-                <Field label="Empresa vinculada" error={errors.empresaId}>
+                <Field label="Empresa" error={errors.empresaId}>
                   <Select
-                    items={empresaItems}
                     value={form.empresaId}
                     onValueChange={(value) =>
-                      updateField("empresaId", String(value ?? ""))
+                      updateField("empresaId", value ?? "")
                     }
                   >
                     <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
@@ -297,87 +272,108 @@ export default function ObraDetalhePage() {
                   </Select>
                 </Field>
 
-                <Field label="Cidade" error={errors.cidade}>
+                <Field label="Cargo" error={errors.cargo}>
                   <Input
-                    value={form.cidade ?? ""}
-                    onChange={(event) =>
-                      updateField("cidade", event.target.value)
-                    }
-                    placeholder="Sao Paulo"
+                    value={form.cargo ?? ""}
+                    onChange={(event) => updateField("cargo", event.target.value)}
+                    placeholder="Gerente de obras"
                     className="h-11 rounded-2xl bg-[#F4F6FA]"
                   />
                 </Field>
 
-                <Field label="Estado" error={errors.estado}>
+                <Field label="Tipo cargo" error={errors.tipoCargo}>
                   <Select
-                    items={estadoItems}
-                    value={form.estado ?? ""}
+                    value={form.tipoCargo ?? ""}
                     onValueChange={(value) =>
-                      updateField("estado", String(value ?? ""))
+                      updateField("tipoCargo", value ?? "")
                     }
                   >
                     <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
-                      <SelectValue placeholder="Selecione a UF" />
+                      <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      {estados.map((estado) => (
-                        <SelectItem key={estado} value={estado}>
-                          {estado}
+                      {tipoCargoOptions.map((tipo) => (
+                        <SelectItem key={tipo} value={tipo}>
+                          {tipo}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </Field>
 
-                <Field label="Volume estimado (m3)" error={errors.volumeEstimado}>
+                <Field label="WhatsApp" error={errors.whatsapp}>
                   <Input
-                    value={String(form.volumeEstimado ?? "")}
+                    value={form.whatsapp ?? ""}
                     onChange={(event) =>
-                      updateField("volumeEstimado", event.target.value)
+                      updateField("whatsapp", event.target.value)
                     }
-                    placeholder="250"
+                    placeholder="(11) 99999-9999"
                     className="h-11 rounded-2xl bg-[#F4F6FA]"
                   />
                 </Field>
 
-                <Field label="Status" error={errors.status}>
+                <Field label="Email" error={errors.email}>
+                  <Input
+                    type="email"
+                    value={form.email ?? ""}
+                    onChange={(event) => updateField("email", event.target.value)}
+                    placeholder="contato@empresa.com.br"
+                    className="h-11 rounded-2xl bg-[#F4F6FA]"
+                  />
+                </Field>
+
+                <Field
+                  label="Influencia na decisao"
+                  error={errors.influenciaDecisao}
+                >
                   <Select
-                    items={statusOptions}
-                    value={form.status}
+                    value={form.influenciaDecisao ?? "INFLUENCIADOR"}
                     onValueChange={(value) =>
-                      updateField("status", String(value ?? ""))
+                      updateField("influenciaDecisao", value ?? "")
                     }
                   >
                     <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
-                      <SelectValue placeholder="Selecione o status" />
+                      <SelectValue placeholder="Selecione a influencia" />
                     </SelectTrigger>
                     <SelectContent>
-                      {statusOptions.map((status) => (
-                        <SelectItem key={status.value} value={status.value}>
-                          {status.label}
+                      {influenciaOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </Field>
 
-                <Field label="Data inicio" error={errors.dataInicio}>
-                  <Input
-                    type="date"
-                    value={String(form.dataInicio ?? "")}
-                    onChange={(event) =>
-                      updateField("dataInicio", event.target.value)
+                <Field
+                  label="Nivel relacionamento"
+                  error={errors.nivelRelacionamento}
+                >
+                  <Select
+                    value={form.nivelRelacionamento ?? "NEUTRO"}
+                    onValueChange={(value) =>
+                      updateField("nivelRelacionamento", value ?? "")
                     }
-                    className="h-11 rounded-2xl bg-[#F4F6FA]"
-                  />
+                  >
+                    <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
+                      <SelectValue placeholder="Selecione o nivel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {relacionamentoOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </Field>
 
-                <Field label="Data fim" error={errors.dataTermino}>
+                <Field label="Aniversario" error={errors.aniversario}>
                   <Input
                     type="date"
-                    value={String(form.dataTermino ?? "")}
+                    value={String(form.aniversario ?? "")}
                     onChange={(event) =>
-                      updateField("dataTermino", event.target.value)
+                      updateField("aniversario", event.target.value)
                     }
                     className="h-11 rounded-2xl bg-[#F4F6FA]"
                   />
@@ -387,7 +383,7 @@ export default function ObraDetalhePage() {
                   <Button
                     type="button"
                     variant="outline"
-                    render={<Link href="/obras" />}
+                    render={<Link href="/contatos" />}
                     className="h-11 rounded-2xl border-[#D7DEEA]"
                   >
                     Cancelar
@@ -403,7 +399,7 @@ export default function ObraDetalhePage() {
                         Salvando...
                       </>
                     ) : (
-                      "Salvar obra"
+                      "Salvar contato"
                     )}
                   </Button>
                 </div>

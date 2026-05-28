@@ -103,7 +103,7 @@ export async function PATCH(request: Request, context: UsuarioRouteContext) {
     if (error instanceof ZodError) {
       return NextResponse.json(
         {
-          message: "Dados invalidos.",
+          message: error.issues[0]?.message ?? "Dados invalidos.",
           errors: error.flatten().fieldErrors,
         },
         { status: 400 },

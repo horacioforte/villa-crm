@@ -1,21 +1,67 @@
 import { z } from "zod";
 
-const optionalDate = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value) => (value ? new Date(`${value}T00:00:00`) : null));
-
-const numericText = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value, ctx) => {
-    if (!value) {
+const optionalText = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((value) => {
+    if (value === null || value === undefined) {
       return null;
     }
 
-    const parsed = Number(value.replace(",", "."));
+    const trimmed = value.trim();
+
+    return trimmed ? trimmed : null;
+  });
+
+const optionalUf = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((value, ctx) => {
+    if (value === null || value === undefined || value.trim() === "") {
+      return null;
+    }
+
+    const trimmed = value.trim().toUpperCase();
+
+    if (trimmed.length !== 2) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Informe a UF com 2 letras.",
+      });
+      return z.NEVER;
+    }
+
+    return trimmed;
+  });
+
+const optionalDate = z
+  .union([z.string(), z.date(), z.null(), z.undefined()])
+  .transform((value, ctx) => {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+
+    const date =
+      value instanceof Date ? value : new Date(`${value.trim()}T00:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Informe uma data valida.",
+      });
+      return z.NEVER;
+    }
+
+    return date;
+  });
+
+const numericText = z
+  .union([z.string(), z.number(), z.null(), z.undefined()])
+  .transform((value, ctx) => {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+
+    const parsed =
+      typeof value === "number" ? value : Number(value.trim().replace(",", "."));
 
     if (Number.isNaN(parsed) || parsed < 0) {
       ctx.addIssue({
@@ -38,12 +84,8 @@ export const statusObraValues = [
 export const obraSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome da obra."),
   empresaId: z.string().trim().min(1, "Selecione a empresa vinculada."),
-  cidade: z.string().trim().min(2, "Informe a cidade."),
-  estado: z
-    .string()
-    .trim()
-    .length(2, "Informe a UF com 2 letras.")
-    .transform((value) => value.toUpperCase()),
+  cidade: optionalText,
+  estado: optionalUf,
   volumeEstimado: numericText,
   dataInicio: optionalDate,
   dataTermino: optionalDate,

@@ -130,13 +130,13 @@ export default function NovaObraPage() {
     setErrors({});
 
     try {
-      obraSchema.parse(form);
+      const data = obraSchema.parse(form);
       const response = await fetch("/api/obras", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -237,7 +237,7 @@ export default function NovaObraPage() {
 
               <Field label="Cidade" error={errors.cidade}>
                 <Input
-                  value={form.cidade}
+                  value={form.cidade ?? ""}
                   onChange={(event) =>
                     updateField("cidade", event.target.value)
                   }
@@ -249,7 +249,7 @@ export default function NovaObraPage() {
               <Field label="Estado" error={errors.estado}>
                 <Select
                   items={estadoItems}
-                  value={form.estado}
+                  value={form.estado ?? ""}
                   onValueChange={(value) =>
                     updateField("estado", String(value ?? ""))
                   }
@@ -269,7 +269,7 @@ export default function NovaObraPage() {
 
               <Field label="Volume estimado (m3)" error={errors.volumeEstimado}>
                 <Input
-                  value={form.volumeEstimado ?? ""}
+                  value={String(form.volumeEstimado ?? "")}
                   onChange={(event) =>
                     updateField("volumeEstimado", event.target.value)
                   }
@@ -302,7 +302,7 @@ export default function NovaObraPage() {
               <Field label="Data inicio" error={errors.dataInicio}>
                 <Input
                   type="date"
-                  value={form.dataInicio ?? ""}
+                  value={String(form.dataInicio ?? "")}
                   onChange={(event) =>
                     updateField("dataInicio", event.target.value)
                   }
@@ -313,7 +313,7 @@ export default function NovaObraPage() {
               <Field label="Data fim" error={errors.dataTermino}>
                 <Input
                   type="date"
-                  value={form.dataTermino ?? ""}
+                  value={String(form.dataTermino ?? "")}
                   onChange={(event) =>
                     updateField("dataTermino", event.target.value)
                   }

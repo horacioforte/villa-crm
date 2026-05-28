@@ -213,7 +213,7 @@ export default function NovoContatoPage() {
 
               <Field label="Cargo" error={errors.cargo}>
                 <Input
-                  value={form.cargo}
+                  value={form.cargo ?? ""}
                   onChange={(event) => updateField("cargo", event.target.value)}
                   placeholder="Gerente de obras"
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
@@ -222,7 +222,7 @@ export default function NovoContatoPage() {
 
               <Field label="Tipo cargo" error={errors.tipoCargo}>
                 <Select
-                  value={form.tipoCargo}
+                  value={form.tipoCargo ?? ""}
                   onValueChange={(value) =>
                     updateField("tipoCargo", value ?? "")
                   }
@@ -242,7 +242,7 @@ export default function NovoContatoPage() {
 
               <Field label="WhatsApp" error={errors.whatsapp}>
                 <Input
-                  value={form.whatsapp}
+                  value={form.whatsapp ?? ""}
                   onChange={(event) =>
                     updateField("whatsapp", event.target.value)
                   }
@@ -266,7 +266,7 @@ export default function NovoContatoPage() {
                 error={errors.influenciaDecisao}
               >
                 <Select
-                  value={form.influenciaDecisao}
+                  value={form.influenciaDecisao ?? "INFLUENCIADOR"}
                   onValueChange={(value) =>
                     updateField("influenciaDecisao", value ?? "")
                   }
@@ -289,7 +289,7 @@ export default function NovoContatoPage() {
                 error={errors.nivelRelacionamento}
               >
                 <Select
-                  value={form.nivelRelacionamento}
+                  value={form.nivelRelacionamento ?? "NEUTRO"}
                   onValueChange={(value) =>
                     updateField("nivelRelacionamento", value ?? "")
                   }
@@ -310,7 +310,7 @@ export default function NovoContatoPage() {
               <Field label="Aniversario" error={errors.aniversario}>
                 <Input
                   type="date"
-                  value={form.aniversario ?? ""}
+                  value={String(form.aniversario ?? "")}
                   onChange={(event) =>
                     updateField("aniversario", event.target.value)
                   }

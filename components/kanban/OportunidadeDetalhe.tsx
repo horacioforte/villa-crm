@@ -46,6 +46,7 @@ type OportunidadeDetalheData = {
   id: string;
   titulo: string;
   descricao: string | null;
+  motivoPerda: string | null;
   tipo: "LOCACAO" | "VENDA";
   status: StatusOportunidade;
   valor: string | number | null;
@@ -276,6 +277,18 @@ export function OportunidadeDetalhe({
                     <h3 className="font-bold text-[#1A2E5A]">Descricao</h3>
                     <p className="mt-2 text-sm leading-6 text-[#667085]">
                       {oportunidade.descricao}
+                    </p>
+                  </section>
+                </>
+              ) : null}
+
+              {oportunidade.motivoPerda ? (
+                <>
+                  <Separator />
+                  <section>
+                    <h3 className="font-bold text-[#1A2E5A]">Motivo da perda</h3>
+                    <p className="mt-2 text-sm leading-6 text-[#667085]">
+                      {oportunidade.motivoPerda}
                     </p>
                   </section>
                 </>

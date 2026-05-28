@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, type Resolver, useForm } from "react-hook-form";
+import { Controller, type Resolver, useForm, useWatch } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,6 +45,7 @@ type OportunidadeFormValues = {
   pessoaId: string;
   responsavelId: string;
   descricao: string;
+  motivoPerda: string;
 };
 
 type EmpresaOption = {
@@ -134,6 +135,7 @@ function getDefaultValues(statusInicial: StatusOportunidade): OportunidadeFormVa
     pessoaId: NONE_VALUE,
     responsavelId: NONE_VALUE,
     descricao: "",
+    motivoPerda: "",
   };
 }
 
@@ -157,6 +159,10 @@ export function OportunidadeModal({
   });
 
   const isEditing = Boolean(oportunidadeId);
+  const statusAtual = useWatch({
+    control: form.control,
+    name: "status",
+  });
 
   const empresaItems = useMemo(
     () =>
@@ -269,6 +275,7 @@ export function OportunidadeModal({
             pessoaId: oportunidade.pessoaId ?? NONE_VALUE,
             responsavelId: oportunidade.responsavelId ?? NONE_VALUE,
             descricao: oportunidade.descricao ?? "",
+            motivoPerda: oportunidade.motivoPerda ?? "",
           });
         } else {
           form.reset(getDefaultValues(statusInicial));
@@ -534,6 +541,20 @@ export function OportunidadeModal({
                 )}
               />
             </Field>
+
+            {statusAtual === "PERDIDA" ? (
+              <Field
+                label="Motivo da perda"
+                error={form.formState.errors.motivoPerda?.message}
+                className="md:col-span-2"
+              >
+                <Textarea
+                  {...form.register("motivoPerda")}
+                  placeholder="Explique por que a oportunidade foi perdida."
+                  className="min-h-24 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+            ) : null}
 
             <Field label="Descricao" className="md:col-span-2">
               <Textarea

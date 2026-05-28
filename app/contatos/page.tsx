@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Loader2, Plus, UserRound } from "lucide-react";
 import { toast } from "sonner";
@@ -77,6 +78,7 @@ function getInitials(name: string) {
 }
 
 export default function ContatosPage() {
+  const router = useRouter();
   const [contatos, setContatos] = useState<ContatoRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -165,7 +167,20 @@ export default function ContatosPage() {
                 </TableHeader>
                 <TableBody>
                   {contatos.map((contato) => (
-                    <TableRow key={contato.id}>
+                    <TableRow
+                      key={contato.id}
+                      tabIndex={0}
+                      role="link"
+                      aria-label={`Editar contato ${contato.nome}`}
+                      onClick={() => router.push(`/contatos/${contato.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          router.push(`/contatos/${contato.id}`);
+                        }
+                      }}
+                      className="cursor-pointer hover:bg-[#E8EEFB]/70 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#1E4FAB]/30"
+                    >
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="flex size-10 items-center justify-center rounded-2xl bg-[#1A2E5A] text-sm font-bold text-white">

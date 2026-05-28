@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, HardHat, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ZodError } from "zod";
@@ -88,6 +88,18 @@ export default function NovaObraPage() {
   const [empresas, setEmpresas] = useState<EmpresaOption[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const empresaItems = useMemo(
+    () =>
+      empresas.map((empresa) => ({
+        value: empresa.id,
+        label: empresa.nomeFantasia ?? empresa.razaoSocial,
+      })),
+    [empresas],
+  );
+  const estadoItems = useMemo(
+    () => estados.map((estado) => ({ value: estado, label: estado })),
+    [],
+  );
 
   useEffect(() => {
     async function loadEmpresas() {
@@ -118,13 +130,13 @@ export default function NovaObraPage() {
     setErrors({});
 
     try {
-      const data = obraSchema.parse(form);
+      obraSchema.parse(form);
       const response = await fetch("/api/obras", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(form),
       });
 
       if (!response.ok) {
@@ -204,9 +216,10 @@ export default function NovaObraPage() {
 
               <Field label="Empresa vinculada" error={errors.empresaId}>
                 <Select
+                  items={empresaItems}
                   value={form.empresaId}
                   onValueChange={(value) =>
-                    updateField("empresaId", value ?? "")
+                    updateField("empresaId", String(value ?? ""))
                   }
                 >
                   <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
@@ -235,8 +248,11 @@ export default function NovaObraPage() {
 
               <Field label="Estado" error={errors.estado}>
                 <Select
+                  items={estadoItems}
                   value={form.estado}
-                  onValueChange={(value) => updateField("estado", value ?? "")}
+                  onValueChange={(value) =>
+                    updateField("estado", String(value ?? ""))
+                  }
                 >
                   <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
                     <SelectValue placeholder="Selecione a UF" />
@@ -264,8 +280,11 @@ export default function NovaObraPage() {
 
               <Field label="Status" error={errors.status}>
                 <Select
+                  items={statusOptions}
                   value={form.status}
-                  onValueChange={(value) => updateField("status", value ?? "")}
+                  onValueChange={(value) =>
+                    updateField("status", String(value ?? ""))
+                  }
                 >
                   <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
                     <SelectValue placeholder="Selecione o status" />

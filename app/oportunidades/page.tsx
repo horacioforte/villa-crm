@@ -8,7 +8,7 @@ import {
   useDroppable,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { CircleDollarSign, Loader2, Plus, Target } from "lucide-react";
+import { CircleDollarSign, FileText, Loader2, Plus, Target } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -408,6 +408,11 @@ function OpportunityCard({
     transform: CSS.Translate.toString(transform),
   };
 
+  function handleGerarProposta(event: React.MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    onAbrirDetalhe(oportunidade.id);
+  }
+
   return (
     <Card
       ref={setNodeRef}
@@ -449,6 +454,16 @@ function OpportunityCard({
           <p>Contato: {oportunidade.pessoa?.nome ?? "Nao informado"}</p>
           <p>Obra: {oportunidade.obra?.nome ?? "Nao vinculada"}</p>
         </div>
+        <Button
+          type="button"
+          size="sm"
+          onClick={handleGerarProposta}
+          onPointerDown={(event) => event.stopPropagation()}
+          className="mt-4 w-full rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+        >
+          <FileText className="size-4" />
+          Gerar proposta
+        </Button>
       </CardContent>
     </Card>
   );

@@ -209,6 +209,14 @@ export function OportunidadeDetalhe({
                 <h2 className="mt-3 text-2xl font-bold text-[#1A2E5A]">
                   {oportunidade.titulo}
                 </h2>
+                <Button
+                  type="button"
+                  onClick={() => setPropostaModalOpen(true)}
+                  className="mt-4 w-full rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+                >
+                  <FileText className="size-4" />
+                  Gerar proposta
+                </Button>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -309,10 +317,11 @@ export function OportunidadeDetalhe({
                     type="button"
                     size="sm"
                     onClick={() => setPropostaModalOpen(true)}
-                    className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+                    variant="outline"
+                    className="rounded-2xl border-[#1E4FAB] text-[#1E4FAB] hover:bg-[#E8EEFB]"
                   >
                     <Plus className="size-4" />
-                    Gerar proposta
+                    Nova
                   </Button>
                 </div>
                 <PropostasList

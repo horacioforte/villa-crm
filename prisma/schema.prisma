@@ -120,25 +120,25 @@ model Usuario {
   oportunidades Oportunidade[]
   historicos    HistoricoContato[]
 
-  empresasCriadas              Empresa[]          @relation("EmpresaCreatedBy")
-  empresasAtualizadas          Empresa[]          @relation("EmpresaUpdatedBy")
-  pessoasCriadas               Pessoa[]           @relation("PessoaCreatedBy")
-  pessoasAtualizadas           Pessoa[]           @relation("PessoaUpdatedBy")
-  obrasCriadas                 Obra[]             @relation("ObraCreatedBy")
-  obrasAtualizadas             Obra[]             @relation("ObraUpdatedBy")
-  oportunidadesCriadas         Oportunidade[]     @relation("OportunidadeCreatedBy")
-  oportunidadesAtualizadas     Oportunidade[]     @relation("OportunidadeUpdatedBy")
-  equipamentosCriados          Equipamento[]      @relation("EquipamentoCreatedBy")
-  equipamentosAtualizados      Equipamento[]      @relation("EquipamentoUpdatedBy")
-  historicosContatoCriados     HistoricoContato[] @relation("HistoricoContatoCreatedBy")
-  historicosContatoAtualizados HistoricoContato[] @relation("HistoricoContatoUpdatedBy")
-  propostasCriadas             PropostaComercial[] @relation("PropostaComercialCreatedBy")
-  propostasAtualizadas         PropostaComercial[] @relation("PropostaComercialUpdatedBy")
-  templatesPropostaCriados     PropostaTemplateMaster[] @relation("PropostaTemplateMasterCreatedBy")
-  templatesPropostaAtualizados  PropostaTemplateMaster[] @relation("PropostaTemplateMasterUpdatedBy")
-  excecoesPropostaSolicitadas   PropostaExcecaoAprovacao[] @relation("PropostaExcecaoSolicitante")
-  excecoesPropostaDecididas     PropostaExcecaoAprovacao[] @relation("PropostaExcecaoAprovador")
-  auditoriasProposta            PropostaAuditoriaCampo[]
+  empresasCriadas              Empresa[]                  @relation("EmpresaCreatedBy")
+  empresasAtualizadas          Empresa[]                  @relation("EmpresaUpdatedBy")
+  pessoasCriadas               Pessoa[]                   @relation("PessoaCreatedBy")
+  pessoasAtualizadas           Pessoa[]                   @relation("PessoaUpdatedBy")
+  obrasCriadas                 Obra[]                     @relation("ObraCreatedBy")
+  obrasAtualizadas             Obra[]                     @relation("ObraUpdatedBy")
+  oportunidadesCriadas         Oportunidade[]             @relation("OportunidadeCreatedBy")
+  oportunidadesAtualizadas     Oportunidade[]             @relation("OportunidadeUpdatedBy")
+  equipamentosCriados          Equipamento[]              @relation("EquipamentoCreatedBy")
+  equipamentosAtualizados      Equipamento[]              @relation("EquipamentoUpdatedBy")
+  historicosContatoCriados     HistoricoContato[]         @relation("HistoricoContatoCreatedBy")
+  historicosContatoAtualizados HistoricoContato[]         @relation("HistoricoContatoUpdatedBy")
+  propostasCriadas             PropostaComercial[]        @relation("PropostaComercialCreatedBy")
+  propostasAtualizadas         PropostaComercial[]        @relation("PropostaComercialUpdatedBy")
+  templatesPropostaCriados     PropostaTemplateMaster[]   @relation("PropostaTemplateMasterCreatedBy")
+  templatesPropostaAtualizados PropostaTemplateMaster[]   @relation("PropostaTemplateMasterUpdatedBy")
+  excecoesPropostaSolicitadas  PropostaExcecaoAprovacao[] @relation("PropostaExcecaoSolicitante")
+  excecoesPropostaDecididas    PropostaExcecaoAprovacao[] @relation("PropostaExcecaoAprovador")
+  auditoriasProposta           PropostaAuditoriaCampo[]
   auditLogs                    AuditLog[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
@@ -338,20 +338,20 @@ model Oportunidade {
 }
 
 model PropostaComercial {
-  id                     String                  @id @default(cuid())
-  numeroProposta         String
-  versao                 Int                     @default(1)
-  status                 StatusPropostaComercial @default(RASCUNHO)
-  templateUtilizado      String
-  valorTotal             Decimal                 @db.Decimal(12, 2)
-  validadeProposta       DateTime
-  prazoExecucao          String?
-  observacoesComerciais  String?
-  observacoesTecnicas    String?
-  condicoesPagamento     String?
-  pdfUrl                 String?
-  wordUrl                String?
-  htmlSnapshot           String                  @db.Text
+  id                    String                  @id @default(cuid())
+  numeroProposta        String
+  versao                Int                     @default(1)
+  status                StatusPropostaComercial @default(RASCUNHO)
+  templateUtilizado     String
+  valorTotal            Decimal                 @db.Decimal(12, 2)
+  validadeProposta      DateTime
+  prazoExecucao         String?
+  observacoesComerciais String?
+  observacoesTecnicas   String?
+  condicoesPagamento    String?
+  pdfUrl                String?
+  wordUrl               String?
+  htmlSnapshot          String                  @db.Text
 
   templateMasterId String?
   templateMaster   PropostaTemplateMaster? @relation(fields: [templateMasterId], references: [id], onDelete: SetNull)
@@ -414,7 +414,7 @@ model PropostaTemplateBloco {
   titulo   String
   tipo     TipoBlocoProposta
   ordem    Int
-  conteudo  String            @db.Text
+  conteudo String            @db.Text
 
   templateMasterId String
   templateMaster   PropostaTemplateMaster @relation(fields: [templateMasterId], references: [id], onDelete: Cascade)
@@ -430,14 +430,14 @@ model PropostaTemplateBloco {
 }
 
 model PropostaBloco {
-  id              String            @id @default(cuid())
-  chave           String
-  titulo          String
-  tipo            TipoBlocoProposta
-  ordem           Int
+  id               String            @id @default(cuid())
+  chave            String
+  titulo           String
+  tipo             TipoBlocoProposta
+  ordem            Int
   conteudoOriginal String            @db.Text
   conteudoAtual    String            @db.Text
-  editado         Boolean           @default(false)
+  editado          Boolean           @default(false)
 
   propostaId String
   proposta   PropostaComercial @relation(fields: [propostaId], references: [id], onDelete: Cascade)
@@ -458,14 +458,14 @@ model PropostaBloco {
 }
 
 model PropostaExcecaoAprovacao {
-  id             String                 @id @default(cuid())
-  campo          String
-  valorAnterior  Json?
-  valorProposto  Json?
-  justificativa  String                 @db.Text
-  status         StatusExcecaoProposta  @default(PENDENTE)
-  decisaoMotivo  String?                @db.Text
-  decididoEm     DateTime?
+  id            String                @id @default(cuid())
+  campo         String
+  valorAnterior Json?
+  valorProposto Json?
+  justificativa String                @db.Text
+  status        StatusExcecaoProposta @default(PENDENTE)
+  decisaoMotivo String?               @db.Text
+  decididoEm    DateTime?
 
   propostaId String
   proposta   PropostaComercial @relation(fields: [propostaId], references: [id], onDelete: Cascade)
@@ -492,11 +492,11 @@ model PropostaExcecaoAprovacao {
 }
 
 model PropostaAuditoriaCampo {
-  id             String  @id @default(cuid())
+  id             String                   @id @default(cuid())
   campo          String
   valorAnterior  Json?
   valorNovo      Json?
-  justificativa  String? @db.Text
+  justificativa  String?                  @db.Text
   statusAnterior StatusPropostaComercial?
   statusNovo     StatusPropostaComercial?
   versao         Int

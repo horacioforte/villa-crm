@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Building2, CalendarDays, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -73,6 +74,7 @@ function formatDate(value: string | null) {
 }
 
 export default function ObrasPage() {
+  const router = useRouter();
   const [obras, setObras] = useState<ObraRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -159,7 +161,20 @@ export default function ObrasPage() {
                 </TableHeader>
                 <TableBody>
                   {obras.map((obra) => (
-                    <TableRow key={obra.id}>
+                    <TableRow
+                      key={obra.id}
+                      tabIndex={0}
+                      role="link"
+                      aria-label={`Editar obra ${obra.nome}`}
+                      onClick={() => router.push(`/obras/${obra.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          router.push(`/obras/${obra.id}`);
+                        }
+                      }}
+                      className="cursor-pointer hover:bg-[#E8EEFB]/70 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#1E4FAB]/30"
+                    >
                       <TableCell className="font-semibold text-[#1A2E5A]">
                         {obra.nome}
                       </TableCell>

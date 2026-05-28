@@ -149,58 +149,61 @@ export default function EmpresasPage() {
               const displayName = empresa.nomeFantasia ?? empresa.razaoSocial;
 
               return (
-                <Card
+                <Link
                   key={empresa.id}
-                  className="rounded-3xl border-[#D7DEEA] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                  href={`/empresas/${empresa.id}`}
+                  className="block focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#1E4FAB]/30"
                 >
-                  <CardHeader>
-                    <div className="flex items-start gap-4">
-                      <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#1A2E5A] text-lg font-bold text-white">
-                        {getInitials(displayName)}
+                  <Card className="h-full rounded-3xl border-[#D7DEEA] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                    <CardHeader>
+                      <div className="flex items-start gap-4">
+                        <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#1A2E5A] text-lg font-bold text-white">
+                          {getInitials(displayName)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="truncate text-xl font-bold text-[#1A2E5A]">
+                            {displayName}
+                          </CardTitle>
+                          <CardDescription className="mt-1 flex items-center gap-1">
+                            <MapPin className="size-4" />
+                            {empresa.cidade && empresa.estado
+                              ? `${empresa.cidade}/${empresa.estado}`
+                              : "Localizacao nao informada"}
+                          </CardDescription>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <CardTitle className="truncate text-xl font-bold text-[#1A2E5A]">
-                          {displayName}
-                        </CardTitle>
-                        <CardDescription className="mt-1 flex items-center gap-1">
-                          <MapPin className="size-4" />
-                          {empresa.cidade && empresa.estado
-                            ? `${empresa.cidade}/${empresa.estado}`
-                            : "Localizacao nao informada"}
-                        </CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Badge
-                      variant="secondary"
-                      className="bg-[#E8EEFB] text-[#1A2E5A]"
-                    >
-                      {empresa.segmento ?? "Sem segmento"}
-                    </Badge>
+                    </CardHeader>
+                    <CardContent>
+                      <Badge
+                        variant="secondary"
+                        className="bg-[#E8EEFB] text-[#1A2E5A]"
+                      >
+                        {empresa.segmento ?? "Sem segmento"}
+                      </Badge>
 
-                    <div className="mt-6 grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl bg-[#F4F6FA] p-4">
-                        <Users className="size-5 text-[#1E4FAB]" />
-                        <p className="mt-3 text-2xl font-bold text-[#1A2E5A]">
-                          {empresa._count.obras}
-                        </p>
-                        <p className="text-xs font-semibold text-[#667085]">
-                          Obras
-                        </p>
+                      <div className="mt-6 grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl bg-[#F4F6FA] p-4">
+                          <Users className="size-5 text-[#1E4FAB]" />
+                          <p className="mt-3 text-2xl font-bold text-[#1A2E5A]">
+                            {empresa._count.obras}
+                          </p>
+                          <p className="text-xs font-semibold text-[#667085]">
+                            Obras
+                          </p>
+                        </div>
+                        <div className="rounded-2xl bg-[#F4F6FA] p-4">
+                          <Target className="size-5 text-[#1E4FAB]" />
+                          <p className="mt-3 text-2xl font-bold text-[#1A2E5A]">
+                            {empresa._count.oportunidades}
+                          </p>
+                          <p className="text-xs font-semibold text-[#667085]">
+                            Oportunidades
+                          </p>
+                        </div>
                       </div>
-                      <div className="rounded-2xl bg-[#F4F6FA] p-4">
-                        <Target className="size-5 text-[#1E4FAB]" />
-                        <p className="mt-3 text-2xl font-bold text-[#1A2E5A]">
-                          {empresa._count.oportunidades}
-                        </p>
-                        <p className="text-xs font-semibold text-[#667085]">
-                          Oportunidades
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
               );
             })}
           </section>

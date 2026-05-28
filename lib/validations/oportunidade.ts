@@ -1,16 +1,47 @@
 import { z } from "zod";
 
 const optionalText = z
-  .string()
-  .trim()
+  .union([z.string(), z.null()])
   .optional()
-  .transform((value) => (value && value !== "__none__" ? value : null));
+  .transform((value) => {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const trimmed = value.trim();
+
+    return trimmed ? trimmed : null;
+  });
+
+const requiredRelationId = (message: string) =>
+  z.union([z.string(), z.null()]).transform((value, ctx) => {
+    const trimmed = value?.trim();
+
+    if (!trimmed || trimmed === "__none__") {
+      ctx.addIssue({
+        code: "custom",
+        message,
+      });
+      return z.NEVER;
+    }
+
+    return trimmed;
+  });
+
+const optionalRelationId = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((value) => {
+    const trimmed = value?.trim();
+
+    return trimmed && trimmed !== "__none__" ? trimmed : null;
+  });
 
 const optionalNumber = z
-  .union([z.string(), z.number()])
+  .union([z.string(), z.number(), z.null()])
   .optional()
   .transform((value, ctx) => {
-    if (value === undefined || value === "") {
+    if (value === undefined || value === null || value === "") {
       return null;
     }
 
@@ -45,11 +76,11 @@ export const oportunidadeSchema = z.object({
   tipo: z.enum(tipoOperacaoValues),
   status: z.enum(statusOportunidadeValues).default("NOVA"),
   valor: optionalNumber,
-  empresaId: z.string().trim().min(1, "Selecione a empresa."),
-  pessoaId: optionalText,
-  obraId: optionalText,
-  responsavelId: optionalText,
-  equipamentoId: optionalText,
+  empresaId: requiredRelationId("Selecione a empresa."),
+  pessoaId: optionalRelationId,
+  obraId: requiredRelationId("Selecione a obra."),
+  responsavelId: optionalRelationId,
+  equipamentoId: optionalRelationId,
 });
 
 export const oportunidadePatchSchema = oportunidadeSchema.partial();

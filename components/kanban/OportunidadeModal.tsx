@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, type Resolver, useForm } from "react-hook-form";
 import { Loader2 } from "lucide-react";
@@ -112,6 +112,16 @@ const tipoLabels: Record<TipoOperacao, string> = {
   VENDA: "Venda",
 };
 
+const statusItems = statusOportunidadeValues.map((status) => ({
+  label: statusLabels[status],
+  value: status,
+}));
+
+const tipoItems = tipoOperacaoValues.map((tipo) => ({
+  label: tipoLabels[tipo],
+  value: tipo,
+}));
+
 function getDefaultValues(statusInicial: StatusOportunidade): OportunidadeFormValues {
   return {
     titulo: "",
@@ -120,7 +130,7 @@ function getDefaultValues(statusInicial: StatusOportunidade): OportunidadeFormVa
     tipo: "LOCACAO",
     valor: "",
     equipamentoId: NONE_VALUE,
-    obraId: NONE_VALUE,
+    obraId: "",
     pessoaId: NONE_VALUE,
     responsavelId: NONE_VALUE,
     descricao: "",
@@ -147,6 +157,52 @@ export function OportunidadeModal({
   });
 
   const isEditing = Boolean(oportunidadeId);
+
+  const empresaItems = useMemo(
+    () =>
+      empresas.map((empresa) => ({
+        label: empresa.nomeFantasia ?? empresa.razaoSocial,
+        value: empresa.id,
+      })),
+    [empresas],
+  );
+
+  const equipamentoItems = useMemo(
+    () => [
+      {
+        label: "Sem equipamento vinculado",
+        value: NONE_VALUE,
+      },
+      ...equipamentos.map((equipamento) => ({
+        label: `${equipamento.nome} - ${equipamento.codigoInterno}`,
+        value: equipamento.id,
+      })),
+    ],
+    [equipamentos],
+  );
+
+  const obraItems = useMemo(
+    () =>
+      obras.map((obra) => ({
+        label: obra.nome,
+        value: obra.id,
+      })),
+    [obras],
+  );
+
+  const pessoaItems = useMemo(
+    () => [
+      {
+        label: "Sem contato vinculado",
+        value: NONE_VALUE,
+      },
+      ...pessoas.map((pessoa) => ({
+        label: pessoa.nome,
+        value: pessoa.id,
+      })),
+    ],
+    [pessoas],
+  );
 
   useEffect(() => {
     if (!aberto) {
@@ -209,7 +265,7 @@ export function OportunidadeModal({
             tipo: oportunidade.tipo,
             valor: oportunidade.valor ? String(oportunidade.valor) : "",
             equipamentoId: oportunidade.equipamentoId ?? NONE_VALUE,
-            obraId: oportunidade.obraId ?? NONE_VALUE,
+            obraId: oportunidade.obraId ?? "",
             pessoaId: oportunidade.pessoaId ?? NONE_VALUE,
             responsavelId: oportunidade.responsavelId ?? NONE_VALUE,
             descricao: oportunidade.descricao ?? "",
@@ -315,7 +371,8 @@ export function OportunidadeModal({
                 name="empresaId"
                 render={({ field }) => (
                   <Select
-                    value={field.value}
+                    items={empresaItems}
+                    value={field.value || null}
                     onValueChange={(value) => field.onChange(value ?? "")}
                   >
                     <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
@@ -339,6 +396,7 @@ export function OportunidadeModal({
                 name="status"
                 render={({ field }) => (
                   <Select
+                    items={statusItems}
                     value={field.value}
                     onValueChange={(value) => field.onChange(value)}
                   >
@@ -363,6 +421,7 @@ export function OportunidadeModal({
                 name="tipo"
                 render={({ field }) => (
                   <Select
+                    items={tipoItems}
                     value={field.value}
                     onValueChange={(value) => field.onChange(value)}
                   >
@@ -397,6 +456,7 @@ export function OportunidadeModal({
                 name="equipamentoId"
                 render={({ field }) => (
                   <Select
+                    items={equipamentoItems}
                     value={field.value}
                     onValueChange={(value) =>
                       field.onChange(value ?? NONE_VALUE)
@@ -420,24 +480,20 @@ export function OportunidadeModal({
               />
             </Field>
 
-            <Field label="Obra">
+            <Field label="Obra" error={form.formState.errors.obraId?.message}>
               <Controller
                 control={form.control}
                 name="obraId"
                 render={({ field }) => (
                   <Select
-                    value={field.value}
-                    onValueChange={(value) =>
-                      field.onChange(value ?? NONE_VALUE)
-                    }
+                    items={obraItems}
+                    value={field.value || null}
+                    onValueChange={(value) => field.onChange(value ?? "")}
                   >
                     <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
                       <SelectValue placeholder="Selecione a obra" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={NONE_VALUE}>
-                        Sem obra vinculada
-                      </SelectItem>
                       {obras.map((obra) => (
                         <SelectItem key={obra.id} value={obra.id}>
                           {obra.nome}
@@ -455,6 +511,7 @@ export function OportunidadeModal({
                 name="pessoaId"
                 render={({ field }) => (
                   <Select
+                    items={pessoaItems}
                     value={field.value}
                     onValueChange={(value) =>
                       field.onChange(value ?? NONE_VALUE)

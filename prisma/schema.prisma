@@ -57,6 +57,14 @@ enum StatusOportunidade {
   PERDIDA
 }
 
+enum StatusPropostaComercial {
+  RASCUNHO
+  ENVIADA
+  APROVADA
+  REJEITADA
+  VENCIDA
+}
+
 enum TipoContato {
   TELEFONE
   WHATSAPP
@@ -109,6 +117,8 @@ model Usuario {
   equipamentosAtualizados      Equipamento[]      @relation("EquipamentoUpdatedBy")
   historicosContatoCriados     HistoricoContato[] @relation("HistoricoContatoCreatedBy")
   historicosContatoAtualizados HistoricoContato[] @relation("HistoricoContatoUpdatedBy")
+  propostasCriadas             PropostaComercial[] @relation("PropostaComercialCreatedBy")
+  propostasAtualizadas         PropostaComercial[] @relation("PropostaComercialUpdatedBy")
   auditLogs                    AuditLog[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
@@ -291,6 +301,7 @@ model Oportunidade {
   updatedBy   Usuario? @relation("OportunidadeUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   historicos HistoricoContato[]
+  propostas  PropostaComercial[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -304,6 +315,42 @@ model Oportunidade {
   @@index([updatedById])
   @@index([ativa])
   @@index([status])
+}
+
+model PropostaComercial {
+  id                     String                  @id @default(cuid())
+  numeroProposta         String
+  versao                 Int                     @default(1)
+  status                 StatusPropostaComercial @default(RASCUNHO)
+  templateUtilizado      String
+  valorTotal             Decimal                 @db.Decimal(12, 2)
+  validadeProposta       DateTime
+  prazoExecucao          String?
+  observacoesComerciais  String?
+  observacoesTecnicas    String?
+  condicoesPagamento     String?
+  pdfUrl                 String?
+  wordUrl                String?
+  htmlSnapshot           String                  @db.Text
+
+  oportunidadeId String
+  oportunidade   Oportunidade @relation(fields: [oportunidadeId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  criadoPor   Usuario? @relation("PropostaComercialCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   Usuario? @relation("PropostaComercialUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([numeroProposta, versao])
+  @@index([oportunidadeId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([status])
+  @@index([validadeProposta])
 }
 
 model HistoricoContato {

@@ -6,10 +6,12 @@ import { ptBR } from "date-fns/locale";
 import {
   Building2,
   Calendar,
+  FileText,
   Hammer,
   Loader2,
   Package,
   Pencil,
+  Plus,
   Trash2,
   User,
   UserCheck,
@@ -29,6 +31,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PropostaModal } from "@/components/propostas/PropostaModal";
+import { PropostasList } from "@/components/propostas/PropostasList";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -120,6 +124,8 @@ export function OportunidadeDetalhe({
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [propostaModalOpen, setPropostaModalOpen] = useState(false);
+  const [propostasRefresh, setPropostasRefresh] = useState(0);
 
   useEffect(() => {
     async function loadOportunidade() {
@@ -282,6 +288,47 @@ export function OportunidadeDetalhe({
                 </>
               ) : null}
 
+              <Separator />
+
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-2xl bg-[#E8EEFB] p-2 text-[#1E4FAB]">
+                      <FileText className="size-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-[#1A2E5A]">
+                        Propostas comerciais
+                      </h3>
+                      <p className="mt-1 text-sm text-[#667085]">
+                        Versoes geradas para esta oportunidade.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setPropostaModalOpen(true)}
+                    className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+                  >
+                    <Plus className="size-4" />
+                    Gerar proposta
+                  </Button>
+                </div>
+                <PropostasList
+                  oportunidadeId={id}
+                  refreshKey={propostasRefresh}
+                  onChanged={() => {
+                    setOportunidade((current) =>
+                      current
+                        ? { ...current, status: "PROPOSTA_ENVIADA" }
+                        : current,
+                    );
+                    setPropostasRefresh((current) => current + 1);
+                  }}
+                />
+              </section>
+
               {oportunidade.motivoPerda ? (
                 <>
                   <Separator />
@@ -323,6 +370,15 @@ export function OportunidadeDetalhe({
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {propostaModalOpen ? (
+        <PropostaModal
+          aberto={propostaModalOpen}
+          oportunidadeId={id}
+          onFechar={() => setPropostaModalOpen(false)}
+          onSalvar={() => setPropostasRefresh((current) => current + 1)}
+        />
+      ) : null}
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

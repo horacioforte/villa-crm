@@ -234,6 +234,181 @@ function buildWhatsappHref(phone: string) {
   return `https://wa.me/${withCountryCode}`;
 }
 
+async function getProposalDashboardData(
+  propostaAccessWhere: Prisma.PropostaComercialWhereInput,
+) {
+  try {
+    const [
+      propostasPendentes,
+      propostasPendentesPorStatus,
+      propostasRecentes,
+      aguardandoAprovacaoTotal,
+      propostasAguardandoAprovacao,
+    ] = await Promise.all([
+      prisma.propostaComercial.count({
+        where: {
+          ...propostaAccessWhere,
+          status: {
+            in: pendingProposalStatuses,
+          },
+        },
+      }),
+      prisma.propostaComercial.groupBy({
+        by: ["status"],
+        where: {
+          ...propostaAccessWhere,
+          status: {
+            in: pendingProposalStatuses,
+          },
+        },
+        _count: {
+          _all: true,
+        },
+      }),
+      prisma.propostaComercial.findMany({
+        where: propostaAccessWhere,
+        orderBy: {
+          updatedAt: "desc",
+        },
+        take: 5,
+        select: {
+          id: true,
+          numeroProposta: true,
+          versao: true,
+          status: true,
+          valorTotal: true,
+          validadeProposta: true,
+          updatedAt: true,
+          criadoPor: {
+            select: {
+              nome: true,
+            },
+          },
+          oportunidade: {
+            select: {
+              titulo: true,
+              empresa: {
+                select: {
+                  razaoSocial: true,
+                  nomeFantasia: true,
+                },
+              },
+              obra: {
+                select: {
+                  nome: true,
+                },
+              },
+              responsavel: {
+                select: {
+                  nome: true,
+                },
+              },
+            },
+          },
+          excecoes: {
+            where: {
+              status: StatusExcecaoProposta.PENDENTE,
+            },
+            select: {
+              id: true,
+              status: true,
+            },
+          },
+        },
+      }),
+      prisma.propostaComercial.count({
+        where: {
+          ...propostaAccessWhere,
+          OR: [
+            { status: StatusPropostaComercial.AGUARDANDO_APROVACAO },
+            {
+              excecoes: {
+                some: {
+                  status: StatusExcecaoProposta.PENDENTE,
+                },
+              },
+            },
+          ],
+        },
+      }),
+      prisma.propostaComercial.findMany({
+        where: {
+          ...propostaAccessWhere,
+          OR: [
+            { status: StatusPropostaComercial.AGUARDANDO_APROVACAO },
+            {
+              excecoes: {
+                some: {
+                  status: StatusExcecaoProposta.PENDENTE,
+                },
+              },
+            },
+          ],
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+        take: 4,
+        select: {
+          id: true,
+          numeroProposta: true,
+          versao: true,
+          status: true,
+          validadeProposta: true,
+          oportunidade: {
+            select: {
+              titulo: true,
+              empresa: {
+                select: {
+                  razaoSocial: true,
+                  nomeFantasia: true,
+                },
+              },
+              obra: {
+                select: {
+                  nome: true,
+                },
+              },
+              responsavel: {
+                select: {
+                  nome: true,
+                },
+              },
+            },
+          },
+          excecoes: {
+            where: {
+              status: StatusExcecaoProposta.PENDENTE,
+            },
+            select: {
+              id: true,
+              campo: true,
+              status: true,
+              createdAt: true,
+              solicitante: {
+                select: {
+                  nome: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      propostasPendentes,
+      propostasPendentesPorStatus,
+      propostasRecentes,
+      aguardandoAprovacaoTotal,
+      propostasAguardandoAprovacao,
+    };
+  } catch (error) {
+    console.error("Falha ao carregar dados de propostas no dashboard", error);
+    return null;
+  }
+}
+
 export default async function Home() {
   const currentUser = await getCurrentUser();
 
@@ -255,11 +430,6 @@ export default async function Home() {
 
   const [
     oportunidadesAbertas,
-    propostasPendentes,
-    propostasPendentesPorStatus,
-    propostasRecentes,
-    aguardandoAprovacaoTotal,
-    propostasAguardandoAprovacao,
     oportunidadesRecentes,
     proximoContato,
     equipamentosDisponiveis,
@@ -269,155 +439,6 @@ export default async function Home() {
         ...oportunidadeAccessWhere,
         status: {
           notIn: [StatusOportunidade.GANHA, StatusOportunidade.PERDIDA],
-        },
-      },
-    }),
-    prisma.propostaComercial.count({
-      where: {
-        ...propostaAccessWhere,
-        status: {
-          in: pendingProposalStatuses,
-        },
-      },
-    }),
-    prisma.propostaComercial.groupBy({
-      by: ["status"],
-      where: {
-        ...propostaAccessWhere,
-        status: {
-          in: pendingProposalStatuses,
-        },
-      },
-      _count: {
-        _all: true,
-      },
-    }),
-    prisma.propostaComercial.findMany({
-      where: propostaAccessWhere,
-      orderBy: {
-        updatedAt: "desc",
-      },
-      take: 5,
-      select: {
-        id: true,
-        numeroProposta: true,
-        versao: true,
-        status: true,
-        valorTotal: true,
-        validadeProposta: true,
-        updatedAt: true,
-        criadoPor: {
-          select: {
-            nome: true,
-          },
-        },
-        oportunidade: {
-          select: {
-            titulo: true,
-            empresa: {
-              select: {
-                razaoSocial: true,
-                nomeFantasia: true,
-              },
-            },
-            obra: {
-              select: {
-                nome: true,
-              },
-            },
-            responsavel: {
-              select: {
-                nome: true,
-              },
-            },
-          },
-        },
-        excecoes: {
-          where: {
-            status: StatusExcecaoProposta.PENDENTE,
-          },
-          select: {
-            id: true,
-            status: true,
-          },
-        },
-      },
-    }),
-    prisma.propostaComercial.count({
-      where: {
-        ...propostaAccessWhere,
-        OR: [
-          { status: StatusPropostaComercial.AGUARDANDO_APROVACAO },
-          {
-            excecoes: {
-              some: {
-                status: StatusExcecaoProposta.PENDENTE,
-              },
-            },
-          },
-        ],
-      },
-    }),
-    prisma.propostaComercial.findMany({
-      where: {
-        ...propostaAccessWhere,
-        OR: [
-          { status: StatusPropostaComercial.AGUARDANDO_APROVACAO },
-          {
-            excecoes: {
-              some: {
-                status: StatusExcecaoProposta.PENDENTE,
-              },
-            },
-          },
-        ],
-      },
-      orderBy: {
-        updatedAt: "desc",
-      },
-      take: 4,
-      select: {
-        id: true,
-        numeroProposta: true,
-        versao: true,
-        status: true,
-        validadeProposta: true,
-        oportunidade: {
-          select: {
-            titulo: true,
-            empresa: {
-              select: {
-                razaoSocial: true,
-                nomeFantasia: true,
-              },
-            },
-            obra: {
-              select: {
-                nome: true,
-              },
-            },
-            responsavel: {
-              select: {
-                nome: true,
-              },
-            },
-          },
-        },
-        excecoes: {
-          where: {
-            status: StatusExcecaoProposta.PENDENTE,
-          },
-          select: {
-            id: true,
-            campo: true,
-            status: true,
-            createdAt: true,
-            solicitante: {
-              select: {
-                nome: true,
-              },
-            },
-          },
         },
       },
     }),
@@ -544,6 +565,16 @@ export default async function Home() {
       },
     }),
   ]);
+
+  const proposalDashboard = await getProposalDashboardData(propostaAccessWhere);
+  const propostasPendentes = proposalDashboard?.propostasPendentes ?? 0;
+  const propostasPendentesPorStatus =
+    proposalDashboard?.propostasPendentesPorStatus ?? [];
+  const propostasRecentes = proposalDashboard?.propostasRecentes ?? [];
+  const aguardandoAprovacaoTotal =
+    proposalDashboard?.aguardandoAprovacaoTotal ?? 0;
+  const propostasAguardandoAprovacao =
+    proposalDashboard?.propostasAguardandoAprovacao ?? [];
 
   const menuItems = [
     { label: "Dashboard", icon: ChartNoAxesCombined, href: "/", active: true },

@@ -74,10 +74,10 @@ export const PROPOSTA_TEMPLATES = [
   {
     id: "locacao-caminhao-betoneira-sem-operador",
     codigo: "CBSO",
-    nome: "Locacao de caminhoes betoneiras sem operadores",
-    tipoServico: "Locacao de caminhoes betoneiras sem operadores",
+    nome: "Locação de caminhões betoneiras sem operadores",
+    tipoServico: "Locação de CAMINHÕES BETONEIRAS SEM OPERADORES",
     titulo:
-      "Proposta comercial para locacao de caminhoes betoneiras sem operadores",
+      "Proposta comercial para locação de caminhões betoneiras sem operadores",
     descricao:
       "Template master oficial Villa/CBSO extraido da minuta padrao aprovada.",
     disponivel: true,
@@ -90,30 +90,29 @@ export const PROPOSTA_TEMPLATES = [
     condicoesPagamentoPadrao:
       "Medicao mensal, faturamento apos aprovacao e boleto com vencimento em ate 25 dias, sujeito a aprovacao cadastral financeira.",
     blocos: [
-      bloco(10, "cabecalho", "Dados da proposta", "EDITAVEL", [
-        "Proposta N˚ {{numero_proposta}}                                    Recife, {{data}}.",
-        "A",
+      bloco(10, "cabecalho", "Cabeçalho e saudação", "EDITAVEL", [
+        "Proposta Nº {{numero_proposta}}                                    Recife, {{data}}.",
+        "À",
         "{{cliente}}",
         "Obra: {{obra}}",
         "Fone: {{telefone}}",
         "Email: {{email}}",
         "Prezado(a) Cliente,",
-        "Conforme solicitacao de V. Sa., temos o prazer de apresentar nossa proposta de locacao de CAMINHOES BETONEIRAS SEM OPERADORES, conforme segue:",
+        "Conforme solicitação de V. Sa., temos o prazer de apresentar nossa proposta de locação de CAMINHÕES BETONEIRAS SEM OPERADORES, conforme segue:",
       ]),
-      bloco(20, "condicoes_base", "Condicoes base e escopo", "BLOQUEADO", [
-        "Todas as condicoes, principalmente no que diz respeito a precos e responsabilidades contidas nesta proposta/pre-contrato, sao baseadas nas informacoes passadas no ato da solicitacao da proposta pela empresa solicitante. Caso durante a prestacao dos servicos/locacao o escopo seja alterado, principalmente no que se diz respeito ao local de carregamento do concreto, sera feita uma nova proposta/aditivo contratual para a mudanca/nova prestacao do servico. Caso o local de carregamento seja superior a 30 km do local da concretagem, a LOCADORA devera aprovar previamente as solicitacoes de saida dos equipamentos, reservando-se o direito de reprovar os pedidos. Em caso de aprovacao, serao acrescidos os seguros totais dos equipamentos, bem como serao aplicadas taxas adicionais por quilometros excedentes que serao cobradas da LOCATARIA;",
-        "Objeto:",
-        "Locacao de CAMINHOES BETONEIRAS SEM OPERADORES para periodo mensal;",
+      bloco(20, "condicoes_base", "1. Objeto", "BLOQUEADO", [
+        "Todas as condições, principalmente no que diz respeito a preços e responsabilidades contidas nesta proposta/pré-contrato, são baseadas nas informações passadas no ato da solicitação da proposta pela empresa solicitante. Caso durante a prestação dos serviços/locação o escopo seja alterado, principalmente no que se diz respeito ao local de carregamento do concreto, será feita uma nova proposta/aditivo contratual para a mudança/nova prestação do serviço. Caso o local de carregamento seja superior a 30 km do local da concretagem, a LOCADORA deverá aprovar previamente as solicitações de saída dos equipamentos, reservando-se o direito de reprovar os pedidos. Em caso de aprovação, serão acrescidos os seguros totais dos equipamentos, bem como serão aplicadas taxas adicionais por quilômetros excedentes que serão cobradas da LOCATÁRIA;",
+        "Locação de CAMINHÕES BETONEIRAS SEM OPERADORES para período mensal;",
       ]),
-      bloco(30, "responsabilidade_locadora", "Responsabilidade da Locadora", "BLOQUEADO", [
-        "Fornecimento de Caminhoes betoneiras com capacidade de 8m3 que deverao estar aptos e em bom estado de uso;",
-        "ESPECIFICACOES DOS EQUIPAMENTOS:",
-        "Modelos: Caminhao VW, Mercedez ou Volvo",
-        "Balao: 8 m3 Siti ou Similar",
-        "Tracao: 6X4 (Tracado)",
+      bloco(30, "responsabilidade_locadora", "2. Responsabilidade da Locadora", "BLOQUEADO", [
+        "Fornecimento de Caminhões betoneiras com capacidade de 8m³ que deverão estar aptos e em bom estado de uso;",
+        "ESPECIFICAÇÕES DOS EQUIPAMENTOS:",
+        "Modelos: Caminhão VW, Mercedez ou Volvo",
+        "Balão: 8 m³ Siti ou Similar",
+        "Tração: 6X4 (Traçado)",
         "Cor: Branca e Azul (Cabine e Betoneira)",
         "Ano: 2019 a 2025 com AR Condicionado",
-        "*Nao e permitido colocar nenhum tipo de adesivo que obstrua ou dificulte as identificacoes da Villa Empreendimentos nos equipamentos, seja total ou parcial*",
+        "*Não é permitido colocar nenhum tipo de adesivo que obstrua ou dificulte as identificações da Villa Empreendimentos nos equipamentos, seja total ou parcial*",
         "O implemento betoneira possui capacidade maxima de 8 m3, devendo a Locataria respeitar rigorosamente os limites de peso estabelecidos pelo fabricante e pela legislacao de transito vigente, especialmente quanto ao peso bruto total e peso por eixo em fiscalizacoes de balanca rodoviaria, considerando que o peso do metro cubico de concreto pode variar conforme sua composicao;",
         "Todas as multas, autuacoes ou penalidades de transito, incluindo aquelas decorrentes de excesso de peso, excesso por eixo ou irregularidades na circulacao dos veiculos, serao de inteira responsabilidade da Locataria, que tambem devera realizar a identificacao do condutor junto aos orgaos competentes, isentando a Locadora de qualquer responsabilidade durante o periodo da locacao;",
         "Garantia por equipamento e de 180 horas/mes (horimetro);",
@@ -128,7 +127,7 @@ export const PROPOSTA_TEMPLATES = [
         "Fornecimento de manual e orientacao de uso;",
         "Treinamento basico e orientacao tecnica da operacao dos equipamentos;",
       ]),
-      bloco(40, "responsabilidade_locataria", "Responsabilidade da Locataria", "BLOQUEADO", [
+      bloco(40, "responsabilidade_locataria", "3. Responsabilidade da Locatária", "BLOQUEADO", [
         "Devolucao dos Equipamentos - A Locataria devera devolver os equipamentos nas mesmas condicoes em que foram recebidos, conforme registrado no check-list de entrega, especialmente quanto a residuos de concreto e avarias. A Locataria sera integral e exclusivamente responsavel por quaisquer danos aos equipamentos, incluindo tombamento, perda total, avarias decorrentes de acidentes, ou qualquer outra situacao similar, considerando que os equipamentos nao possuem seguro. Ademais, a Locataria reconhece e aceita ser exclusivamente responsavel por quaisquer acidentes, danos materiais ou morais, lucros cessantes, prejuizos diretos ou indiretos que venham a ocorrer durante a vigencia deste contrato, seja contra os equipamentos da Locadora, contra terceiros ou contra pessoas fisicas, em razao da operacao dos equipamentos por seus funcionarios, prepostos ou quaisquer pessoas indicadas por ela. Todos os custos decorrentes dessas ocorrencias, incluindo reparo, substituicao, transporte e eventuais indenizacoes, serao de responsabilidade exclusiva da Locataria;",
         "Nao ceder ou transferir o presente contrato, sob qualquer forma, no todo ou em parte, a quem quer que seja, sem previa autorizacao, por escrito da Locadora;",
         "A Locataria se compromete, portanto, a arcar com todos os custos e indenizacoes decorrentes de tais eventos, isentando a Locadora de qualquer responsabilidade civil ou penal relativa a operacao dos equipamentos durante o periodo da locacao;",
@@ -154,16 +153,16 @@ export const PROPOSTA_TEMPLATES = [
         "A Locataria se responsabiliza em assinar os controles de transporte de concreto (mapas diarios), no dia seguinte ao trabalho/disposicao. A falta desta assinatura pode interromper a continuidade dos trabalhos. Para a Locadora so esses mapas terao validade, onde os mesmos servirao para comprovar os dias de cobrancas que constarao em medicao;",
         "No termino da vigencia, a Locataria se obriga ainda a devolver os equipamentos na sede da Locadora apos a aprovacao do checklist/termo de vistoria onde os mesmos deverao estar no mesmo estado de conservacao registrado no momento checklist da retirada. A Locadora podera reprovar o checklist caso seja identificado qualquer desacordo ou irregularidade nos equipamentos, cabendo a Locataria executar, as suas expensas, todos os servicos necessarios para que o bem seja entregue em pleno funcionamento e em perfeitas condicoes de uso, conforme constatado no referido documento;",
       ]),
-      bloco(50, "precos", "Precos e dados comerciais", "EDITAVEL", [
-        "Os precos ofertados nesta proposta serao o seguinte:",
+      bloco(50, "precos", "4. Preços", "EDITAVEL", [
+        "Os preços ofertados nesta proposta serão os seguintes:",
         "Qtd.: {{quantidade}}",
-        "Descricao: {{descricao_comercial}}",
+        "Descrição: {{descricao_comercial}}",
         "Horas Garantidas: {{horas_garantidas}}",
-        "Preco Unit./mes: {{preco_unitario}}",
-        "Preco Total/mes: {{valor}}",
+        "Preço Unit./mês: {{preco_unitario}}",
+        "Preço Total/mês: {{valor}}",
         "{{observacoes_comerciais}}",
       ]),
-      bloco(60, "observacoes_preco", "Observacoes de preco", "EDITAVEL_COM_APROVACAO", [
+      bloco(60, "observacoes_preco", "Observações de preço", "EDITAVEL_COM_APROVACAO", [
         "Obs.01: Caso as horas garantidas no periodo mensal nao sejam atingidas, a Locataria obriga-se a realizar o pagamento do valor integral da franquia mensal, conforme acordado na tabela constante do item 4 acima.",
         "Obs.02: A retirada e o transporte dos equipamentos sao de responsabilidade da Locataria. Isso inclui todos os deslocamentos dos caminhoes, bem como a mobilizacao e desmobilizacao, tendo como ponto de partida a base da Locadora, localizada em Bezerros-PE.",
         "Obs.03: Caso as 180 horas minimas sejam ultrapassadas, a Locataria devera pagar, alem da franquia acordada, o valor proporcional as horas excedentes, no montante de R$ 166,67 (cento e sessenta e seis reais e sessenta e sete centavos) por hora.",
@@ -171,7 +170,7 @@ export const PROPOSTA_TEMPLATES = [
         "Obs.05: A Locadora declara que nao disponibiliza seguros dos equipamentos. No entanto, caso haja interesse da Locataria, a Locadora podera realizar a cotacao do seguro correspondente e repassar o respectivo custo na medicao mensal acrescido dos seus impostos, desde que previamente aprovado pela Locataria.",
         "Obs.06: Para fins de calculo proporcional de valores, considera-se o mes como composto por 30 (trinta) dias corridos, independentemente do numero real de dias no mes.",
       ]),
-      bloco(70, "prazo_duracao", "Prazo e duracao do contrato", "EDITAVEL_COM_APROVACAO", [
+      bloco(70, "prazo_duracao", "5. Prazo para inicialização e 6. Duração do contrato", "EDITAVEL_COM_APROVACAO", [
         "5. Prazo para inicializacao do contrato:",
         "A retirada podera ser programada para sair da Matriz da Locadora, em ate 72 (setenta e duas) horas apos a sua solicitacao formal via e-mail, a contar da assinatura desta proposta, pois ela tem valor de pre-contrato ate a assinatura do contrato;",
         "O contrato comeca a prevalecer na saida dos equipamentos na sede da Locadora;",
@@ -181,8 +180,8 @@ export const PROPOSTA_TEMPLATES = [
         "Independente se a devolucao dos equipamentos esteja ou nao no prazo vigente do contrato, a Locataria devera informar a Locadora com um prazo minimo de 15 (quinze) dias, para devolucao dos equipamentos hora locados, para que a mesma possa proceder com os tramites de recebimento dos mesmos. A falta desta informacao acarretara a cobranca da diferenca dos dias acima mencionados;",
         "A Locataria sera responsavel pela devolucao dos equipamentos na sede da Locadora, como ja mencionado anteriormente, em data previamente acordada, nas mesmas condicoes de uso e conservacao de acordo com o checklist de retirada, conforme previsto nas demais clausulas contratuais;",
       ]),
-      bloco(80, "contrato_pagamento", "Pre-contrato, medicao, faturamento e pagamento", "EDITAVEL_COM_APROVACAO", [
-        "7. Elaboracao do Contrato:",
+      bloco(80, "contrato_pagamento", "7. Elaboração do contrato e 8. Medição, faturamento e pagamento", "EDITAVEL_COM_APROVACAO", [
+        "7. Elaboração do Contrato:",
         "Sera feito 01 contrato de locacao de equipamentos que representa 100% (cem por cento) do faturamento;",
         "Esta proposta tem carater de pre-contrato, garantindo que os servicos realizados possam ser medidos e faturados mensalmente, onde as faturas deverao ser pagas nos seus respectivos vencimentos, mesmo que o contrato definitivo ainda esteja em processo de assinatura ou em analise;",
         "Podera o presente instrumento ser rescindido por qualquer uma das partes, em qualquer momento, respeitando os 03 (tres) meses minimos de contrato, sem que haja qualquer tipo de motivo relevante, mediante simples e expressa comunicacao previa, no prazo de 15 (quinze) dias de antecedencia, sempre formalizado via e-mail;",
@@ -198,15 +197,15 @@ export const PROPOSTA_TEMPLATES = [
         "Caso a Locataria nao realize o pagamento na data do seu vencimento corrente, apos o prazo de 48 (quarenta e oito) horas do vencimento da fatura, a Locadora podera paralisar a operacao dos equipamentos locados, sem que ocorra qualquer tipo de penalidade, independente de previa notificacao, onde os equipamentos serao contabilizados como a disposicao durante o periodo que estiverem parados ate a sua regularizacao da pendencia;",
         "Caso a Locataria se torne inadimplente por periodo superior a 15 (quinze) dias, contados a partir do vencimento da fatura correspondente, a Locadora podera rescindir o presente contrato, a seu exclusivo criterio, sem necessidade de notificacao adicional. Nessa hipotese, a Locataria sera responsavel pelo pagamento imediato de todas as parcelas em atraso, devidamente corrigidas e atualizadas, incluindo multas e eventuais perdas e danos previstos neste contrato. A Locataria devera devolver os equipamentos no prazo maximo de 05 (cinco) dias uteis, considerando o tempo necessario para organizacao das desmobilizacoes. Caso os equipamentos nao sejam devolvidos dentro do prazo estipulado, a Locadora estara autorizada a recolher os caminhoes betoneira no canteiro de obras da Locataria, que desde ja se declara livre e desimpedida para a retirada. Todos os custos decorrentes da remocao, transporte e logistica dos equipamentos serao de responsabilidade exclusiva da Locataria, devendo ser pagos de imediato apos a conclusao da retirada;",
       ]),
-      bloco(90, "reajuste_validade", "Reajuste e validade", "EDITAVEL_COM_APROVACAO", [
+      bloco(90, "reajuste_validade", "9. Reajustes e 10. Validade da proposta", "EDITAVEL_COM_APROVACAO", [
         "9. Reajustes:",
         "Os precos estabelecidos nesta proposta serao reajustados semestralmente, com base nos indices de reajustes da construcao civil que melhor se adequarem a locacao de acordo com a FGV (Fundacao Getulio Vargas);",
         "Na ocorrencia de fatos ou hipoteses nao previstas nem disciplinadas neste documento, na ausencia de um contrato selado posteriormente, as partes se reportarao ao que a respeito dispoe a legislacao civil e comercial brasileira aplicavel a especie;",
         "10. Validade da proposta:",
         "A proposta tera validade de {{validade}};",
       ]),
-      bloco(100, "assinaturas", "Aceite, assinaturas e testemunhas", "BLOQUEADO", [
-        "Confirmamos e estamos de acordo com os servicos ofertados nesta proposta de n˚ {{numero_proposta}}, como tambem todos os seus termos.",
+      bloco(100, "assinaturas", "11. Aceite, assinaturas e testemunhas", "BLOQUEADO", [
+        "Confirmamos e estamos de acordo com os serviços ofertados nesta proposta de nº {{numero_proposta}}, como também todos os seus termos.",
         "{{cliente}}",
         "_________________________________",
         "Assinatura",

@@ -15,104 +15,266 @@ import { getPropostaTemplate } from "@/lib/propostas/templates";
 
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
+    padding: 44,
     fontFamily: "Helvetica",
-    color: "#172033",
+    color: "#111827",
   },
-  hero: {
-    marginBottom: 24,
-    padding: 24,
-    backgroundColor: "#1A2E5A",
-    color: "#FFFFFF",
-  },
-  brand: {
-    color: "#9CB7F2",
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: 1.6,
-    marginBottom: 8,
-    textTransform: "uppercase",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 700,
-    lineHeight: 1.2,
-  },
-  subtitle: {
-    marginTop: 8,
-    fontSize: 11,
-  },
-  grid: {
+  brandRow: {
+    borderBottom: "2 solid #1A2E5A",
     display: "flex",
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 22,
+    justifyContent: "space-between",
+    marginBottom: 14,
+    paddingBottom: 9,
   },
-  card: {
-    width: "48%",
-    padding: 12,
-    border: "1 solid #D7DEEA",
-    borderRadius: 10,
-    backgroundColor: "#F4F6FA",
-  },
-  label: {
-    color: "#667085",
-    fontSize: 8,
-    fontWeight: 700,
-    letterSpacing: 1,
-    marginBottom: 5,
-    textTransform: "uppercase",
-  },
-  value: {
+  brandName: {
     color: "#1A2E5A",
     fontSize: 12,
     fontWeight: 700,
+    textTransform: "uppercase",
   },
-  price: {
-    color: "#1E4FAB",
-    fontSize: 18,
+  brandSubtitle: {
+    color: "#475467",
+    fontSize: 7,
+    marginTop: 3,
+  },
+  proposalNumber: {
+    color: "#1A2E5A",
+    fontSize: 10,
     fontWeight: 700,
+    textAlign: "right",
+  },
+  dateLine: {
+    fontSize: 10,
+    marginBottom: 14,
+    textAlign: "right",
+  },
+  recipient: {
+    marginBottom: 14,
   },
   section: {
-    marginTop: 16,
+    marginTop: 12,
   },
   sectionTitle: {
     color: "#1A2E5A",
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: 700,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   paragraph: {
-    color: "#475467",
-    fontSize: 10,
-    lineHeight: 1.6,
-  },
-  bullet: {
-    color: "#475467",
-    fontSize: 10,
-    lineHeight: 1.5,
+    color: "#202938",
+    fontSize: 8.5,
+    lineHeight: 1.45,
     marginBottom: 4,
+    textAlign: "justify",
   },
-  blockMeta: {
-    color: "#667085",
+  bold: {
+    fontWeight: 700,
+  },
+  table: {
+    borderLeft: "1 solid #98A2B3",
+    borderTop: "1 solid #98A2B3",
+    marginBottom: 8,
+    marginTop: 6,
+  },
+  tableRow: {
+    display: "flex",
+    flexDirection: "row",
+  },
+  tableHeaderCell: {
+    backgroundColor: "#1A2E5A",
+    borderBottom: "1 solid #98A2B3",
+    borderRight: "1 solid #98A2B3",
+    color: "#FFFFFF",
     fontSize: 7,
     fontWeight: 700,
-    letterSpacing: 0.8,
+    padding: 5,
+  },
+  tableCell: {
+    borderBottom: "1 solid #98A2B3",
+    borderRight: "1 solid #98A2B3",
+    fontSize: 7,
+    padding: 5,
+  },
+  signatureGrid: {
+    display: "flex",
+    flexDirection: "row",
+    gap: 20,
+    marginTop: 16,
+  },
+  signatureBox: {
+    flexGrow: 1,
+    width: "48%",
+  },
+  line: {
+    borderTop: "1 solid #111827",
     marginBottom: 4,
-    textTransform: "uppercase",
+    marginTop: 26,
+  },
+  closing: {
+    marginTop: 18,
   },
   footer: {
-    position: "absolute",
-    left: 40,
-    right: 40,
-    bottom: 24,
     borderTop: "1 solid #D7DEEA",
     color: "#667085",
-    fontSize: 8,
-    paddingTop: 10,
+    fontSize: 7,
+    marginTop: 18,
+    paddingTop: 8,
+    textAlign: "center",
   },
 });
+
+function getFieldFromBlock(content: string, label: string) {
+  const line = content
+    .split("\n")
+    .find((item) => item.toLowerCase().startsWith(label.toLowerCase()));
+
+  return line?.split(":").slice(1).join(":").trim() || "";
+}
+
+function Paragraphs({ content }: { content: string }) {
+  return content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => (
+      <Text key={`${index}-${line.slice(0, 16)}`} style={styles.paragraph}>
+        {line}
+      </Text>
+    ));
+}
+
+function HeaderBlock({
+  content,
+  data,
+}: {
+  content: string;
+  data: PropostaRenderData;
+}) {
+  const lines = content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const intro = lines.slice(6).join("\n");
+
+  return (
+    <View>
+      <View style={styles.brandRow}>
+        <View>
+          <Text style={styles.brandName}>Villa Empreendimentos</Text>
+          <Text style={styles.brandSubtitle}>
+            Locação e venda de equipamentos para concreto
+          </Text>
+        </View>
+        <Text style={styles.proposalNumber}>
+          Proposta Nº {data.numeroProposta}
+        </Text>
+      </View>
+      <Text style={styles.dateLine}>Recife, {variaveisData(data)}.</Text>
+      <View style={styles.recipient}>
+        <Text style={styles.paragraph}>À</Text>
+        <Text style={[styles.paragraph, styles.bold]}>{data.cliente}</Text>
+        <Text style={styles.paragraph}>Obra: {data.obra}</Text>
+        <Text style={styles.paragraph}>
+          Fone: {data.telefone || getFieldFromBlock(content, "Fone") || "Não informado"}
+        </Text>
+        <Text style={styles.paragraph}>
+          Email: {data.email || getFieldFromBlock(content, "Email") || "Não informado"}
+        </Text>
+      </View>
+      <Paragraphs content={intro} />
+    </View>
+  );
+}
+
+function PriceBlock({ content }: { content: string }) {
+  const rows = [
+    getFieldFromBlock(content, "Qtd."),
+    getFieldFromBlock(content, "Descrição") || getFieldFromBlock(content, "Descricao"),
+    getFieldFromBlock(content, "Horas Garantidas"),
+    getFieldFromBlock(content, "Preço Unit./mês") || getFieldFromBlock(content, "Preco Unit./mes"),
+    getFieldFromBlock(content, "Preço Total/mês") || getFieldFromBlock(content, "Preco Total/mes"),
+  ];
+  const widths = ["10%", "34%", "18%", "19%", "19%"];
+  const notes = content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("Obs."));
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>4. Preços</Text>
+      <Text style={styles.paragraph}>
+        Os preços ofertados nesta proposta serão os seguintes:
+      </Text>
+      <View style={styles.table}>
+        <View style={styles.tableRow}>
+          {["Qtd.", "Descrição", "Horas Garantidas", "Preço Unit./mês", "Preço Total/mês"].map((label, index) => (
+            <Text key={label} style={[styles.tableHeaderCell, { width: widths[index] }]}>
+              {label}
+            </Text>
+          ))}
+        </View>
+        <View style={styles.tableRow}>
+          {rows.map((value, index) => (
+            <Text key={`${index}-${value}`} style={[styles.tableCell, { width: widths[index] }]}>
+              {value}
+            </Text>
+          ))}
+        </View>
+      </View>
+      {notes.map((note) => (
+        <Text key={note} style={styles.paragraph}>
+          {note}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function SignatureBlock({ data, content }: { data: PropostaRenderData; content: string }) {
+  const confirmacao = content.split("\n")[0] || "";
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>11. Aceite</Text>
+      <Text style={styles.paragraph}>{confirmacao}</Text>
+      <View style={styles.signatureGrid}>
+        {[1, 2].map((item) => (
+          <View key={item} style={styles.signatureBox}>
+            <Text style={[styles.paragraph, styles.bold]}>{data.cliente}</Text>
+            <View style={styles.line} />
+            <Text style={styles.paragraph}>Assinatura</Text>
+            <Text style={styles.paragraph}>Nome:</Text>
+            <Text style={styles.paragraph}>Cargo:</Text>
+            <Text style={styles.paragraph}>Data: _____/_____/_______</Text>
+            <View style={styles.line} />
+            <Text style={styles.paragraph}>Carimbo CNPJ</Text>
+          </View>
+        ))}
+      </View>
+      <View style={styles.closing}>
+        <Text style={styles.paragraph}>Atenciosamente,</Text>
+        <Text style={[styles.paragraph, styles.bold]}>Morgana Albertim</Text>
+        <Text style={styles.paragraph}>Supervisora Comercial</Text>
+        <Text style={styles.paragraph}>Villa Empreendimentos</Text>
+      </View>
+      <View style={styles.signatureGrid}>
+        {[1, 2].map((item) => (
+          <View key={item} style={styles.signatureBox}>
+            <Text style={styles.paragraph}>Testemunha:</Text>
+            <Text style={styles.paragraph}>Nome:</Text>
+            <Text style={styles.paragraph}>CPF:</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function variaveisData(data: PropostaRenderData) {
+  return buildPropostaVariaveis(data).data;
+}
 
 function PropostaPdfDocument({ data }: { data: PropostaRenderData }) {
   const template = getPropostaTemplate(data.templateUtilizado);
@@ -126,68 +288,52 @@ function PropostaPdfDocument({ data }: { data: PropostaRenderData }) {
       language="pt-BR"
     >
       <Page size="A4" style={styles.page}>
-        <View style={styles.hero}>
-          <Text style={styles.brand}>Villa Empreendimentos</Text>
-          <Text style={styles.title}>
-            {template?.titulo ?? "Proposta comercial Villa"}
-          </Text>
-          <Text style={styles.subtitle}>
-            Proposta {data.numeroProposta} - versao {data.versao}
-          </Text>
-        </View>
-
-        <View style={styles.grid}>
-          <View style={styles.card}>
-            <Text style={styles.label}>Cliente</Text>
-            <Text style={styles.value}>{variaveis.cliente}</Text>
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.label}>Obra</Text>
-            <Text style={styles.value}>{variaveis.obra}</Text>
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.label}>Tipo de servico</Text>
-            <Text style={styles.value}>{variaveis.tipo_servico}</Text>
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.label}>Valor total</Text>
-            <Text style={styles.price}>{variaveis.valor}</Text>
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.label}>Prazo de execucao</Text>
-            <Text style={styles.value}>{variaveis.prazo}</Text>
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.label}>Validade</Text>
-            <Text style={styles.value}>{variaveis.validade}</Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Resumo comercial</Text>
-          <Text style={styles.paragraph}>
-            {template?.descricao ?? "Proposta comercial Villa."}
-          </Text>
-        </View>
-
         {data.blocos?.length ? (
           data.blocos
             .slice()
             .sort((left, right) => left.ordem - right.ordem)
-            .map((bloco) => (
-              <View key={`${bloco.ordem}-${bloco.titulo}`} style={styles.section}>
-                <Text style={styles.blockMeta}>
-                  {bloco.tipo.replaceAll("_", " ")}
-                </Text>
-                <Text style={styles.sectionTitle}>{bloco.titulo}</Text>
-                <Text style={styles.paragraph}>{bloco.conteudoAtual}</Text>
-              </View>
-            ))
+            .map((bloco) => {
+              if (bloco.chave === "cabecalho") {
+                return (
+                  <HeaderBlock
+                    key={`${bloco.ordem}-${bloco.titulo}`}
+                    content={bloco.conteudoAtual}
+                    data={data}
+                  />
+                );
+              }
+
+              if (bloco.chave === "precos") {
+                return (
+                  <PriceBlock
+                    key={`${bloco.ordem}-${bloco.titulo}`}
+                    content={bloco.conteudoAtual}
+                  />
+                );
+              }
+
+              if (bloco.chave === "assinaturas") {
+                return (
+                  <SignatureBlock
+                    key={`${bloco.ordem}-${bloco.titulo}`}
+                    content={bloco.conteudoAtual}
+                    data={data}
+                  />
+                );
+              }
+
+              return (
+                <View key={`${bloco.ordem}-${bloco.titulo}`} style={styles.section}>
+                  <Text style={styles.sectionTitle}>{bloco.titulo}</Text>
+                  <Paragraphs content={bloco.conteudoAtual} />
+                </View>
+              );
+            })
         ) : (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Escopo previsto</Text>
             {escopo.map((item) => (
-              <Text key={item} style={styles.bullet}>
+              <Text key={item} style={styles.paragraph}>
                 - {item}
               </Text>
             ))}

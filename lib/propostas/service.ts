@@ -52,6 +52,7 @@ type PropostaSnapshotInput = {
   telefone?: string | null;
   email?: string | null;
   blocos?: Array<{
+    chave?: string;
     titulo: string;
     tipo: string;
     ordem: number;
@@ -198,6 +199,12 @@ export function buildPropostaHtmlSnapshot(
     obra: oportunidade.obra?.nome ?? "Obra nao informada",
     cidade: oportunidade.obra?.cidade,
     estado: oportunidade.obra?.estado,
+    telefone: proposta.telefone ?? oportunidade.empresa.telefone,
+    email: proposta.email ?? oportunidade.empresa.email,
+    quantidade: proposta.quantidade,
+    descricaoComercial: proposta.descricaoComercial,
+    horasGarantidas: proposta.horasGarantidas,
+    precoUnitario: proposta.precoUnitario,
     valorTotal: proposta.valorTotal,
     validadeProposta: proposta.validadeProposta,
     prazoExecucao: proposta.prazoExecucao,

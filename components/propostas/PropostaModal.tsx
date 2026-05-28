@@ -39,6 +39,8 @@ type OportunidadeProposta = {
   empresa: {
     razaoSocial: string;
     nomeFantasia: string | null;
+    telefone?: string | null;
+    email?: string | null;
   };
   obra: {
     nome: string;
@@ -62,6 +64,19 @@ const templateItems = PROPOSTA_TEMPLATES.map((template) => ({
   value: template.id,
 }));
 
+function formatPreviewCurrency(value: string) {
+  const parsed = Number(value.replace(",", "."));
+
+  if (Number.isNaN(parsed)) {
+    return value;
+  }
+
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(parsed);
+}
+
 export function PropostaModal({
   aberto,
   oportunidadeId,
@@ -75,6 +90,14 @@ export function PropostaModal({
     PROPOSTA_TEMPLATES[0].id,
   );
   const [valorTotal, setValorTotal] = useState("");
+  const [quantidade, setQuantidade] = useState("01");
+  const [descricaoComercial, setDescricaoComercial] = useState(
+    "Caminhão Betoneira - 8m3",
+  );
+  const [horasGarantidas, setHorasGarantidas] = useState("180h");
+  const [precoUnitario, setPrecoUnitario] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [email, setEmail] = useState("");
   const [validadeProposta, setValidadeProposta] = useState(
     format(addDays(new Date(), 15), "yyyy-MM-dd"),
   );
@@ -105,6 +128,9 @@ export function PropostaModal({
         setTemplateUtilizado(PROPOSTA_TEMPLATES[0].id);
         setOportunidade(data);
         setValorTotal(data.valor ? String(data.valor) : "");
+        setPrecoUnitario(data.valor ? String(data.valor) : "");
+        setTelefone(data.empresa?.telefone ?? "");
+        setEmail(data.empresa?.email ?? "");
         setCondicoesPagamento(initialTemplate?.condicoesPagamentoPadrao ?? "");
         setObservacoesTecnicas(initialTemplate?.observacoesTecnicasPadrao ?? "");
       } catch {
@@ -124,19 +150,21 @@ export function PropostaModal({
 
     const cliente =
       oportunidade.empresa.nomeFantasia ?? oportunidade.empresa.razaoSocial;
+    const precoUnitarioPreview = precoUnitario || valorTotal || "0";
+    const valorTotalPreview = valorTotal || precoUnitarioPreview;
     const blocos = buildTemplateBlocosSnapshot(templateUtilizado, {
       numero_proposta: "PREVIEW",
       cliente,
       obra: oportunidade.obra?.nome ?? "Obra nao informada",
-      telefone: "",
-      email: "",
+      telefone,
+      email,
       cidade: oportunidade.obra?.cidade ?? "",
       estado: oportunidade.obra?.estado ?? "",
-      quantidade: "01",
-      descricao_comercial: "Caminhao Betoneira - 8m3",
-      horas_garantidas: "180h",
-      preco_unitario: valorTotal || "0",
-      valor: valorTotal || "0",
+      quantidade,
+      descricao_comercial: descricaoComercial,
+      horas_garantidas: horasGarantidas,
+      preco_unitario: formatPreviewCurrency(precoUnitarioPreview),
+      valor: formatPreviewCurrency(valorTotalPreview),
       prazo: prazoExecucao,
       validade: validadeProposta,
       responsavel: oportunidade.responsavel?.nome ?? "Equipe Comercial Villa",
@@ -152,6 +180,12 @@ export function PropostaModal({
       obra: oportunidade.obra?.nome ?? "Obra nao informada",
       cidade: oportunidade.obra?.cidade,
       estado: oportunidade.obra?.estado,
+      telefone,
+      email,
+      quantidade,
+      descricaoComercial,
+      horasGarantidas,
+      precoUnitario: precoUnitarioPreview,
       valorTotal: valorTotal || 0,
       validadeProposta,
       prazoExecucao,
@@ -163,11 +197,17 @@ export function PropostaModal({
     });
   }, [
     condicoesPagamento,
+    descricaoComercial,
+    email,
+    horasGarantidas,
     observacoesComerciais,
     observacoesTecnicas,
     oportunidade,
+    precoUnitario,
     prazoExecucao,
+    quantidade,
     templateUtilizado,
+    telefone,
     validadeProposta,
     valorTotal,
   ]);
@@ -191,6 +231,12 @@ export function PropostaModal({
           body: JSON.stringify({
             templateUtilizado,
             valorTotal,
+            quantidade,
+            descricaoComercial,
+            horasGarantidas,
+            precoUnitario: precoUnitario || valorTotal,
+            telefone,
+            email,
             validadeProposta,
             prazoExecucao,
             condicoesPagamento,
@@ -295,6 +341,53 @@ export function PropostaModal({
                   step="0.01"
                   value={valorTotal}
                   onChange={(event) => setValorTotal(event.target.value)}
+                  className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+              <Field label="Quantidade">
+                <Input
+                  value={quantidade}
+                  onChange={(event) => setQuantidade(event.target.value)}
+                  className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+              <Field label="Descricao comercial">
+                <Input
+                  value={descricaoComercial}
+                  onChange={(event) =>
+                    setDescricaoComercial(event.target.value)
+                  }
+                  className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+              <Field label="Horas garantidas">
+                <Input
+                  value={horasGarantidas}
+                  onChange={(event) => setHorasGarantidas(event.target.value)}
+                  className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+              <Field label="Preco unitario/mes">
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={precoUnitario}
+                  onChange={(event) => setPrecoUnitario(event.target.value)}
+                  className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+              <Field label="Telefone">
+                <Input
+                  value={telefone}
+                  onChange={(event) => setTelefone(event.target.value)}
+                  className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+              <Field label="Email">
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
                 />
               </Field>

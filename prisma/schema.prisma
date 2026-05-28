@@ -59,10 +59,25 @@ enum StatusOportunidade {
 
 enum StatusPropostaComercial {
   RASCUNHO
+  AGUARDANDO_APROVACAO
   ENVIADA
   APROVADA
+  ACEITA
   REJEITADA
   VENCIDA
+  CANCELADA
+}
+
+enum TipoBlocoProposta {
+  BLOQUEADO
+  EDITAVEL
+  EDITAVEL_COM_APROVACAO
+}
+
+enum StatusExcecaoProposta {
+  PENDENTE
+  APROVADA
+  REJEITADA
 }
 
 enum TipoContato {
@@ -119,6 +134,11 @@ model Usuario {
   historicosContatoAtualizados HistoricoContato[] @relation("HistoricoContatoUpdatedBy")
   propostasCriadas             PropostaComercial[] @relation("PropostaComercialCreatedBy")
   propostasAtualizadas         PropostaComercial[] @relation("PropostaComercialUpdatedBy")
+  templatesPropostaCriados     PropostaTemplateMaster[] @relation("PropostaTemplateMasterCreatedBy")
+  templatesPropostaAtualizados  PropostaTemplateMaster[] @relation("PropostaTemplateMasterUpdatedBy")
+  excecoesPropostaSolicitadas   PropostaExcecaoAprovacao[] @relation("PropostaExcecaoSolicitante")
+  excecoesPropostaDecididas     PropostaExcecaoAprovacao[] @relation("PropostaExcecaoAprovador")
+  auditoriasProposta            PropostaAuditoriaCampo[]
   auditLogs                    AuditLog[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
@@ -333,6 +353,9 @@ model PropostaComercial {
   wordUrl                String?
   htmlSnapshot           String                  @db.Text
 
+  templateMasterId String?
+  templateMaster   PropostaTemplateMaster? @relation(fields: [templateMasterId], references: [id], onDelete: SetNull)
+
   oportunidadeId String
   oportunidade   Oportunidade @relation(fields: [oportunidadeId], references: [id], onDelete: Cascade)
 
@@ -345,12 +368,158 @@ model PropostaComercial {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  blocos     PropostaBloco[]
+  excecoes   PropostaExcecaoAprovacao[]
+  auditorias PropostaAuditoriaCampo[]
+
   @@unique([numeroProposta, versao])
   @@index([oportunidadeId])
+  @@index([templateMasterId])
   @@index([createdById])
   @@index([updatedById])
   @@index([status])
   @@index([validadeProposta])
+}
+
+model PropostaTemplateMaster {
+  id          String  @id @default(cuid())
+  codigo      String  @unique
+  nome        String
+  tipoServico String
+  descricao   String? @db.Text
+  versao      Int     @default(1)
+  ativo       Boolean @default(true)
+
+  createdById String?
+  createdBy   Usuario? @relation("PropostaTemplateMasterCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   Usuario? @relation("PropostaTemplateMasterUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  blocos    PropostaTemplateBloco[]
+  propostas PropostaComercial[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([codigo])
+  @@index([ativo])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model PropostaTemplateBloco {
+  id       String            @id @default(cuid())
+  chave    String
+  titulo   String
+  tipo     TipoBlocoProposta
+  ordem    Int
+  conteudo  String            @db.Text
+
+  templateMasterId String
+  templateMaster   PropostaTemplateMaster @relation(fields: [templateMasterId], references: [id], onDelete: Cascade)
+
+  blocosProposta PropostaBloco[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([templateMasterId, chave])
+  @@index([templateMasterId, ordem])
+  @@index([tipo])
+}
+
+model PropostaBloco {
+  id              String            @id @default(cuid())
+  chave           String
+  titulo          String
+  tipo            TipoBlocoProposta
+  ordem           Int
+  conteudoOriginal String            @db.Text
+  conteudoAtual    String            @db.Text
+  editado         Boolean           @default(false)
+
+  propostaId String
+  proposta   PropostaComercial @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+
+  templateBlocoId String?
+  templateBloco   PropostaTemplateBloco? @relation(fields: [templateBlocoId], references: [id], onDelete: SetNull)
+
+  excecoes   PropostaExcecaoAprovacao[]
+  auditorias PropostaAuditoriaCampo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([propostaId, chave])
+  @@index([propostaId, ordem])
+  @@index([templateBlocoId])
+  @@index([tipo])
+}
+
+model PropostaExcecaoAprovacao {
+  id             String                 @id @default(cuid())
+  campo          String
+  valorAnterior  Json?
+  valorProposto  Json?
+  justificativa  String                 @db.Text
+  status         StatusExcecaoProposta  @default(PENDENTE)
+  decisaoMotivo  String?                @db.Text
+  decididoEm     DateTime?
+
+  propostaId String
+  proposta   PropostaComercial @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+
+  blocoId String?
+  bloco   PropostaBloco? @relation(fields: [blocoId], references: [id], onDelete: SetNull)
+
+  solicitanteId String?
+  solicitante   Usuario? @relation("PropostaExcecaoSolicitante", fields: [solicitanteId], references: [id], onDelete: SetNull)
+
+  aprovadorId String?
+  aprovador   Usuario? @relation("PropostaExcecaoAprovador", fields: [aprovadorId], references: [id], onDelete: SetNull)
+
+  auditorias PropostaAuditoriaCampo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propostaId, status])
+  @@index([blocoId])
+  @@index([solicitanteId])
+  @@index([aprovadorId])
+  @@index([createdAt])
+}
+
+model PropostaAuditoriaCampo {
+  id             String  @id @default(cuid())
+  campo          String
+  valorAnterior  Json?
+  valorNovo      Json?
+  justificativa  String? @db.Text
+  statusAnterior StatusPropostaComercial?
+  statusNovo     StatusPropostaComercial?
+  versao         Int
+
+  propostaId String
+  proposta   PropostaComercial @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+
+  blocoId String?
+  bloco   PropostaBloco? @relation(fields: [blocoId], references: [id], onDelete: SetNull)
+
+  excecaoId String?
+  excecao   PropostaExcecaoAprovacao? @relation(fields: [excecaoId], references: [id], onDelete: SetNull)
+
+  usuarioId String?
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([propostaId, createdAt])
+  @@index([blocoId])
+  @@index([excecaoId])
+  @@index([usuarioId])
+  @@index([campo])
 }
 
 model HistoricoContato {

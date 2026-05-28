@@ -6,10 +6,12 @@ import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import {
   buildNumeroProposta,
+  buildPropostaBlocosSnapshot,
   buildPropostaHtmlSnapshot,
   getOportunidadeAccessWhere,
   propostaInclude,
 } from "@/lib/propostas/service";
+import { getPropostaTemplate } from "@/lib/propostas/templates";
 import { propostaCreateSchema } from "@/lib/validations/proposta";
 
 type OportunidadePropostasRouteContext = {
@@ -115,26 +117,79 @@ export async function POST(
       },
     });
     const versao = (latest?.versao ?? 0) + 1;
+    const template = getPropostaTemplate(data.templateUtilizado);
+
+    if (!template?.disponivel) {
+      return NextResponse.json(
+        { message: "Template indisponivel ate aprovacao do documento master." },
+        { status: 400 },
+      );
+    }
+
+    const snapshotInput = {
+      ...data,
+      numeroProposta,
+      versao,
+    };
+    const blocos = buildPropostaBlocosSnapshot(snapshotInput, oportunidade);
     const htmlSnapshot = buildPropostaHtmlSnapshot(
       {
-        ...data,
-        numeroProposta,
-        versao,
+        ...snapshotInput,
+        blocos,
       },
       oportunidade,
     );
 
-    const proposta = await prisma.propostaComercial.create({
-      data: {
-        ...data,
-        numeroProposta,
-        versao,
-        htmlSnapshot,
-        oportunidadeId: oportunidade.id,
-        createdById: authResult.id,
-        updatedById: authResult.id,
-      },
-      include: propostaInclude,
+    const proposta = await prisma.$transaction(async (tx) => {
+      const created = await tx.propostaComercial.create({
+        data: {
+          templateUtilizado: data.templateUtilizado,
+          valorTotal: data.valorTotal,
+          validadeProposta: data.validadeProposta,
+          prazoExecucao: data.prazoExecucao,
+          observacoesComerciais: data.observacoesComerciais,
+          observacoesTecnicas: data.observacoesTecnicas,
+          condicoesPagamento: data.condicoesPagamento,
+          numeroProposta,
+          versao,
+          htmlSnapshot,
+          oportunidadeId: oportunidade.id,
+          createdById: authResult.id,
+          updatedById: authResult.id,
+          blocos: {
+            create: blocos.map((item) => ({
+              chave: item.chave,
+              titulo: item.titulo,
+              tipo: item.tipo,
+              ordem: item.ordem,
+              conteudoOriginal: item.conteudoOriginal,
+              conteudoAtual: item.conteudoAtual,
+            })),
+          },
+          auditorias: {
+            create: {
+              campo: "proposta",
+              valorAnterior: null,
+              valorNovo: {
+                status: "RASCUNHO",
+                template: data.templateUtilizado,
+              },
+              justificativa: "Criacao da proposta a partir do template master CBSO.",
+              statusAnterior: null,
+              statusNovo: "RASCUNHO",
+              versao,
+              usuarioId: authResult.id,
+            },
+          },
+        },
+      });
+
+      return tx.propostaComercial.findUniqueOrThrow({
+        where: {
+          id: created.id,
+        },
+        include: propostaInclude,
+      });
     });
 
     await auditLog({

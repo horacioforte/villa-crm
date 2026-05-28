@@ -7,7 +7,15 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-type StatusProposta = "RASCUNHO" | "ENVIADA" | "APROVADA" | "REJEITADA" | "VENCIDA";
+type StatusProposta =
+  | "RASCUNHO"
+  | "AGUARDANDO_APROVACAO"
+  | "APROVADA"
+  | "ENVIADA"
+  | "ACEITA"
+  | "REJEITADA"
+  | "VENCIDA"
+  | "CANCELADA";
 
 type PropostaResumo = {
   id: string;
@@ -18,14 +26,21 @@ type PropostaResumo = {
   valorTotal: string | number;
   validadeProposta: string;
   createdAt: string;
+  excecoes?: Array<{ status: "PENDENTE" | "APROVADA" | "REJEITADA" }>;
 };
 
 const statusConfig: Record<StatusProposta, { label: string; className: string }> = {
   RASCUNHO: { label: "Rascunho", className: "bg-slate-100 text-slate-700" },
-  ENVIADA: { label: "Enviada", className: "bg-amber-100 text-amber-700" },
+  AGUARDANDO_APROVACAO: {
+    label: "Aguardando aprovacao",
+    className: "bg-orange-100 text-orange-700",
+  },
   APROVADA: { label: "Aprovada", className: "bg-emerald-100 text-emerald-700" },
+  ENVIADA: { label: "Enviada", className: "bg-amber-100 text-amber-700" },
+  ACEITA: { label: "Aceita", className: "bg-green-100 text-green-700" },
   REJEITADA: { label: "Rejeitada", className: "bg-red-100 text-red-700" },
   VENCIDA: { label: "Vencida", className: "bg-zinc-100 text-zinc-700" },
+  CANCELADA: { label: "Cancelada", className: "bg-zinc-100 text-zinc-700" },
 };
 
 function formatCurrency(value: string | number) {
@@ -125,7 +140,12 @@ export function PropostasList({
 
   return (
     <div className="space-y-3">
-      {propostas.map((proposta) => (
+      {propostas.map((proposta) => {
+        const hasPendente = proposta.excecoes?.some(
+          (excecao) => excecao.status === "PENDENTE",
+        );
+
+        return (
         <div
           key={proposta.id}
           className="rounded-3xl border border-[#D7DEEA] bg-white p-4"
@@ -139,6 +159,11 @@ export function PropostasList({
                 {formatCurrency(proposta.valorTotal)} - validade{" "}
                 {formatDate(proposta.validadeProposta)}
               </p>
+              {hasPendente ? (
+                <p className="mt-1 text-xs font-semibold text-orange-700">
+                  PDF e envio bloqueados ate decisao das excecoes pendentes.
+                </p>
+              ) : null}
             </div>
             <Badge
               variant="secondary"
@@ -163,17 +188,18 @@ export function PropostasList({
               type="button"
               size="sm"
               variant="outline"
+              disabled={hasPendente}
               onClick={() => window.open(`/api/propostas/${proposta.id}/pdf`, "_blank")}
               className="rounded-2xl"
             >
               <Download className="size-4" />
               PDF
             </Button>
-            {proposta.status === "RASCUNHO" ? (
+            {["RASCUNHO", "APROVADA"].includes(proposta.status) ? (
               <Button
                 type="button"
                 size="sm"
-                disabled={sendingId === proposta.id}
+                disabled={sendingId === proposta.id || hasPendente}
                 onClick={() => handleEnviar(proposta.id)}
                 className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
               >
@@ -187,7 +213,8 @@ export function PropostasList({
             ) : null}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

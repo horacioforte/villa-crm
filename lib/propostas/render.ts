@@ -20,6 +20,12 @@ export type PropostaRenderData = {
   observacoesComerciais?: string | null;
   observacoesTecnicas?: string | null;
   condicoesPagamento?: string | null;
+  blocos?: Array<{
+    titulo: string;
+    tipo: string;
+    ordem: number;
+    conteudoAtual: string;
+  }>;
   data?: Date | string;
 };
 
@@ -62,6 +68,24 @@ function paragraph(value?: string | null) {
   }
 
   return escapeHtml(value).replaceAll("\n", "<br />");
+}
+
+function renderGovernedBlocks(data: PropostaRenderData) {
+  if (!data.blocos?.length) {
+    return "";
+  }
+
+  return data.blocos
+    .slice()
+    .sort((left, right) => left.ordem - right.ordem)
+    .map(
+      (bloco) => `<section class="governed-block">
+        <div class="block-meta">${escapeHtml(bloco.tipo.replaceAll("_", " "))}</div>
+        <h2>${escapeHtml(bloco.titulo)}</h2>
+        <p>${paragraph(bloco.conteudoAtual)}</p>
+      </section>`,
+    )
+    .join("");
 }
 
 export function buildPropostaVariaveis(
@@ -116,6 +140,8 @@ export function renderPropostaHtml(data: PropostaRenderData) {
       p { color: #475467; line-height: 1.7; }
       ul { margin: 12px 0 0; padding-left: 20px; color: #475467; line-height: 1.7; }
       .price { color: #1E4FAB; font-size: 26px; font-weight: 800; }
+      .governed-block { margin-top: 24px; page-break-inside: avoid; }
+      .block-meta { color: #667085; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 6px; }
       .footer { border-top: 1px solid #D7DEEA; padding: 24px 40px; color: #667085; font-size: 12px; }
     </style>
   </head>
@@ -141,8 +167,11 @@ export function renderPropostaHtml(data: PropostaRenderData) {
           <div class="card"><span class="label">Prazo de execucao</span><p class="value">${escapeHtml(variaveis.prazo)}</p></div>
           <div class="card"><span class="label">Validade</span><p class="value">${escapeHtml(variaveis.validade)}</p></div>
         </div>
-        <h2>Escopo previsto</h2>
-        <ul>${escopo.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        ${
+          data.blocos?.length
+            ? renderGovernedBlocks(data)
+            : `<h2>Escopo previsto</h2><ul>${escopo.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+        }
         ${
           data.observacoesComerciais
             ? `<h2>Observacoes comerciais</h2><p>${paragraph(data.observacoesComerciais)}</p>`

@@ -36,9 +36,23 @@ export async function POST(
       );
     }
 
-    if (before.status !== "RASCUNHO") {
+    const hasExcecaoPendente = before.excecoes.some(
+      (excecao) => excecao.status === "PENDENTE",
+    );
+
+    if (hasExcecaoPendente) {
       return NextResponse.json(
-        { message: "Somente propostas em rascunho podem ser enviadas." },
+        { message: "Resolva as excecoes pendentes antes de enviar." },
+        { status: 400 },
+      );
+    }
+
+    if (!["RASCUNHO", "APROVADA"].includes(before.status)) {
+      return NextResponse.json(
+        {
+          message:
+            "Somente propostas em rascunho sem excecoes ou propostas aprovadas podem ser enviadas.",
+        },
         { status: 400 },
       );
     }

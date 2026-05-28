@@ -94,6 +94,14 @@ const styles = StyleSheet.create({
     lineHeight: 1.5,
     marginBottom: 4,
   },
+  blockMeta: {
+    color: "#667085",
+    fontSize: 7,
+    fontWeight: 700,
+    letterSpacing: 0.8,
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
   footer: {
     position: "absolute",
     left: 40,
@@ -162,14 +170,29 @@ function PropostaPdfDocument({ data }: { data: PropostaRenderData }) {
           </Text>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Escopo previsto</Text>
-          {escopo.map((item) => (
-            <Text key={item} style={styles.bullet}>
-              - {item}
-            </Text>
-          ))}
-        </View>
+        {data.blocos?.length ? (
+          data.blocos
+            .slice()
+            .sort((left, right) => left.ordem - right.ordem)
+            .map((bloco) => (
+              <View key={`${bloco.ordem}-${bloco.titulo}`} style={styles.section}>
+                <Text style={styles.blockMeta}>
+                  {bloco.tipo.replaceAll("_", " ")}
+                </Text>
+                <Text style={styles.sectionTitle}>{bloco.titulo}</Text>
+                <Text style={styles.paragraph}>{bloco.conteudoAtual}</Text>
+              </View>
+            ))
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Escopo previsto</Text>
+            {escopo.map((item) => (
+              <Text key={item} style={styles.bullet}>
+                - {item}
+              </Text>
+            ))}
+          </View>
+        )}
 
         {data.observacoesComerciais ? (
           <View style={styles.section}>

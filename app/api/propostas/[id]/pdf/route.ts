@@ -34,6 +34,13 @@ export async function GET(request: Request, context: PropostaPdfRouteContext) {
     );
   }
 
+  if (proposta.excecoes.some((excecao) => excecao.status === "PENDENTE")) {
+    return NextResponse.json(
+      { message: "PDF final bloqueado ate decisao das excecoes pendentes." },
+      { status: 400 },
+    );
+  }
+
   const buffer = await renderPropostaPdfBuffer({
     numeroProposta: proposta.numeroProposta,
     versao: proposta.versao,
@@ -51,6 +58,7 @@ export async function GET(request: Request, context: PropostaPdfRouteContext) {
     observacoesComerciais: proposta.observacoesComerciais,
     observacoesTecnicas: proposta.observacoesTecnicas,
     condicoesPagamento: proposta.condicoesPagamento,
+    blocos: proposta.blocos,
     data: proposta.createdAt,
   });
 

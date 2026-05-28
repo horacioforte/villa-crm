@@ -4,10 +4,25 @@ import { PROPOSTA_TEMPLATES } from "@/lib/propostas/templates";
 
 export const statusPropostaComercialValues = [
   "RASCUNHO",
-  "ENVIADA",
+  "AGUARDANDO_APROVACAO",
   "APROVADA",
+  "ENVIADA",
+  "ACEITA",
   "REJEITADA",
   "VENCIDA",
+  "CANCELADA",
+] as const;
+
+export const tipoBlocoPropostaValues = [
+  "BLOQUEADO",
+  "EDITAVEL",
+  "EDITAVEL_COM_APROVACAO",
+] as const;
+
+export const statusExcecaoPropostaValues = [
+  "PENDENTE",
+  "APROVADA",
+  "REJEITADA",
 ] as const;
 
 export const propostaTemplateValues = PROPOSTA_TEMPLATES.map(
@@ -68,12 +83,41 @@ export const propostaCreateSchema = z.object({
   valorTotal: requiredDecimal,
   validadeProposta: requiredDate,
   prazoExecucao: requiredText("Informe o prazo de execucao."),
+  quantidade: optionalText,
+  descricaoComercial: optionalText,
+  horasGarantidas: optionalText,
+  precoUnitario: optionalText,
+  telefone: optionalText,
+  email: optionalText,
   observacoesComerciais: optionalText,
   observacoesTecnicas: optionalText,
   condicoesPagamento: optionalText,
 });
 
-export const propostaPatchSchema = propostaCreateSchema.partial();
+export const propostaBlocoPatchSchema = z.object({
+  id: z.string().min(1, "Informe o bloco."),
+  conteudoAtual: requiredText("Informe o conteudo do bloco."),
+  justificativa: optionalText,
+});
+
+export const propostaPatchSchema = propostaCreateSchema.partial().extend({
+  blocos: z.array(propostaBlocoPatchSchema).optional(),
+  justificativa: optionalText,
+});
+
+export const propostaExcecaoCreateSchema = z.object({
+  blocoId: z.string().min(1, "Informe o bloco."),
+  conteudoProposto: requiredText("Informe o conteudo proposto."),
+  justificativa: requiredText("Informe a justificativa da excecao."),
+});
+
+export const propostaExcecaoDecisaoSchema = z.object({
+  decisao: z.enum(["APROVAR", "REJEITAR"]),
+  motivo: optionalText,
+});
 
 export type PropostaCreateInput = z.input<typeof propostaCreateSchema>;
 export type PropostaPatchInput = z.input<typeof propostaPatchSchema>;
+export type PropostaExcecaoCreateInput = z.input<
+  typeof propostaExcecaoCreateSchema
+>;

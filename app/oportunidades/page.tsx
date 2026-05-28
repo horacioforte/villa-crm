@@ -228,8 +228,8 @@ export default function OportunidadesPage() {
           currentPage="Pipeline de oportunidades"
           currentHref="/oportunidades"
         />
-        <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div>
+        <header className="flex flex-col gap-5 2xl:flex-row 2xl:items-end 2xl:justify-between">
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#1E4FAB]">
               Villa CRM
             </p>
@@ -242,27 +242,27 @@ export default function OportunidadesPage() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-[auto_auto_auto]">
+          <div className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(220px,auto)_minmax(150px,1fr)_minmax(220px,1fr)] 2xl:w-auto">
             <Button
               type="button"
               onClick={() => handleAbrirCriacao("NOVA")}
-              className="h-full min-h-16 rounded-3xl bg-[#1E4FAB] px-5 text-white hover:bg-[#1A2E5A]"
+              className="h-full min-h-16 rounded-3xl bg-[#1E4FAB] px-5 text-white hover:bg-[#1A2E5A] sm:col-span-2 lg:col-span-1"
             >
               <Plus className="size-4" />
               Nova Oportunidade
             </Button>
-            <Card className="rounded-3xl border-[#D7DEEA] bg-white px-2">
-              <CardHeader>
+            <Card className="min-w-0 rounded-3xl border-[#D7DEEA] bg-white px-2">
+              <CardHeader className="p-5">
                 <CardDescription>Oportunidades</CardDescription>
                 <CardTitle className="text-2xl font-bold text-[#1A2E5A]">
                   {oportunidades.length}
                 </CardTitle>
               </CardHeader>
             </Card>
-            <Card className="rounded-3xl border-[#D7DEEA] bg-white px-2">
-              <CardHeader>
+            <Card className="min-w-0 rounded-3xl border-[#D7DEEA] bg-white px-2">
+              <CardHeader className="p-5">
                 <CardDescription>Pipeline total</CardDescription>
-                <CardTitle className="text-2xl font-bold text-[#1A2E5A]">
+                <CardTitle className="break-words text-2xl font-bold text-[#1A2E5A]">
                   {formatCurrency(totalPipeline)}
                 </CardTitle>
               </CardHeader>

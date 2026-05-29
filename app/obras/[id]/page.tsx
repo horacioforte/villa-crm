@@ -24,7 +24,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { obraSchema, type ObraInput } from "@/lib/validations/obra";
+import {
+  normalizeObraDateInput,
+  obraSchema,
+  type ObraInput,
+} from "@/lib/validations/obra";
 
 type EmpresaOption = {
   id: string;
@@ -96,11 +100,7 @@ const statusOptions = [
 type FieldErrors = Partial<Record<keyof ObraInput, string>>;
 
 function formatDateInput(value: string | null) {
-  if (!value) {
-    return "";
-  }
-
-  return new Date(value).toISOString().slice(0, 10);
+  return normalizeObraDateInput(value) ?? "";
 }
 
 export default function ObraDetalhePage() {
@@ -182,12 +182,18 @@ export default function ObraDetalhePage() {
 
     try {
       const data = obraSchema.parse(form);
+      const dataInicio = normalizeObraDateInput(form.dataInicio);
+      const dataTermino = normalizeObraDateInput(form.dataTermino);
       const response = await fetch(`/api/obras/${params.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          dataInicio: dataInicio || null,
+          dataTermino: dataTermino || null,
+        }),
       });
 
       if (!response.ok) {

@@ -32,17 +32,75 @@ const optionalUf = z
     return trimmed;
   });
 
-const optionalDate = z
-  .union([z.string(), z.date(), z.null(), z.undefined()])
-  .transform((value, ctx) => {
-    if (value === null || value === undefined || value === "") {
+function parseDateParts(value: string) {
+  const trimmed = value.trim();
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+  const brMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+  if (isoMatch) {
+    return {
+      year: Number(isoMatch[1]),
+      month: Number(isoMatch[2]),
+      day: Number(isoMatch[3]),
+    };
+  }
+
+  if (brMatch) {
+    return {
+      year: Number(brMatch[3]),
+      month: Number(brMatch[2]),
+      day: Number(brMatch[1]),
+    };
+  }
+
+  return null;
+}
+
+export function normalizeObraDateInput(value: string | Date | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
       return null;
     }
 
-    const date =
-      value instanceof Date ? value : new Date(`${value.trim()}T00:00:00`);
+    return value.toISOString().slice(0, 10);
+  }
 
-    if (Number.isNaN(date.getTime())) {
+  const parts = parseDateParts(value);
+
+  if (!parts) {
+    return null;
+  }
+
+  const date = new Date(parts.year, parts.month - 1, parts.day);
+
+  if (
+    date.getFullYear() !== parts.year ||
+    date.getMonth() !== parts.month - 1 ||
+    date.getDate() !== parts.day
+  ) {
+    return null;
+  }
+
+  return `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(
+    2,
+    "0",
+  )}-${String(parts.day).padStart(2, "0")}`;
+}
+
+const optionalDate = z
+  .union([z.string(), z.date(), z.null(), z.undefined()])
+  .transform((value, ctx) => {
+    const normalized = normalizeObraDateInput(value);
+
+    if (normalized === "") {
+      return null;
+    }
+
+    if (normalized === null) {
       ctx.addIssue({
         code: "custom",
         message: "Informe uma data valida.",
@@ -50,7 +108,7 @@ const optionalDate = z
       return z.NEVER;
     }
 
-    return date;
+    return new Date(`${normalized}T00:00:00`);
   });
 
 const numericText = z

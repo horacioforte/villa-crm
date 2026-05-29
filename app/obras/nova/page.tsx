@@ -24,7 +24,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { obraSchema, type ObraInput } from "@/lib/validations/obra";
+import {
+  normalizeObraDateInput,
+  obraSchema,
+  type ObraInput,
+} from "@/lib/validations/obra";
 
 type EmpresaOption = {
   id: string;
@@ -131,12 +135,18 @@ export default function NovaObraPage() {
 
     try {
       const data = obraSchema.parse(form);
+      const dataInicio = normalizeObraDateInput(form.dataInicio);
+      const dataTermino = normalizeObraDateInput(form.dataTermino);
       const response = await fetch("/api/obras", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          dataInicio: dataInicio || null,
+          dataTermino: dataTermino || null,
+        }),
       });
 
       if (!response.ok) {

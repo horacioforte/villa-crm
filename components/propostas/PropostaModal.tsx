@@ -480,7 +480,7 @@ export function PropostaModal({
         }
       }}
     >
-      <DialogContent className="flex h-[min(92vh,900px)] w-[calc(100vw-1rem)] max-w-none flex-col overflow-hidden rounded-3xl p-0 sm:w-[min(96vw,1500px)] sm:max-w-none">
+      <DialogContent className="!flex h-[min(92dvh,900px)] w-[calc(100vw-1rem)] !max-w-[min(96vw,1500px)] flex-col !gap-0 overflow-hidden rounded-3xl p-0 sm:w-[min(96vw,1500px)]">
         <DialogHeader className="shrink-0">
           <div className="px-5 pt-5 sm:px-6 sm:pt-6">
             <DialogTitle className="text-2xl font-bold text-[#1A2E5A]">
@@ -499,8 +499,8 @@ export function PropostaModal({
             Carregando proposta...
           </div>
         ) : (
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-x-hidden overflow-y-auto min-[1400px]:grid-cols-[minmax(480px,520px)_minmax(0,1fr)] min-[1400px]:overflow-hidden">
-            <div className="w-full min-w-0 space-y-4 overflow-x-hidden border-b border-[#D7DEEA] px-5 py-4 sm:px-6 min-[1400px]:overflow-y-auto min-[1400px]:border-r min-[1400px]:border-b-0">
+          <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+            <div className="w-full min-w-0 space-y-4 overflow-x-hidden border-b border-[#D7DEEA] px-5 py-4 sm:px-6">
               <Field label="Template">
                 <Select
                   items={templateItems}
@@ -678,7 +678,7 @@ export function PropostaModal({
               </Field>
             </div>
 
-            <div className="w-full min-w-0 overflow-x-hidden bg-[#F4F6FA] px-4 py-4 sm:px-6 min-[1400px]:overflow-y-auto">
+            <div className="w-full min-w-0 overflow-x-hidden bg-[#F4F6FA] px-4 py-4 sm:px-6">
               <PropostaPreview html={previewHtml} />
             </div>
           </div>

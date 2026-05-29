@@ -31,6 +31,7 @@ import {
   buildTemplateBlocosSnapshot,
   getPropostaTemplate,
 } from "@/lib/propostas/templates";
+import type { PropostaTemplate } from "@/lib/propostas/templates";
 
 type OportunidadeProposta = {
   id: string;
@@ -80,7 +81,7 @@ const templateItems = PROPOSTA_TEMPLATES.map((template) => ({
 const DEFAULT_TEMPLATE = PROPOSTA_TEMPLATES[0];
 const MANUAL_EQUIPAMENTO_VALUE = "manual";
 
-function getValidadePadrao(template = DEFAULT_TEMPLATE) {
+function getValidadePadrao(template: PropostaTemplate = DEFAULT_TEMPLATE) {
   return format(addDays(new Date(), template.defaults.validadeDias), "yyyy-MM-dd");
 }
 
@@ -172,19 +173,21 @@ export function PropostaModal({
     null,
   );
   const [equipamentos, setEquipamentos] = useState<EquipamentoProposta[]>([]);
-  const [equipamentoSelecionadoId, setEquipamentoSelecionadoId] = useState(
+  const [equipamentoSelecionadoId, setEquipamentoSelecionadoId] = useState<string>(
     MANUAL_EQUIPAMENTO_VALUE,
   );
-  const [templateUtilizado, setTemplateUtilizado] = useState(DEFAULT_TEMPLATE.id);
+  const [templateUtilizado, setTemplateUtilizado] = useState<string>(
+    DEFAULT_TEMPLATE.id,
+  );
   const [quantidade, setQuantidade] = useState("1");
-  const [descricaoComercial, setDescricaoComercial] = useState(
+  const [descricaoComercial, setDescricaoComercial] = useState<string>(
     DEFAULT_TEMPLATE.defaults.descricaoComercial,
   );
-  const [horasGarantidas, setHorasGarantidas] = useState(
+  const [horasGarantidas, setHorasGarantidas] = useState<string>(
     DEFAULT_TEMPLATE.defaults.horasGarantidas,
   );
   const [precoUnitario, setPrecoUnitario] = useState("");
-  const [horaExtra, setHoraExtra] = useState(
+  const [horaExtra, setHoraExtra] = useState<string>(
     DEFAULT_TEMPLATE.defaults.horaExtra ?? "",
   );
   const [telefone, setTelefone] = useState("");
@@ -192,7 +195,7 @@ export function PropostaModal({
   const [validadeProposta, setValidadeProposta] = useState(
     getValidadePadrao(DEFAULT_TEMPLATE),
   );
-  const [prazoExecucao, setPrazoExecucao] = useState(
+  const [prazoExecucao, setPrazoExecucao] = useState<string>(
     DEFAULT_TEMPLATE.defaults.prazoExecucao,
   );
   const [condicoesPagamento, setCondicoesPagamento] = useState("");

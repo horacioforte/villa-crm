@@ -464,8 +464,8 @@ export function PropostaModal({
         }
       }}
     >
-      <DialogContent className="max-h-[92vh] w-[calc(100vw-1.5rem)] overflow-hidden rounded-3xl p-0 sm:max-w-6xl">
-        <DialogHeader>
+      <DialogContent className="flex h-[min(92vh,900px)] w-[min(1400px,calc(100vw-2rem))] max-w-none flex-col overflow-hidden rounded-3xl p-0 sm:max-w-none">
+        <DialogHeader className="shrink-0">
           <div className="px-5 pt-5 sm:px-6 sm:pt-6">
             <DialogTitle className="text-2xl font-bold text-[#1A2E5A]">
               Gerar proposta comercial
@@ -483,7 +483,7 @@ export function PropostaModal({
             Carregando proposta...
           </div>
         ) : (
-          <div className="grid max-h-[calc(92vh-9rem)] min-h-0 gap-0 overflow-hidden lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
+          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(280px,1fr)] gap-0 overflow-hidden lg:grid-cols-[minmax(420px,480px)_minmax(0,1fr)] lg:grid-rows-none">
             <div className="min-w-0 space-y-4 overflow-y-auto border-b border-[#D7DEEA] px-5 py-4 sm:px-6 lg:border-r lg:border-b-0">
               <Field label="Template">
                 <Select
@@ -666,7 +666,7 @@ export function PropostaModal({
           </div>
         )}
 
-        <DialogFooter className="border-t border-[#D7DEEA] px-5 py-4 sm:px-6">
+        <DialogFooter className="m-0 mx-0 mb-0 shrink-0 rounded-none border-t border-[#D7DEEA] px-5 py-4 sm:px-6">
           <Button
             type="button"
             variant="outline"

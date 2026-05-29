@@ -240,12 +240,20 @@ function PriceBlock({ content }: { content: string }) {
   );
 }
 
-function SignatureBlock({ data, content }: { data: PropostaRenderData; content: string }) {
+function SignatureBlock({
+  data,
+  content,
+  title,
+}: {
+  data: PropostaRenderData;
+  content: string;
+  title: string;
+}) {
   const confirmacao = content.split("\n")[0] || "";
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>11. Aceite</Text>
+      <Text style={styles.sectionTitle}>{title}</Text>
       <Text style={styles.paragraph}>{confirmacao}</Text>
       <View style={styles.signatureGrid}>
         {[1, 2].map((item) => (
@@ -326,6 +334,7 @@ function PropostaPdfDocument({ data }: { data: PropostaRenderData }) {
                     key={`${bloco.ordem}-${bloco.titulo}`}
                     content={bloco.conteudoAtual}
                     data={data}
+                    title={bloco.titulo}
                   />
                 );
               }

@@ -193,7 +193,8 @@ export async function POST(
                 status: "RASCUNHO",
                 template: data.templateUtilizado,
               },
-              justificativa: "Criacao da proposta a partir do template master CBSO.",
+              justificativa:
+                "Criacao da proposta a partir de template oficial Villa.",
               statusNovo: "RASCUNHO",
               versao,
               usuarioId: authResult.id,

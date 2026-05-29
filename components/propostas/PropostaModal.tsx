@@ -77,7 +77,12 @@ const templateItems = PROPOSTA_TEMPLATES.map((template) => ({
   label: template.nome,
   value: template.id,
 }));
+const DEFAULT_TEMPLATE = PROPOSTA_TEMPLATES[0];
 const MANUAL_EQUIPAMENTO_VALUE = "manual";
+
+function getValidadePadrao(template = DEFAULT_TEMPLATE) {
+  return format(addDays(new Date(), template.defaults.validadeDias), "yyyy-MM-dd");
+}
 
 function parseCurrencyInput(value: string) {
   const sanitized = value.trim().replace(/[^\d,.-]/g, "");
@@ -170,22 +175,26 @@ export function PropostaModal({
   const [equipamentoSelecionadoId, setEquipamentoSelecionadoId] = useState(
     MANUAL_EQUIPAMENTO_VALUE,
   );
-  const [templateUtilizado, setTemplateUtilizado] = useState(
-    PROPOSTA_TEMPLATES[0].id,
-  );
+  const [templateUtilizado, setTemplateUtilizado] = useState(DEFAULT_TEMPLATE.id);
   const [quantidade, setQuantidade] = useState("1");
   const [descricaoComercial, setDescricaoComercial] = useState(
-    "Caminhão Betoneira - 8m3",
+    DEFAULT_TEMPLATE.defaults.descricaoComercial,
   );
-  const [horasGarantidas, setHorasGarantidas] = useState("180h");
+  const [horasGarantidas, setHorasGarantidas] = useState(
+    DEFAULT_TEMPLATE.defaults.horasGarantidas,
+  );
   const [precoUnitario, setPrecoUnitario] = useState("");
-  const [horaExtra, setHoraExtra] = useState("");
+  const [horaExtra, setHoraExtra] = useState(
+    DEFAULT_TEMPLATE.defaults.horaExtra ?? "",
+  );
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [validadeProposta, setValidadeProposta] = useState(
-    format(addDays(new Date(), 15), "yyyy-MM-dd"),
+    getValidadePadrao(DEFAULT_TEMPLATE),
   );
-  const [prazoExecucao, setPrazoExecucao] = useState("A combinar");
+  const [prazoExecucao, setPrazoExecucao] = useState(
+    DEFAULT_TEMPLATE.defaults.prazoExecucao,
+  );
   const [condicoesPagamento, setCondicoesPagamento] = useState("");
   const [observacoesComerciais, setObservacoesComerciais] = useState("");
   const [observacoesTecnicas, setObservacoesTecnicas] = useState("");
@@ -214,7 +223,7 @@ export function PropostaModal({
           oportunidadeResponse.json(),
           equipamentosResponse.json(),
         ]);
-        const initialTemplate = getPropostaTemplate(PROPOSTA_TEMPLATES[0].id);
+        const initialTemplate = DEFAULT_TEMPLATE;
         const equipamentosDisponiveis = Array.isArray(equipamentosData)
           ? equipamentosData
           : [];
@@ -236,15 +245,19 @@ export function PropostaModal({
           ? getEquipamentoPreco(equipamentoInicial, data.tipo)
           : null;
 
-        setTemplateUtilizado(PROPOSTA_TEMPLATES[0].id);
+        setTemplateUtilizado(initialTemplate.id);
         setOportunidade(data);
         setEquipamentos(equipamentosComVinculado);
         setEquipamentoSelecionadoId(
           equipamentoInicial?.id ?? MANUAL_EQUIPAMENTO_VALUE,
         );
         setDescricaoComercial(
-          equipamentoInicial?.nome ?? "Caminhão Betoneira - 8m3",
+          equipamentoInicial?.nome ?? initialTemplate.defaults.descricaoComercial,
         );
+        setHorasGarantidas(initialTemplate.defaults.horasGarantidas);
+        setHoraExtra(initialTemplate.defaults.horaExtra ?? "");
+        setPrazoExecucao(initialTemplate.defaults.prazoExecucao);
+        setValidadeProposta(getValidadePadrao(initialTemplate));
         setPrecoUnitario(
           precoEquipamentoInicial !== null
             ? formatCurrencyInput(precoEquipamentoInicial)
@@ -254,8 +267,8 @@ export function PropostaModal({
         );
         setTelefone(data.empresa?.telefone ?? "");
         setEmail(data.empresa?.email ?? "");
-        setCondicoesPagamento(initialTemplate?.condicoesPagamentoPadrao ?? "");
-        setObservacoesTecnicas(initialTemplate?.observacoesTecnicasPadrao ?? "");
+        setCondicoesPagamento(initialTemplate.condicoesPagamentoPadrao);
+        setObservacoesTecnicas(initialTemplate.observacoesTecnicasPadrao);
       } catch {
         toast.error("Nao foi possivel carregar dados da proposta.");
       } finally {
@@ -490,16 +503,18 @@ export function PropostaModal({
                   items={templateItems}
                   value={templateUtilizado}
                   onValueChange={(value) => {
-                    const nextTemplateId = value ?? PROPOSTA_TEMPLATES[0].id;
-                    const nextTemplate = getPropostaTemplate(nextTemplateId);
+                    const nextTemplateId = value ?? DEFAULT_TEMPLATE.id;
+                    const nextTemplate =
+                      getPropostaTemplate(nextTemplateId) ?? DEFAULT_TEMPLATE;
 
                     setTemplateUtilizado(nextTemplateId);
-                    setCondicoesPagamento(
-                      nextTemplate?.condicoesPagamentoPadrao ?? "",
-                    );
-                    setObservacoesTecnicas(
-                      nextTemplate?.observacoesTecnicasPadrao ?? "",
-                    );
+                    setDescricaoComercial(nextTemplate.defaults.descricaoComercial);
+                    setHorasGarantidas(nextTemplate.defaults.horasGarantidas);
+                    setHoraExtra(nextTemplate.defaults.horaExtra ?? "");
+                    setPrazoExecucao(nextTemplate.defaults.prazoExecucao);
+                    setValidadeProposta(getValidadePadrao(nextTemplate));
+                    setCondicoesPagamento(nextTemplate.condicoesPagamentoPadrao);
+                    setObservacoesTecnicas(nextTemplate.observacoesTecnicasPadrao);
                   }}
                 >
                   <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">

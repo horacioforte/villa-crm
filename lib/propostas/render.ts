@@ -153,11 +153,15 @@ function renderPriceBlock(content: string) {
     ${observacoes.map((line) => `<p class="obs">${escapeHtml(line)}</p>`).join("")}`;
 }
 
-function renderSignatureBlock(data: PropostaRenderData, content: string) {
+function renderSignatureBlock(
+  data: PropostaRenderData,
+  content: string,
+  title: string,
+) {
   const confirmacao = content.split("\n")[0] || "";
 
   return `<section class="document-section signature-section">
-    <h2>11. Aceite</h2>
+    <h2>${escapeHtml(title)}</h2>
     <p>${escapeHtml(confirmacao)}</p>
     <div class="signature-grid">
       ${[1, 2]
@@ -206,7 +210,7 @@ function renderGovernedBlocks(data: PropostaRenderData) {
       }
 
       if (bloco.chave === "assinaturas") {
-        return renderSignatureBlock(data, bloco.conteudoAtual);
+        return renderSignatureBlock(data, bloco.conteudoAtual, bloco.titulo);
       }
 
       return `<section class="document-section">
@@ -231,8 +235,12 @@ export function buildPropostaVariaveis(
     email: data.email || "Nao informado",
     tipo_servico: template?.tipoServico ?? data.templateUtilizado,
     quantidade: data.quantidade || "01",
-    descricao_comercial: data.descricaoComercial || "Caminhao Betoneira - 8m3",
-    horas_garantidas: data.horasGarantidas || "180h",
+    descricao_comercial:
+      data.descricaoComercial ||
+      template?.defaults.descricaoComercial ||
+      "Caminhao Betoneira - 8m3",
+    horas_garantidas:
+      data.horasGarantidas || template?.defaults.horasGarantidas || "180h",
     preco_unitario: data.precoUnitario
       ? formatCurrency(data.precoUnitario)
       : formatCurrency(data.valorTotal),
@@ -241,7 +249,7 @@ export function buildPropostaVariaveis(
       data.horaExtra === null || data.horaExtra === undefined
         ? "Nao informado"
         : formatCurrency(data.horaExtra),
-    prazo: data.prazoExecucao || "A definir",
+    prazo: data.prazoExecucao || template?.defaults.prazoExecucao || "A definir",
     validade: formatDate(data.validadeProposta),
     responsavel: data.responsavel || "Equipe Comercial Villa",
     data: formatDate(data.data ?? new Date()),

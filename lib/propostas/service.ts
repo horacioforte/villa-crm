@@ -149,6 +149,8 @@ export function buildPropostaTemplateVariables(
   proposta: PropostaSnapshotInput,
   oportunidade: OportunidadeProposta,
 ) {
+  const template = getPropostaTemplate(proposta.templateUtilizado);
+
   return {
     numero_proposta: proposta.numeroProposta,
     cliente:
@@ -158,13 +160,14 @@ export function buildPropostaTemplateVariables(
     email: proposta.email ?? oportunidade.empresa.email ?? "",
     cidade: oportunidade.obra?.cidade ?? "",
     estado: oportunidade.obra?.estado ?? "",
-    tipo_servico:
-      getPropostaTemplate(proposta.templateUtilizado)?.tipoServico ??
-      proposta.templateUtilizado,
+    tipo_servico: template?.tipoServico ?? proposta.templateUtilizado,
     quantidade: proposta.quantidade ?? "01",
     descricao_comercial:
-      proposta.descricaoComercial ?? "Caminhao Betoneira - 8m3",
-    horas_garantidas: proposta.horasGarantidas ?? "180h",
+      proposta.descricaoComercial ??
+      template?.defaults.descricaoComercial ??
+      "Caminhao Betoneira - 8m3",
+    horas_garantidas:
+      proposta.horasGarantidas ?? template?.defaults.horasGarantidas ?? "180h",
     preco_unitario: proposta.precoUnitario
       ? formatCurrency(proposta.precoUnitario)
       : formatCurrency(proposta.valorTotal),
@@ -173,7 +176,8 @@ export function buildPropostaTemplateVariables(
       proposta.horaExtra === null || proposta.horaExtra === undefined
         ? "Nao informado"
         : formatCurrency(proposta.horaExtra),
-    prazo: proposta.prazoExecucao ?? "A definir",
+    prazo:
+      proposta.prazoExecucao ?? template?.defaults.prazoExecucao ?? "A definir",
     validade: formatDate(proposta.validadeProposta),
     responsavel: oportunidade.responsavel?.nome ?? "Equipe Comercial Villa",
     data: formatDate(proposta.createdAt ?? new Date()),

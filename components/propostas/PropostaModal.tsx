@@ -203,6 +203,7 @@ export function PropostaModal({
   const [observacoesTecnicas, setObservacoesTecnicas] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
 
   useEffect(() => {
     if (!aberto) {
@@ -211,6 +212,7 @@ export function PropostaModal({
 
     async function loadOportunidade() {
       setIsLoading(true);
+      setIsPreviewVisible(false);
 
       try {
         const [oportunidadeResponse, equipamentosResponse] = await Promise.all([
@@ -480,7 +482,7 @@ export function PropostaModal({
         }
       }}
     >
-      <DialogContent className="!flex h-[min(92dvh,900px)] w-[calc(100vw-1rem)] !max-w-[min(96vw,1500px)] flex-col !gap-0 overflow-hidden rounded-3xl p-0 sm:w-[min(96vw,1500px)]">
+      <DialogContent className="!flex h-[min(92dvh,900px)] w-[calc(100vw-1rem)] !max-w-[min(96vw,1200px)] flex-col !gap-0 overflow-hidden rounded-3xl p-0 sm:w-[min(96vw,1200px)]">
         <DialogHeader className="shrink-0">
           <div className="px-5 pt-5 sm:px-6 sm:pt-6">
             <DialogTitle className="text-2xl font-bold text-[#1A2E5A]">
@@ -488,7 +490,7 @@ export function PropostaModal({
             </DialogTitle>
             <DialogDescription>
               Selecione o modelo Villa, revise os dados herdados e salve o
-              rascunho da proposta.
+              rascunho da proposta. O preview fica disponivel sob demanda.
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -499,9 +501,9 @@ export function PropostaModal({
             Carregando proposta...
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
-            <div className="w-full min-w-0 space-y-4 overflow-x-hidden border-b border-[#D7DEEA] px-5 py-4 sm:px-6">
-              <Field label="Template">
+          <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-5 py-4 sm:px-6">
+            <div className="grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+              <Field label="Template" className="lg:col-span-2">
                 <Select
                   items={templateItems}
                   value={templateUtilizado}
@@ -533,19 +535,37 @@ export function PropostaModal({
                 </Select>
               </Field>
 
-              <div className="rounded-3xl border border-[#D7DEEA] bg-[#F4F6FA] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">
-                  Dados herdados
-                </p>
-                <dl className="mt-3 space-y-2 text-sm">
-                  <ReadOnly label="Cliente" value={oportunidade?.empresa.nomeFantasia ?? oportunidade?.empresa.razaoSocial ?? "Nao informado"} />
-                  <ReadOnly label="Obra" value={oportunidade?.obra?.nome ?? "Nao vinculada"} />
-                  <ReadOnly label="Local" value={`${oportunidade?.obra?.cidade ?? "Cidade nao informada"} / ${oportunidade?.obra?.estado ?? "UF"}`} />
-                  <ReadOnly label="Responsavel" value={oportunidade?.responsavel?.nome ?? "Equipe Comercial Villa"} />
-                </dl>
-              </div>
+              <section className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-3 lg:col-span-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">
+                      Dados herdados
+                    </p>
+                    <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                      <ReadOnly label="Cliente" value={oportunidade?.empresa.nomeFantasia ?? oportunidade?.empresa.razaoSocial ?? "Nao informado"} />
+                      <ReadOnly label="Obra" value={oportunidade?.obra?.nome ?? "Nao vinculada"} />
+                      <ReadOnly label="Local" value={`${oportunidade?.obra?.cidade ?? "Cidade nao informada"} / ${oportunidade?.obra?.estado ?? "UF"}`} />
+                      <ReadOnly label="Responsavel" value={oportunidade?.responsavel?.nome ?? "Equipe Comercial Villa"} />
+                    </dl>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsPreviewVisible((current) => !current)}
+                    className="h-10 shrink-0 rounded-2xl"
+                  >
+                    {isPreviewVisible ? "Ocultar preview" : "Mostrar preview"}
+                  </Button>
+                </div>
+              </section>
 
-              <Field label="Equipamento/serviço">
+              {isPreviewVisible ? (
+                <section className="w-full min-w-0 overflow-x-hidden rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-3 lg:col-span-2">
+                  <PropostaPreview html={previewHtml} />
+                </section>
+              ) : null}
+
+              <Field label="Equipamento/serviço" className="lg:col-span-2">
                 <Select
                   value={equipamentoSelecionadoId}
                   onValueChange={handleEquipamentoChange}
@@ -653,14 +673,14 @@ export function PropostaModal({
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
                 />
               </Field>
-              <Field label="Condicoes de pagamento">
+              <Field label="Condicoes de pagamento" className="lg:col-span-2">
                 <Textarea
                   value={condicoesPagamento}
                   onChange={(event) => setCondicoesPagamento(event.target.value)}
                   className="min-h-24 rounded-2xl bg-[#F4F6FA]"
                 />
               </Field>
-              <Field label="Observacoes comerciais">
+              <Field label="Observacoes comerciais" className="lg:col-span-2">
                 <Textarea
                   value={observacoesComerciais}
                   onChange={(event) =>
@@ -669,17 +689,13 @@ export function PropostaModal({
                   className="min-h-24 rounded-2xl bg-[#F4F6FA]"
                 />
               </Field>
-              <Field label="Observacoes tecnicas">
+              <Field label="Observacoes tecnicas" className="lg:col-span-2">
                 <Textarea
                   value={observacoesTecnicas}
                   onChange={(event) => setObservacoesTecnicas(event.target.value)}
                   className="min-h-24 rounded-2xl bg-[#F4F6FA]"
                 />
               </Field>
-            </div>
-
-            <div className="w-full min-w-0 overflow-x-hidden bg-[#F4F6FA] px-4 py-4 sm:px-6">
-              <PropostaPreview html={previewHtml} />
             </div>
           </div>
         )}
@@ -718,12 +734,14 @@ export function PropostaModal({
 function Field({
   label,
   children,
+  className = "",
 }: {
   label: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="w-full min-w-0">
+    <div className={`w-full min-w-0 ${className}`}>
       <Label className="text-[#1A2E5A]">{label}</Label>
       <div className="mt-2 w-full min-w-0 [&_[data-slot=input]]:w-full [&_[data-slot=select-trigger]]:w-full [&_[data-slot=textarea]]:w-full">
         {children}

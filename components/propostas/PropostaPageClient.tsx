@@ -208,20 +208,101 @@ export function PropostaPageClient({ id }: { id: string }) {
     proposta?.currentUser?.papel === "ADMIN" ||
     proposta?.currentUser?.papel === "GERENTE";
 
+  function renderExcecoesCard(className = "") {
+    if (!proposta) {
+      return null;
+    }
+
+    return (
+      <section
+        className={`rounded-3xl border border-[#D7DEEA] bg-white p-5 ${className}`}
+      >
+        <h2 className="font-bold text-[#1A2E5A]">Excecoes</h2>
+        <p className="mt-1 text-sm text-[#667085]">
+          Alteracoes sensiveis exigem aprovacao de ADMIN ou GERENTE.
+        </p>
+        <div className="mt-4 space-y-3">
+          {proposta.excecoes.length === 0 ? (
+            <p className="text-sm text-[#667085]">
+              Nenhuma excecao registrada.
+            </p>
+          ) : (
+            proposta.excecoes.map((excecao) => (
+              <div
+                key={excecao.id}
+                className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-3 text-sm"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold text-[#1A2E5A]">
+                    {excecao.bloco?.titulo ?? excecao.campo}
+                  </p>
+                  <Badge className="bg-white text-[#1A2E5A]">
+                    {excecao.status === "PENDENTE"
+                      ? "Pendente"
+                      : excecao.status === "APROVADA"
+                        ? "Aprovada"
+                        : "Rejeitada"}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-[#667085]">
+                  {excecao.justificativa}
+                </p>
+                <details className="mt-2 text-xs text-[#667085]">
+                  <summary>Ver alteracao proposta</summary>
+                  <p className="mt-2 whitespace-pre-wrap">
+                    De: {stringifyValue(excecao.valorAnterior)}
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap">
+                    Para: {stringifyValue(excecao.valorProposto)}
+                  </p>
+                </details>
+                {excecao.status === "PENDENTE" && canDecideExcecao ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={decidingId === excecao.id}
+                      onClick={() => decidirExcecao(excecao.id, "APROVAR")}
+                      className="rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700"
+                    >
+                      <Check className="size-4" />
+                      Aprovar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={decidingId === excecao.id}
+                      onClick={() => decidirExcecao(excecao.id, "REJEITAR")}
+                      className="rounded-2xl border-red-200 text-red-700"
+                    >
+                      <X className="size-4" />
+                      Rejeitar
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#F4F6FA] px-5 py-8 text-[#172033] sm:px-8">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <PageNavigation
           currentPage="Proposta comercial"
           currentHref={`/propostas/${id}`}
         />
 
-        <header className="mb-6 flex flex-col gap-4 rounded-3xl border border-[#D7DEEA] bg-white p-6 md:flex-row md:items-center md:justify-between">
-          <div>
+        <header className="mb-6 flex flex-col gap-5 rounded-3xl border border-[#D7DEEA] bg-white p-6 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#1E4FAB]">
               Villa Empreendimentos
             </p>
-            <h1 className="mt-2 text-2xl font-bold text-[#1A2E5A]">
+            <h1 className="mt-2 break-words text-2xl font-bold text-[#1A2E5A] sm:text-3xl">
               {proposta
                 ? `${proposta.numeroProposta} v${proposta.versao}`
                 : "Proposta comercial"}
@@ -251,7 +332,7 @@ export function PropostaPageClient({ id }: { id: string }) {
             type="button"
             disabled={!proposta || hasPendente}
             onClick={() => window.open(`/api/propostas/${id}/pdf`, "_blank")}
-            className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+            className="w-full shrink-0 rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A] sm:w-auto"
           >
             <Download className="size-4" />
             {hasPendente ? "PDF bloqueado" : "Baixar PDF"}
@@ -264,8 +345,11 @@ export function PropostaPageClient({ id }: { id: string }) {
             Carregando proposta...
           </div>
         ) : proposta ? (
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-            <section className="space-y-4">
+          <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="min-w-0 space-y-6">
+              {renderExcecoesCard("2xl:hidden")}
+
+              <section className="space-y-4">
               {proposta.blocos.map((bloco) => {
                 const isBlocked = bloco.tipo === "BLOQUEADO";
                 const needsApproval = bloco.tipo === "EDITAVEL_COM_APROVACAO";
@@ -340,81 +424,23 @@ export function PropostaPageClient({ id }: { id: string }) {
                   </div>
                 );
               })}
-            </section>
-
-            <aside className="space-y-4">
-              <section className="rounded-3xl border border-[#D7DEEA] bg-white p-5">
-                <h2 className="font-bold text-[#1A2E5A]">Excecoes</h2>
-                <p className="mt-1 text-sm text-[#667085]">
-                  Alteracoes sensiveis exigem aprovacao de ADMIN ou GERENTE.
-                </p>
-                <div className="mt-4 space-y-3">
-                  {proposta.excecoes.length === 0 ? (
-                    <p className="text-sm text-[#667085]">
-                      Nenhuma excecao registrada.
-                    </p>
-                  ) : (
-                    proposta.excecoes.map((excecao) => (
-                      <div
-                        key={excecao.id}
-                        className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-3 text-sm"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-semibold text-[#1A2E5A]">
-                            {excecao.bloco?.titulo ?? excecao.campo}
-                          </p>
-                          <Badge className="bg-white text-[#1A2E5A]">
-                            {excecao.status === "PENDENTE"
-                              ? "Pendente"
-                              : excecao.status === "APROVADA"
-                                ? "Aprovada"
-                                : "Rejeitada"}
-                          </Badge>
-                        </div>
-                        <p className="mt-2 text-[#667085]">
-                          {excecao.justificativa}
-                        </p>
-                        <details className="mt-2 text-xs text-[#667085]">
-                          <summary>Ver alteracao proposta</summary>
-                          <p className="mt-2 whitespace-pre-wrap">
-                            De: {stringifyValue(excecao.valorAnterior)}
-                          </p>
-                          <p className="mt-2 whitespace-pre-wrap">
-                            Para: {stringifyValue(excecao.valorProposto)}
-                          </p>
-                        </details>
-                        {excecao.status === "PENDENTE" && canDecideExcecao ? (
-                          <div className="mt-3 flex gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={decidingId === excecao.id}
-                              onClick={() => decidirExcecao(excecao.id, "APROVAR")}
-                              className="rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700"
-                            >
-                              <Check className="size-4" />
-                              Aprovar
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={decidingId === excecao.id}
-                              onClick={() => decidirExcecao(excecao.id, "REJEITAR")}
-                              className="rounded-2xl border-red-200 text-red-700"
-                            >
-                              <X className="size-4" />
-                              Rejeitar
-                            </Button>
-                          </div>
-                        ) : null}
-                      </div>
-                    ))
-                  )}
-                </div>
               </section>
 
-              <PropostaPreview html={proposta.htmlSnapshot} />
+              <details className="rounded-3xl border border-[#D7DEEA] bg-white p-5">
+                <summary className="cursor-pointer font-bold text-[#1A2E5A]">
+                  Preview da proposta
+                </summary>
+                <p className="mt-1 text-sm text-[#667085]">
+                  Abra para conferir a versao final sem reduzir a area de edicao.
+                </p>
+                <div className="mt-4">
+                  <PropostaPreview html={proposta.htmlSnapshot} />
+                </div>
+              </details>
+            </div>
+
+            <aside className="hidden min-w-0 space-y-4 2xl:block">
+              {renderExcecoesCard()}
             </aside>
           </div>
         ) : (

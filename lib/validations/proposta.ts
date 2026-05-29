@@ -45,16 +45,37 @@ const optionalText = z
 const requiredText = (message: string) =>
   z.string().trim().min(1, message);
 
+function parseDecimalInput(value: string | number) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  const sanitized = value.trim().replace(/[^\d,.-]/g, "");
+  const lastComma = sanitized.lastIndexOf(",");
+  const lastDot = sanitized.lastIndexOf(".");
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? "," : ".";
+    const thousandsSeparator = decimalSeparator === "," ? "." : ",";
+    return Number(
+      sanitized
+        .replaceAll(thousandsSeparator, "")
+        .replace(decimalSeparator, "."),
+    );
+  }
+
+  return Number(sanitized.replace(",", "."));
+}
+
 const requiredDecimal = z
   .union([z.string(), z.number()])
   .transform((value, ctx) => {
-    const parsed =
-      typeof value === "number" ? value : Number(value.replace(",", "."));
+    const parsed = parseDecimalInput(value);
 
-    if (Number.isNaN(parsed) || parsed < 0) {
+    if (Number.isNaN(parsed) || parsed <= 0) {
       ctx.addIssue({
         code: "custom",
-        message: "Informe um valor valido.",
+        message: "Informe um valor positivo.",
       });
       return z.NEVER;
     }
@@ -74,8 +95,7 @@ const optionalDecimal = z
       return null;
     }
 
-    const parsed =
-      typeof value === "number" ? value : Number(value.trim().replace(",", "."));
+    const parsed = parseDecimalInput(value);
 
     if (Number.isNaN(parsed) || parsed < 0) {
       ctx.addIssue({
@@ -86,6 +106,23 @@ const optionalDecimal = z
     }
 
     return parsed;
+  });
+
+const requiredPositiveInteger = z
+  .union([z.string(), z.number()])
+  .transform((value, ctx) => {
+    const parsed =
+      typeof value === "number" ? value : Number(value.trim().replace(",", "."));
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Informe uma quantidade inteira positiva.",
+      });
+      return z.NEVER;
+    }
+
+    return String(parsed);
   });
 
 const requiredDate = z
@@ -109,10 +146,10 @@ export const propostaCreateSchema = z.object({
   valorTotal: requiredDecimal,
   validadeProposta: requiredDate,
   prazoExecucao: requiredText("Informe o prazo de execucao."),
-  quantidade: optionalText,
+  quantidade: requiredPositiveInteger,
   descricaoComercial: optionalText,
   horasGarantidas: optionalText,
-  precoUnitario: optionalText,
+  precoUnitario: requiredDecimal,
   horaExtra: optionalDecimal,
   telefone: optionalText,
   email: optionalText,

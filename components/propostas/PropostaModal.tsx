@@ -64,17 +64,55 @@ const templateItems = PROPOSTA_TEMPLATES.map((template) => ({
   value: template.id,
 }));
 
-function formatPreviewCurrency(value: string) {
-  const parsed = Number(value.replace(",", "."));
+function parseCurrencyInput(value: string) {
+  const sanitized = value.trim().replace(/[^\d,.-]/g, "");
+  const lastComma = sanitized.lastIndexOf(",");
+  const lastDot = sanitized.lastIndexOf(".");
 
-  if (Number.isNaN(parsed)) {
-    return value;
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? "," : ".";
+    const thousandsSeparator = decimalSeparator === "," ? "." : ",";
+
+    return Number(
+      sanitized
+        .replaceAll(thousandsSeparator, "")
+        .replace(decimalSeparator, "."),
+    );
+  }
+
+  return Number(sanitized.replace(",", "."));
+}
+
+function parseQuantidadeInput(value: string) {
+  const parsed = Number(value.trim().replace(",", "."));
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function formatPreviewCurrency(value: number | null) {
+  if (value === null || Number.isNaN(value)) {
+    return "R$ 0,00";
   }
 
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-  }).format(parsed);
+  }).format(value);
+}
+
+function formatCurrencyInput(value: number | null) {
+  if (value === null || Number.isNaN(value)) {
+    return "";
+  }
+
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
 }
 
 export function PropostaModal({
@@ -89,8 +127,7 @@ export function PropostaModal({
   const [templateUtilizado, setTemplateUtilizado] = useState(
     PROPOSTA_TEMPLATES[0].id,
   );
-  const [valorTotal, setValorTotal] = useState("");
-  const [quantidade, setQuantidade] = useState("01");
+  const [quantidade, setQuantidade] = useState("1");
   const [descricaoComercial, setDescricaoComercial] = useState(
     "Caminhão Betoneira - 8m3",
   );
@@ -128,7 +165,6 @@ export function PropostaModal({
         const initialTemplate = getPropostaTemplate(PROPOSTA_TEMPLATES[0].id);
         setTemplateUtilizado(PROPOSTA_TEMPLATES[0].id);
         setOportunidade(data);
-        setValorTotal(data.valor ? String(data.valor) : "");
         setPrecoUnitario(data.valor ? String(data.valor) : "");
         setTelefone(data.empresa?.telefone ?? "");
         setEmail(data.empresa?.email ?? "");
@@ -144,6 +180,23 @@ export function PropostaModal({
     loadOportunidade();
   }, [aberto, oportunidadeId]);
 
+  const quantidadeCalculada = useMemo(
+    () => parseQuantidadeInput(quantidade),
+    [quantidade],
+  );
+  const precoUnitarioCalculado = useMemo(() => {
+    const parsed = parseCurrencyInput(precoUnitario);
+
+    return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
+  }, [precoUnitario]);
+  const valorTotalCalculado = useMemo(() => {
+    if (quantidadeCalculada === null || precoUnitarioCalculado === null) {
+      return null;
+    }
+
+    return Math.round(quantidadeCalculada * precoUnitarioCalculado * 100) / 100;
+  }, [precoUnitarioCalculado, quantidadeCalculada]);
+
   const previewHtml = useMemo(() => {
     if (!oportunidade) {
       return "";
@@ -151,8 +204,8 @@ export function PropostaModal({
 
     const cliente =
       oportunidade.empresa.nomeFantasia ?? oportunidade.empresa.razaoSocial;
-    const precoUnitarioPreview = precoUnitario || valorTotal || "0";
-    const valorTotalPreview = valorTotal || precoUnitarioPreview;
+    const quantidadePreview =
+      quantidadeCalculada === null ? quantidade : String(quantidadeCalculada);
     const blocos = buildTemplateBlocosSnapshot(templateUtilizado, {
       numero_proposta: "PREVIEW",
       cliente,
@@ -161,12 +214,14 @@ export function PropostaModal({
       email,
       cidade: oportunidade.obra?.cidade ?? "",
       estado: oportunidade.obra?.estado ?? "",
-      quantidade,
+      quantidade: quantidadePreview,
       descricao_comercial: descricaoComercial,
       horas_garantidas: horasGarantidas,
-      preco_unitario: formatPreviewCurrency(precoUnitarioPreview),
-      valor: formatPreviewCurrency(valorTotalPreview),
-      hora_extra: horaExtra ? formatPreviewCurrency(horaExtra) : "",
+      preco_unitario: formatPreviewCurrency(precoUnitarioCalculado),
+      valor: formatPreviewCurrency(valorTotalCalculado),
+      hora_extra: horaExtra
+        ? formatPreviewCurrency(parseCurrencyInput(horaExtra))
+        : "",
       prazo: prazoExecucao,
       validade: validadeProposta,
       responsavel: oportunidade.responsavel?.nome ?? "Equipe Comercial Villa",
@@ -184,12 +239,12 @@ export function PropostaModal({
       estado: oportunidade.obra?.estado,
       telefone,
       email,
-      quantidade,
+      quantidade: quantidadePreview,
       descricaoComercial,
       horasGarantidas,
-      precoUnitario: precoUnitarioPreview,
+      precoUnitario: precoUnitarioCalculado ?? 0,
       horaExtra,
-      valorTotal: valorTotal || 0,
+      valorTotal: valorTotalCalculado ?? 0,
       validadeProposta,
       prazoExecucao,
       responsavel: oportunidade.responsavel?.nome,
@@ -207,36 +262,34 @@ export function PropostaModal({
     observacoesComerciais,
     observacoesTecnicas,
     oportunidade,
-    precoUnitario,
+    precoUnitarioCalculado,
     prazoExecucao,
     quantidade,
+    quantidadeCalculada,
     templateUtilizado,
     telefone,
     validadeProposta,
-    valorTotal,
+    valorTotalCalculado,
   ]);
-
-  function handlePrecoUnitarioChange(value: string) {
-    setPrecoUnitario(value);
-    const qtd = Number(quantidade.replace(",", ".")) || 1;
-    const preco = Number(value.replace(",", "."));
-    if (!Number.isNaN(preco) && preco > 0) {
-      setValorTotal(String(qtd * preco));
-    }
-  }
-
-  function handleQuantidadeChange(value: string) {
-    setQuantidade(value);
-    const qtd = Number(value.replace(",", ".")) || 1;
-    const preco = Number(precoUnitario.replace(",", "."));
-    if (!Number.isNaN(preco) && preco > 0) {
-      setValorTotal(String(qtd * preco));
-    }
-  }
 
   async function handleSalvar() {
     if (!oportunidade?.obra) {
       toast.error("A oportunidade precisa ter obra vinculada.");
+      return;
+    }
+
+    if (quantidadeCalculada === null) {
+      toast.error("Informe uma quantidade inteira positiva.");
+      return;
+    }
+
+    if (precoUnitarioCalculado === null) {
+      toast.error("Informe um valor unitario/mês positivo.");
+      return;
+    }
+
+    if (valorTotalCalculado === null) {
+      toast.error("Nao foi possivel calcular o valor total/mês.");
       return;
     }
 
@@ -252,11 +305,11 @@ export function PropostaModal({
           },
           body: JSON.stringify({
             templateUtilizado,
-            valorTotal,
-            quantidade,
+            valorTotal: valorTotalCalculado,
+            quantidade: quantidadeCalculada,
             descricaoComercial,
             horasGarantidas,
-            precoUnitario: precoUnitario || valorTotal,
+            precoUnitario: precoUnitarioCalculado,
             horaExtra: horaExtra || null,
             telefone,
             email,
@@ -358,19 +411,12 @@ export function PropostaModal({
                 </dl>
               </div>
 
-              <Field label="Valor total">
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={valorTotal}
-                  onChange={(event) => setValorTotal(event.target.value)}
-                  className="h-11 rounded-2xl bg-[#F4F6FA]"
-                />
-              </Field>
               <Field label="Quantidade">
                 <Input
+                  inputMode="numeric"
+                  placeholder="Ex: 2"
                   value={quantidade}
-                  onChange={(event) => handleQuantidadeChange(event.target.value)}
+                  onChange={(event) => setQuantidade(event.target.value)}
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
                 />
               </Field>
@@ -390,19 +436,25 @@ export function PropostaModal({
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
                 />
               </Field>
-              <Field label="Preco unitario/mes">
+              <Field label="Valor unitario/mês">
                 <Input
-                  type="number"
-                  step="0.01"
+                  inputMode="decimal"
+                  placeholder="Ex: 12500,00"
                   value={precoUnitario}
-                  onChange={(event) => handlePrecoUnitarioChange(event.target.value)}
+                  onChange={(event) => setPrecoUnitario(event.target.value)}
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+              <Field label="Valor total/mês calculado">
+                <Input
+                  readOnly
+                  value={formatCurrencyInput(valorTotalCalculado)}
+                  className="h-11 rounded-2xl border-[#D7DEEA] bg-[#E9EEF7] font-semibold text-[#1A2E5A]"
                 />
               </Field>
               <Field label="Hora extra (R$/h)">
                 <Input
-                  type="number"
-                  step="0.01"
+                  inputMode="decimal"
                   placeholder="Ex: 166.67"
                   value={horaExtra}
                   onChange={(event) => setHoraExtra(event.target.value)}

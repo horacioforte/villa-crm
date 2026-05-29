@@ -50,7 +50,7 @@ type PropostaSnapshotInput = {
   quantidade?: string | null;
   descricaoComercial?: string | null;
   horasGarantidas?: string | null;
-  precoUnitario?: string | null;
+  precoUnitario?: DecimalLike | null;
   horaExtra?: DecimalLike | null;
   telefone?: string | null;
   email?: string | null;

@@ -194,9 +194,9 @@ function PriceBlock({ content }: { content: string }) {
     getFieldFromBlock(content, "Horas Garantidas"),
     getFieldFromBlock(content, "Preço Unit./mês") || getFieldFromBlock(content, "Preco Unit./mes"),
     getFieldFromBlock(content, "Preço Total/mês") || getFieldFromBlock(content, "Preco Total/mes"),
+    getFieldFromBlock(content, "Hora Extra/h"),
   ];
-  const horaExtra = getFieldFromBlock(content, "Hora Extra/h");
-  const widths = ["10%", "34%", "18%", "19%", "19%"];
+  const widths = ["8%", "30%", "16%", "17%", "17%", "12%"];
   const notes = content
     .split("\n")
     .map((line) => line.trim())
@@ -210,7 +210,14 @@ function PriceBlock({ content }: { content: string }) {
       </Text>
       <View style={styles.table}>
         <View style={styles.tableRow}>
-          {["Qtd.", "Descrição", "Horas Garantidas", "Preço Unit./mês", "Preço Total/mês"].map((label, index) => (
+          {[
+            "Qtd.",
+            "Descrição",
+            "Horas Garantidas",
+            "Preço Unit./mês",
+            "Preço Total/mês",
+            "Hora Extra/h",
+          ].map((label, index) => (
             <Text key={label} style={[styles.tableHeaderCell, { width: widths[index] }]}>
               {label}
             </Text>
@@ -224,26 +231,6 @@ function PriceBlock({ content }: { content: string }) {
           ))}
         </View>
       </View>
-      {horaExtra && horaExtra !== "Nao informado" ? (
-        <View style={styles.table}>
-          <View style={styles.tableRow}>
-            <Text style={[styles.tableHeaderCell, { width: "50%" }]}>
-              Hora Extra
-            </Text>
-            <Text style={[styles.tableHeaderCell, { width: "50%" }]}>
-              Valor por hora excedente
-            </Text>
-          </View>
-          <View style={styles.tableRow}>
-            <Text style={[styles.tableCell, { width: "50%" }]}>
-              Por hora excedente
-            </Text>
-            <Text style={[styles.tableCell, { width: "50%" }]}>
-              {horaExtra}
-            </Text>
-          </View>
-        </View>
-      ) : null}
       {notes.map((note) => (
         <Text key={note} style={styles.paragraph}>
           {note}

@@ -102,66 +102,32 @@ function getFieldFromBlock(content: string, label: string) {
   return line?.split(":").slice(1).join(":").trim() || "";
 }
 
-function renderHeaderBlock(data: PropostaRenderData, content: string) {
-  const lines = content
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const intro = lines.slice(6).join("\n");
-
-  return `<header class="proposal-header">
-    <div class="brand-row">
-      <div>
-        <strong>Villa Empreendimentos</strong>
-        <span>Locação e venda de equipamentos para concreto</span>
-      </div>
-      <div class="proposal-number">Proposta Nº ${escapeHtml(data.numeroProposta)}</div>
-    </div>
-    <p class="date-line">Recife, ${escapeHtml(formatDate(data.data ?? new Date()))}.</p>
-    <div class="recipient">
-      <p>À</p>
-      <p><strong>${escapeHtml(data.cliente)}</strong></p>
-      <p><strong>Obra:</strong> ${escapeHtml(data.obra)}</p>
-      <p><strong>Fone:</strong> ${escapeHtml(data.telefone || getFieldFromBlock(content, "Fone") || "Não informado")}</p>
-      <p><strong>Email:</strong> ${escapeHtml(data.email || getFieldFromBlock(content, "Email") || "Não informado")}</p>
-    </div>
-    <div class="intro">${paragraph(intro)}</div>
-  </header>`;
+function renderHeaderBlock() {
+  // O cabeçalho é renderizado pelo prop-header/prop-client-bar em renderPropostaHtml
+  // Este bloco gera apenas a saudação inicial
+  return "";
 }
 
 function renderPriceBlock(content: string) {
-  const quantidade = getFieldFromBlock(content, "Qtd.");
-  const descricao = getFieldFromBlock(content, "Descrição") || getFieldFromBlock(content, "Descricao");
-  const horas = getFieldFromBlock(content, "Horas Garantidas");
-  const precoUnitario = getFieldFromBlock(content, "Preço Unit./mês") || getFieldFromBlock(content, "Preco Unit./mes");
-  const precoTotal = getFieldFromBlock(content, "Preço Total/mês") || getFieldFromBlock(content, "Preco Total/mes");
-  const horaExtra = getFieldFromBlock(content, "Hora Extra/h");
+  const rows = [
+    getFieldFromBlock(content, "Qtd."),
+    getFieldFromBlock(content, "Descrição") ||
+      getFieldFromBlock(content, "Descricao"),
+    getFieldFromBlock(content, "Horas Garantidas"),
+    getFieldFromBlock(content, "Preço Unit./mês") ||
+      getFieldFromBlock(content, "Preco Unit./mes"),
+    getFieldFromBlock(content, "Preço Total/mês") ||
+      getFieldFromBlock(content, "Preco Total/mes"),
+    getFieldFromBlock(content, "Hora Extra/h"),
+  ];
   const observacoes = content
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.startsWith("Obs."));
 
-  const horaExtraTable = horaExtra && horaExtra !== "Nao informado"
-    ? `<table class="price-table" style="margin-top:10px">
-      <thead>
-        <tr>
-          <th>Hora Extra</th>
-          <th>Valor por hora excedente</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Por hora excedente</td>
-          <td>${escapeHtml(horaExtra)}</td>
-        </tr>
-      </tbody>
-    </table>`
-    : "";
-
-  return `<section class="document-section price-section">
-    <h2>4. Preços</h2>
+  return `<div class="section">4. Preços</div>
     <p>Os preços ofertados nesta proposta serão os seguintes:</p>
-    <table class="price-table">
+    <table class="ptab">
       <thead>
         <tr>
           <th>Qtd.</th>
@@ -169,21 +135,22 @@ function renderPriceBlock(content: string) {
           <th>Horas Garantidas</th>
           <th>Preço Unit./mês</th>
           <th>Preço Total/mês</th>
+          <th>Hora Extra/h</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>${escapeHtml(quantidade)}</td>
-          <td>${escapeHtml(descricao)}</td>
-          <td>${escapeHtml(horas)}</td>
-          <td>${escapeHtml(precoUnitario)}</td>
-          <td>${escapeHtml(precoTotal)}</td>
+          ${rows
+            .map((value, index) =>
+              index === 4
+                ? `<td class="tot">${escapeHtml(value)}</td>`
+                : `<td>${escapeHtml(value)}</td>`,
+            )
+            .join("")}
         </tr>
       </tbody>
     </table>
-    ${horaExtraTable}
-    ${observacoes.map((line) => `<p class="note">${escapeHtml(line)}</p>`).join("")}
-  </section>`;
+    ${observacoes.map((line) => `<p class="obs">${escapeHtml(line)}</p>`).join("")}`;
 }
 
 function renderSignatureBlock(data: PropostaRenderData, content: string) {
@@ -231,7 +198,7 @@ function renderGovernedBlocks(data: PropostaRenderData) {
     .sort((left, right) => left.ordem - right.ordem)
     .map((bloco) => {
       if (bloco.chave === "cabecalho") {
-        return renderHeaderBlock(data, bloco.conteudoAtual);
+        return renderHeaderBlock();
       }
 
       if (bloco.chave === "precos") {
@@ -284,79 +251,120 @@ export function buildPropostaVariaveis(
 export function renderPropostaHtml(data: PropostaRenderData) {
   const template = getPropostaTemplate(data.templateUtilizado);
   const variaveis = buildPropostaVariaveis(data);
-  const titulo = template?.titulo ?? "Proposta comercial Villa";
-  const descricao = template?.descricao ?? "Proposta comercial Villa.";
   const escopo = template?.escopo ?? [];
   const observacoesTecnicas =
     data.observacoesTecnicas || template?.observacoesTecnicasPadrao;
   const condicoesPagamento =
     data.condicoesPagamento || template?.condicoesPagamentoPadrao;
 
+  const css = `
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; font-size: 10.5pt; color: #000; background: white; }
+
+      /* Banner topo */
+      .prop-header { background: #1A2E5A; padding: 18px 2.2cm; display: flex; justify-content: space-between; align-items: flex-start; }
+      .prop-empresa { color: white; font-size: 16pt; font-weight: 700; letter-spacing: 0.5px; }
+      .prop-sub { color: rgba(255,255,255,0.62); font-size: 9pt; margin-top: 3px; }
+      .prop-num-box { background: #1E4FAB; border: 1.5px solid rgba(255,255,255,0.28); color: white; padding: 7px 16px; border-radius: 5px; text-align: center; min-width: 170px; }
+      .prop-num-label { font-size: 7.5pt; letter-spacing: 0.8px; text-transform: uppercase; opacity: 0.8; }
+      .prop-num-val { font-size: 12pt; font-weight: 700; margin-top: 3px; }
+
+      /* Barra cliente */
+      .prop-client-bar { background: #F0F4FA; border-bottom: 2.5px solid #1A2E5A; padding: 9px 2.2cm; font-size: 9.5pt; color: #333; line-height: 1.65; }
+
+      /* Conteúdo */
+      .prop-content { padding: 18px 2.2cm 2cm; }
+      p { margin-bottom: 7px; text-align: justify; line-height: 1.55; font-size: 10.5pt; }
+
+      /* Seções com borda esquerda */
+      .section { font-size: 10pt; font-weight: 700; color: #1A2E5A; margin: 14px 0 5px; text-transform: uppercase; letter-spacing: 0.7px; border-left: 3px solid #1E4FAB; padding-left: 8px; }
+
+      ul.clausulas { margin: 4px 0 8px 0; padding: 0; }
+      ul.clausulas li { list-style: none; padding: 2px 0 2px 14px; position: relative; line-height: 1.5; text-align: justify; font-size: 10.5pt; }
+      ul.clausulas li::before { content: "•"; position: absolute; left: 0; color: #1E4FAB; font-weight: 700; }
+
+      /* Tabelas */
+      table.ptab { width: 100%; border-collapse: collapse; margin: 8px 0 4px; font-size: 10pt; }
+      table.ptab th { background: #1A2E5A; color: white; padding: 8px 10px; text-align: left; font-size: 9.5pt; }
+      table.ptab td { padding: 6px 10px; border-bottom: 1px solid #ddd; }
+      table.ptab tr:nth-child(even) td { background: #F5F8FF; }
+      table.ptab .tot { font-weight: 700; color: #1A2E5A; background: #EEF3FF !important; }
+
+      .obs { font-size: 9pt; color: #333; margin: 3px 0 3px 6px; line-height: 1.5; }
+      .obs strong { color: #1A2E5A; }
+
+      /* Assinatura */
+      .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 16px; }
+      .sig-box { border-top: 2px solid #1A2E5A; padding-top: 8px; font-size: 9.5pt; line-height: 1.8; }
+      .sig-villa { margin-top: 24px; font-size: 10pt; }
+      .testemunhas { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; font-size: 9pt; }
+      .test-box { border-top: 1px solid #bbb; padding-top: 5px; color: #444; }
+
+      /* Rodapé azul */
+      .prop-footer { background: #1A2E5A; color: rgba(255,255,255,0.65); font-size: 8.5pt; text-align: center; padding: 9px 2.2cm; margin-top: 32px; letter-spacing: 0.3px; }
+
+      .btn-print { background: #1E4FAB; color: white; border: none; padding: 10px 22px; border-radius: 6px; font-size: 13px; cursor: pointer; margin-bottom: 18px; display: block; }
+      @media print { .btn-print { display: none !important; } body { background: white; } }
+    </style>`;
+
+  const headerHtml = `
+  <div class="prop-header">
+    <div>
+      <div class="prop-empresa">VILLA EMPREENDIMENTOS</div>
+      <div class="prop-sub">Locação de Equipamentos para Construção Civil</div>
+    </div>
+    <div class="prop-num-box">
+      <div class="prop-num-label">Proposta N.º</div>
+      <div class="prop-num-val">${escapeHtml(data.numeroProposta)}</div>
+    </div>
+  </div>
+  <div class="prop-client-bar">
+    <strong>${escapeHtml(variaveis.cliente)}</strong> &nbsp;·&nbsp;
+    <strong>Obra:</strong> ${escapeHtml(variaveis.obra)} &nbsp;·&nbsp;
+    <strong>Tel:</strong> ${escapeHtml(variaveis.telefone)} &nbsp;·&nbsp;
+    <strong>E-mail:</strong> ${escapeHtml(variaveis.email)} &nbsp;·&nbsp;
+    Recife, ${escapeHtml(variaveis.data)}
+  </div>`;
+
+  const footerHtml = `
+  <div class="prop-footer">
+    comercial@villaempreendimentos.com.br &nbsp;·&nbsp; logistica@villaempreendimentos.com.br &nbsp;·&nbsp; marcio@villaempreendimentos.com.br &nbsp;·&nbsp; Bezerros – PE
+  </div>`;
+
+  const bodyContent = data.blocos?.length
+    ? renderGovernedBlocks(data)
+    : `<div class="section">Escopo</div><ul class="clausulas">${escopo.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+
+  const extras = [
+    data.observacoesComerciais
+      ? `<div class="section">Observações Comerciais</div><p>${paragraph(data.observacoesComerciais)}</p>`
+      : "",
+    observacoesTecnicas
+      ? `<div class="section">Observações Técnicas</div><p>${paragraph(observacoesTecnicas)}</p>`
+      : "",
+    condicoesPagamento
+      ? `<div class="section">Condições de Pagamento</div><p>${paragraph(condicoesPagamento)}</p>`
+      : "",
+  ].join("");
+
   return `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <title>${escapeHtml(data.numeroProposta)} v${data.versao}</title>
-    <style>
-      @page { size: A4; margin: 18mm; }
-      * { box-sizing: border-box; }
-      body { margin: 0; background: #F4F6FA; color: #111827; font-family: "Open Sans", Arial, sans-serif; }
-      .page { width: 210mm; min-height: 297mm; margin: 24px auto; background: #fff; padding: 22mm 20mm; box-shadow: 0 18px 50px rgba(26, 46, 90, .14); }
-      .brand-row { border-bottom: 2px solid #1A2E5A; color: #1A2E5A; display: flex; justify-content: space-between; gap: 24px; padding-bottom: 12px; }
-      .brand-row strong { display: block; font: 700 16px Montserrat, Arial, sans-serif; letter-spacing: .02em; text-transform: uppercase; }
-      .brand-row span { color: #475467; display: block; font-size: 10px; margin-top: 3px; }
-      .proposal-number { font-weight: 700; text-align: right; white-space: nowrap; }
-      .date-line { margin: 18px 0 20px; text-align: right; }
-      .recipient { line-height: 1.45; margin-bottom: 20px; }
-      .recipient p, .intro p, .document-section p { margin: 0 0 8px; }
-      .intro { margin-top: 18px; }
-      h2 { color: #1A2E5A; font: 700 14px Montserrat, Arial, sans-serif; margin: 0 0 10px; text-transform: none; }
-      p { color: #202938; font-size: 11px; line-height: 1.55; text-align: justify; }
-      .document-section { margin-top: 16px; page-break-inside: avoid; }
-      .price-table { border-collapse: collapse; font-size: 10px; margin: 10px 0 12px; width: 100%; }
-      .price-table th { background: #1A2E5A; color: #fff; font-weight: 700; text-align: left; }
-      .price-table th, .price-table td { border: 1px solid #98A2B3; padding: 7px 8px; vertical-align: top; }
-      .price-table td:last-child, .price-table th:last-child { text-align: right; }
-      .note { font-size: 10px; }
-      .signature-grid, .witness-grid { display: grid; gap: 22px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 20px; }
-      .signature-box { min-height: 190px; }
-      .signature-line { border-top: 1px solid #111827; margin: 34px 0 6px; }
-      .stamp-line { border-top: 1px solid #111827; margin: 22px 0 6px; }
-      .closing { margin-top: 24px; }
-      .closing p { margin-bottom: 3px; text-align: left; }
-      .witness-grid { margin-top: 18px; }
-      .footer { border-top: 1px solid #D7DEEA; color: #667085; font-size: 9px; margin-top: 28px; padding-top: 10px; text-align: center; }
-      @media print { body { background: #fff; } .page { box-shadow: none; margin: 0; width: auto; min-height: auto; } }
-    </style>
+    <title>Proposta ${escapeHtml(data.numeroProposta)}</title>
+    ${css}
   </head>
   <body>
-    <main class="page">
-      <section class="content">
-        ${
-          data.blocos?.length
-            ? renderGovernedBlocks(data)
-            : `<h2>Escopo previsto</h2><ul>${escopo.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
-        }
-        ${
-          data.observacoesComerciais
-            ? `<h2>Observacoes comerciais</h2><p>${paragraph(data.observacoesComerciais)}</p>`
-            : ""
-        }
-        ${
-          observacoesTecnicas
-            ? `<h2>Observacoes tecnicas</h2><p>${paragraph(observacoesTecnicas)}</p>`
-            : ""
-        }
-        ${
-          condicoesPagamento
-            ? `<h2>Condicoes de pagamento</h2><p>${paragraph(condicoesPagamento)}</p>`
-            : ""
-        }
-      </section>
-      <footer class="footer">
-        ${escapeHtml(titulo)} - ${escapeHtml(descricao)} - Documento gerado em ${escapeHtml(variaveis.data)}.
-      </footer>
-    </main>
+    ${headerHtml}
+    <div class="prop-content">
+      <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
+      <p>Prezado(a) Cliente,</p>
+      <p>Conforme solicitação de V. Sa., temos o prazer de apresentar nossa proposta de locação de <strong>${escapeHtml(variaveis.tipo_servico)}</strong>, conforme segue:</p>
+      ${bodyContent}
+      ${extras}
+    </div>
+    ${footerHtml}
   </body>
 </html>`;
 }

@@ -131,8 +131,11 @@ export async function POST(
       );
     }
 
+    const valorTotalCalculado =
+      Math.round(Number(data.quantidade) * data.precoUnitario * 100) / 100;
     const snapshotInput = {
       ...data,
+      valorTotal: valorTotalCalculado,
       numeroProposta,
       versao,
     };
@@ -149,7 +152,7 @@ export async function POST(
       const created = await tx.propostaComercial.create({
         data: {
           templateUtilizado: data.templateUtilizado,
-          valorTotal: data.valorTotal,
+          valorTotal: valorTotalCalculado,
           validadeProposta: data.validadeProposta,
           prazoExecucao: data.prazoExecucao,
           observacoesComerciais: data.observacoesComerciais,

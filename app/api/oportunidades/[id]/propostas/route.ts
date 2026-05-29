@@ -133,6 +133,17 @@ export async function POST(
 
     const valorTotalCalculado =
       Math.round(Number(data.quantidade) * data.precoUnitario * 100) / 100;
+
+    if (Math.abs(valorTotalCalculado - data.valorTotal) > 0.01) {
+      return NextResponse.json(
+        {
+          message:
+            "O valor total da proposta deve ser igual a quantidade multiplicada pelo valor unitario.",
+        },
+        { status: 400 },
+      );
+    }
+
     const snapshotInput = {
       ...data,
       valorTotal: valorTotalCalculado,

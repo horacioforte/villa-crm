@@ -35,7 +35,9 @@ import {
 type OportunidadeProposta = {
   id: string;
   titulo: string;
+  tipo: "LOCACAO" | "VENDA";
   valor: string | number | null;
+  equipamentoId: string | null;
   empresa: {
     razaoSocial: string;
     nomeFantasia: string | null;
@@ -50,6 +52,7 @@ type OportunidadeProposta = {
   responsavel: {
     nome: string;
   } | null;
+  equipamento: EquipamentoProposta | null;
 };
 
 type PropostaModalProps = {
@@ -59,10 +62,22 @@ type PropostaModalProps = {
   onSalvar: () => void;
 };
 
+type EquipamentoProposta = {
+  id: string;
+  codigo: string;
+  codigoInterno?: string;
+  nome: string;
+  tipo: "BOMBA_CONCRETO" | "BETONEIRA" | "OUTRO";
+  status: "DISPONIVEL" | "LOCADO" | "MANUTENCAO" | "VENDIDO" | "INATIVO";
+  valorLocacao: string | number | null;
+  valorVenda: string | number | null;
+};
+
 const templateItems = PROPOSTA_TEMPLATES.map((template) => ({
   label: template.nome,
   value: template.id,
 }));
+const MANUAL_EQUIPAMENTO_VALUE = "manual";
 
 function parseCurrencyInput(value: string) {
   const sanitized = value.trim().replace(/[^\d,.-]/g, "");
@@ -115,6 +130,33 @@ function formatCurrencyInput(value: number | null) {
   }).format(value);
 }
 
+function getEquipamentoCodigo(equipamento: EquipamentoProposta) {
+  return equipamento.codigoInterno ?? equipamento.codigo;
+}
+
+function getEquipamentoLabel(equipamento: EquipamentoProposta) {
+  const codigo = getEquipamentoCodigo(equipamento);
+
+  return codigo ? `${equipamento.nome} - ${codigo}` : equipamento.nome;
+}
+
+function getEquipamentoPreco(
+  equipamento: EquipamentoProposta,
+  tipoOportunidade: OportunidadeProposta["tipo"] | null | undefined,
+) {
+  const valorPreferencial =
+    tipoOportunidade === "VENDA"
+      ? equipamento.valorVenda
+      : equipamento.valorLocacao;
+  const parsed = parseCurrencyInput(String(valorPreferencial ?? ""));
+
+  if (!Number.isNaN(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  return null;
+}
+
 export function PropostaModal({
   aberto,
   oportunidadeId,
@@ -123,6 +165,10 @@ export function PropostaModal({
 }: PropostaModalProps) {
   const [oportunidade, setOportunidade] = useState<OportunidadeProposta | null>(
     null,
+  );
+  const [equipamentos, setEquipamentos] = useState<EquipamentoProposta[]>([]);
+  const [equipamentoSelecionadoId, setEquipamentoSelecionadoId] = useState(
+    MANUAL_EQUIPAMENTO_VALUE,
   );
   const [templateUtilizado, setTemplateUtilizado] = useState(
     PROPOSTA_TEMPLATES[0].id,
@@ -155,23 +201,63 @@ export function PropostaModal({
       setIsLoading(true);
 
       try {
-        const response = await fetch(`/api/oportunidades/${oportunidadeId}`);
+        const [oportunidadeResponse, equipamentosResponse] = await Promise.all([
+          fetch(`/api/oportunidades/${oportunidadeId}`),
+          fetch("/api/equipamentos"),
+        ]);
 
-        if (!response.ok) {
+        if (!oportunidadeResponse.ok || !equipamentosResponse.ok) {
           throw new Error("Falha ao carregar oportunidade.");
         }
 
-        const data = await response.json();
+        const [data, equipamentosData] = await Promise.all([
+          oportunidadeResponse.json(),
+          equipamentosResponse.json(),
+        ]);
         const initialTemplate = getPropostaTemplate(PROPOSTA_TEMPLATES[0].id);
+        const equipamentosDisponiveis = Array.isArray(equipamentosData)
+          ? equipamentosData
+          : [];
+        const equipamentosComVinculado =
+          data.equipamento &&
+          !equipamentosDisponiveis.some(
+            (equipamento: EquipamentoProposta) =>
+              equipamento.id === data.equipamento.id,
+          )
+            ? [data.equipamento, ...equipamentosDisponiveis]
+            : equipamentosDisponiveis;
+        const equipamentoInicial = data.equipamentoId
+          ? equipamentosComVinculado.find(
+              (equipamento: EquipamentoProposta) =>
+                equipamento.id === data.equipamentoId,
+            )
+          : null;
+        const precoEquipamentoInicial = equipamentoInicial
+          ? getEquipamentoPreco(equipamentoInicial, data.tipo)
+          : null;
+
         setTemplateUtilizado(PROPOSTA_TEMPLATES[0].id);
         setOportunidade(data);
-        setPrecoUnitario(data.valor ? String(data.valor) : "");
+        setEquipamentos(equipamentosComVinculado);
+        setEquipamentoSelecionadoId(
+          equipamentoInicial?.id ?? MANUAL_EQUIPAMENTO_VALUE,
+        );
+        setDescricaoComercial(
+          equipamentoInicial?.nome ?? "Caminhão Betoneira - 8m3",
+        );
+        setPrecoUnitario(
+          precoEquipamentoInicial !== null
+            ? formatCurrencyInput(precoEquipamentoInicial)
+            : data.valor
+              ? String(data.valor)
+              : "",
+        );
         setTelefone(data.empresa?.telefone ?? "");
         setEmail(data.empresa?.email ?? "");
         setCondicoesPagamento(initialTemplate?.condicoesPagamentoPadrao ?? "");
         setObservacoesTecnicas(initialTemplate?.observacoesTecnicasPadrao ?? "");
       } catch {
-        toast.error("Nao foi possivel carregar dados da oportunidade.");
+        toast.error("Nao foi possivel carregar dados da proposta.");
       } finally {
         setIsLoading(false);
       }
@@ -196,6 +282,34 @@ export function PropostaModal({
 
     return Math.round(quantidadeCalculada * precoUnitarioCalculado * 100) / 100;
   }, [precoUnitarioCalculado, quantidadeCalculada]);
+  const equipamentoSelecionado = useMemo(
+    () =>
+      equipamentos.find(
+        (equipamento) => equipamento.id === equipamentoSelecionadoId,
+      ) ?? null,
+    [equipamentoSelecionadoId, equipamentos],
+  );
+
+  function handleEquipamentoChange(value: string | null) {
+    const nextValue = value ?? MANUAL_EQUIPAMENTO_VALUE;
+    const equipamento = equipamentos.find((item) => item.id === nextValue);
+
+    setEquipamentoSelecionadoId(nextValue);
+
+    if (!equipamento) {
+      return;
+    }
+
+    const precoEquipamento = getEquipamentoPreco(equipamento, oportunidade?.tipo);
+
+    setDescricaoComercial(equipamento.nome);
+
+    if (precoEquipamento !== null) {
+      setPrecoUnitario(formatCurrencyInput(precoEquipamento));
+    } else {
+      setPrecoUnitario("");
+    }
+  }
 
   const previewHtml = useMemo(() => {
     if (!oportunidade) {
@@ -411,6 +525,34 @@ export function PropostaModal({
                 </dl>
               </div>
 
+              <Field label="Equipamento/serviço">
+                <Select
+                  value={equipamentoSelecionadoId}
+                  onValueChange={handleEquipamentoChange}
+                >
+                  <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
+                    <SelectValue placeholder="Selecione o equipamento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={MANUAL_EQUIPAMENTO_VALUE}>
+                      Preencher manualmente
+                    </SelectItem>
+                    {equipamentos.map((equipamento) => (
+                      <SelectItem key={equipamento.id} value={equipamento.id}>
+                        {getEquipamentoLabel(equipamento)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {equipamentoSelecionado &&
+                getEquipamentoPreco(equipamentoSelecionado, oportunidade?.tipo) ===
+                  null ? (
+                  <p className="mt-2 text-xs text-[#667085]">
+                    Este equipamento nao tem valor cadastrado para esta operacao.
+                    Informe o valor unitario manualmente.
+                  </p>
+                ) : null}
+              </Field>
               <Field label="Quantidade">
                 <Input
                   inputMode="numeric"

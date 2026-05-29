@@ -464,15 +464,17 @@ export function PropostaModal({
         }
       }}
     >
-      <DialogContent className="max-h-[92vh] overflow-y-auto rounded-3xl p-6 sm:max-w-6xl">
+      <DialogContent className="max-h-[92vh] w-[calc(100vw-1.5rem)] overflow-hidden rounded-3xl p-0 sm:max-w-6xl">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-[#1A2E5A]">
-            Gerar proposta comercial
-          </DialogTitle>
-          <DialogDescription>
-            Selecione o modelo Villa, revise os dados herdados e salve o
-            rascunho da proposta.
-          </DialogDescription>
+          <div className="px-5 pt-5 sm:px-6 sm:pt-6">
+            <DialogTitle className="text-2xl font-bold text-[#1A2E5A]">
+              Gerar proposta comercial
+            </DialogTitle>
+            <DialogDescription>
+              Selecione o modelo Villa, revise os dados herdados e salve o
+              rascunho da proposta.
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
         {isLoading ? (
@@ -481,8 +483,8 @@ export function PropostaModal({
             Carregando proposta...
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-            <div className="space-y-4">
+          <div className="grid max-h-[calc(92vh-9rem)] min-h-0 gap-0 overflow-hidden lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
+            <div className="min-w-0 space-y-4 overflow-y-auto border-b border-[#D7DEEA] px-5 py-4 sm:px-6 lg:border-r lg:border-b-0">
               <Field label="Template">
                 <Select
                   items={templateItems}
@@ -658,13 +660,13 @@ export function PropostaModal({
               </Field>
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 overflow-y-auto bg-[#F4F6FA] px-4 py-4 sm:px-6">
               <PropostaPreview html={previewHtml} />
             </div>
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="border-t border-[#D7DEEA] px-5 py-4 sm:px-6">
           <Button
             type="button"
             variant="outline"

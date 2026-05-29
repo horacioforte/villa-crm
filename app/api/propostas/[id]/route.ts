@@ -181,6 +181,8 @@ export async function PATCH(request: Request, context: PropostaRouteContext) {
           data.condicoesPagamento === undefined
             ? before.condicoesPagamento
             : data.condicoesPagamento,
+        horaExtra:
+          data.horaExtra === undefined ? before.horaExtra : data.horaExtra,
       };
 
       const htmlSnapshot = buildPropostaHtmlSnapshot(

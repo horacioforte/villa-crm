@@ -19,6 +19,7 @@ export type PropostaRenderData = {
   descricaoComercial?: string | null;
   horasGarantidas?: string | null;
   precoUnitario?: DecimalLike | null;
+  horaExtra?: DecimalLike | null;
   valorTotal: DecimalLike;
   validadeProposta: Date | string;
   prazoExecucao?: string | null;
@@ -49,6 +50,7 @@ export type PropostaVariaveisRenderizadas = {
   horas_garantidas: string;
   preco_unitario: string;
   valor: string;
+  hora_extra: string;
   prazo: string;
   validade: string;
   responsavel: string;
@@ -133,10 +135,28 @@ function renderPriceBlock(content: string) {
   const horas = getFieldFromBlock(content, "Horas Garantidas");
   const precoUnitario = getFieldFromBlock(content, "Preço Unit./mês") || getFieldFromBlock(content, "Preco Unit./mes");
   const precoTotal = getFieldFromBlock(content, "Preço Total/mês") || getFieldFromBlock(content, "Preco Total/mes");
+  const horaExtra = getFieldFromBlock(content, "Hora Extra/h");
   const observacoes = content
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.startsWith("Obs."));
+
+  const horaExtraTable = horaExtra && horaExtra !== "Nao informado"
+    ? `<table class="price-table" style="margin-top:10px">
+      <thead>
+        <tr>
+          <th>Hora Extra</th>
+          <th>Valor por hora excedente</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Por hora excedente</td>
+          <td>${escapeHtml(horaExtra)}</td>
+        </tr>
+      </tbody>
+    </table>`
+    : "";
 
   return `<section class="document-section price-section">
     <h2>4. Preços</h2>
@@ -161,6 +181,7 @@ function renderPriceBlock(content: string) {
         </tr>
       </tbody>
     </table>
+    ${horaExtraTable}
     ${observacoes.map((line) => `<p class="note">${escapeHtml(line)}</p>`).join("")}
   </section>`;
 }
@@ -249,6 +270,10 @@ export function buildPropostaVariaveis(
       ? formatCurrency(data.precoUnitario)
       : formatCurrency(data.valorTotal),
     valor: formatCurrency(data.valorTotal),
+    hora_extra:
+      data.horaExtra === null || data.horaExtra === undefined
+        ? "Nao informado"
+        : formatCurrency(data.horaExtra),
     prazo: data.prazoExecucao || "A definir",
     validade: formatDate(data.validadeProposta),
     responsavel: data.responsavel || "Equipe Comercial Villa",

@@ -62,6 +62,32 @@ const requiredDecimal = z
     return parsed;
   });
 
+const optionalDecimal = z
+  .union([z.string(), z.number(), z.null()])
+  .optional()
+  .transform((value, ctx) => {
+    if (
+      value === null ||
+      value === undefined ||
+      (typeof value === "string" && value.trim() === "")
+    ) {
+      return null;
+    }
+
+    const parsed =
+      typeof value === "number" ? value : Number(value.trim().replace(",", "."));
+
+    if (Number.isNaN(parsed) || parsed < 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Informe um valor valido.",
+      });
+      return z.NEVER;
+    }
+
+    return parsed;
+  });
+
 const requiredDate = z
   .union([z.string(), z.date()])
   .transform((value, ctx) => {
@@ -87,6 +113,7 @@ export const propostaCreateSchema = z.object({
   descricaoComercial: optionalText,
   horasGarantidas: optionalText,
   precoUnitario: optionalText,
+  horaExtra: optionalDecimal,
   telefone: optionalText,
   email: optionalText,
   observacoesComerciais: optionalText,

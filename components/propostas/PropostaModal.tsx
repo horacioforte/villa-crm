@@ -96,6 +96,7 @@ export function PropostaModal({
   );
   const [horasGarantidas, setHorasGarantidas] = useState("180h");
   const [precoUnitario, setPrecoUnitario] = useState("");
+  const [horaExtra, setHoraExtra] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [validadeProposta, setValidadeProposta] = useState(
@@ -165,6 +166,7 @@ export function PropostaModal({
       horas_garantidas: horasGarantidas,
       preco_unitario: formatPreviewCurrency(precoUnitarioPreview),
       valor: formatPreviewCurrency(valorTotalPreview),
+      hora_extra: horaExtra ? formatPreviewCurrency(horaExtra) : "",
       prazo: prazoExecucao,
       validade: validadeProposta,
       responsavel: oportunidade.responsavel?.nome ?? "Equipe Comercial Villa",
@@ -186,6 +188,7 @@ export function PropostaModal({
       descricaoComercial,
       horasGarantidas,
       precoUnitario: precoUnitarioPreview,
+      horaExtra,
       valorTotal: valorTotal || 0,
       validadeProposta,
       prazoExecucao,
@@ -199,6 +202,7 @@ export function PropostaModal({
     condicoesPagamento,
     descricaoComercial,
     email,
+    horaExtra,
     horasGarantidas,
     observacoesComerciais,
     observacoesTecnicas,
@@ -211,6 +215,24 @@ export function PropostaModal({
     validadeProposta,
     valorTotal,
   ]);
+
+  function handlePrecoUnitarioChange(value: string) {
+    setPrecoUnitario(value);
+    const qtd = Number(quantidade.replace(",", ".")) || 1;
+    const preco = Number(value.replace(",", "."));
+    if (!Number.isNaN(preco) && preco > 0) {
+      setValorTotal(String(qtd * preco));
+    }
+  }
+
+  function handleQuantidadeChange(value: string) {
+    setQuantidade(value);
+    const qtd = Number(value.replace(",", ".")) || 1;
+    const preco = Number(precoUnitario.replace(",", "."));
+    if (!Number.isNaN(preco) && preco > 0) {
+      setValorTotal(String(qtd * preco));
+    }
+  }
 
   async function handleSalvar() {
     if (!oportunidade?.obra) {
@@ -235,6 +257,7 @@ export function PropostaModal({
             descricaoComercial,
             horasGarantidas,
             precoUnitario: precoUnitario || valorTotal,
+            horaExtra: horaExtra || null,
             telefone,
             email,
             validadeProposta,
@@ -347,7 +370,7 @@ export function PropostaModal({
               <Field label="Quantidade">
                 <Input
                   value={quantidade}
-                  onChange={(event) => setQuantidade(event.target.value)}
+                  onChange={(event) => handleQuantidadeChange(event.target.value)}
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
                 />
               </Field>
@@ -372,7 +395,17 @@ export function PropostaModal({
                   type="number"
                   step="0.01"
                   value={precoUnitario}
-                  onChange={(event) => setPrecoUnitario(event.target.value)}
+                  onChange={(event) => handlePrecoUnitarioChange(event.target.value)}
+                  className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+              <Field label="Hora extra (R$/h)">
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="Ex: 166.67"
+                  value={horaExtra}
+                  onChange={(event) => setHoraExtra(event.target.value)}
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
                 />
               </Field>

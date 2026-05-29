@@ -195,6 +195,7 @@ function PriceBlock({ content }: { content: string }) {
     getFieldFromBlock(content, "Preço Unit./mês") || getFieldFromBlock(content, "Preco Unit./mes"),
     getFieldFromBlock(content, "Preço Total/mês") || getFieldFromBlock(content, "Preco Total/mes"),
   ];
+  const horaExtra = getFieldFromBlock(content, "Hora Extra/h");
   const widths = ["10%", "34%", "18%", "19%", "19%"];
   const notes = content
     .split("\n")
@@ -223,6 +224,26 @@ function PriceBlock({ content }: { content: string }) {
           ))}
         </View>
       </View>
+      {horaExtra && horaExtra !== "Nao informado" ? (
+        <View style={styles.table}>
+          <View style={styles.tableRow}>
+            <Text style={[styles.tableHeaderCell, { width: "50%" }]}>
+              Hora Extra
+            </Text>
+            <Text style={[styles.tableHeaderCell, { width: "50%" }]}>
+              Valor por hora excedente
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={[styles.tableCell, { width: "50%" }]}>
+              Por hora excedente
+            </Text>
+            <Text style={[styles.tableCell, { width: "50%" }]}>
+              {horaExtra}
+            </Text>
+          </View>
+        </View>
+      ) : null}
       {notes.map((note) => (
         <Text key={note} style={styles.paragraph}>
           {note}

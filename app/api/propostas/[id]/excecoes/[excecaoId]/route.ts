@@ -125,6 +125,7 @@ export async function PATCH(
           observacoesComerciais: before.observacoesComerciais,
           observacoesTecnicas: before.observacoesTecnicas,
           condicoesPagamento: before.condicoesPagamento,
+          horaExtra: before.horaExtra,
           createdAt: before.createdAt,
           blocos,
         },

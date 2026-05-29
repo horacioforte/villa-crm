@@ -9,6 +9,8 @@ import {
   type PropostaBlocoSnapshot,
 } from "@/lib/propostas/templates";
 
+type DecimalLike = string | number | { toString(): string };
+
 type OportunidadeProposta = {
   id: string;
   titulo: string;
@@ -49,6 +51,7 @@ type PropostaSnapshotInput = {
   descricaoComercial?: string | null;
   horasGarantidas?: string | null;
   precoUnitario?: string | null;
+  horaExtra?: DecimalLike | null;
   telefone?: string | null;
   email?: string | null;
   blocos?: Array<{
@@ -162,8 +165,14 @@ export function buildPropostaTemplateVariables(
     descricao_comercial:
       proposta.descricaoComercial ?? "Caminhao Betoneira - 8m3",
     horas_garantidas: proposta.horasGarantidas ?? "180h",
-    preco_unitario: proposta.precoUnitario ?? formatCurrency(proposta.valorTotal),
+    preco_unitario: proposta.precoUnitario
+      ? formatCurrency(proposta.precoUnitario)
+      : formatCurrency(proposta.valorTotal),
     valor: formatCurrency(proposta.valorTotal),
+    hora_extra:
+      proposta.horaExtra === null || proposta.horaExtra === undefined
+        ? "Nao informado"
+        : formatCurrency(proposta.horaExtra),
     prazo: proposta.prazoExecucao ?? "A definir",
     validade: formatDate(proposta.validadeProposta),
     responsavel: oportunidade.responsavel?.nome ?? "Equipe Comercial Villa",
@@ -205,6 +214,7 @@ export function buildPropostaHtmlSnapshot(
     descricaoComercial: proposta.descricaoComercial,
     horasGarantidas: proposta.horasGarantidas,
     precoUnitario: proposta.precoUnitario,
+    horaExtra: proposta.horaExtra,
     valorTotal: proposta.valorTotal,
     validadeProposta: proposta.validadeProposta,
     prazoExecucao: proposta.prazoExecucao,

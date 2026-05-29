@@ -17,6 +17,7 @@ export const PROPOSTA_VARIAVEIS = [
   "data",
   "numero_proposta",
   "observacoes_comerciais",
+  "hora_extra",
 ] as const;
 
 export type PropostaVariavel = (typeof PROPOSTA_VARIAVEIS)[number];
@@ -160,6 +161,7 @@ export const PROPOSTA_TEMPLATES = [
         "Horas Garantidas: {{horas_garantidas}}",
         "Preço Unit./mês: {{preco_unitario}}",
         "Preço Total/mês: {{valor}}",
+        "Hora Extra/h: {{hora_extra}}",
         "{{observacoes_comerciais}}",
       ]),
       bloco(60, "observacoes_preco", "Observações de preço", "EDITAVEL_COM_APROVACAO", [

@@ -155,6 +155,7 @@ export async function POST(
           observacoesComerciais: data.observacoesComerciais,
           observacoesTecnicas: data.observacoesTecnicas,
           condicoesPagamento: data.condicoesPagamento,
+          horaExtra: data.horaExtra,
           numeroProposta,
           versao,
           htmlSnapshot,

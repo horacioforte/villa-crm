@@ -52,6 +52,7 @@ export async function GET(request: Request, context: PropostaPdfRouteContext) {
     cidade: proposta.oportunidade.obra?.cidade,
     estado: proposta.oportunidade.obra?.estado,
     valorTotal: proposta.valorTotal,
+    horaExtra: proposta.horaExtra,
     validadeProposta: proposta.validadeProposta,
     prazoExecucao: proposta.prazoExecucao,
     responsavel: proposta.oportunidade.responsavel?.nome,

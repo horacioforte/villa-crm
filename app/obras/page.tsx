@@ -77,6 +77,8 @@ export default function ObrasPage() {
   const router = useRouter();
   const [obras, setObras] = useState<ObraRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const obrasAtivasLabel =
+    obras.length === 1 ? "1 obra ativa" : `${obras.length} obras ativas`;
 
   useEffect(() => {
     async function loadObras() {
@@ -127,7 +129,8 @@ export default function ObrasPage() {
               Obras cadastradas
             </CardTitle>
             <CardDescription>
-              {obras.length} obras ativas no pipeline da Villa.
+              {obrasAtivasLabel} no pipeline da Villa. A coluna final mostra
+              oportunidades vinculadas a cada obra.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -156,7 +159,9 @@ export default function ObrasPage() {
                     <TableHead>Volume m3</TableHead>
                     <TableHead>Prazo</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Oportunidades</TableHead>
+                    <TableHead className="text-right">
+                      Oportunidades vinculadas
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

@@ -57,6 +57,12 @@ enum StatusOportunidade {
   PERDIDA
 }
 
+enum TemperaturaOportunidade {
+  FRIA
+  MEDIA
+  QUENTE
+}
+
 enum StatusPropostaComercial {
   RASCUNHO
   AGUARDANDO_APROVACAO
@@ -298,6 +304,8 @@ model Oportunidade {
   previsaoFechamento DateTime?
   fechadaEm          DateTime?
   ativa              Boolean            @default(true)
+  temperatura        TemperaturaOportunidade?
+  temperaturaMotivo  String?
 
   empresaId String
   empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)

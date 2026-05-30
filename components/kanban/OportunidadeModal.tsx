@@ -77,6 +77,8 @@ type OportunidadeSalva = {
   tipo: TipoOperacao;
   status: StatusOportunidade;
   valor: string | number | null;
+  temperatura?: "FRIA" | "MEDIA" | "QUENTE" | null;
+  temperaturaMotivo?: string | null;
   empresa: {
     razaoSocial: string;
     nomeFantasia: string | null;

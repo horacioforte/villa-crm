@@ -8,7 +8,7 @@ import {
   useDroppable,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { CircleDollarSign, FileText, Loader2, Plus, Target } from "lucide-react";
+import { CircleDollarSign, FileText, Loader2, Plus, Sparkles, Target } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,16 @@ import { PageNavigation } from "@/components/layout/PageNavigation";
 import { statusOportunidadeValues } from "@/lib/validations/oportunidade";
 
 type StatusOportunidade = (typeof statusOportunidadeValues)[number];
+type TemperaturaOportunidade = "FRIA" | "MEDIA" | "QUENTE";
+
+const TEMPERATURA_CONFIG: Record<
+  TemperaturaOportunidade,
+  { emoji: string; label: string; className: string }
+> = {
+  QUENTE: { emoji: "🟢", label: "Quente", className: "bg-emerald-100 text-emerald-700" },
+  MEDIA: { emoji: "🟡", label: "Média", className: "bg-amber-100 text-amber-700" },
+  FRIA: { emoji: "🔴", label: "Fria", className: "bg-red-100 text-red-700" },
+};
 
 type Oportunidade = {
   id: string;
@@ -33,6 +43,8 @@ type Oportunidade = {
   tipo: "LOCACAO" | "VENDA";
   status: StatusOportunidade;
   valor: string | number | null;
+  temperatura: TemperaturaOportunidade | null;
+  temperaturaMotivo: string | null;
   empresa: {
     razaoSocial: string;
     nomeFantasia: string | null;
@@ -193,17 +205,24 @@ export default function OportunidadesPage() {
     setOportunidadeEditandoId(null);
   }
 
-  function handleSalvar(oportunidade: Oportunidade) {
+  function handleSalvar(oportunidade: Omit<Oportunidade, "temperatura" | "temperaturaMotivo"> & { temperatura?: TemperaturaOportunidade | null; temperaturaMotivo?: string | null }) {
     setOportunidades((current) => {
       const exists = current.some((item) => item.id === oportunidade.id);
+      const merged: Oportunidade = {
+        temperatura: null,
+        temperaturaMotivo: null,
+        ...oportunidade,
+      };
 
       if (exists) {
         return current.map((item) =>
-          item.id === oportunidade.id ? oportunidade : item,
+          item.id === oportunidade.id
+            ? { ...item, ...merged }
+            : item,
         );
       }
 
-      return [oportunidade, ...current];
+      return [merged, ...current];
     });
   }
 
@@ -219,6 +238,18 @@ export default function OportunidadesPage() {
   function handleDeletar(id: string) {
     setOportunidades((current) => current.filter((item) => item.id !== id));
     setOportunidadeDetalheId(null);
+  }
+
+  function handleTemperaturaAtualizada(
+    id: string,
+    temperatura: TemperaturaOportunidade,
+    motivo: string | null,
+  ) {
+    setOportunidades((current) =>
+      current.map((item) =>
+        item.id === id ? { ...item, temperatura, temperaturaMotivo: motivo } : item,
+      ),
+    );
   }
 
   return (
@@ -299,6 +330,7 @@ export default function OportunidadesPage() {
                   badgeClassName={column.badgeClassName}
                   onNovo={() => handleAbrirCriacao(column.status)}
                   onAbrirDetalhe={(id) => setOportunidadeDetalheId(id)}
+                  onTemperaturaAtualizada={handleTemperaturaAtualizada}
                   oportunidades={oportunidades.filter(
                     (oportunidade) => oportunidade.status === column.status,
                   )}
@@ -336,6 +368,7 @@ function KanbanColumn({
   oportunidades,
   onNovo,
   onAbrirDetalhe,
+  onTemperaturaAtualizada,
 }: {
   status: StatusOportunidade;
   title: string;
@@ -343,6 +376,7 @@ function KanbanColumn({
   oportunidades: Oportunidade[];
   onNovo: () => void;
   onAbrirDetalhe: (id: string) => void;
+  onTemperaturaAtualizada: (id: string, temperatura: TemperaturaOportunidade, motivo: string | null) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
@@ -382,6 +416,7 @@ function KanbanColumn({
             key={oportunidade.id}
             oportunidade={oportunidade}
             onAbrirDetalhe={onAbrirDetalhe}
+            onTemperaturaAtualizada={onTemperaturaAtualizada}
           />
         ))}
       </div>
@@ -392,10 +427,14 @@ function KanbanColumn({
 function OpportunityCard({
   oportunidade,
   onAbrirDetalhe,
+  onTemperaturaAtualizada,
 }: {
   oportunidade: Oportunidade;
   onAbrirDetalhe: (id: string) => void;
+  onTemperaturaAtualizada: (id: string, temperatura: TemperaturaOportunidade, motivo: string | null) => void;
 }) {
+  const [classificando, setClassificando] = useState(false);
+
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: oportunidade.id,
@@ -412,6 +451,29 @@ function OpportunityCard({
     event.stopPropagation();
     onAbrirDetalhe(oportunidade.id);
   }
+
+  async function handleClassificar(event: React.MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    setClassificando(true);
+    try {
+      const response = await fetch(`/api/oportunidades/${oportunidade.id}/temperatura`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message ?? "Erro ao classificar.");
+      }
+      const data = await response.json();
+      onTemperaturaAtualizada(oportunidade.id, data.temperatura, data.temperaturaMotivo);
+      toast.success("Temperatura classificada pela IA.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao classificar oportunidade.");
+    } finally {
+      setClassificando(false);
+    }
+  }
+
+  const tempConfig = oportunidade.temperatura ? TEMPERATURA_CONFIG[oportunidade.temperatura] : null;
 
   return (
     <Card
@@ -437,7 +499,7 @@ function OpportunityCard({
                 : "bg-emerald-100 text-emerald-700"
             }
           >
-            {oportunidade.tipo === "LOCACAO" ? "Locacao" : "Venda"}
+            {oportunidade.tipo === "LOCACAO" ? "Locação" : "Venda"}
           </Badge>
         </div>
         <CardDescription>
@@ -451,15 +513,43 @@ function OpportunityCard({
           {formatCurrency(oportunidade.valor)}
         </div>
         <div className="mt-4 space-y-1 text-xs text-[#667085]">
-          <p>Contato: {oportunidade.pessoa?.nome ?? "Nao informado"}</p>
-          <p>Obra: {oportunidade.obra?.nome ?? "Nao vinculada"}</p>
+          <p>Contato: {oportunidade.pessoa?.nome ?? "Não informado"}</p>
+          <p>Obra: {oportunidade.obra?.nome ?? "Não vinculada"}</p>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          {tempConfig ? (
+            <Badge
+              variant="secondary"
+              title={oportunidade.temperaturaMotivo ?? undefined}
+              className={`text-xs ${tempConfig.className}`}
+            >
+              {tempConfig.emoji} {tempConfig.label}
+            </Badge>
+          ) : null}
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            disabled={classificando}
+            onClick={handleClassificar}
+            onPointerDown={(event) => event.stopPropagation()}
+            className="ml-auto rounded-full text-[#1E4FAB] hover:bg-[#E8EEFB]"
+            aria-label="Classificar temperatura com IA"
+            title="Classificar temperatura com IA"
+          >
+            {classificando ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+          </Button>
         </div>
         <Button
           type="button"
           size="sm"
           onClick={handleGerarProposta}
           onPointerDown={(event) => event.stopPropagation()}
-          className="mt-4 w-full rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+          className="mt-3 w-full rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
         >
           <FileText className="size-4" />
           Gerar proposta

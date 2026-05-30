@@ -1,8 +1,10 @@
 import type { NextAuthConfig } from "next-auth";
 
 const publicRoutes = ["/login"];
+const authSecret = process.env.AUTH_SECRET ?? "villa-crm-development-secret";
 
 export const authConfig = {
+  secret: authSecret,
   pages: {
     signIn: "/login",
   },

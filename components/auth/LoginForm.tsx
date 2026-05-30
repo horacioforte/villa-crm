@@ -8,6 +8,24 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
+function getSafeRedirectUrl(url: string | null | undefined) {
+  if (!url) {
+    return "/";
+  }
+
+  try {
+    const parsedUrl = new URL(url, window.location.origin);
+
+    if (parsedUrl.origin === window.location.origin) {
+      return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+    }
+  } catch {
+    return "/";
+  }
+
+  return "/";
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -20,9 +38,11 @@ export function LoginForm() {
     setIsSubmitting(true);
 
     try {
+      const callbackUrl = searchParams.get("callbackUrl") ?? "/";
       const result = await signIn("credentials", {
         email,
         senha,
+        callbackUrl,
         redirect: false,
       });
 
@@ -32,7 +52,7 @@ export function LoginForm() {
       }
 
       toast.success("Login realizado com sucesso.");
-      router.push(searchParams.get("callbackUrl") ?? "/");
+      router.replace(getSafeRedirectUrl(result?.url ?? callbackUrl));
       router.refresh();
     } catch {
       toast.error("Nao foi possivel entrar no CRM.");

@@ -32,6 +32,8 @@ const optionalUf = z
     return trimmed;
   });
 
+type ObraDateValue = string | Date | null | undefined;
+
 function parseDateParts(value: string) {
   const trimmed = value.trim();
   const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
@@ -56,7 +58,7 @@ function parseDateParts(value: string) {
   return null;
 }
 
-export function normalizeObraDateInput(value: string | Date | null | undefined) {
+export function normalizeObraDateInput(value: ObraDateValue) {
   if (value === null || value === undefined || value === "") {
     return "";
   }
@@ -75,12 +77,12 @@ export function normalizeObraDateInput(value: string | Date | null | undefined) 
     return null;
   }
 
-  const date = new Date(parts.year, parts.month - 1, parts.day);
+  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
 
   if (
-    date.getFullYear() !== parts.year ||
-    date.getMonth() !== parts.month - 1 ||
-    date.getDate() !== parts.day
+    date.getUTCFullYear() !== parts.year ||
+    date.getUTCMonth() !== parts.month - 1 ||
+    date.getUTCDate() !== parts.day
   ) {
     return null;
   }
@@ -108,7 +110,7 @@ const optionalDate = z
       return z.NEVER;
     }
 
-    return new Date(`${normalized}T00:00:00`);
+    return new Date(`${normalized}T00:00:00.000Z`);
   });
 
 const numericText = z

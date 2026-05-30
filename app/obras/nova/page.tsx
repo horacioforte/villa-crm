@@ -86,6 +86,14 @@ const statusOptions = [
 
 type FieldErrors = Partial<Record<keyof ObraInput, string>>;
 
+function formatDateInput(value: ObraInput["dataInicio"]) {
+  return normalizeObraDateInput(value) ?? "";
+}
+
+function normalizeDateFieldValue(value: string) {
+  return normalizeObraDateInput(value) ?? value;
+}
+
 export default function NovaObraPage() {
   const router = useRouter();
   const [form, setForm] = useState<ObraInput>(initialForm);
@@ -126,6 +134,10 @@ export default function NovaObraPage() {
   function updateField(field: keyof ObraInput, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  function updateDateField(field: "dataInicio" | "dataTermino", value: string) {
+    updateField(field, normalizeDateFieldValue(value));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -312,9 +324,9 @@ export default function NovaObraPage() {
               <Field label="Data inicio" error={errors.dataInicio}>
                 <Input
                   type="date"
-                  value={String(form.dataInicio ?? "")}
+                  value={formatDateInput(form.dataInicio)}
                   onChange={(event) =>
-                    updateField("dataInicio", event.target.value)
+                    updateDateField("dataInicio", event.target.value)
                   }
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
                 />
@@ -323,9 +335,9 @@ export default function NovaObraPage() {
               <Field label="Data fim" error={errors.dataTermino}>
                 <Input
                   type="date"
-                  value={String(form.dataTermino ?? "")}
+                  value={formatDateInput(form.dataTermino)}
                   onChange={(event) =>
-                    updateField("dataTermino", event.target.value)
+                    updateDateField("dataTermino", event.target.value)
                   }
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
                 />

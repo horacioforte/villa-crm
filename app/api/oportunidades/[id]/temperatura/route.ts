@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { TemperaturaOportunidade } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
@@ -117,12 +118,11 @@ MOTIVO: [explicação em uma frase curta em português]`;
       return NextResponse.json({ message: "Resposta inválida da IA." }, { status: 502 });
     }
 
-    const temperatura = temperaturaMatch[1].toUpperCase() as "QUENTE" | "MEDIA" | "FRIA";
+    const temperatura = temperaturaMatch[1].toUpperCase() as TemperaturaOportunidade;
     const motivo = motivoMatch?.[1]?.trim() ?? null;
 
     const updated = await prisma.oportunidade.update({
       where: { id },
-      // @ts-expect-error — campo adicionado via migration; remover após prisma generate
       data: { temperatura, temperaturaMotivo: motivo },
       select: { id: true },
     });

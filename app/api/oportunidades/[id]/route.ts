@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { auditLog } from "@/lib/audit";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { criarTarefaAutomatica } from "@/lib/tarefas/automaticas";
 import { oportunidadePatchSchema } from "@/lib/validations/oportunidade";
 
 type OportunidadeRouteContext = {
@@ -36,6 +37,11 @@ export async function GET(
       responsavel: true,
       equipamento: true,
       historicos: true,
+      tarefas: {
+        select: {
+          status: true,
+        },
+      },
     },
   });
 
@@ -79,6 +85,11 @@ export async function PATCH(
         obra: true,
         responsavel: true,
         equipamento: true,
+        tarefas: {
+          select: {
+            status: true,
+          },
+        },
       },
     });
 
@@ -94,6 +105,15 @@ export async function PATCH(
       userId: authResult.id,
       request,
     });
+
+    if (before?.status !== oportunidade.status && oportunidade.status === "GANHA") {
+      await criarTarefaAutomatica(
+        "OPORTUNIDADE_GANHA",
+        oportunidade.id,
+        oportunidade.responsavelId,
+        authResult.id,
+      );
+    }
 
     return NextResponse.json(oportunidade);
   } catch (error) {

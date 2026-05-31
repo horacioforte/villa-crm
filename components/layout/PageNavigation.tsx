@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   Building2,
+  CalendarCheck,
   ChartNoAxesCombined,
   ClipboardList,
   HardHat,
@@ -17,6 +21,7 @@ const menuItems = [
   { label: "Contatos", href: "/contatos", icon: Users },
   { label: "Obras", href: "/obras", icon: HardHat },
   { label: "Oportunidades", href: "/oportunidades", icon: ClipboardList },
+  { label: "Agenda", href: "/tarefas", icon: CalendarCheck },
   { label: "Equipamentos", href: "/equipamentos", icon: Truck },
   { label: "Usuarios", href: "/usuarios", icon: UserCog },
 ];
@@ -30,6 +35,21 @@ export function PageNavigation({
   currentPage,
   currentHref,
 }: PageNavigationProps) {
+  const [tarefasAtrasadas, setTarefasAtrasadas] = useState(0);
+
+  useEffect(() => {
+    async function loadTarefasAtrasadas() {
+      const response = await fetch("/api/tarefas?status=ATRASADA&periodo=todas");
+
+      if (response.ok) {
+        const data = await response.json();
+        setTarefasAtrasadas(Array.isArray(data) ? data.length : 0);
+      }
+    }
+
+    loadTarefasAtrasadas();
+  }, []);
+
   return (
     <div className="mb-8 rounded-3xl border border-[#D7DEEA] bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -70,6 +90,11 @@ export function PageNavigation({
               >
                 <item.icon className="size-4" />
                 {item.label}
+                {item.href === "/tarefas" && tarefasAtrasadas > 0 ? (
+                  <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {tarefasAtrasadas}
+                  </span>
+                ) : null}
               </Link>
             );
           })}

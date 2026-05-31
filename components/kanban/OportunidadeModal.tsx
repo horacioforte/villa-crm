@@ -27,18 +27,21 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   oportunidadeSchema,
+  origemOportunidadeValues,
   statusOportunidadeValues,
   tipoOperacaoValues,
 } from "@/lib/validations/oportunidade";
 
 type StatusOportunidade = (typeof statusOportunidadeValues)[number];
 type TipoOperacao = (typeof tipoOperacaoValues)[number];
+type OrigemOportunidade = (typeof origemOportunidadeValues)[number];
 
 type OportunidadeFormValues = {
   titulo: string;
   empresaId: string;
   status: StatusOportunidade;
   tipo: TipoOperacao;
+  origem: OrigemOportunidade | "";
   valor: string;
   equipamentoId: string;
   obraId: string;
@@ -77,6 +80,7 @@ type OportunidadeSalva = {
   tipo: TipoOperacao;
   status: StatusOportunidade;
   valor: string | number | null;
+  origem?: OrigemOportunidade | null;
   temperatura?: "FRIA" | "MEDIA" | "QUENTE" | null;
   temperaturaMotivo?: string | null;
   empresa: {
@@ -115,6 +119,11 @@ const tipoLabels: Record<TipoOperacao, string> = {
   VENDA: "Venda",
 };
 
+const origemLabels: Record<OrigemOportunidade, string> = {
+  CLIENTE_RECORRENTE: "Cliente Recorrente",
+  CLIENTE_NOVO: "Cliente Novo",
+};
+
 const statusItems = statusOportunidadeValues.map((status) => ({
   label: statusLabels[status],
   value: status,
@@ -131,6 +140,7 @@ function getDefaultValues(statusInicial: StatusOportunidade): OportunidadeFormVa
     empresaId: "",
     status: statusInicial,
     tipo: "LOCACAO",
+    origem: "",
     valor: "",
     equipamentoId: NONE_VALUE,
     obraId: "",
@@ -271,6 +281,7 @@ export function OportunidadeModal({
             empresaId: oportunidade.empresaId,
             status: oportunidade.status,
             tipo: oportunidade.tipo,
+            origem: oportunidade.origem ?? "",
             valor: oportunidade.valor ? String(oportunidade.valor) : "",
             equipamentoId: oportunidade.equipamentoId ?? NONE_VALUE,
             obraId: oportunidade.obraId ?? "",
@@ -416,6 +427,38 @@ export function OportunidadeModal({
                       {statusOportunidadeValues.map((status) => (
                         <SelectItem key={status} value={status}>
                           {statusLabels[status]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </Field>
+
+            <Field label="Origem do cliente">
+              <Controller
+                control={form.control}
+                name="origem"
+                render={({ field }) => (
+                  <Select
+                    items={origemOportunidadeValues.map((o) => ({ label: origemLabels[o], value: o }))}
+                    value={field.value || null}
+                    onValueChange={(value) => {
+                      field.onChange(value ?? "");
+                      if (value === "CLIENTE_RECORRENTE") {
+                        form.setValue("status", "PROPOSTA_ENVIADA");
+                      } else if (value === "CLIENTE_NOVO") {
+                        form.setValue("status", "NOVA");
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
+                      <SelectValue placeholder="Selecione a origem" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {origemOportunidadeValues.map((o) => (
+                        <SelectItem key={o} value={o}>
+                          {origemLabels[o]}
                         </SelectItem>
                       ))}
                     </SelectContent>

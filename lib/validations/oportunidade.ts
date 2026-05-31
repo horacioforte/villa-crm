@@ -61,6 +61,10 @@ const optionalNumber = z
 
 export const tipoOperacaoValues = ["LOCACAO", "VENDA"] as const;
 
+export const temperaturaOportunidadeValues = ["FRIA", "MEDIA", "QUENTE"] as const;
+
+export const origemOportunidadeValues = ["CLIENTE_RECORRENTE", "CLIENTE_NOVO"] as const;
+
 export const statusOportunidadeValues = [
   "NOVA",
   "EM_ATENDIMENTO",
@@ -77,6 +81,8 @@ const oportunidadeBaseSchema = z.object({
   status: z.enum(statusOportunidadeValues).default("NOVA"),
   valor: optionalNumber,
   motivoPerda: optionalText,
+  temperatura: z.enum(temperaturaOportunidadeValues).optional().nullable(),
+  origem: z.enum(origemOportunidadeValues).optional().nullable(),
   empresaId: requiredRelationId("Selecione a empresa."),
   pessoaId: optionalRelationId,
   obraId: requiredRelationId("Selecione a obra."),

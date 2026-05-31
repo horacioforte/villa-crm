@@ -4,6 +4,7 @@ import { auditLog } from "@/lib/audit";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { getPropostaAccessWhere, propostaInclude } from "@/lib/propostas/service";
+import { criarTarefaAutomatica } from "@/lib/tarefas/automaticas";
 
 type PropostaEnviarRouteContext = {
   params: Promise<{
@@ -108,6 +109,13 @@ export async function POST(
       userId: authResult.id,
       request,
     });
+
+    await criarTarefaAutomatica(
+      "PROPOSTA_ENVIADA",
+      proposta.oportunidadeId,
+      proposta.oportunidade.responsavelId,
+      authResult.id,
+    );
 
     return NextResponse.json(proposta);
   } catch {

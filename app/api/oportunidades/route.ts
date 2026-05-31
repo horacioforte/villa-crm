@@ -26,6 +26,11 @@ export async function GET(request: Request) {
       obra: true,
       responsavel: true,
       equipamento: true,
+      tarefas: {
+        select: {
+          status: true,
+        },
+      },
     },
   });
 
@@ -54,6 +59,11 @@ export async function POST(request: Request) {
         obra: true,
         responsavel: true,
         equipamento: true,
+        tarefas: {
+          select: {
+            status: true,
+          },
+        },
       },
     });
 

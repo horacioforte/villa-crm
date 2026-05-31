@@ -427,12 +427,29 @@ export default async function Home() {
   const propostaAccessWhere: Prisma.PropostaComercialWhereInput = {
     oportunidade: oportunidadeAccessWhere,
   };
+  const tarefaAccessWhere: Prisma.TarefaWhereInput =
+    currentUser.papel === "COMERCIAL"
+      ? {
+          OR: [
+            { responsavelId: currentUser.id },
+            { createdById: currentUser.id },
+          ],
+        }
+      : {};
+  const hoje = new Date();
+  const inicioHoje = new Date(hoje);
+  inicioHoje.setHours(0, 0, 0, 0);
+  const fimHoje = new Date(hoje);
+  fimHoje.setHours(23, 59, 59, 999);
 
   const [
     oportunidadesAbertas,
     oportunidadesRecentes,
     proximoContato,
     equipamentosDisponiveis,
+    tarefasHoje,
+    tarefasAtrasadas,
+    oportunidadesSemAcao,
   ] = await Promise.all([
     prisma.oportunidade.count({
       where: {
@@ -564,6 +581,65 @@ export default async function Home() {
         status: StatusEquipamento.DISPONIVEL,
       },
     }),
+    prisma.tarefa.findMany({
+      where: {
+        ...tarefaAccessWhere,
+        status: {
+          in: ["PENDENTE", "EM_ANDAMENTO"],
+        },
+        dataVencimento: {
+          gte: inicioHoje,
+          lte: fimHoje,
+        },
+      },
+      include: {
+        oportunidade: {
+          select: {
+            titulo: true,
+          },
+        },
+        empresa: {
+          select: {
+            nomeFantasia: true,
+            razaoSocial: true,
+          },
+        },
+        responsavel: {
+          select: {
+            nome: true,
+          },
+        },
+      },
+      orderBy: [{ prioridade: "desc" }, { dataVencimento: "asc" }],
+      take: 5,
+    }),
+    prisma.tarefa.count({
+      where: {
+        ...tarefaAccessWhere,
+        status: {
+          in: ["PENDENTE", "EM_ANDAMENTO"],
+        },
+        dataVencimento: {
+          lt: inicioHoje,
+        },
+      },
+    }),
+    prisma.oportunidade.count({
+      where: {
+        ...oportunidadeAccessWhere,
+        ativa: true,
+        status: {
+          in: ["NOVA", "EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIACAO"],
+        },
+        tarefas: {
+          none: {
+            status: {
+              in: ["PENDENTE", "EM_ANDAMENTO"],
+            },
+          },
+        },
+      },
+    }),
   ]);
 
   const proposalDashboard = await getProposalDashboardData(propostaAccessWhere);
@@ -584,7 +660,7 @@ export default async function Home() {
     { label: "Oportunidades", icon: ClipboardList, href: "/oportunidades" },
     { label: "Equipamentos", icon: Truck, href: "/equipamentos" },
     { label: "Usuarios", icon: UserCog, href: "/usuarios" },
-    { label: "Agenda", icon: CalendarDays, href: "#" },
+    { label: "Agenda", icon: CalendarDays, href: "/tarefas" },
   ];
 
   const countByStatus = new Map(
@@ -742,6 +818,71 @@ export default async function Home() {
                 <p className="mt-2 text-sm text-[#1E4FAB]">{metric.detail}</p>
               </article>
             ))}
+          </section>
+
+          <section className="mt-8 rounded-3xl border border-[#D7DEEA] bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#1E4FAB]">
+                  Agenda comercial
+                </p>
+                <h3 className="mt-1 text-2xl font-bold text-[#1A2E5A]">
+                  Minhas tarefas hoje
+                </h3>
+                <p className="mt-1 text-sm text-[#667085]">
+                  Proximas acoes para manter o pipeline em movimento.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {tarefasAtrasadas > 0 ? (
+                  <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
+                    {tarefasAtrasadas} atrasadas
+                  </span>
+                ) : null}
+                {oportunidadesSemAcao > 0 ? (
+                  <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
+                    {oportunidadesSemAcao} oportunidades sem proxima acao
+                  </span>
+                ) : null}
+                <Link
+                  href="/tarefas"
+                  className="rounded-2xl border border-[#1E4FAB] px-3 py-2 text-xs font-semibold text-[#1E4FAB] transition hover:bg-[#E8EEFB]"
+                >
+                  Abrir agenda
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {tarefasHoje.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[#D7DEEA] p-5 text-sm text-[#667085] md:col-span-3">
+                  Nenhuma tarefa pendente para hoje.
+                </div>
+              ) : (
+                tarefasHoje.map((tarefa) => (
+                  <div
+                    key={tarefa.id}
+                    className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-4"
+                  >
+                    <p className="font-semibold text-[#1A2E5A]">
+                      {tarefa.titulo}
+                    </p>
+                    <p className="mt-1 text-sm text-[#667085]">
+                      {tarefa.empresa
+                        ? (tarefa.empresa.nomeFantasia ??
+                          tarefa.empresa.razaoSocial)
+                        : "Sem empresa"}
+                    </p>
+                    <p className="mt-2 text-xs font-semibold text-[#1E4FAB]">
+                      hoje{tarefa.horaVencimento ? ` ${tarefa.horaVencimento}` : ""}
+                      {tarefa.oportunidade
+                        ? ` · ${tarefa.oportunidade.titulo}`
+                        : ""}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
           </section>
 
           <section className="mt-8 grid gap-5 xl:grid-cols-[1.25fr_0.9fr]">

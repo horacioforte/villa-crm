@@ -86,6 +86,40 @@ enum StatusExcecaoProposta {
   REJEITADA
 }
 
+enum TipoAtividade {
+  LIGACAO
+  WHATSAPP
+  VISITA
+  REUNIAO
+  REUNIAO_ONLINE
+  PROPOSTA
+  CONTRATO
+  COBRANCA
+  RETORNO_CLIENTE
+  POS_VENDA
+  LOGISTICA
+  MANUTENCAO
+  VISTORIA
+  APRESENTACAO_COMERCIAL
+  TAREFA_INTERNA
+  OUTRO
+}
+
+enum PrioridadeTarefa {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+enum StatusTarefa {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
+  ATRASADA
+}
+
 enum TipoContato {
   TELEFONE
   WHATSAPP
@@ -146,6 +180,9 @@ model Usuario {
   excecoesPropostaDecididas    PropostaExcecaoAprovacao[] @relation("PropostaExcecaoAprovador")
   auditoriasProposta           PropostaAuditoriaCampo[]
   auditLogs                    AuditLog[]
+  tarefasResponsavel           Tarefa[]                   @relation("TarefaResponsavel")
+  tarefasCriadas               Tarefa[]                   @relation("TarefaCreatedBy")
+  tarefasAtualizadas           Tarefa[]                   @relation("TarefaUpdatedBy")
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -203,6 +240,7 @@ model Empresa {
   obras         Obra[]
   oportunidades Oportunidade[]
   historicos    HistoricoContato[]
+  tarefas       Tarefa[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -240,6 +278,7 @@ model Pessoa {
   obrasResponsavel Obra[]
   oportunidades    Oportunidade[]
   historicos       HistoricoContato[]
+  tarefas          Tarefa[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -280,6 +319,7 @@ model Obra {
   updatedBy   Usuario? @relation("ObraUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   oportunidades Oportunidade[]
+  tarefas       Tarefa[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -292,18 +332,18 @@ model Obra {
 }
 
 model Oportunidade {
-  id                 String             @id @default(cuid())
+  id                 String                   @id @default(cuid())
   titulo             String
   descricao          String?
   tipo               TipoOperacao
-  status             StatusOportunidade @default(NOVA)
-  valor              Decimal?           @db.Decimal(12, 2)
+  status             StatusOportunidade       @default(NOVA)
+  valor              Decimal?                 @db.Decimal(12, 2)
   probabilidade      Int?
   origem             String?
   motivoPerda        String?
   previsaoFechamento DateTime?
   fechadaEm          DateTime?
-  ativa              Boolean            @default(true)
+  ativa              Boolean                  @default(true)
   temperatura        TemperaturaOportunidade?
   temperaturaMotivo  String?
 
@@ -330,6 +370,7 @@ model Oportunidade {
 
   historicos HistoricoContato[]
   propostas  PropostaComercial[]
+  tarefas    Tarefa[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -380,6 +421,7 @@ model PropostaComercial {
   blocos     PropostaBloco[]
   excecoes   PropostaExcecaoAprovacao[]
   auditorias PropostaAuditoriaCampo[]
+  tarefas    Tarefa[]
 
   @@unique([numeroProposta, versao])
   @@index([oportunidadeId])
@@ -529,6 +571,60 @@ model PropostaAuditoriaCampo {
   @@index([excecaoId])
   @@index([usuarioId])
   @@index([campo])
+}
+
+model Tarefa {
+  id             String           @id @default(cuid())
+  titulo         String
+  descricao      String?
+  tipo           TipoAtividade    @default(LIGACAO)
+  prioridade     PrioridadeTarefa @default(MEDIA)
+  status         StatusTarefa     @default(PENDENTE)
+  dataVencimento DateTime
+  horaVencimento String?
+  observacoes    String?
+  concluidaEm    DateTime?
+
+  oportunidadeId String?
+  oportunidade   Oportunidade? @relation(fields: [oportunidadeId], references: [id], onDelete: Cascade)
+
+  empresaId String?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  pessoaId String?
+  pessoa   Pessoa? @relation(fields: [pessoaId], references: [id], onDelete: SetNull)
+
+  obraId String?
+  obra   Obra?   @relation(fields: [obraId], references: [id], onDelete: SetNull)
+
+  propostaId String?
+  proposta   PropostaComercial? @relation(fields: [propostaId], references: [id], onDelete: SetNull)
+
+  responsavelId String?
+  responsavel   Usuario? @relation("TarefaResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   Usuario? @relation("TarefaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   Usuario? @relation("TarefaUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  // Hooks futuros: sincronizar tarefa com WhatsApp e Google Calendar.
+  whatsappMessageId     String?
+  googleCalendarEventId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([oportunidadeId])
+  @@index([empresaId])
+  @@index([pessoaId])
+  @@index([obraId])
+  @@index([propostaId])
+  @@index([responsavelId])
+  @@index([status])
+  @@index([dataVencimento])
+  @@index([prioridade])
 }
 
 model HistoricoContato {

@@ -23,6 +23,7 @@ import {
 import { OportunidadeDetalhe } from "@/components/kanban/OportunidadeDetalhe";
 import { OportunidadeModal } from "@/components/kanban/OportunidadeModal";
 import { PageNavigation } from "@/components/layout/PageNavigation";
+import { temProximaAcao } from "@/lib/utils";
 import { statusOportunidadeValues } from "@/lib/validations/oportunidade";
 
 type StatusOportunidade = (typeof statusOportunidadeValues)[number];
@@ -37,12 +38,15 @@ const TEMPERATURA_CONFIG: Record<
   FRIA: { emoji: "🔴", label: "Fria", className: "bg-red-100 text-red-700" },
 };
 
+type OrigemOportunidade = "CLIENTE_RECORRENTE" | "CLIENTE_NOVO";
+
 type Oportunidade = {
   id: string;
   titulo: string;
   tipo: "LOCACAO" | "VENDA";
   status: StatusOportunidade;
   valor: string | number | null;
+  origem: OrigemOportunidade | null;
   temperatura: TemperaturaOportunidade | null;
   temperaturaMotivo: string | null;
   empresa: {
@@ -55,6 +59,9 @@ type Oportunidade = {
   obra: {
     nome: string;
   } | null;
+  tarefas?: Array<{
+    status: string;
+  }>;
 };
 
 const columns: Array<{
@@ -205,12 +212,13 @@ export default function OportunidadesPage() {
     setOportunidadeEditandoId(null);
   }
 
-  function handleSalvar(oportunidade: Omit<Oportunidade, "temperatura" | "temperaturaMotivo"> & { temperatura?: TemperaturaOportunidade | null; temperaturaMotivo?: string | null }) {
+  function handleSalvar(oportunidade: Omit<Oportunidade, "temperatura" | "temperaturaMotivo" | "origem"> & { temperatura?: TemperaturaOportunidade | null; temperaturaMotivo?: string | null; origem?: OrigemOportunidade | null }) {
     setOportunidades((current) => {
       const exists = current.some((item) => item.id === oportunidade.id);
       const merged: Oportunidade = {
         temperatura: null,
         temperaturaMotivo: null,
+        origem: null,
         ...oportunidade,
       };
 
@@ -473,7 +481,23 @@ function OpportunityCard({
     }
   }
 
-  const tempConfig = oportunidade.temperatura ? TEMPERATURA_CONFIG[oportunidade.temperatura] : null;
+  const precisaProximaAcao = ["NOVA", "EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIACAO"].includes(oportunidade.status);
+  const semProximaAcao = precisaProximaAcao && !temProximaAcao(oportunidade.tarefas ?? []);
+
+  async function handleAlterarTemperatura(temperatura: TemperaturaOportunidade) {
+    if (oportunidade.temperatura === temperatura) return;
+    try {
+      const response = await fetch(`/api/oportunidades/${oportunidade.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ temperatura }),
+      });
+      if (!response.ok) throw new Error("Erro ao alterar temperatura.");
+      onTemperaturaAtualizada(oportunidade.id, temperatura, null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao alterar temperatura.");
+    }
+  }
 
   return (
     <Card
@@ -484,6 +508,8 @@ function OpportunityCard({
       onClick={() => onAbrirDetalhe(oportunidade.id)}
       className={`cursor-grab rounded-3xl border-[#D7DEEA] bg-white shadow-sm active:cursor-grabbing ${
         isDragging ? "opacity-70 shadow-xl" : ""
+      } ${
+        semProximaAcao ? "border-red-300 ring-2 ring-red-100" : ""
       }`}
     >
       <CardHeader>
@@ -506,6 +532,23 @@ function OpportunityCard({
           {oportunidade.empresa.nomeFantasia ??
             oportunidade.empresa.razaoSocial}
         </CardDescription>
+        {oportunidade.origem ? (
+          <Badge
+            variant="secondary"
+            className={
+              oportunidade.origem === "CLIENTE_RECORRENTE"
+                ? "w-fit bg-violet-100 text-violet-700 text-xs"
+                : "w-fit bg-[#E8EEFB] text-[#1A2E5A] text-xs"
+            }
+          >
+            {oportunidade.origem === "CLIENTE_RECORRENTE" ? "Recorrente" : "Cliente Novo"}
+          </Badge>
+        ) : null}
+        {semProximaAcao ? (
+          <Badge className="w-fit bg-red-100 text-xs text-red-700">
+            SEM PROXIMA ACAO
+          </Badge>
+        ) : null}
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-2 text-sm font-semibold text-[#1A2E5A]">
@@ -517,43 +560,56 @@ function OpportunityCard({
           <p>Obra: {oportunidade.obra?.nome ?? "Não vinculada"}</p>
         </div>
         <div className="mt-3 flex items-center gap-2">
-          {tempConfig ? (
-            <Badge
-              variant="secondary"
-              title={oportunidade.temperaturaMotivo ?? undefined}
-              className={`text-xs ${tempConfig.className}`}
-            >
-              {tempConfig.emoji} {tempConfig.label}
-            </Badge>
-          ) : null}
           <Button
             type="button"
-            size="icon-sm"
-            variant="ghost"
+            size="sm"
+            onClick={handleGerarProposta}
+            onPointerDown={(event) => event.stopPropagation()}
+            className="flex-1 rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+          >
+            <FileText className="size-4" />
+            Gerar proposta
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
             disabled={classificando}
             onClick={handleClassificar}
             onPointerDown={(event) => event.stopPropagation()}
-            className="ml-auto rounded-full text-[#1E4FAB] hover:bg-[#E8EEFB]"
+            className="rounded-2xl border-[#D7DEEA] px-3 text-[#1E4FAB] hover:bg-[#E8EEFB]"
             aria-label="Classificar temperatura com IA"
             title="Classificar temperatura com IA"
           >
             {classificando ? (
-              <Loader2 className="size-3.5 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Sparkles className="size-3.5" />
+              <Sparkles className="size-4" />
             )}
           </Button>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          onClick={handleGerarProposta}
-          onPointerDown={(event) => event.stopPropagation()}
-          className="mt-3 w-full rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
-        >
-          <FileText className="size-4" />
-          Gerar proposta
-        </Button>
+        <div className="mt-2 flex items-center gap-1">
+          {(["QUENTE", "MEDIA", "FRIA"] as TemperaturaOportunidade[]).map((t) => {
+            const cfg = TEMPERATURA_CONFIG[t];
+            const ativo = oportunidade.temperatura === t;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleAlterarTemperatura(t); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                title={cfg.label}
+                className={`rounded-full px-2 py-0.5 text-xs font-medium transition ${
+                  ativo
+                    ? `${cfg.className} ring-2 ring-offset-1 ring-current`
+                    : "bg-[#F4F6FA] text-[#667085] hover:bg-[#E8EEFB]"
+                }`}
+              >
+                {cfg.emoji} {cfg.label}
+              </button>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );

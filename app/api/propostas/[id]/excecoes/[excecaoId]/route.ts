@@ -9,6 +9,7 @@ import {
   getPropostaAccessWhere,
   propostaInclude,
 } from "@/lib/propostas/service";
+import { criarTarefaAutomatica } from "@/lib/tarefas/automaticas";
 import { propostaExcecaoDecisaoSchema } from "@/lib/validations/proposta";
 
 type PropostaExcecaoRouteContext = {
@@ -181,6 +182,15 @@ export async function PATCH(
       userId: authResult.id,
       request,
     });
+
+    if (before.status !== proposta.status && proposta.status === "APROVADA") {
+      await criarTarefaAutomatica(
+        "PROPOSTA_APROVADA",
+        proposta.oportunidadeId,
+        proposta.oportunidade.responsavelId,
+        authResult.id,
+      );
+    }
 
     return NextResponse.json(proposta);
   } catch (error) {

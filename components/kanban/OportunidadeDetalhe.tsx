@@ -64,19 +64,29 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { temProximaAcao } from "@/lib/utils";
-import { statusOportunidadeValues } from "@/lib/validations/oportunidade";
+import {
+  statusOportunidadeValues,
+  tipoServicoValues,
+} from "@/lib/validations/oportunidade";
 
 type StatusOportunidade = (typeof statusOportunidadeValues)[number];
+type TipoServico = (typeof tipoServicoValues)[number];
 
 type OportunidadeDetalheData = {
   id: string;
   titulo: string;
   descricao: string | null;
   motivoPerda: string | null;
-  tipo: "LOCACAO" | "VENDA";
+  tipo: "LOCACAO" | "EQUIPAMENTO_USADO";
+  tipoServico: TipoServico | null;
   status: StatusOportunidade;
-  valor: string | number | null;
+  potencialOportunidade: string | number | null;
+  valorContrato: string | number | null;
   createdAt: string;
+  propostas?: Array<{
+    valorTotal: string | number;
+    status: string;
+  }>;
   empresa: {
     razaoSocial: string;
     nomeFantasia: string | null;
@@ -94,6 +104,16 @@ type OportunidadeDetalheData = {
   responsavel: {
     nome: string;
   } | null;
+};
+
+const tipoServicoLabels: Record<TipoServico, string> = {
+  BOMBA_LANCA: "Bomba Lanca",
+  BOMBA_ESTACIONARIA: "Bomba Estacionaria",
+  TELEBELT: "Telebelt",
+  BETONEIRA: "Caminhao Betoneira",
+  CENTRAL_IN_LOCO: "Central In Loco",
+  CONCRETO: "Concreto",
+  SERVICO_ESPECIAL: "Servico Especial",
 };
 
 type TipoContato = "TELEFONE" | "WHATSAPP" | "EMAIL" | "REUNIAO" | "VISITA" | "OUTRO";
@@ -159,6 +179,10 @@ function formatCurrency(value: string | number | null) {
     style: "currency",
     currency: "BRL",
   }).format(Number(value));
+}
+
+function getValorProposta(oportunidade: OportunidadeDetalheData) {
+  return oportunidade.propostas?.[0]?.valorTotal ?? null;
 }
 
 export function OportunidadeDetalhe({
@@ -314,7 +338,10 @@ export function OportunidadeDetalhe({
           }
         }}
       >
-        <SheetContent side="right" className="w-[420px] max-w-[calc(100vw-1rem)]">
+        <SheetContent
+          side="right"
+          className="w-[520px] max-w-[calc(100vw-1rem)]"
+        >
           <SheetHeader className="border-b border-[#D7DEEA] p-6">
             <SheetTitle className="pr-8 text-2xl font-bold text-[#1A2E5A]">
               Detalhe da oportunidade
@@ -351,22 +378,38 @@ export function OportunidadeDetalhe({
                 </Button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Card className="rounded-3xl border-[#D7DEEA] bg-[#1A2E5A] text-white">
-                  <CardContent className="p-4">
-                    <p className="text-xs font-semibold text-white/65">Valor</p>
-                    <p className="mt-2 text-lg font-bold">
-                      {formatCurrency(oportunidade.valor)}
-                    </p>
+              <div className="space-y-3">
+                <Card className="rounded-3xl border-[#D7DEEA] bg-white">
+                  <CardContent className="space-y-3 p-4">
+                    <ValueRow
+                      label="Potencial"
+                      description="Estimativa inicial"
+                      value={formatCurrency(oportunidade.potencialOportunidade)}
+                      className="bg-[#E8EEFB] text-[#1E4FAB]"
+                    />
+                    <ValueRow
+                      label="Proposta"
+                      description="Mais recente enviada/aprovada"
+                      value={formatCurrency(getValorProposta(oportunidade))}
+                      className="bg-amber-100 text-amber-800"
+                    />
+                    <ValueRow
+                      label="Contrato"
+                      description="Valor confirmado ao fechar"
+                      value={formatCurrency(oportunidade.valorContrato)}
+                      className="bg-emerald-100 text-emerald-800"
+                    />
                   </CardContent>
                 </Card>
-                <Card className="rounded-3xl border-emerald-200 bg-emerald-50 text-emerald-800">
+                <Card className="rounded-3xl border-[#D7DEEA] bg-white text-[#1A2E5A]">
                   <CardContent className="p-4">
-                    <p className="text-xs font-semibold text-emerald-700/70">
+                    <p className="text-xs font-semibold text-[#667085]">
                       Tipo
                     </p>
                     <p className="mt-2 text-lg font-bold">
-                      {oportunidade.tipo === "LOCACAO" ? "Locacao" : "Venda"}
+                      {oportunidade.tipo === "LOCACAO"
+                        ? `Locacao${oportunidade.tipoServico ? ` - ${tipoServicoLabels[oportunidade.tipoServico]}` : ""}`
+                        : "Equipamento usado"}
                     </p>
                   </CardContent>
                 </Card>
@@ -824,6 +867,34 @@ function RelatedInfo({
         </p>
         <p className="mt-1 font-semibold text-[#1A2E5A]">{value}</p>
       </div>
+    </div>
+  );
+}
+
+function ValueRow({
+  label,
+  description,
+  value,
+  className,
+}: {
+  label: string;
+  description: string;
+  value: string;
+  className: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl bg-[#F4F6FA] p-3">
+      <div className="min-w-0">
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${className}`}
+        >
+          {label}
+        </span>
+        <p className="mt-1 text-xs text-[#667085]">{description}</p>
+      </div>
+      <p className="shrink-0 text-right text-base font-bold text-[#1A2E5A]">
+        {value}
+      </p>
     </div>
   );
 }

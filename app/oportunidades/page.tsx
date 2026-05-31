@@ -24,10 +24,15 @@ import { OportunidadeDetalhe } from "@/components/kanban/OportunidadeDetalhe";
 import { OportunidadeModal } from "@/components/kanban/OportunidadeModal";
 import { PageNavigation } from "@/components/layout/PageNavigation";
 import { temProximaAcao } from "@/lib/utils";
-import { statusOportunidadeValues } from "@/lib/validations/oportunidade";
+import {
+  statusOportunidadeValues,
+  tipoServicoValues,
+} from "@/lib/validations/oportunidade";
 
 type StatusOportunidade = (typeof statusOportunidadeValues)[number];
 type TemperaturaOportunidade = "FRIA" | "MEDIA" | "QUENTE";
+type TipoNegocioFiltro = "TODOS" | "LOCACAO" | "EQUIPAMENTO_USADO";
+type TipoServico = (typeof tipoServicoValues)[number];
 
 const TEMPERATURA_CONFIG: Record<
   TemperaturaOportunidade,
@@ -38,15 +43,15 @@ const TEMPERATURA_CONFIG: Record<
   FRIA: { emoji: "🔴", label: "Fria", className: "bg-red-100 text-red-700" },
 };
 
-type OrigemOportunidade = "CLIENTE_RECORRENTE" | "CLIENTE_NOVO";
-
 type Oportunidade = {
   id: string;
   titulo: string;
-  tipo: "LOCACAO" | "VENDA";
+  tipo: "LOCACAO" | "EQUIPAMENTO_USADO";
+  tipoServico?: TipoServico | null;
   status: StatusOportunidade;
-  valor: string | number | null;
-  origem: OrigemOportunidade | null;
+  potencialOportunidade: string | number | null;
+  valorContrato: string | number | null;
+  canalOrigem?: string | null;
   temperatura: TemperaturaOportunidade | null;
   temperaturaMotivo: string | null;
   empresa: {
@@ -62,6 +67,20 @@ type Oportunidade = {
   tarefas?: Array<{
     status: string;
   }>;
+  propostas?: Array<{
+    valorTotal: string | number;
+    status: string;
+  }>;
+};
+
+const tipoServicoLabels: Record<TipoServico, string> = {
+  BOMBA_LANCA: "Bomba Lanca",
+  BOMBA_ESTACIONARIA: "Bomba Estacionaria",
+  TELEBELT: "Telebelt",
+  BETONEIRA: "Caminhao Betoneira",
+  CENTRAL_IN_LOCO: "Central In Loco",
+  CONCRETO: "Concreto",
+  SERVICO_ESPECIAL: "Servico Especial",
 };
 
 const columns: Array<{
@@ -112,6 +131,33 @@ function formatCurrency(value: string | number | null) {
   }).format(Number(value));
 }
 
+function getValorPipeline(oportunidade: Oportunidade) {
+  if (oportunidade.valorContrato !== null) {
+    return {
+      label: "Contrato",
+      value: oportunidade.valorContrato,
+    };
+  }
+
+  const propostaAtiva = oportunidade.propostas?.[0];
+
+  if (propostaAtiva) {
+    return {
+      label: "Proposta",
+      value: propostaAtiva.valorTotal,
+    };
+  }
+
+  if (oportunidade.potencialOportunidade !== null) {
+    return {
+      label: "Potencial",
+      value: oportunidade.potencialOportunidade,
+    };
+  }
+
+  return null;
+}
+
 export default function OportunidadesPage() {
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -124,6 +170,7 @@ export default function OportunidadesPage() {
   const [oportunidadeDetalheId, setOportunidadeDetalheId] = useState<
     string | null
   >(null);
+  const [filtroTipo, setFiltroTipo] = useState<TipoNegocioFiltro>("TODOS");
 
   useEffect(() => {
     async function loadOportunidades() {
@@ -147,10 +194,11 @@ export default function OportunidadesPage() {
 
   const totalPipeline = useMemo(
     () =>
-      oportunidades.reduce(
-        (total, oportunidade) => total + Number(oportunidade.valor ?? 0),
-        0,
-      ),
+      oportunidades.reduce((total, oportunidade) => {
+        const valorPipeline = getValorPipeline(oportunidade);
+
+        return total + Number(valorPipeline?.value ?? 0);
+      }, 0),
     [oportunidades],
   );
 
@@ -212,13 +260,20 @@ export default function OportunidadesPage() {
     setOportunidadeEditandoId(null);
   }
 
-  function handleSalvar(oportunidade: Omit<Oportunidade, "temperatura" | "temperaturaMotivo" | "origem"> & { temperatura?: TemperaturaOportunidade | null; temperaturaMotivo?: string | null; origem?: OrigemOportunidade | null }) {
+  const oportunidadesFiltradas = useMemo(
+    () =>
+      oportunidades.filter((oportunidade) =>
+        filtroTipo === "TODOS" ? true : oportunidade.tipo === filtroTipo,
+      ),
+    [filtroTipo, oportunidades],
+  );
+
+  function handleSalvar(oportunidade: Omit<Oportunidade, "temperatura" | "temperaturaMotivo"> & { temperatura?: TemperaturaOportunidade | null; temperaturaMotivo?: string | null }) {
     setOportunidades((current) => {
       const exists = current.some((item) => item.id === oportunidade.id);
       const merged: Oportunidade = {
         temperatura: null,
         temperaturaMotivo: null,
-        origem: null,
         ...oportunidade,
       };
 
@@ -309,6 +364,28 @@ export default function OportunidadesPage() {
           </div>
         </header>
 
+        <section className="mt-6 flex flex-wrap gap-2">
+          {[
+            { label: "Todos", value: "TODOS" },
+            { label: "Locacao", value: "LOCACAO" },
+            { label: "Equipamento usado", value: "EQUIPAMENTO_USADO" },
+          ].map((item) => (
+            <Button
+              key={item.value}
+              type="button"
+              variant={filtroTipo === item.value ? "default" : "outline"}
+              onClick={() => setFiltroTipo(item.value as TipoNegocioFiltro)}
+              className={`rounded-2xl ${
+                filtroTipo === item.value
+                  ? "bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+                  : "border-[#D7DEEA] text-[#1A2E5A] hover:bg-[#E8EEFB]"
+              }`}
+            >
+              {item.label}
+            </Button>
+          ))}
+        </section>
+
         {isLoading ? (
           <div className="mt-10 flex items-center justify-center rounded-3xl border border-dashed border-[#D7DEEA] bg-white p-12 text-[#667085]">
             <Loader2 className="mr-2 size-5 animate-spin" />
@@ -339,7 +416,7 @@ export default function OportunidadesPage() {
                   onNovo={() => handleAbrirCriacao(column.status)}
                   onAbrirDetalhe={(id) => setOportunidadeDetalheId(id)}
                   onTemperaturaAtualizada={handleTemperaturaAtualizada}
-                  oportunidades={oportunidades.filter(
+                  oportunidades={oportunidadesFiltradas.filter(
                     (oportunidade) => oportunidade.status === column.status,
                   )}
                 />
@@ -483,6 +560,7 @@ function OpportunityCard({
 
   const precisaProximaAcao = ["NOVA", "EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIACAO"].includes(oportunidade.status);
   const semProximaAcao = precisaProximaAcao && !temProximaAcao(oportunidade.tarefas ?? []);
+  const valorPipeline = getValorPipeline(oportunidade);
 
   async function handleAlterarTemperatura(temperatura: TemperaturaOportunidade) {
     if (oportunidade.temperatura === temperatura) return;
@@ -525,23 +603,27 @@ function OpportunityCard({
                 : "bg-emerald-100 text-emerald-700"
             }
           >
-            {oportunidade.tipo === "LOCACAO" ? "Locação" : "Venda"}
+            {oportunidade.tipo === "LOCACAO" ? "Locação" : "Equip. usado"}
           </Badge>
         </div>
         <CardDescription>
           {oportunidade.empresa.nomeFantasia ??
             oportunidade.empresa.razaoSocial}
         </CardDescription>
-        {oportunidade.origem ? (
+        {oportunidade.tipo === "LOCACAO" && oportunidade.tipoServico ? (
           <Badge
             variant="secondary"
-            className={
-              oportunidade.origem === "CLIENTE_RECORRENTE"
-                ? "w-fit bg-violet-100 text-violet-700 text-xs"
-                : "w-fit bg-[#E8EEFB] text-[#1A2E5A] text-xs"
-            }
+            className="w-fit bg-[#E8EEFB] text-xs text-[#1A2E5A]"
           >
-            {oportunidade.origem === "CLIENTE_RECORRENTE" ? "Recorrente" : "Cliente Novo"}
+            {tipoServicoLabels[oportunidade.tipoServico]}
+          </Badge>
+        ) : null}
+        {oportunidade.tipo === "EQUIPAMENTO_USADO" ? (
+          <Badge
+            variant="secondary"
+            className="w-fit bg-amber-100 text-xs text-amber-700"
+          >
+            Equipamento usado
           </Badge>
         ) : null}
         {semProximaAcao ? (
@@ -551,10 +633,12 @@ function OpportunityCard({
         ) : null}
       </CardHeader>
       <CardContent>
-        <div className="flex items-center gap-2 text-sm font-semibold text-[#1A2E5A]">
-          <CircleDollarSign className="size-4 text-[#1E4FAB]" />
-          {formatCurrency(oportunidade.valor)}
-        </div>
+        {valorPipeline ? (
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#1A2E5A]">
+            <CircleDollarSign className="size-4 text-[#1E4FAB]" />
+            {valorPipeline.label}: {formatCurrency(valorPipeline.value)}
+          </div>
+        ) : null}
         <div className="mt-4 space-y-1 text-xs text-[#667085]">
           <p>Contato: {oportunidade.pessoa?.nome ?? "Não informado"}</p>
           <p>Obra: {oportunidade.obra?.nome ?? "Não vinculada"}</p>

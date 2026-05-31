@@ -26,6 +26,21 @@ export async function GET(request: Request) {
       obra: true,
       responsavel: true,
       equipamento: true,
+      propostas: {
+        where: {
+          status: {
+            in: ["ENVIADA", "APROVADA", "ACEITA"],
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 1,
+        select: {
+          valorTotal: true,
+          status: true,
+        },
+      },
       tarefas: {
         select: {
           status: true,
@@ -59,6 +74,21 @@ export async function POST(request: Request) {
         obra: true,
         responsavel: true,
         equipamento: true,
+        propostas: {
+          where: {
+            status: {
+              in: ["ENVIADA", "APROVADA", "ACEITA"],
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 1,
+          select: {
+            valorTotal: true,
+            status: true,
+          },
+        },
         tarefas: {
           select: {
             status: true,

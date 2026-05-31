@@ -7,6 +7,9 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { NovaEmpresaInline } from "@/components/kanban/inline/NovaEmpresaInline";
+import { NovaObraInline } from "@/components/kanban/inline/NovaObraInline";
+import { NovoContatoInline } from "@/components/kanban/inline/NovoContatoInline";
 import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
@@ -27,23 +30,30 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  canalOrigemValues,
+  faixaPotencialValues,
   oportunidadeSchema,
-  origemOportunidadeValues,
+  tipoServicoValues,
   statusOportunidadeValues,
   tipoOperacaoValues,
 } from "@/lib/validations/oportunidade";
 
 type StatusOportunidade = (typeof statusOportunidadeValues)[number];
 type TipoOperacao = (typeof tipoOperacaoValues)[number];
-type OrigemOportunidade = (typeof origemOportunidadeValues)[number];
+type TipoServico = (typeof tipoServicoValues)[number];
+type FaixaPotencial = (typeof faixaPotencialValues)[number];
+type CanalOrigem = (typeof canalOrigemValues)[number];
 
 type OportunidadeFormValues = {
   titulo: string;
   empresaId: string;
   status: StatusOportunidade;
   tipo: TipoOperacao;
-  origem: OrigemOportunidade | "";
-  valor: string;
+  tipoServico: TipoServico | null;
+  faixaPotencial: FaixaPotencial | null;
+  canalOrigem: CanalOrigem | null;
+  potencialOportunidade: string;
+  valorContrato: string;
   equipamentoId: string;
   obraId: string;
   pessoaId: string;
@@ -80,8 +90,11 @@ type OportunidadeSalva = {
   titulo: string;
   tipo: TipoOperacao;
   status: StatusOportunidade;
-  valor: string | number | null;
-  origem?: OrigemOportunidade | null;
+  tipoServico?: TipoServico | null;
+  potencialOportunidade: string | number | null;
+  faixaPotencial?: FaixaPotencial | null;
+  valorContrato: string | number | null;
+  canalOrigem?: CanalOrigem | null;
   temperatura?: "FRIA" | "MEDIA" | "QUENTE" | null;
   temperaturaMotivo?: string | null;
   empresa: {
@@ -117,12 +130,38 @@ const statusLabels: Record<StatusOportunidade, string> = {
 
 const tipoLabels: Record<TipoOperacao, string> = {
   LOCACAO: "Locacao",
-  VENDA: "Venda",
+  EQUIPAMENTO_USADO: "Equipamento usado",
 };
 
-const origemLabels: Record<OrigemOportunidade, string> = {
-  CLIENTE_RECORRENTE: "Cliente Recorrente",
-  CLIENTE_NOVO: "Cliente Novo",
+const tipoServicoLabels: Record<TipoServico, string> = {
+  BOMBA_LANCA: "Bomba Lanca",
+  BOMBA_ESTACIONARIA: "Bomba Estacionaria",
+  TELEBELT: "Telebelt",
+  BETONEIRA: "Caminhao Betoneira",
+  CENTRAL_IN_LOCO: "Central In Loco",
+  CONCRETO: "Concreto",
+  SERVICO_ESPECIAL: "Servico Especial",
+};
+
+const faixaPotencialLabels: Record<FaixaPotencial, string> = {
+  ATE_100_MIL: "Ate R$ 100 mil",
+  DE_100_A_500_MIL: "R$ 100 mil - R$ 500 mil",
+  DE_500_MIL_A_2_MILHOES: "R$ 500 mil - R$ 2 milhoes",
+  ACIMA_DE_2_MILHOES: "Acima de R$ 2 milhoes",
+};
+
+const canalOrigemLabels: Record<CanalOrigem, string> = {
+  INDICACAO: "Indicacao",
+  CLIENTE_ATUAL: "Cliente atual",
+  GOOGLE: "Google",
+  LINKEDIN: "LinkedIn",
+  SITE: "Site",
+  VISITA_COMERCIAL: "Visita comercial",
+  OBRA_MAPEADA: "Obra mapeada",
+  MARKETPLACE: "Marketplace",
+  OLX: "OLX",
+  EVENTO: "Evento",
+  OUTROS: "Outros",
 };
 
 const statusItems = statusOportunidadeValues.map((status) => ({
@@ -141,8 +180,11 @@ function getDefaultValues(statusInicial: StatusOportunidade): OportunidadeFormVa
     empresaId: "",
     status: statusInicial,
     tipo: "LOCACAO",
-    origem: "",
-    valor: "",
+    tipoServico: null,
+    faixaPotencial: null,
+    canalOrigem: null,
+    potencialOportunidade: "",
+    valorContrato: "",
     equipamentoId: NONE_VALUE,
     obraId: "",
     pessoaId: NONE_VALUE,
@@ -165,6 +207,9 @@ export function OportunidadeModal({
   const [pessoas, setPessoas] = useState<PessoaOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [novaEmpresaOpen, setNovaEmpresaOpen] = useState(false);
+  const [novaObraOpen, setNovaObraOpen] = useState(false);
+  const [novoContatoOpen, setNovoContatoOpen] = useState(false);
 
   const form = useForm<OportunidadeFormValues>({
     resolver: zodResolver(oportunidadeSchema) as unknown as Resolver<OportunidadeFormValues>,
@@ -175,6 +220,14 @@ export function OportunidadeModal({
   const statusAtual = useWatch({
     control: form.control,
     name: "status",
+  });
+  const watchedTipo = useWatch({
+    control: form.control,
+    name: "tipo",
+  });
+  const watchedEmpresaId = useWatch({
+    control: form.control,
+    name: "empresaId",
   });
 
   const empresaItems = useMemo(
@@ -282,8 +335,15 @@ export function OportunidadeModal({
             empresaId: oportunidade.empresaId,
             status: oportunidade.status,
             tipo: oportunidade.tipo,
-            origem: oportunidade.origem ?? "",
-            valor: oportunidade.valor ? String(oportunidade.valor) : "",
+            tipoServico: oportunidade.tipoServico ?? null,
+            faixaPotencial: oportunidade.faixaPotencial ?? null,
+            canalOrigem: oportunidade.canalOrigem ?? null,
+            potencialOportunidade: oportunidade.potencialOportunidade
+              ? String(oportunidade.potencialOportunidade)
+              : "",
+            valorContrato: oportunidade.valorContrato
+              ? String(oportunidade.valorContrato)
+              : "",
             equipamentoId: oportunidade.equipamentoId ?? NONE_VALUE,
             obraId: oportunidade.obraId ?? "",
             pessoaId: oportunidade.pessoaId ?? NONE_VALUE,
@@ -347,15 +407,16 @@ export function OportunidadeModal({
   }
 
   return (
-    <Dialog
-      open={aberto}
-      onOpenChange={(open) => {
-        if (!open) {
-          onFechar();
-        }
-      }}
-    >
-      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:max-w-3xl">
+    <>
+      <Dialog
+        open={aberto}
+        onOpenChange={(open) => {
+          if (!open) {
+            onFechar();
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-[#1A2E5A]">
             {isEditing ? "Editar oportunidade" : "Nova oportunidade"}
@@ -387,20 +448,29 @@ export function OportunidadeModal({
               label="Empresa"
               error={form.formState.errors.empresaId?.message}
             >
-              <Controller
-                control={form.control}
-                name="empresaId"
-                render={({ field }) => (
-                  <Combobox
-                    options={empresaItems}
-                    value={field.value ?? ""}
-                    onChange={field.onChange}
-                    placeholder="Selecione a empresa"
-                    searchPlaceholder="Buscar empresa..."
-                    emptyMessage="Nenhuma empresa encontrada."
-                  />
-                )}
-              />
+              <div className="space-y-2">
+                <Controller
+                  control={form.control}
+                  name="empresaId"
+                  render={({ field }) => (
+                    <Combobox
+                      options={empresaItems}
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      placeholder="Selecione a empresa"
+                      searchPlaceholder="Buscar empresa..."
+                      emptyMessage="Nenhuma empresa encontrada."
+                    />
+                  )}
+                />
+                <button
+                  type="button"
+                  onClick={() => setNovaEmpresaOpen(true)}
+                  className="text-xs font-semibold text-[#1E4FAB] hover:underline"
+                >
+                  + Nova empresa
+                </button>
+              </div>
             </Field>
 
             <Field label="Status">
@@ -428,30 +498,34 @@ export function OportunidadeModal({
               />
             </Field>
 
-            <Field label="Origem do cliente">
+            <Field label="Como chegou ate nos">
               <Controller
                 control={form.control}
-                name="origem"
+                name="canalOrigem"
                 render={({ field }) => (
                   <Select
-                    items={origemOportunidadeValues.map((o) => ({ label: origemLabels[o], value: o }))}
-                    value={field.value || null}
+                    items={canalOrigemValues.map((canal) => ({
+                      label: canalOrigemLabels[canal],
+                      value: canal,
+                    }))}
+                    value={field.value ?? NONE_VALUE}
                     onValueChange={(value) => {
-                      field.onChange(value ?? "");
-                      if (value === "CLIENTE_RECORRENTE") {
-                        form.setValue("status", "PROPOSTA_ENVIADA");
-                      } else if (value === "CLIENTE_NOVO") {
-                        form.setValue("status", "NOVA");
+                      const nextValue = value === NONE_VALUE ? null : value;
+                      field.onChange(nextValue);
+
+                      if (nextValue === "CLIENTE_ATUAL") {
+                        form.setValue("status", "EM_ATENDIMENTO");
                       }
                     }}
                   >
                     <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
-                      <SelectValue placeholder="Selecione a origem" />
+                      <SelectValue placeholder="Selecione o canal" />
                     </SelectTrigger>
                     <SelectContent>
-                      {origemOportunidadeValues.map((o) => (
-                        <SelectItem key={o} value={o}>
-                          {origemLabels[o]}
+                      <SelectItem value={NONE_VALUE}>Nao informado</SelectItem>
+                      {canalOrigemValues.map((canal) => (
+                        <SelectItem key={canal} value={canal}>
+                          {canalOrigemLabels[canal]}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -468,7 +542,13 @@ export function OportunidadeModal({
                   <Select
                     items={tipoItems}
                     value={field.value}
-                    onValueChange={(value) => field.onChange(value)}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+
+                      if (value === "EQUIPAMENTO_USADO") {
+                        form.setValue("tipoServico", null);
+                      }
+                    }}
                   >
                     <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
                       <SelectValue />
@@ -485,15 +565,91 @@ export function OportunidadeModal({
               />
             </Field>
 
-            <Field label="Valor" error={form.formState.errors.valor?.message}>
+            {watchedTipo === "LOCACAO" ? (
+              <Field label="Tipo de servico">
+                <Controller
+                  control={form.control}
+                  name="tipoServico"
+                  render={({ field }) => (
+                    <Select
+                      items={tipoServicoValues.map((tipoServico) => ({
+                        label: tipoServicoLabels[tipoServico],
+                        value: tipoServico,
+                      }))}
+                      value={field.value ?? NONE_VALUE}
+                      onValueChange={(value) =>
+                        field.onChange(value === NONE_VALUE ? null : value)
+                      }
+                    >
+                      <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
+                        <SelectValue placeholder="Selecione o servico" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE_VALUE}>Nao especificado</SelectItem>
+                        {tipoServicoValues.map((tipoServico) => (
+                          <SelectItem key={tipoServico} value={tipoServico}>
+                            {tipoServicoLabels[tipoServico]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </Field>
+            ) : null}
+
+            <Field label="Potencial da oportunidade">
               <Input
                 type="number"
                 step="0.01"
-                {...form.register("valor")}
-                placeholder="15000"
+                {...form.register("potencialOportunidade")}
+                placeholder="Ex: 15000 (estimativa inicial, pode deixar em branco)"
                 className="h-11 rounded-2xl bg-[#F4F6FA]"
               />
             </Field>
+
+            <Field label="Faixa de potencial">
+              <Controller
+                control={form.control}
+                name="faixaPotencial"
+                render={({ field }) => (
+                  <Select
+                    items={faixaPotencialValues.map((faixa) => ({
+                      label: faixaPotencialLabels[faixa],
+                      value: faixa,
+                    }))}
+                    value={field.value ?? NONE_VALUE}
+                    onValueChange={(value) =>
+                      field.onChange(value === NONE_VALUE ? null : value)
+                    }
+                  >
+                    <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
+                      <SelectValue placeholder="Selecione a faixa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE_VALUE}>Nao definida</SelectItem>
+                      {faixaPotencialValues.map((faixa) => (
+                        <SelectItem key={faixa} value={faixa}>
+                          {faixaPotencialLabels[faixa]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </Field>
+
+            {isEditing && statusAtual === "GANHA" ? (
+              <Field label="Valor do contrato">
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...form.register("valorContrato")}
+                  placeholder="Valor confirmado do contrato"
+                  className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+            ) : null}
 
             <Field label="Equipamento">
               <Controller
@@ -526,37 +682,59 @@ export function OportunidadeModal({
             </Field>
 
             <Field label="Obra" error={form.formState.errors.obraId?.message}>
-              <Controller
-                control={form.control}
-                name="obraId"
-                render={({ field }) => (
-                  <Combobox
-                    options={obraItems}
-                    value={field.value ?? ""}
-                    onChange={field.onChange}
-                    placeholder="Selecione a obra"
-                    searchPlaceholder="Buscar obra..."
-                    emptyMessage="Nenhuma obra encontrada."
-                  />
-                )}
-              />
+              <div className="space-y-2">
+                <Controller
+                  control={form.control}
+                  name="obraId"
+                  render={({ field }) => (
+                    <Combobox
+                      options={obraItems}
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      placeholder="Selecione a obra"
+                      searchPlaceholder="Buscar obra..."
+                      emptyMessage="Nenhuma obra encontrada."
+                    />
+                  )}
+                />
+                <button
+                  type="button"
+                  disabled={!watchedEmpresaId}
+                  onClick={() => setNovaObraOpen(true)}
+                  title={!watchedEmpresaId ? "Selecione uma empresa primeiro" : ""}
+                  className="text-xs font-semibold text-[#1E4FAB] hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  + Nova obra
+                </button>
+              </div>
             </Field>
 
             <Field label="Pessoa/contato">
-              <Controller
-                control={form.control}
-                name="pessoaId"
-                render={({ field }) => (
-                  <Combobox
-                    options={pessoaItems}
-                    value={field.value ?? NONE_VALUE}
-                    onChange={(value) => field.onChange(value || NONE_VALUE)}
-                    placeholder="Selecione o contato"
-                    searchPlaceholder="Buscar contato..."
-                    emptyMessage="Nenhum contato encontrado."
-                  />
-                )}
-              />
+              <div className="space-y-2">
+                <Controller
+                  control={form.control}
+                  name="pessoaId"
+                  render={({ field }) => (
+                    <Combobox
+                      options={pessoaItems}
+                      value={field.value ?? NONE_VALUE}
+                      onChange={(value) => field.onChange(value || NONE_VALUE)}
+                      placeholder="Selecione o contato"
+                      searchPlaceholder="Buscar contato..."
+                      emptyMessage="Nenhum contato encontrado."
+                    />
+                  )}
+                />
+                <button
+                  type="button"
+                  disabled={!watchedEmpresaId}
+                  onClick={() => setNovoContatoOpen(true)}
+                  title={!watchedEmpresaId ? "Selecione uma empresa primeiro" : ""}
+                  className="text-xs font-semibold text-[#1E4FAB] hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  + Novo contato
+                </button>
+              </div>
             </Field>
 
             {statusAtual === "PERDIDA" ? (
@@ -608,8 +786,41 @@ export function OportunidadeModal({
             </DialogFooter>
           </form>
         )}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <NovaEmpresaInline
+        open={novaEmpresaOpen}
+        onOpenChange={setNovaEmpresaOpen}
+        onCriada={(empresa) => {
+          setEmpresas((prev) => [empresa, ...prev]);
+          form.setValue("empresaId", empresa.id, { shouldValidate: true });
+          setNovaEmpresaOpen(false);
+        }}
+      />
+
+      <NovaObraInline
+        open={novaObraOpen}
+        onOpenChange={setNovaObraOpen}
+        empresaId={watchedEmpresaId ?? ""}
+        onCriada={(obra) => {
+          setObras((prev) => [obra, ...prev]);
+          form.setValue("obraId", obra.id, { shouldValidate: true });
+          setNovaObraOpen(false);
+        }}
+      />
+
+      <NovoContatoInline
+        open={novoContatoOpen}
+        onOpenChange={setNovoContatoOpen}
+        empresaId={watchedEmpresaId ?? ""}
+        onCriada={(contato) => {
+          setPessoas((prev) => [contato, ...prev]);
+          form.setValue("pessoaId", contato.id, { shouldValidate: true });
+          setNovoContatoOpen(false);
+        }}
+      />
+    </>
   );
 }
 

@@ -4,27 +4,33 @@ import type {
   TipoAtividade,
 } from "@/app/generated/prisma/client";
 
-export const TIPO_CONFIG: Record<
-  TipoAtividade,
-  { emoji: string; label: string }
+export const TIPO_CONFIG: Partial<
+  Record<TipoAtividade, { emoji: string; label: string }>
 > = {
   LIGACAO: { emoji: "📞", label: "Ligacao" },
   WHATSAPP: { emoji: "💬", label: "WhatsApp" },
-  VISITA: { emoji: "🏗️", label: "Visita" },
   REUNIAO: { emoji: "🤝", label: "Reuniao" },
-  REUNIAO_ONLINE: { emoji: "💻", label: "Reuniao Online" },
-  PROPOSTA: { emoji: "📄", label: "Proposta" },
-  CONTRATO: { emoji: "📋", label: "Contrato" },
+  VISITA: { emoji: "🏗️", label: "Visita Comercial" },
+  VISTORIA: { emoji: "🔍", label: "Visita de Obra" },
+  RETORNO_CLIENTE: { emoji: "🔁", label: "Follow-up" },
   COBRANCA: { emoji: "💰", label: "Cobranca" },
-  RETORNO_CLIENTE: { emoji: "🔁", label: "Retorno Cliente" },
-  POS_VENDA: { emoji: "⭐", label: "Pos-Venda" },
-  LOGISTICA: { emoji: "🚛", label: "Logistica" },
-  MANUTENCAO: { emoji: "🔧", label: "Manutencao" },
-  VISTORIA: { emoji: "🔍", label: "Vistoria" },
-  APRESENTACAO_COMERCIAL: { emoji: "🎯", label: "Apresentacao" },
-  TAREFA_INTERNA: { emoji: "📝", label: "Tarefa Interna" },
-  OUTRO: { emoji: "•", label: "Outro" },
+  PROPOSTA: { emoji: "📄", label: "Envio de Proposta" },
+  CONTRATO: { emoji: "📋", label: "Contrato" },
+  OUTRO: { emoji: "•", label: "Outros" },
 };
+
+export const TIPOS_RAPIDOS: TipoAtividade[] = [
+  "LIGACAO",
+  "WHATSAPP",
+  "REUNIAO",
+  "VISITA",
+  "VISTORIA",
+  "RETORNO_CLIENTE",
+  "COBRANCA",
+  "PROPOSTA",
+  "CONTRATO",
+  "OUTRO",
+];
 
 export const PRIORIDADE_CONFIG: Record<
   PrioridadeTarefa,

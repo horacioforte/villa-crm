@@ -23,6 +23,7 @@ import {
   PRIORIDADE_CONFIG,
   STATUS_TAREFA_CONFIG,
   TIPO_CONFIG,
+  TIPOS_RAPIDOS,
 } from "@/components/tarefas/tarefa-config";
 import {
   TarefaModal,
@@ -113,6 +114,24 @@ function formatDate(value: string | Date) {
     day: "2-digit",
     month: "short",
   }).format(new Date(value));
+}
+
+function corPrazo(dataVencimento: string | Date, status: StatusTarefa) {
+  if (status === "CONCLUIDA") {
+    return "text-emerald-600";
+  }
+
+  const vencimento = new Date(dataVencimento);
+
+  if (vencimento < startOfToday()) {
+    return "font-bold text-red-600";
+  }
+
+  if (isSameDay(vencimento)) {
+    return "font-medium text-amber-600";
+  }
+
+  return "text-[#667085]";
 }
 
 function getEmpresaName(tarefa: Tarefa) {
@@ -567,11 +586,19 @@ export default function TarefasPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todas">Tipo</SelectItem>
-                    {Object.entries(TIPO_CONFIG).map(([value, config]) => (
-                      <SelectItem key={value} value={value}>
-                        {config.emoji} {config.label}
-                      </SelectItem>
-                    ))}
+                    {TIPOS_RAPIDOS.map((value) => {
+                      const config = TIPO_CONFIG[value];
+
+                      if (!config) {
+                        return null;
+                      }
+
+                      return (
+                        <SelectItem key={value} value={value}>
+                          {config.emoji} {config.label}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -584,20 +611,22 @@ export default function TarefasPage() {
                 </div>
               ) : (
                 tarefasFiltradas.map((tarefa) => {
-                  const tipoConfig = TIPO_CONFIG[tarefa.tipo];
+                  const tipoConfig = TIPO_CONFIG[tarefa.tipo] ?? {
+                    emoji: "•",
+                    label: "Tarefa",
+                  };
                   const prioridadeConfig = PRIORIDADE_CONFIG[tarefa.prioridade];
-                  const isAtrasada = tarefa.status === "ATRASADA";
-                  const isHoje = isSameDay(tarefa.dataVencimento);
                   const isConcluida = tarefa.status === "CONCLUIDA";
+                  const prazoClassName = corPrazo(
+                    tarefa.dataVencimento,
+                    tarefa.status,
+                  );
 
                   return (
                     <article
                       key={tarefa.id}
                       className={cn(
-                        "rounded-3xl border border-l-4 bg-white p-4 shadow-sm transition",
-                        prioridadeConfig.borderClassName,
-                        isAtrasada && "border-red-200 bg-red-50",
-                        isHoje && !isAtrasada && "bg-amber-50",
+                        "rounded-3xl border border-[#D7DEEA] bg-white p-4 shadow-sm transition",
                         isConcluida && "opacity-60",
                       )}
                     >
@@ -614,15 +643,9 @@ export default function TarefasPage() {
                           >
                             {isConcluida ? <Check className="size-4" /> : null}
                           </button>
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-xl">{tipoConfig.emoji}</span>
-                              <Badge className={prioridadeConfig.badgeClassName}>
-                                {prioridadeConfig.label}
-                              </Badge>
-                              <Badge variant="outline">
-                                {STATUS_TAREFA_CONFIG[tarefa.status].label}
-                              </Badge>
                               <h2
                                 className={cn(
                                   "text-lg font-bold text-[#1A2E5A]",
@@ -631,33 +654,41 @@ export default function TarefasPage() {
                               >
                                 {tarefa.titulo}
                               </h2>
+                              {["URGENTE", "ALTA"].includes(tarefa.prioridade) ? (
+                                <Badge className={prioridadeConfig.badgeClassName}>
+                                  {prioridadeConfig.label}
+                                </Badge>
+                              ) : null}
+                              <Badge variant="outline">
+                                {STATUS_TAREFA_CONFIG[tarefa.status].label}
+                              </Badge>
                             </div>
                             <p className="mt-1 text-sm text-[#667085]">
-                              {tarefa.responsavel?.nome ?? "Sem responsavel"} ·
-                              Criada em {formatDate(tarefa.createdAt)}
-                            </p>
-                            <p className="mt-2 text-sm text-[#667085]">
-                              Empresa: {getEmpresaName(tarefa)}
+                              {tarefa.responsavel?.nome ?? "Sem responsavel"} ·{" "}
+                              {getEmpresaName(tarefa)}
                               {tarefa.oportunidade
-                                ? ` · Oportunidade: ${tarefa.oportunidade.titulo}`
+                                ? ` · ${tarefa.oportunidade.titulo}`
                                 : ""}
                             </p>
                             <p
                               className={cn(
                                 "mt-2 flex items-center gap-2 text-sm font-semibold",
-                                isAtrasada ? "text-red-700" : "text-[#1A2E5A]",
+                                prazoClassName,
                               )}
                             >
                               <Clock3 className="size-4" />
-                              Vencimento: {formatDate(tarefa.dataVencimento)}
+                              {formatDate(tarefa.dataVencimento)}
                               {tarefa.horaVencimento
-                                ? ` as ${tarefa.horaVencimento}`
+                                ? ` · ${tarefa.horaVencimento}`
                                 : ""}
                             </p>
-                            {tarefa.descricao ? (
-                              <p className="mt-3 text-sm leading-6 text-[#667085]">
-                                {tarefa.descricao}
-                              </p>
+                            {tarefa.observacoes ? (
+                              <details className="mt-3 text-sm text-[#667085]">
+                                <summary className="cursor-pointer font-semibold text-[#1E4FAB]">
+                                  Observacoes
+                                </summary>
+                                <p className="mt-1 leading-6">{tarefa.observacoes}</p>
+                              </details>
                             ) : null}
                           </div>
                         </div>

@@ -37,19 +37,19 @@ const gatilhos: Record<
   },
   PROPOSTA_ACEITA: {
     titulo: "Agendar mobilizacao do equipamento",
-    tipo: "LOGISTICA",
+    tipo: "VISTORIA",
     prioridade: "URGENTE",
     prazo: (date) => addDays(date, 1),
   },
   CONTRATO_ASSINADO: {
     titulo: "Agendar mobilizacao do equipamento",
-    tipo: "LOGISTICA",
+    tipo: "VISTORIA",
     prioridade: "URGENTE",
     prazo: (date) => addDays(date, 1),
   },
   OPORTUNIDADE_GANHA: {
     titulo: "Visita pos-venda - confirmar entrega",
-    tipo: "POS_VENDA",
+    tipo: "VISTORIA",
     prioridade: "MEDIA",
     prazo: (date) => addDays(date, 7),
   },

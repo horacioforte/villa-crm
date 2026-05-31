@@ -83,6 +83,9 @@ type OportunidadeDetalheData = {
   potencialOportunidade: string | number | null;
   valorContrato: string | number | null;
   createdAt: string;
+  empresaId: string;
+  pessoaId: string | null;
+  obraId: string | null;
   propostas?: Array<{
     valorTotal: string | number;
     status: string;
@@ -558,7 +561,10 @@ export function OportunidadeDetalhe({
                     </p>
                   ) : (
                     tarefas.slice(0, 5).map((tarefa) => {
-                      const tipo = TIPO_CONFIG[tarefa.tipo];
+                      const tipo = TIPO_CONFIG[tarefa.tipo] ?? {
+                        emoji: "•",
+                        label: "Tarefa",
+                      };
                       const prioridade = PRIORIDADE_CONFIG[tarefa.prioridade];
 
                       return (
@@ -807,7 +813,12 @@ export function OportunidadeDetalhe({
       <TarefaModal
         aberto={tarefaModalOpen}
         tarefa={tarefaEditando}
-        oportunidadeId={id}
+        contexto={{
+          oportunidadeId: oportunidade?.id ?? id,
+          empresaId: oportunidade?.empresaId ?? null,
+          pessoaId: oportunidade?.pessoaId ?? null,
+          obraId: oportunidade?.obraId ?? null,
+        }}
         onFechar={() => {
           setTarefaModalOpen(false);
           setTarefaEditando(null);

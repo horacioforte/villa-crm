@@ -30,6 +30,7 @@ import {
 } from "@/app/generated/prisma/client";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { ProposalQuickActions } from "@/components/dashboard/ProposalQuickActions";
+import { TIPO_CONFIG } from "@/components/tarefas/tarefa-config";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
@@ -456,6 +457,8 @@ export default async function Home() {
     proximoContato,
     equipamentosDisponiveis,
     tarefasHoje,
+    tarefasAtrasadasLista,
+    tarefasProximas,
     tarefasAtrasadas,
     oportunidadesSemAcao,
     pipelinePotencial,
@@ -652,6 +655,68 @@ export default async function Home() {
       },
       orderBy: [{ prioridade: "desc" }, { dataVencimento: "asc" }],
       take: 5,
+    }),
+    prisma.tarefa.findMany({
+      where: {
+        ...tarefaAccessWhere,
+        status: {
+          in: ["PENDENTE", "EM_ANDAMENTO"],
+        },
+        dataVencimento: {
+          lt: inicioHoje,
+        },
+      },
+      include: {
+        oportunidade: {
+          select: {
+            titulo: true,
+          },
+        },
+        empresa: {
+          select: {
+            nomeFantasia: true,
+            razaoSocial: true,
+          },
+        },
+        responsavel: {
+          select: {
+            nome: true,
+          },
+        },
+      },
+      orderBy: [{ prioridade: "desc" }, { dataVencimento: "asc" }],
+      take: 3,
+    }),
+    prisma.tarefa.findMany({
+      where: {
+        ...tarefaAccessWhere,
+        status: {
+          in: ["PENDENTE", "EM_ANDAMENTO"],
+        },
+        dataVencimento: {
+          gt: fimHoje,
+        },
+      },
+      include: {
+        oportunidade: {
+          select: {
+            titulo: true,
+          },
+        },
+        empresa: {
+          select: {
+            nomeFantasia: true,
+            razaoSocial: true,
+          },
+        },
+        responsavel: {
+          select: {
+            nome: true,
+          },
+        },
+      },
+      orderBy: [{ dataVencimento: "asc" }],
+      take: 3,
     }),
     prisma.tarefa.count({
       where: {
@@ -945,6 +1010,23 @@ export default async function Home() {
       icon: Truck,
     },
   ];
+  const tarefaDashboardGroups = [
+    {
+      label: `Atrasadas (${tarefasAtrasadasLista.length})`,
+      className: "border-red-100 bg-red-50 text-red-700",
+      tarefas: tarefasAtrasadasLista,
+    },
+    {
+      label: `Hoje (${tarefasHoje.length})`,
+      className: "border-amber-100 bg-amber-50 text-amber-700",
+      tarefas: tarefasHoje,
+    },
+    {
+      label: `Proximas (${tarefasProximas.length})`,
+      className: "border-emerald-100 bg-emerald-50 text-emerald-700",
+      tarefas: tarefasProximas,
+    },
+  ];
   const nextContactOpportunity = proximoContato?.oportunidade;
   const nextContactPhone =
     nextContactOpportunity?.pessoa?.whatsapp ??
@@ -1185,34 +1267,41 @@ export default async function Home() {
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {tarefasHoje.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#D7DEEA] p-5 text-sm text-[#667085] md:col-span-3">
-                  Nenhuma tarefa pendente para hoje.
+              {tarefaDashboardGroups.map((group) => (
+                <div
+                  key={group.label}
+                  className={`rounded-2xl border p-4 ${group.className}`}
+                >
+                  <p className="mb-3 text-xs font-bold">{group.label}</p>
+                  {group.tarefas.length === 0 ? (
+                    <p className="text-sm text-[#667085]">Nenhuma tarefa.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {group.tarefas.map((tarefa) => {
+                        const tipoConfig = TIPO_CONFIG[tarefa.tipo] ?? {
+                          emoji: "•",
+                          label: "Tarefa",
+                        };
+
+                        return (
+                          <div
+                            key={tarefa.id}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <span>{tipoConfig.emoji}</span>
+                            <span className="min-w-0 flex-1 truncate text-[#1A2E5A]">
+                              {tarefa.titulo}
+                            </span>
+                            <span className="shrink-0 text-xs">
+                              {formatDate(tarefa.dataVencimento)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                tarefasHoje.map((tarefa) => (
-                  <div
-                    key={tarefa.id}
-                    className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-4"
-                  >
-                    <p className="font-semibold text-[#1A2E5A]">
-                      {tarefa.titulo}
-                    </p>
-                    <p className="mt-1 text-sm text-[#667085]">
-                      {tarefa.empresa
-                        ? (tarefa.empresa.nomeFantasia ??
-                          tarefa.empresa.razaoSocial)
-                        : "Sem empresa"}
-                    </p>
-                    <p className="mt-2 text-xs font-semibold text-[#1E4FAB]">
-                      hoje{tarefa.horaVencimento ? ` ${tarefa.horaVencimento}` : ""}
-                      {tarefa.oportunidade
-                        ? ` · ${tarefa.oportunidade.titulo}`
-                        : ""}
-                    </p>
-                  </div>
-                ))
-              )}
+              ))}
             </div>
           </section>
 

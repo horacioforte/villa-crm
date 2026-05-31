@@ -27,7 +27,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PRIORIDADE_CONFIG, TIPO_CONFIG } from "@/components/tarefas/tarefa-config";
+import {
+  PRIORIDADE_CONFIG,
+  TIPO_CONFIG,
+  TIPOS_RAPIDOS,
+} from "@/components/tarefas/tarefa-config";
+import { cn } from "@/lib/utils";
 
 const NONE_VALUE = "__none__";
 
@@ -36,6 +41,14 @@ type Option = {
   label: string;
   empresaId?: string | null;
   oportunidadeId?: string | null;
+};
+
+type TarefaContexto = {
+  oportunidadeId?: string | null;
+  empresaId?: string | null;
+  pessoaId?: string | null;
+  obraId?: string | null;
+  propostaId?: string | null;
 };
 
 export type TarefaModalData = {
@@ -60,51 +73,73 @@ type TarefaModalProps = {
   onFechar: () => void;
   onSalvar: () => void;
   tarefa?: TarefaModalData | null;
+  contexto?: TarefaContexto;
   oportunidadeId?: string | null;
 };
 
 type FormState = {
-  titulo: string;
   tipo: TipoAtividade;
   prioridade: PrioridadeTarefa;
   dataVencimento: string;
   horaVencimento: string;
+  proximaAcao: string;
   responsavelId: string;
   oportunidadeId: string;
   empresaId: string;
   pessoaId: string;
   obraId: string;
   propostaId: string;
-  descricao: string;
   observacoes: string;
 };
 
-const hoje = new Date().toISOString().slice(0, 10);
+function todayInput() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function toDateInput(value: string | Date) {
   return new Date(value).toISOString().slice(0, 10);
 }
 
-function getDefaultState(oportunidadeId?: string | null): FormState {
-  return {
-    titulo: "",
-    tipo: "LIGACAO",
-    prioridade: "MEDIA",
-    dataVencimento: hoje,
-    horaVencimento: "",
-    responsavelId: NONE_VALUE,
-    oportunidadeId: oportunidadeId ?? NONE_VALUE,
-    empresaId: NONE_VALUE,
-    pessoaId: NONE_VALUE,
-    obraId: NONE_VALUE,
-    propostaId: NONE_VALUE,
-    descricao: "",
-    observacoes: "",
-  };
+function toSelectValue(value?: string | null) {
+  return value ?? NONE_VALUE;
 }
 
 function normalizeRelation(value: string) {
   return value === NONE_VALUE ? null : value;
+}
+
+function proximaAcaoPlaceholder(tipo: TipoAtividade): string {
+  const map: Partial<Record<TipoAtividade, string>> = {
+    LIGACAO: "Ex: Ligar para Joao e confirmar necessidade de bomba",
+    WHATSAPP: "Ex: Enviar catalogo de betoneiras por WhatsApp",
+    REUNIAO: "Ex: Reuniao para apresentar condicoes de locacao",
+    VISITA: "Ex: Visitar obra da Construtora Almeida",
+    VISTORIA: "Ex: Vistoria de entrega na obra Maraba",
+    RETORNO_CLIENTE: "Ex: Cobrar retorno da proposta enviada",
+    COBRANCA: "Ex: Cobrar pagamento em aberto",
+    PROPOSTA: "Ex: Enviar proposta de locacao de bomba lanca",
+    CONTRATO: "Ex: Enviar contrato para assinatura",
+    OUTRO: "Descreva a proxima acao...",
+  };
+
+  return map[tipo] ?? "Descreva a proxima acao...";
+}
+
+function getDefaultState(contexto?: TarefaContexto): FormState {
+  return {
+    tipo: "LIGACAO",
+    prioridade: "MEDIA",
+    dataVencimento: todayInput(),
+    horaVencimento: "",
+    proximaAcao: "",
+    responsavelId: NONE_VALUE,
+    oportunidadeId: toSelectValue(contexto?.oportunidadeId),
+    empresaId: toSelectValue(contexto?.empresaId),
+    pessoaId: toSelectValue(contexto?.pessoaId),
+    obraId: toSelectValue(contexto?.obraId),
+    propostaId: toSelectValue(contexto?.propostaId),
+    observacoes: "",
+  };
 }
 
 export function TarefaModal({
@@ -112,10 +147,18 @@ export function TarefaModal({
   onFechar,
   onSalvar,
   tarefa,
+  contexto,
   oportunidadeId,
 }: TarefaModalProps) {
+  const contextoEfetivo = useMemo<TarefaContexto>(
+    () => ({
+      ...contexto,
+      oportunidadeId: contexto?.oportunidadeId ?? oportunidadeId ?? null,
+    }),
+    [contexto, oportunidadeId],
+  );
   const [form, setForm] = useState<FormState>(() =>
-    getDefaultState(oportunidadeId),
+    getDefaultState(contextoEfetivo),
   );
   const [usuarios, setUsuarios] = useState<Option[]>([]);
   const [empresas, setEmpresas] = useState<Option[]>([]);
@@ -125,6 +168,8 @@ export function TarefaModal({
   const [propostas, setPropostas] = useState<Option[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modoAvancado, setModoAvancado] = useState(false);
+  const [delegando, setDelegando] = useState(false);
 
   const isEditing = Boolean(tarefa?.id);
 
@@ -135,24 +180,29 @@ export function TarefaModal({
 
     const nextForm = tarefa
       ? {
-          titulo: tarefa.titulo,
           tipo: tarefa.tipo,
           prioridade: tarefa.prioridade,
           dataVencimento: toDateInput(tarefa.dataVencimento),
           horaVencimento: tarefa.horaVencimento ?? "",
+          proximaAcao: tarefa.titulo,
           responsavelId: tarefa.responsavelId ?? NONE_VALUE,
-          oportunidadeId: tarefa.oportunidadeId ?? oportunidadeId ?? NONE_VALUE,
-          empresaId: tarefa.empresaId ?? NONE_VALUE,
-          pessoaId: tarefa.pessoaId ?? NONE_VALUE,
-          obraId: tarefa.obraId ?? NONE_VALUE,
-          propostaId: tarefa.propostaId ?? NONE_VALUE,
-          descricao: tarefa.descricao ?? "",
-          observacoes: tarefa.observacoes ?? "",
+          oportunidadeId: toSelectValue(
+            tarefa.oportunidadeId ?? contextoEfetivo.oportunidadeId,
+          ),
+          empresaId: toSelectValue(tarefa.empresaId ?? contextoEfetivo.empresaId),
+          pessoaId: toSelectValue(tarefa.pessoaId ?? contextoEfetivo.pessoaId),
+          obraId: toSelectValue(tarefa.obraId ?? contextoEfetivo.obraId),
+          propostaId: toSelectValue(tarefa.propostaId ?? contextoEfetivo.propostaId),
+          observacoes: tarefa.observacoes ?? tarefa.descricao ?? "",
         }
-      : getDefaultState(oportunidadeId);
+      : getDefaultState(contextoEfetivo);
 
-    queueMicrotask(() => setForm(nextForm));
-  }, [aberto, oportunidadeId, tarefa]);
+    queueMicrotask(() => {
+      setForm(nextForm);
+      setModoAvancado(Boolean(tarefa));
+      setDelegando(Boolean(tarefa?.responsavelId));
+    });
+  }, [aberto, contextoEfetivo, tarefa]);
 
   useEffect(() => {
     if (!aberto) {
@@ -295,6 +345,10 @@ export function TarefaModal({
     return obras.filter((obra) => !obra.empresaId || obra.empresaId === form.empresaId);
   }, [form.empresaId, obras]);
 
+  const responsavelSelecionado = usuarios.find(
+    (usuario) => usuario.id === form.responsavelId,
+  );
+
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -311,23 +365,30 @@ export function TarefaModal({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!form.proximaAcao.trim()) {
+      toast.error("Informe a proxima acao.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
+      const proximaAcao = form.proximaAcao.trim();
       const payload = {
-        titulo: form.titulo,
+        titulo: proximaAcao,
+        descricao: proximaAcao,
         tipo: form.tipo,
         prioridade: form.prioridade,
         dataVencimento: form.dataVencimento,
-        horaVencimento: form.horaVencimento,
+        horaVencimento: form.horaVencimento || null,
         responsavelId: normalizeRelation(form.responsavelId),
         oportunidadeId: normalizeRelation(form.oportunidadeId),
         empresaId: normalizeRelation(form.empresaId),
         pessoaId: normalizeRelation(form.pessoaId),
         obraId: normalizeRelation(form.obraId),
         propostaId: normalizeRelation(form.propostaId),
-        descricao: form.descricao,
-        observacoes: form.observacoes,
+        observacoes: form.observacoes || null,
       };
 
       const url = isEditing ? `/api/tarefas/${tarefa?.id}` : "/api/tarefas";
@@ -360,264 +421,282 @@ export function TarefaModal({
 
   return (
     <Dialog open={aberto} onOpenChange={(open) => !open && onFechar()}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto rounded-3xl sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-2xl text-[#1A2E5A]">
             {isEditing ? "Editar tarefa" : "Nova tarefa"}
           </DialogTitle>
           <DialogDescription>
-            Defina a proxima acao comercial com responsavel, prazo e contexto.
+            Crie a proxima acao comercial em poucos segundos.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="titulo">Titulo*</Label>
-              <Input
-                id="titulo"
-                value={form.titulo}
-                onChange={(event) => update("titulo", event.target.value)}
-                placeholder="Ligar para cliente"
-                required
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>Tipo</Label>
+            <div className="flex flex-wrap gap-2">
+              {TIPOS_RAPIDOS.map((tipo) => {
+                const config = TIPO_CONFIG[tipo];
+                const ativo = form.tipo === tipo;
 
-            <div className="space-y-2">
-              <Label>Tipo*</Label>
-              <Select
-                value={form.tipo}
-                onValueChange={(value) =>
-                  update("tipo", (value ?? "LIGACAO") as TipoAtividade)
+                if (!config) {
+                  return null;
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TIPO_CONFIG).map(([value, config]) => (
-                    <SelectItem key={value} value={value}>
-                      {config.emoji} {config.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Prioridade*</Label>
-              <Select
-                value={form.prioridade}
-                onValueChange={(value) =>
-                  update("prioridade", (value ?? "MEDIA") as PrioridadeTarefa)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(PRIORIDADE_CONFIG).map(([value, config]) => (
-                    <SelectItem key={value} value={value}>
-                      {config.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                return (
+                  <button
+                    key={tipo}
+                    type="button"
+                    onClick={() => update("tipo", tipo)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-2xl border px-3 py-1.5 text-sm transition-colors",
+                      ativo
+                        ? "border-[#1E4FAB] bg-[#1E4FAB] text-white"
+                        : "border-[#D7DEEA] bg-white text-[#667085] hover:border-[#1E4FAB] hover:text-[#1E4FAB]",
+                    )}
+                  >
+                    <span>{config.emoji}</span>
+                    <span>{config.label}</span>
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="proximaAcao">Proxima acao*</Label>
+            <Textarea
+              id="proximaAcao"
+              value={form.proximaAcao}
+              onChange={(event) => update("proximaAcao", event.target.value)}
+              placeholder={proximaAcaoPlaceholder(form.tipo)}
+              rows={2}
+              className="resize-none rounded-2xl bg-[#F4F6FA]"
+              required
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="dataVencimento">Data de vencimento*</Label>
+              <Label htmlFor="dataVencimento">Data*</Label>
               <Input
                 id="dataVencimento"
                 type="date"
                 value={form.dataVencimento}
-                onChange={(event) =>
-                  update("dataVencimento", event.target.value)
-                }
+                onChange={(event) => update("dataVencimento", event.target.value)}
+                className="h-11 rounded-2xl bg-[#F4F6FA]"
                 required
               />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="horaVencimento">Hora</Label>
+              <Label htmlFor="horaVencimento">Hora opcional</Label>
               <Input
                 id="horaVencimento"
                 type="time"
                 value={form.horaVencimento}
-                onChange={(event) =>
-                  update("horaVencimento", event.target.value)
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Responsavel</Label>
-              <Select
-                value={form.responsavelId}
-                onValueChange={(value) =>
-                  update("responsavelId", value ?? NONE_VALUE)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Usuario logado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>Usuario logado</SelectItem>
-                  {usuarios.map((usuario) => (
-                    <SelectItem key={usuario.id} value={usuario.id}>
-                      {usuario.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Oportunidade</Label>
-              <Select
-                value={form.oportunidadeId}
-                onValueChange={(value) =>
-                  handleOportunidadeChange(value ?? NONE_VALUE)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem oportunidade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>Sem oportunidade</SelectItem>
-                  {oportunidades.map((oportunidade) => (
-                    <SelectItem key={oportunidade.id} value={oportunidade.id}>
-                      {oportunidade.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Empresa</Label>
-              <Select
-                value={form.empresaId}
-                onValueChange={(value) => update("empresaId", value ?? NONE_VALUE)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem empresa" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>Sem empresa</SelectItem>
-                  {empresas.map((empresa) => (
-                    <SelectItem key={empresa.id} value={empresa.id}>
-                      {empresa.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Obra</Label>
-              <Select
-                value={form.obraId}
-                onValueChange={(value) => update("obraId", value ?? NONE_VALUE)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem obra" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>Sem obra</SelectItem>
-                  {obraOptions.map((obra) => (
-                    <SelectItem key={obra.id} value={obra.id}>
-                      {obra.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Contato</Label>
-              <Select
-                value={form.pessoaId}
-                onValueChange={(value) => update("pessoaId", value ?? NONE_VALUE)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem contato" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>Sem contato</SelectItem>
-                  {pessoas.map((pessoa) => (
-                    <SelectItem key={pessoa.id} value={pessoa.id}>
-                      {pessoa.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Proposta</Label>
-              <Select
-                value={form.propostaId}
-                onValueChange={(value) =>
-                  update("propostaId", value ?? NONE_VALUE)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem proposta" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>Sem proposta</SelectItem>
-                  {propostas.map((proposta) => (
-                    <SelectItem key={proposta.id} value={proposta.id}>
-                      {proposta.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="descricao">Descricao</Label>
-              <Textarea
-                id="descricao"
-                value={form.descricao}
-                onChange={(event) => update("descricao", event.target.value)}
-                placeholder="Contexto da acao"
-              />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="observacoes">Observacoes</Label>
-              <Textarea
-                id="observacoes"
-                value={form.observacoes}
-                onChange={(event) => update("observacoes", event.target.value)}
-                placeholder="Notas internas"
+                onChange={(event) => update("horaVencimento", event.target.value)}
+                className="h-11 rounded-2xl bg-[#F4F6FA]"
               />
             </div>
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onFechar}>
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting || isLoading}
-              className="bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+          <div className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-3">
+            {!delegando ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm text-[#667085]">
+                  Responsavel: <b>voce mesmo</b>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDelegando(true)}
+                  className="text-left text-xs font-semibold text-[#1E4FAB] hover:underline sm:text-right"
+                >
+                  Delegar para outra pessoa
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Responsavel</Label>
+                <Select
+                  value={form.responsavelId}
+                  onValueChange={(value) =>
+                    update("responsavelId", value ?? NONE_VALUE)
+                  }
+                >
+                  <SelectTrigger className="h-11 w-full rounded-2xl bg-white">
+                    <SelectValue placeholder="Usuario logado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE_VALUE}>Eu mesmo</SelectItem>
+                    {usuarios.map((usuario) => (
+                      <SelectItem key={usuario.id} value={usuario.id}>
+                        {usuario.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {responsavelSelecionado ? (
+                  <p className="text-xs text-[#667085]">
+                    Delegada para {responsavelSelecionado.label}
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {modoAvancado ? (
+            <div className="space-y-3 border-t border-[#D7DEEA] pt-4">
+              <div className="space-y-2">
+                <Label>Prioridade</Label>
+                <Select
+                  value={form.prioridade}
+                  onValueChange={(value) =>
+                    update("prioridade", (value ?? "MEDIA") as PrioridadeTarefa)
+                  }
+                >
+                  <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PRIORIDADE_CONFIG).map(([value, config]) => (
+                      <SelectItem key={value} value={value}>
+                        {config.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {!contextoEfetivo.oportunidadeId ? (
+                  <AdvancedSelect
+                    label="Oportunidade"
+                    value={form.oportunidadeId}
+                    placeholder="Sem oportunidade"
+                    options={oportunidades}
+                    onChange={handleOportunidadeChange}
+                  />
+                ) : null}
+                {!contextoEfetivo.empresaId ? (
+                  <AdvancedSelect
+                    label="Empresa"
+                    value={form.empresaId}
+                    placeholder="Sem empresa"
+                    options={empresas}
+                    onChange={(value) => update("empresaId", value)}
+                  />
+                ) : null}
+                {!contextoEfetivo.obraId ? (
+                  <AdvancedSelect
+                    label="Obra"
+                    value={form.obraId}
+                    placeholder="Sem obra"
+                    options={obraOptions}
+                    onChange={(value) => update("obraId", value)}
+                  />
+                ) : null}
+                {!contextoEfetivo.pessoaId ? (
+                  <AdvancedSelect
+                    label="Contato"
+                    value={form.pessoaId}
+                    placeholder="Sem contato"
+                    options={pessoas}
+                    onChange={(value) => update("pessoaId", value)}
+                  />
+                ) : null}
+                {!contextoEfetivo.propostaId ? (
+                  <AdvancedSelect
+                    label="Proposta"
+                    value={form.propostaId}
+                    placeholder="Sem proposta"
+                    options={propostas}
+                    onChange={(value) => update("propostaId", value)}
+                  />
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="observacoes">Observacoes internas</Label>
+                <Textarea
+                  id="observacoes"
+                  value={form.observacoes}
+                  onChange={(event) => update("observacoes", event.target.value)}
+                  rows={2}
+                  className="resize-none rounded-2xl bg-[#F4F6FA]"
+                  placeholder="Notas internas opcionais"
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter className="gap-2 sm:justify-between">
+            <button
+              type="button"
+              onClick={() => setModoAvancado((current) => !current)}
+              className="text-sm font-semibold text-[#667085] underline-offset-2 hover:text-[#1E4FAB] hover:underline"
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                "Salvar tarefa"
-              )}
-            </Button>
+              {modoAvancado ? "Menos opcoes" : "+ Mais opcoes"}
+            </button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onFechar}
+                className="rounded-2xl"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting || isLoading}
+                className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar tarefa"
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function AdvancedSelect({
+  label,
+  value,
+  placeholder,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  options: Option[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Select value={value} onValueChange={(nextValue) => onChange(nextValue ?? NONE_VALUE)}>
+        <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NONE_VALUE}>{placeholder}</SelectItem>
+          {options.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }

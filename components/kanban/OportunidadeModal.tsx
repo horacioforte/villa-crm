@@ -547,6 +547,7 @@ export function OportunidadeModal({
 
                       if (value === "EQUIPAMENTO_USADO") {
                         form.setValue("tipoServico", null);
+                        form.setValue("obraId", NONE_VALUE);
                       }
                     }}
                   >
@@ -681,33 +682,35 @@ export function OportunidadeModal({
               />
             </Field>
 
-            <Field label="Obra" error={form.formState.errors.obraId?.message}>
-              <div className="space-y-2">
-                <Controller
-                  control={form.control}
-                  name="obraId"
-                  render={({ field }) => (
-                    <Combobox
-                      options={obraItems}
-                      value={field.value ?? ""}
-                      onChange={field.onChange}
-                      placeholder="Selecione a obra"
-                      searchPlaceholder="Buscar obra..."
-                      emptyMessage="Nenhuma obra encontrada."
-                    />
-                  )}
-                />
-                <button
-                  type="button"
-                  disabled={!watchedEmpresaId}
-                  onClick={() => setNovaObraOpen(true)}
-                  title={!watchedEmpresaId ? "Selecione uma empresa primeiro" : ""}
-                  className="text-xs font-semibold text-[#1E4FAB] hover:underline disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  + Nova obra
-                </button>
-              </div>
-            </Field>
+            {watchedTipo === "LOCACAO" ? (
+              <Field label="Obra" error={form.formState.errors.obraId?.message}>
+                <div className="space-y-2">
+                  <Controller
+                    control={form.control}
+                    name="obraId"
+                    render={({ field }) => (
+                      <Combobox
+                        options={obraItems}
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                        placeholder="Selecione a obra"
+                        searchPlaceholder="Buscar obra..."
+                        emptyMessage="Nenhuma obra encontrada."
+                      />
+                    )}
+                  />
+                  <button
+                    type="button"
+                    disabled={!watchedEmpresaId}
+                    onClick={() => setNovaObraOpen(true)}
+                    title={!watchedEmpresaId ? "Selecione uma empresa primeiro" : ""}
+                    className="text-xs font-semibold text-[#1E4FAB] hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    + Nova obra
+                  </button>
+                </div>
+              </Field>
+            ) : null}
 
             <Field label="Pessoa/contato">
               <div className="space-y-2">

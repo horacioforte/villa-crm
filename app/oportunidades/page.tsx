@@ -192,16 +192,6 @@ export default function OportunidadesPage() {
     loadOportunidades();
   }, []);
 
-  const totalPipeline = useMemo(
-    () =>
-      oportunidades.reduce((total, oportunidade) => {
-        const valorPipeline = getValorPipeline(oportunidade);
-
-        return total + Number(valorPipeline?.value ?? 0);
-      }, 0),
-    [oportunidades],
-  );
-
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
 
@@ -266,6 +256,15 @@ export default function OportunidadesPage() {
         filtroTipo === "TODOS" ? true : oportunidade.tipo === filtroTipo,
       ),
     [filtroTipo, oportunidades],
+  );
+  const totalPipeline = useMemo(
+    () =>
+      oportunidadesFiltradas.reduce((total, oportunidade) => {
+        const valorPipeline = getValorPipeline(oportunidade);
+
+        return total + Number(valorPipeline?.value ?? 0);
+      }, 0),
+    [oportunidadesFiltradas],
   );
 
   function handleSalvar(oportunidade: Omit<Oportunidade, "temperatura" | "temperaturaMotivo"> & { temperatura?: TemperaturaOportunidade | null; temperaturaMotivo?: string | null }) {
@@ -349,7 +348,7 @@ export default function OportunidadesPage() {
               <CardHeader className="p-5">
                 <CardDescription>Oportunidades</CardDescription>
                 <CardTitle className="text-2xl font-bold text-[#1A2E5A]">
-                  {oportunidades.length}
+                  {oportunidadesFiltradas.length}
                 </CardTitle>
               </CardHeader>
             </Card>

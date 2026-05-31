@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -390,22 +391,14 @@ export function OportunidadeModal({
                 control={form.control}
                 name="empresaId"
                 render={({ field }) => (
-                  <Select
-                    items={empresaItems}
-                    value={field.value || null}
-                    onValueChange={(value) => field.onChange(value ?? "")}
-                  >
-                    <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
-                      <SelectValue placeholder="Selecione a empresa" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {empresas.map((empresa) => (
-                        <SelectItem key={empresa.id} value={empresa.id}>
-                          {empresa.nomeFantasia ?? empresa.razaoSocial}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={empresaItems}
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Selecione a empresa"
+                    searchPlaceholder="Buscar empresa..."
+                    emptyMessage="Nenhuma empresa encontrada."
+                  />
                 )}
               />
             </Field>
@@ -537,22 +530,14 @@ export function OportunidadeModal({
                 control={form.control}
                 name="obraId"
                 render={({ field }) => (
-                  <Select
-                    items={obraItems}
-                    value={field.value || null}
-                    onValueChange={(value) => field.onChange(value ?? "")}
-                  >
-                    <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
-                      <SelectValue placeholder="Selecione a obra" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {obras.map((obra) => (
-                        <SelectItem key={obra.id} value={obra.id}>
-                          {obra.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={obraItems}
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Selecione a obra"
+                    searchPlaceholder="Buscar obra..."
+                    emptyMessage="Nenhuma obra encontrada."
+                  />
                 )}
               />
             </Field>
@@ -562,27 +547,14 @@ export function OportunidadeModal({
                 control={form.control}
                 name="pessoaId"
                 render={({ field }) => (
-                  <Select
-                    items={pessoaItems}
-                    value={field.value}
-                    onValueChange={(value) =>
-                      field.onChange(value ?? NONE_VALUE)
-                    }
-                  >
-                    <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
-                      <SelectValue placeholder="Selecione o contato" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE_VALUE}>
-                        Sem contato vinculado
-                      </SelectItem>
-                      {pessoas.map((pessoa) => (
-                        <SelectItem key={pessoa.id} value={pessoa.id}>
-                          {pessoa.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={pessoaItems}
+                    value={field.value ?? NONE_VALUE}
+                    onChange={(value) => field.onChange(value || NONE_VALUE)}
+                    placeholder="Selecione o contato"
+                    searchPlaceholder="Buscar contato..."
+                    emptyMessage="Nenhum contato encontrado."
+                  />
                 )}
               />
             </Field>

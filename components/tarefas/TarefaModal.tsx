@@ -9,6 +9,7 @@ import type {
   TipoAtividade,
 } from "@/app/generated/prisma/client";
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -787,21 +788,22 @@ function AdvancedSelect({
   options: Option[];
   onChange: (value: string) => void;
 }) {
+  const comboboxOptions = options.map((option) => ({
+    value: option.id,
+    label: option.label,
+  }));
+
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <select
+      <Combobox
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full rounded-2xl border border-input bg-[#F4F6FA] px-3 text-sm text-[#1A2E5A] outline-none focus:border-[#1E4FAB] focus:ring-2 focus:ring-[#1E4FAB]/20"
-      >
-        <option value={NONE_VALUE}>{placeholder}</option>
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        options={comboboxOptions}
+        onChange={(nextValue) => onChange(nextValue || NONE_VALUE)}
+        placeholder={placeholder}
+        searchPlaceholder={`Buscar ${label.toLowerCase()}...`}
+        emptyMessage={`Nenhum resultado encontrado.`}
+      />
     </div>
   );
 }

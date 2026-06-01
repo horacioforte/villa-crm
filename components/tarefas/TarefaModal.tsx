@@ -421,6 +421,11 @@ export function TarefaModal({
       return;
     }
 
+    if (!hasContextoOportunidade && form.empresaId === NONE_VALUE) {
+      toast.error("Selecione a empresa da tarefa.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -498,26 +503,70 @@ export function TarefaModal({
                 ))}
               </div>
             </section>
-          ) : !isEditing ? (
+          ) : (
             <section className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">
-                Cadastro rapido
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">
+                Contexto comercial
               </p>
-              <p className="mt-1 text-sm font-semibold text-[#1A2E5A]">
-                Responda 3 perguntas para criar a tarefa.
-              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <AdvancedSelect
+                  label="Empresa*"
+                  value={form.empresaId}
+                  placeholder="Selecione a empresa"
+                  options={empresas}
+                  onChange={(value) => update("empresaId", value)}
+                />
+                <AdvancedSelect
+                  label="Obra"
+                  value={form.obraId}
+                  placeholder="Sem obra"
+                  options={obraOptions}
+                  onChange={(value) => update("obraId", value)}
+                />
+                <AdvancedSelect
+                  label="Oportunidade"
+                  value={form.oportunidadeId}
+                  placeholder="Sem oportunidade"
+                  options={oportunidades}
+                  onChange={handleOportunidadeChange}
+                />
+              </div>
             </section>
-          ) : null}
+          )}
 
-          <section className="space-y-3 rounded-2xl border border-[#D7DEEA] bg-white p-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1E4FAB]">
-                Pergunta 1
-              </p>
-              <Label htmlFor="proximaAcao" className="mt-1 block">
-                O que precisa ser feito?*
-              </Label>
+          <div className="space-y-2">
+            <Label>Tipo</Label>
+            <div className="flex flex-wrap gap-2">
+              {TIPOS_RAPIDOS.map((tipo) => {
+                const config = TIPO_CONFIG[tipo];
+                const ativo = form.tipo === tipo;
+
+                if (!config) {
+                  return null;
+                }
+
+                return (
+                  <button
+                    key={tipo}
+                    type="button"
+                    onClick={() => update("tipo", tipo)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-2xl border px-3 py-1.5 text-sm transition-colors",
+                      ativo
+                        ? "border-[#1E4FAB] bg-[#1E4FAB] text-white"
+                        : "border-[#D7DEEA] bg-white text-[#667085] hover:border-[#1E4FAB] hover:text-[#1E4FAB]",
+                    )}
+                  >
+                    <span>{config.emoji}</span>
+                    <span>{config.label}</span>
+                  </button>
+                );
+              })}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="proximaAcao">Proxima acao*</Label>
             <Textarea
               id="proximaAcao"
               value={form.proximaAcao}
@@ -527,48 +576,11 @@ export function TarefaModal({
               className="resize-none rounded-2xl bg-[#F4F6FA]"
               required
             />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Tipo de atividade</Label>
-              <div className="flex flex-wrap gap-2">
-                {TIPOS_RAPIDOS.map((tipo) => {
-                  const config = TIPO_CONFIG[tipo];
-                  const ativo = form.tipo === tipo;
-
-                  if (!config) {
-                    return null;
-                  }
-
-                  return (
-                    <button
-                      key={tipo}
-                      type="button"
-                      onClick={() => update("tipo", tipo)}
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-2xl border px-3 py-1.5 text-sm transition-colors",
-                        ativo
-                          ? "border-[#1E4FAB] bg-[#1E4FAB] text-white"
-                          : "border-[#D7DEEA] bg-white text-[#667085] hover:border-[#1E4FAB] hover:text-[#1E4FAB]",
-                      )}
-                    >
-                      <span>{config.emoji}</span>
-                      <span>{config.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-
-          <section className="space-y-3 rounded-2xl border border-[#D7DEEA] bg-white p-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1E4FAB]">
-                Pergunta 2
-              </p>
-              <Label htmlFor="dataVencimento" className="mt-1 block">
-                Quando precisa acontecer?*
-              </Label>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+              <Label htmlFor="dataVencimento">Data*</Label>
               <Input
                 id="dataVencimento"
                 type="date"
@@ -577,26 +589,22 @@ export function TarefaModal({
                 className="h-11 rounded-2xl bg-[#F4F6FA]"
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="horaVencimento">Hora opcional</Label>
               <Input
                 id="horaVencimento"
                 type="time"
                 value={form.horaVencimento}
                 onChange={(event) => update("horaVencimento", event.target.value)}
                 className="h-11 rounded-2xl bg-[#F4F6FA]"
-                aria-label="Hora opcional"
               />
             </div>
-          </section>
+          </div>
 
-          <section className="space-y-3 rounded-2xl border border-[#D7DEEA] bg-white p-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1E4FAB]">
-                Pergunta 3
-              </p>
-              <Label className="mt-1 block">Quem fica responsavel?</Label>
-            </div>
+          <div className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-3">
             {!delegando ? (
-              <div className="flex flex-col gap-2 rounded-2xl bg-[#F4F6FA] p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm text-[#667085]">
                   Responsavel: <b>voce mesmo</b>
                 </span>
@@ -610,13 +618,14 @@ export function TarefaModal({
               </div>
             ) : (
               <div className="space-y-2">
+                <Label>Responsavel</Label>
                 <Select
                   value={form.responsavelId}
                   onValueChange={(value) =>
                     update("responsavelId", value ?? NONE_VALUE)
                   }
                 >
-                  <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
+                  <SelectTrigger className="h-11 w-full rounded-2xl bg-white">
                     <SelectValue placeholder="Usuario logado" />
                   </SelectTrigger>
                   <SelectContent>
@@ -635,7 +644,7 @@ export function TarefaModal({
                 ) : null}
               </div>
             )}
-          </section>
+          </div>
 
           {modoAvancado ? (
             <div className="space-y-3 border-t border-[#D7DEEA] pt-4">
@@ -671,22 +680,26 @@ export function TarefaModal({
                   />
                 ) : null}
                 {!contextoEfetivo.empresaId ? (
-                  <AdvancedSelect
-                    label="Empresa"
-                    value={form.empresaId}
-                    placeholder="Sem empresa"
-                    options={empresas}
-                    onChange={(value) => update("empresaId", value)}
-                  />
+                  !hasContextoOportunidade ? null : (
+                    <AdvancedSelect
+                      label="Empresa"
+                      value={form.empresaId}
+                      placeholder="Sem empresa"
+                      options={empresas}
+                      onChange={(value) => update("empresaId", value)}
+                    />
+                  )
                 ) : null}
                 {!contextoEfetivo.obraId ? (
-                  <AdvancedSelect
-                    label="Obra"
-                    value={form.obraId}
-                    placeholder="Sem obra"
-                    options={obraOptions}
-                    onChange={(value) => update("obraId", value)}
-                  />
+                  !hasContextoOportunidade ? null : (
+                    <AdvancedSelect
+                      label="Obra"
+                      value={form.obraId}
+                      placeholder="Sem obra"
+                      options={obraOptions}
+                      onChange={(value) => update("obraId", value)}
+                    />
+                  )
                 ) : null}
                 {!contextoEfetivo.pessoaId ? (
                   <AdvancedSelect

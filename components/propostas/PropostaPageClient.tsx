@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Download, Loader2, Save, X } from "lucide-react";
+import { Check, Download, Eye, FileText, Loader2, Save, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageNavigation } from "@/components/layout/PageNavigation";
@@ -84,6 +84,9 @@ export function PropostaPageClient({ id }: { id: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [modoVisualizacao, setModoVisualizacao] = useState<"preview" | "edicao">(
+    "preview",
+  );
 
   useEffect(() => {
     let active = true;
@@ -297,46 +300,75 @@ export function PropostaPageClient({ id }: { id: string }) {
           currentHref={`/propostas/${id}`}
         />
 
-        <header className="mb-6 flex flex-col gap-5 rounded-3xl border border-[#D7DEEA] bg-white p-6 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#1E4FAB]">
-              Villa Empreendimentos
-            </p>
-            <h1 className="mt-2 break-words text-2xl font-bold text-[#1A2E5A] sm:text-3xl">
-              {proposta
-                ? `${proposta.numeroProposta} v${proposta.versao}`
-                : "Proposta comercial"}
-            </h1>
-            {proposta ? (
-              <p className="mt-1 text-sm text-[#667085]">
-                {proposta.oportunidade.empresa.nomeFantasia ??
-                  proposta.oportunidade.empresa.razaoSocial}{" "}
-                - {proposta.oportunidade.titulo}
-              </p>
-            ) : null}
-            {proposta ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Badge className="bg-[#E8EEFB] text-[#1A2E5A]">
-                  {statusLabels[proposta.status] ?? proposta.status}
-                </Badge>
-                {hasPendente ? (
-                  <Badge className="bg-orange-100 text-orange-700">
-                    Excecao pendente
-                  </Badge>
+        <header className="mb-6 overflow-hidden rounded-3xl border border-[#D7DEEA] bg-white shadow-sm">
+          <div className="bg-[#1A2E5A] px-6 py-5 text-white">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/60">
+                  Villa Empreendimentos
+                </p>
+                <h1 className="mt-2 break-words text-2xl font-bold sm:text-3xl">
+                  {proposta
+                    ? `${proposta.numeroProposta} v${proposta.versao}`
+                    : "Proposta comercial"}
+                </h1>
+                {proposta ? (
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-white/75">
+                    {proposta.oportunidade.empresa.nomeFantasia ??
+                      proposta.oportunidade.empresa.razaoSocial}{" "}
+                    · {proposta.oportunidade.titulo}
+                  </p>
                 ) : null}
               </div>
-            ) : null}
+
+              <Button
+                type="button"
+                disabled={!proposta || hasPendente}
+                onClick={() => window.open(`/api/propostas/${id}/pdf`, "_blank")}
+                className="w-full shrink-0 rounded-2xl bg-white text-[#1A2E5A] hover:bg-[#E8EEFB] sm:w-auto"
+              >
+                <Download className="size-4" />
+                {hasPendente ? "PDF bloqueado" : "Baixar PDF"}
+              </Button>
+            </div>
           </div>
 
-          <Button
-            type="button"
-            disabled={!proposta || hasPendente}
-            onClick={() => window.open(`/api/propostas/${id}/pdf`, "_blank")}
-            className="w-full shrink-0 rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A] sm:w-auto"
-          >
-            <Download className="size-4" />
-            {hasPendente ? "PDF bloqueado" : "Baixar PDF"}
-          </Button>
+          {proposta ? (
+            <div className="grid gap-4 px-6 py-5 md:grid-cols-3">
+              <div className="rounded-2xl bg-[#F4F6FA] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#667085]">
+                  Status
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Badge className="bg-[#E8EEFB] text-[#1A2E5A]">
+                    {statusLabels[proposta.status] ?? proposta.status}
+                  </Badge>
+                  {hasPendente ? (
+                    <Badge className="bg-orange-100 text-orange-700">
+                      Excecao pendente
+                    </Badge>
+                  ) : null}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-[#F4F6FA] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#667085]">
+                  Cliente
+                </p>
+                <p className="mt-2 font-semibold text-[#1A2E5A]">
+                  {proposta.oportunidade.empresa.nomeFantasia ??
+                    proposta.oportunidade.empresa.razaoSocial}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-[#F4F6FA] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#667085]">
+                  Blocos
+                </p>
+                <p className="mt-2 font-semibold text-[#1A2E5A]">
+                  {proposta.blocos.length} secoes da proposta
+                </p>
+              </div>
+            </div>
+          ) : null}
         </header>
 
         {isLoading ? (
@@ -345,102 +377,161 @@ export function PropostaPageClient({ id }: { id: string }) {
             Carregando proposta...
           </div>
         ) : proposta ? (
-          <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_380px]">
-            <div className="min-w-0 space-y-6">
-              {renderExcecoesCard("2xl:hidden")}
-
-              <section className="space-y-4">
-              {proposta.blocos.map((bloco) => {
-                const isBlocked = bloco.tipo === "BLOQUEADO";
-                const needsApproval = bloco.tipo === "EDITAVEL_COM_APROVACAO";
-
-                return (
-                  <div
-                    key={bloco.id}
-                    className="rounded-3xl border border-[#D7DEEA] bg-white p-5"
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-w-0 space-y-5">
+              <section className="rounded-3xl border border-[#D7DEEA] bg-white p-3 shadow-sm">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setModoVisualizacao("preview")}
+                    className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                      modoVisualizacao === "preview"
+                        ? "bg-[#1A2E5A] text-white"
+                        : "bg-[#F4F6FA] text-[#1A2E5A] hover:bg-[#E8EEFB]"
+                    }`}
                   >
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">
-                          {tipoLabels[bloco.tipo]}
-                        </p>
-                        <h2 className="mt-1 font-bold text-[#1A2E5A]">
-                          {bloco.titulo}
-                        </h2>
-                      </div>
-                      {isBlocked ? (
-                        <Badge className="bg-slate-100 text-slate-700">
-                          Somente leitura
-                        </Badge>
-                      ) : null}
-                    </div>
-
-                    <Textarea
-                      value={conteudos[bloco.id] ?? bloco.conteudoAtual}
-                      readOnly={isBlocked}
-                      onChange={(event) =>
-                        setConteudos((current) => ({
-                          ...current,
-                          [bloco.id]: event.target.value,
-                        }))
-                      }
-                      className="min-h-48 rounded-2xl bg-[#F4F6FA]"
-                    />
-
-                    {!isBlocked ? (
-                      <div className="mt-3 space-y-3">
-                        {needsApproval ? (
-                          <div>
-                            <Label className="text-[#1A2E5A]">
-                              Justificativa obrigatoria para aprovacao
-                            </Label>
-                            <Textarea
-                              value={justificativas[bloco.id] ?? ""}
-                              onChange={(event) =>
-                                setJustificativas((current) => ({
-                                  ...current,
-                                  [bloco.id]: event.target.value,
-                                }))
-                              }
-                              className="mt-2 min-h-20 rounded-2xl bg-white"
-                            />
-                          </div>
-                        ) : null}
-                        <Button
-                          type="button"
-                          disabled={savingId === bloco.id}
-                          onClick={() => salvarBloco(bloco)}
-                          className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
-                        >
-                          {savingId === bloco.id ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            <Save className="size-4" />
-                          )}
-                          {needsApproval ? "Solicitar aprovacao" : "Salvar bloco"}
-                        </Button>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
+                    <Eye className="size-4" />
+                    Visualizar proposta
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModoVisualizacao("edicao")}
+                    className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                      modoVisualizacao === "edicao"
+                        ? "bg-[#1A2E5A] text-white"
+                        : "bg-[#F4F6FA] text-[#1A2E5A] hover:bg-[#E8EEFB]"
+                    }`}
+                  >
+                    <FileText className="size-4" />
+                    Editar blocos
+                  </button>
+                </div>
               </section>
 
-              <details className="rounded-3xl border border-[#D7DEEA] bg-white p-5">
-                <summary className="cursor-pointer font-bold text-[#1A2E5A]">
-                  Preview da proposta
-                </summary>
-                <p className="mt-1 text-sm text-[#667085]">
-                  Abra para conferir a versao final sem reduzir a area de edicao.
-                </p>
-                <div className="mt-4">
+              {modoVisualizacao === "preview" ? (
+                <section className="rounded-3xl border border-[#D7DEEA] bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold text-[#1A2E5A]">
+                        Visualizacao da proposta
+                      </h2>
+                      <p className="text-sm text-[#667085]">
+                        Esta é a versão que será usada para gerar o PDF.
+                      </p>
+                    </div>
+                  </div>
                   <PropostaPreview html={proposta.htmlSnapshot} />
-                </div>
-              </details>
+                </section>
+              ) : (
+                <section className="space-y-4">
+                  {proposta.blocos.map((bloco) => {
+                    const isBlocked = bloco.tipo === "BLOQUEADO";
+                    const needsApproval = bloco.tipo === "EDITAVEL_COM_APROVACAO";
+
+                    return (
+                      <details
+                        key={bloco.id}
+                        className="overflow-hidden rounded-3xl border border-[#D7DEEA] bg-white shadow-sm"
+                        open={!isBlocked}
+                      >
+                        <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 bg-[#F4F6FA] px-5 py-4">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">
+                              {tipoLabels[bloco.tipo]}
+                            </p>
+                            <h2 className="mt-1 font-bold text-[#1A2E5A]">
+                              {bloco.titulo}
+                            </h2>
+                          </div>
+                          <Badge
+                            className={
+                              isBlocked
+                                ? "bg-slate-100 text-slate-700"
+                                : needsApproval
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-[#E8EEFB] text-[#1A2E5A]"
+                            }
+                          >
+                            {isBlocked
+                              ? "Somente leitura"
+                              : needsApproval
+                                ? "Exige aprovacao"
+                                : "Editavel"}
+                          </Badge>
+                        </summary>
+
+                        <div className="p-5">
+                          <Textarea
+                            value={conteudos[bloco.id] ?? bloco.conteudoAtual}
+                            readOnly={isBlocked}
+                            onChange={(event) =>
+                              setConteudos((current) => ({
+                                ...current,
+                                [bloco.id]: event.target.value,
+                              }))
+                            }
+                            className="min-h-56 rounded-2xl bg-[#F4F6FA] leading-6"
+                          />
+
+                          {!isBlocked ? (
+                            <div className="mt-4 space-y-3">
+                              {needsApproval ? (
+                                <div>
+                                  <Label className="text-[#1A2E5A]">
+                                    Justificativa obrigatoria para aprovacao
+                                  </Label>
+                                  <Textarea
+                                    value={justificativas[bloco.id] ?? ""}
+                                    onChange={(event) =>
+                                      setJustificativas((current) => ({
+                                        ...current,
+                                        [bloco.id]: event.target.value,
+                                      }))
+                                    }
+                                    className="mt-2 min-h-20 rounded-2xl bg-white"
+                                  />
+                                </div>
+                              ) : null}
+                              <Button
+                                type="button"
+                                disabled={savingId === bloco.id}
+                                onClick={() => salvarBloco(bloco)}
+                                className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+                              >
+                                {savingId === bloco.id ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <Save className="size-4" />
+                                )}
+                                {needsApproval
+                                  ? "Solicitar aprovacao"
+                                  : "Salvar bloco"}
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </section>
+              )}
             </div>
 
-            <aside className="hidden min-w-0 space-y-4 2xl:block">
+            <aside className="min-w-0 space-y-4">
               {renderExcecoesCard()}
+              <section className="rounded-3xl border border-[#D7DEEA] bg-white p-5 shadow-sm">
+                <h2 className="font-bold text-[#1A2E5A]">Como usar</h2>
+                <div className="mt-3 space-y-3 text-sm leading-6 text-[#667085]">
+                  <p>
+                    Use <b>Visualizar proposta</b> para conferir o documento
+                    pronto.
+                  </p>
+                  <p>
+                    Use <b>Editar blocos</b> somente quando precisar ajustar
+                    textos específicos antes de baixar o PDF.
+                  </p>
+                </div>
+              </section>
             </aside>
           </div>
         ) : (

@@ -57,10 +57,53 @@ export type PropostaVariaveisRenderizadas = {
   validade: string;
   responsavel: string;
   data: string;
+  singular_plural: string;
+  singular_plural_caps: string;
+  singular_plural_operador: string;
+  equipamento_plural: string;
+  nos_equipamentos: string;
+  dos_equipamentos: string;
+  aos_equipamentos: string;
+  os_equipamentos: string;
+  os_pronome: string;
+  numero_por_extenso: string;
 };
 
 function formatDate(value: Date | string) {
   return format(new Date(value), "dd/MM/yyyy", { locale: ptBR });
+}
+
+function numerosPorExtenso(value: number) {
+  const mapa: Record<number, string> = {
+    1: "um",
+    2: "dois",
+    3: "tres",
+    4: "quatro",
+    5: "cinco",
+    6: "seis",
+    7: "sete",
+    8: "oito",
+    9: "nove",
+    10: "dez",
+  };
+
+  return mapa[value] ?? String(value);
+}
+
+function getTipoServicoProposta(templateId: string, fallback: string, plural: boolean) {
+  if (templateId === "locacao-betoneira-com-operador") {
+    return plural
+      ? "CAMINHÕES BETONEIRAS COM OPERADORES"
+      : "CAMINHÃO BETONEIRA COM OPERADOR";
+  }
+
+  if (templateId === "locacao-betoneira-sem-operador") {
+    return plural
+      ? "CAMINHÕES BETONEIRAS SEM OPERADORES"
+      : "CAMINHÃO BETONEIRA SEM OPERADOR";
+  }
+
+  return fallback;
 }
 
 function formatCurrency(value: DecimalLike) {
@@ -256,6 +299,12 @@ export function buildPropostaVariaveis(
     data.precoM3 !== undefined &&
     data.volumeMinimoM3 !== null &&
     data.volumeMinimoM3 !== undefined;
+  const quantidadeNumero = Number.parseInt(data.quantidade || "1", 10);
+  const quantidadeValida =
+    Number.isFinite(quantidadeNumero) && quantidadeNumero > 0
+      ? quantidadeNumero
+      : 1;
+  const plural = quantidadeValida > 1;
 
   return {
     cliente: data.cliente,
@@ -264,7 +313,11 @@ export function buildPropostaVariaveis(
     estado: data.estado ?? "Nao informado",
     telefone: data.telefone || "Nao informado",
     email: data.email || "Nao informado",
-    tipo_servico: template?.tipoServico ?? data.templateUtilizado,
+    tipo_servico: getTipoServicoProposta(
+      data.templateUtilizado,
+      template?.tipoServico ?? data.templateUtilizado,
+      plural,
+    ),
     quantidade: data.quantidade || "01",
     descricao_comercial:
       data.descricaoComercial ||
@@ -290,6 +343,20 @@ export function buildPropostaVariaveis(
     validade: formatDate(data.validadeProposta),
     responsavel: data.responsavel || "Equipe Comercial Villa",
     data: formatDate(data.data ?? new Date()),
+    singular_plural: plural ? "CAMINHÕES BETONEIRAS" : "CAMINHÃO BETONEIRA",
+    singular_plural_caps: plural ? "Caminhões Betoneiras" : "Caminhão Betoneira",
+    singular_plural_operador: plural
+      ? "caminhões betoneiras com operadores"
+      : "caminhão betoneira com operador",
+    equipamento_plural: plural ? "equipamentos" : "equipamento",
+    nos_equipamentos: plural ? "nos equipamentos" : "no equipamento",
+    dos_equipamentos: plural ? "dos equipamentos" : "do equipamento",
+    aos_equipamentos: plural ? "aos equipamentos" : "ao equipamento",
+    os_equipamentos: plural ? "os equipamentos" : "o equipamento",
+    os_pronome: plural ? "os" : "o",
+    numero_por_extenso: `${quantidadeValida} (${numerosPorExtenso(
+      quantidadeValida,
+    )})`,
   };
 }
 

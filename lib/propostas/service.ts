@@ -175,12 +175,51 @@ function formatVolume(value: DecimalLike) {
   }).format(Number(value));
 }
 
+function numerosPorExtenso(value: number) {
+  const mapa: Record<number, string> = {
+    1: "um",
+    2: "dois",
+    3: "tres",
+    4: "quatro",
+    5: "cinco",
+    6: "seis",
+    7: "sete",
+    8: "oito",
+    9: "nove",
+    10: "dez",
+  };
+
+  return mapa[value] ?? String(value);
+}
+
+function getTipoServicoProposta(templateId: string, fallback: string, plural: boolean) {
+  if (templateId === "locacao-betoneira-com-operador") {
+    return plural
+      ? "CAMINHÕES BETONEIRAS COM OPERADORES"
+      : "CAMINHÃO BETONEIRA COM OPERADOR";
+  }
+
+  if (templateId === "locacao-betoneira-sem-operador") {
+    return plural
+      ? "CAMINHÕES BETONEIRAS SEM OPERADORES"
+      : "CAMINHÃO BETONEIRA SEM OPERADOR";
+  }
+
+  return fallback;
+}
+
 export function buildPropostaTemplateVariables(
   proposta: PropostaSnapshotInput,
   oportunidade: OportunidadeProposta,
 ) {
   const template = getPropostaTemplate(proposta.templateUtilizado);
   const modeloPorM3 = isPropostaModeloM3(proposta);
+  const quantidadeNumero = Number.parseInt(proposta.quantidade ?? "1", 10);
+  const quantidadeValida =
+    Number.isFinite(quantidadeNumero) && quantidadeNumero > 0
+      ? quantidadeNumero
+      : 1;
+  const plural = quantidadeValida > 1;
 
   return {
     numero_proposta: proposta.numeroProposta,
@@ -191,7 +230,11 @@ export function buildPropostaTemplateVariables(
     email: proposta.email ?? oportunidade.empresa.email ?? "",
     cidade: oportunidade.obra?.cidade ?? "",
     estado: oportunidade.obra?.estado ?? "",
-    tipo_servico: template?.tipoServico ?? proposta.templateUtilizado,
+    tipo_servico: getTipoServicoProposta(
+      proposta.templateUtilizado,
+      template?.tipoServico ?? proposta.templateUtilizado,
+      plural,
+    ),
     quantidade: proposta.quantidade ?? "01",
     descricao_comercial:
       proposta.descricaoComercial ??
@@ -217,6 +260,20 @@ export function buildPropostaTemplateVariables(
     responsavel: oportunidade.responsavel?.nome ?? "Equipe Comercial Villa",
     data: formatDate(proposta.createdAt ?? new Date()),
     observacoes_comerciais: proposta.observacoesComerciais ?? "",
+    singular_plural: plural ? "CAMINHÕES BETONEIRAS" : "CAMINHÃO BETONEIRA",
+    singular_plural_caps: plural ? "Caminhões Betoneiras" : "Caminhão Betoneira",
+    singular_plural_operador: plural
+      ? "caminhões betoneiras com operadores"
+      : "caminhão betoneira com operador",
+    equipamento_plural: plural ? "equipamentos" : "equipamento",
+    nos_equipamentos: plural ? "nos equipamentos" : "no equipamento",
+    dos_equipamentos: plural ? "dos equipamentos" : "do equipamento",
+    aos_equipamentos: plural ? "aos equipamentos" : "ao equipamento",
+    os_equipamentos: plural ? "os equipamentos" : "o equipamento",
+    os_pronome: plural ? "os" : "o",
+    numero_por_extenso: `${quantidadeValida} (${numerosPorExtenso(
+      quantidadeValida,
+    )})`,
   };
 }
 

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Loader2, Plus, UserRound } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Plus, Search, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -81,6 +82,7 @@ export default function ContatosPage() {
   const router = useRouter();
   const [contatos, setContatos] = useState<ContatoRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     async function loadContatos() {
@@ -101,6 +103,31 @@ export default function ContatosPage() {
 
     loadContatos();
   }, []);
+
+  const contatosFiltrados = useMemo(() => {
+    const termo = searchTerm.trim().toLowerCase();
+
+    if (!termo) {
+      return contatos;
+    }
+
+    return contatos.filter((contato) => {
+      const searchable = [
+        contato.nome,
+        contato.cargo,
+        contato.whatsapp,
+        contato.empresa.razaoSocial,
+        contato.empresa.nomeFantasia,
+        influenciaConfig[contato.influenciaDecisao].label,
+        relacionamentoConfig[contato.nivelRelacionamento].label,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(termo);
+    });
+  }, [contatos, searchTerm]);
 
   return (
     <main className="min-h-screen bg-[#F4F6FA] px-5 py-8 text-[#172033] sm:px-8">
@@ -128,6 +155,29 @@ export default function ContatosPage() {
           </Button>
         </header>
 
+        <section className="mt-8 rounded-3xl border border-[#D7DEEA] bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-[#1A2E5A]">
+                Pesquisar contato cadastrado
+              </h2>
+              <p className="text-sm text-[#667085]">
+                Digite nome, empresa, cargo, WhatsApp ou relacionamento para
+                encontrar a pessoa mais rapido.
+              </p>
+            </div>
+            <div className="relative sm:w-96">
+              <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#667085]" />
+              <Input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Buscar contato..."
+                className="h-12 rounded-2xl bg-[#F4F6FA] pl-11"
+              />
+            </div>
+          </div>
+        </section>
+
         <Card className="mt-8 rounded-3xl border-[#D7DEEA] bg-white shadow-sm">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-[#1A2E5A]">
@@ -153,6 +203,17 @@ export default function ContatosPage() {
                   Cadastre pessoas para enriquecer o relacionamento comercial.
                 </p>
               </div>
+            ) : contatosFiltrados.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-[#D7DEEA] py-14 text-center">
+                <Search className="size-10 text-[#1E4FAB]" />
+                <p className="mt-3 font-semibold text-[#1A2E5A]">
+                  Nenhum contato encontrado
+                </p>
+                <p className="mt-1 max-w-md text-sm text-[#667085]">
+                  Nao encontramos contato com esse termo. Ajuste a busca ou
+                  cadastre uma nova pessoa.
+                </p>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -166,7 +227,7 @@ export default function ContatosPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {contatos.map((contato) => (
+                  {contatosFiltrados.map((contato) => (
                     <TableRow
                       key={contato.id}
                       tabIndex={0}

@@ -120,6 +120,8 @@ export type OportunidadePrefill = {
   pessoaId?: string | null;
   obraId?: string | null;
   titulo?: string | null;
+  canalOrigem?: CanalOrigem | null;
+  usarTarefaExistenteComoPrimeiraAcao?: boolean;
 };
 
 type OportunidadeModalProps = {
@@ -208,7 +210,7 @@ function getDefaultValues(
     tipo: "LOCACAO",
     tipoServico: null,
     faixaPotencial: null,
-    canalOrigem: null,
+    canalOrigem: prefill?.canalOrigem ?? null,
     potencialOportunidade: "",
     valorContrato: "",
     equipamentoId: NONE_VALUE,
@@ -237,7 +239,6 @@ export function OportunidadeModal({
   const [novaEmpresaOpen, setNovaEmpresaOpen] = useState(false);
   const [novaObraOpen, setNovaObraOpen] = useState(false);
   const [novoContatoOpen, setNovoContatoOpen] = useState(false);
-  const [criarTarefa, setCriarTarefa] = useState(false);
   const [tarefaTipo, setTarefaTipo] = useState<TipoAtividade>("LIGACAO");
   const [tarefaProximaAcao, setTarefaProximaAcao] = useState("");
   const [tarefaData, setTarefaData] = useState(todayInput());
@@ -248,6 +249,8 @@ export function OportunidadeModal({
   });
 
   const isEditing = Boolean(oportunidadeId);
+  const deveCriarPrimeiraTarefa =
+    !isEditing && !prefill?.usarTarefaExistenteComoPrimeiraAcao;
   const statusAtual = useWatch({
     control: form.control,
     name: "status",
@@ -384,7 +387,6 @@ export function OportunidadeModal({
           });
         } else {
           form.reset(getDefaultValues(statusInicial, prefill));
-          setCriarTarefa(false);
           setTarefaTipo("LIGACAO");
           setTarefaProximaAcao("");
           setTarefaData(todayInput());
@@ -400,13 +402,13 @@ export function OportunidadeModal({
   }, [aberto, form, oportunidadeId, prefill, statusInicial]);
 
   async function handleSubmit(values: OportunidadeFormValues) {
-    if (!isEditing && criarTarefa && !tarefaProximaAcao.trim()) {
-      toast.error("Informe a primeira acao comercial.");
+    if (deveCriarPrimeiraTarefa && !tarefaProximaAcao.trim()) {
+      toast.error("Defina a primeira acao comercial antes de salvar.");
       return;
     }
 
-    if (!isEditing && criarTarefa && !tarefaData) {
-      toast.error("Informe a data da primeira acao.");
+    if (deveCriarPrimeiraTarefa && !tarefaData) {
+      toast.error("Defina a data da primeira acao comercial.");
       return;
     }
 
@@ -433,7 +435,7 @@ export function OportunidadeModal({
 
       const oportunidade = await response.json();
 
-      if (!isEditing && criarTarefa && tarefaProximaAcao.trim() && tarefaData) {
+      if (deveCriarPrimeiraTarefa && tarefaProximaAcao.trim() && tarefaData) {
         const tarefaResponse = await fetch("/api/tarefas", {
           method: "POST",
           headers: {
@@ -835,81 +837,64 @@ export function OportunidadeModal({
               />
             </Field>
 
-            {!isEditing ? (
+            {deveCriarPrimeiraTarefa ? (
               <section className="md:col-span-2 border-t border-[#D7DEEA] pt-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[#1A2E5A]">
-                      Primeira acao comercial
-                    </p>
-                    <p className="text-xs text-[#667085]">
-                      Crie uma tarefa junto com a oportunidade para garantir a
-                      proxima acao.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setCriarTarefa((current) => !current)}
-                    className="text-xs font-semibold text-[#1E4FAB] hover:underline"
-                  >
-                    {criarTarefa ? "Remover" : "+ Adicionar tarefa"}
-                  </button>
-                </div>
+                <p className="mb-3 text-sm font-semibold text-[#1A2E5A]">
+                  Primeira acao comercial <span className="text-red-500">*</span>
+                </p>
 
-                {criarTarefa ? (
-                  <div className="space-y-3 rounded-2xl bg-[#F4F6FA] p-3">
-                    <div className="flex flex-wrap gap-2">
-                      {(
-                        [
-                          "LIGACAO",
-                          "WHATSAPP",
-                          "EMAIL",
-                          "REUNIAO",
-                          "VISITA",
-                        ] as TipoAtividade[]
-                      ).map((tipo) => {
-                        const config = TIPO_CONFIG[tipo];
-                        const ativo = tarefaTipo === tipo;
+                <div className="space-y-3 rounded-2xl bg-[#F4F6FA] p-3">
+                  <div className="flex flex-wrap gap-2">
+                    {(
+                      [
+                        "LIGACAO",
+                        "WHATSAPP",
+                        "EMAIL",
+                        "REUNIAO",
+                        "VISITA",
+                      ] as TipoAtividade[]
+                    ).map((tipo) => {
+                      const config = TIPO_CONFIG[tipo];
+                      const ativo = tarefaTipo === tipo;
 
-                        if (!config) {
-                          return null;
-                        }
-
-                        return (
-                          <button
-                            key={tipo}
-                            type="button"
-                            onClick={() => setTarefaTipo(tipo)}
-                            className={cn(
-                              "rounded-2xl border px-3 py-1 text-xs transition-colors",
-                              ativo
-                                ? "border-[#1E4FAB] bg-[#1E4FAB] text-white"
-                                : "border-[#D7DEEA] bg-white text-[#667085] hover:border-[#1E4FAB]",
-                            )}
-                          >
-                            {config.emoji} {config.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <Input
-                      value={tarefaProximaAcao}
-                      onChange={(event) =>
-                        setTarefaProximaAcao(event.target.value)
+                      if (!config) {
+                        return null;
                       }
-                      placeholder="Ex: Ligar para confirmar necessidade de bomba"
-                      className="h-11 rounded-2xl bg-white"
-                    />
 
-                    <Input
-                      type="date"
-                      value={tarefaData}
-                      onChange={(event) => setTarefaData(event.target.value)}
-                      className="h-11 rounded-2xl bg-white"
-                    />
+                      return (
+                        <button
+                          key={tipo}
+                          type="button"
+                          onClick={() => setTarefaTipo(tipo)}
+                          className={cn(
+                            "rounded-2xl border px-3 py-1 text-xs transition-colors",
+                            ativo
+                              ? "border-[#1E4FAB] bg-[#1E4FAB] text-white"
+                              : "border-[#D7DEEA] bg-white text-[#667085] hover:border-[#1E4FAB]",
+                          )}
+                        >
+                          {config.emoji} {config.label}
+                        </button>
+                      );
+                    })}
                   </div>
-                ) : null}
+
+                  <Input
+                    value={tarefaProximaAcao}
+                    onChange={(event) =>
+                      setTarefaProximaAcao(event.target.value)
+                    }
+                    placeholder="Ex: Ligar para confirmar necessidade de bomba"
+                    className="h-11 rounded-2xl bg-white"
+                  />
+
+                  <Input
+                    type="date"
+                    value={tarefaData}
+                    onChange={(event) => setTarefaData(event.target.value)}
+                    className="h-11 rounded-2xl bg-white"
+                  />
+                </div>
               </section>
             ) : null}
 

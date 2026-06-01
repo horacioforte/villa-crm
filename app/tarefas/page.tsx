@@ -382,6 +382,8 @@ export default function TarefasPage() {
       pessoaId: tarefa.pessoaId,
       obraId: tarefa.obraId,
       titulo: tarefa.titulo,
+      canalOrigem: "OBRA_MAPEADA",
+      usarTarefaExistenteComoPrimeiraAcao: true,
     });
     setOportunidadeModalAberto(true);
   }

@@ -179,25 +179,27 @@ function buildM3BlocosSnapshot(
   templateUtilizado: string,
   variables: Parameters<typeof buildTemplateBlocosSnapshot>[1],
 ) {
-  return buildTemplateBlocosSnapshot(templateUtilizado, variables).map((bloco) =>
-    bloco.chave === "precos"
-      ? {
-          ...bloco,
-          conteudoAtual: bloco.conteudoAtual
-            .split("\n")
-            .filter((line) => !line.startsWith("Hora Extra/h:"))
-            .map((line) =>
-              line
-                .replace("Horas Garantidas:", "Volume mínimo:")
-                .replace("Preço Unit./mês:", "Preço por m³:")
-                .replace("Preco Unit./mes:", "Preco por m3:")
-                .replace("Preço Total/mês:", "Valor total:")
-                .replace("Preco Total/mes:", "Valor total:"),
-            )
-            .join("\n"),
-        }
-      : bloco,
-  );
+  return buildTemplateBlocosSnapshot(templateUtilizado, variables)
+    .filter((bloco) => bloco.chave !== "precos_referencia")
+    .map((bloco) =>
+      bloco.chave === "precos"
+        ? {
+            ...bloco,
+            conteudoAtual: bloco.conteudoAtual
+              .split("\n")
+              .filter((line) => !line.startsWith("Hora Extra/h:"))
+              .map((line) =>
+                line
+                  .replace("Horas Garantidas:", "Volume mínimo:")
+                  .replace("Preço Unit./mês:", "Preço por m³:")
+                  .replace("Preco Unit./mes:", "Preco por m3:")
+                  .replace("Preço Total/mês:", "Valor total:")
+                  .replace("Preco Total/mes:", "Valor total:"),
+              )
+              .join("\n"),
+          }
+        : bloco,
+    );
 }
 
 export function PropostaModal({

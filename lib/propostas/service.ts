@@ -10,6 +10,7 @@ import {
 } from "@/lib/propostas/templates";
 
 type DecimalLike = string | number | { toString(): string };
+const BOMBA_TEMPLATE_ID = "locacao-bomba-concreto-com-operacao";
 
 type OportunidadeProposta = {
   id: string;
@@ -34,6 +35,9 @@ type OportunidadeProposta = {
   } | null;
   responsavel: {
     nome: string;
+  } | null;
+  equipamento?: {
+    tipo: string;
   } | null;
 };
 
@@ -88,6 +92,64 @@ export function getPropostaBlocosExibicao<T extends { chave?: string }>(
   return blocos.filter((bloco) => bloco.chave !== "precos_referencia");
 }
 
+function getFieldFromBlock(content: string, label: string) {
+  const line = content
+    .split("\n")
+    .find((item) => item.toLowerCase().startsWith(label.toLowerCase()));
+
+  return line?.split(":").slice(1).join(":").trim() || null;
+}
+
+function getBlocoPrecos(
+  proposta: Pick<PropostaSnapshotInput, "blocos">,
+) {
+  return proposta.blocos?.find((bloco) => bloco.chave === "precos");
+}
+
+export function getPropostaTemplateUtilizadoExibicao(
+  proposta: Pick<PropostaSnapshotInput, "templateUtilizado">,
+  oportunidade: OportunidadeProposta,
+) {
+  if (oportunidade.equipamento?.tipo === "BOMBA_CONCRETO") {
+    return BOMBA_TEMPLATE_ID;
+  }
+
+  return proposta.templateUtilizado;
+}
+
+export function getPropostaBlocosExibicaoCompleta(
+  proposta: PropostaSnapshotInput,
+  oportunidade: OportunidadeProposta,
+) {
+  const templateUtilizado = getPropostaTemplateUtilizadoExibicao(
+    proposta,
+    oportunidade,
+  );
+
+  if (templateUtilizado !== proposta.templateUtilizado) {
+    const blocoPrecos = getBlocoPrecos(proposta);
+
+    return buildPropostaBlocosSnapshot(
+      {
+        ...proposta,
+        templateUtilizado,
+        quantidade:
+          proposta.quantidade ??
+          (blocoPrecos ? getFieldFromBlock(blocoPrecos.conteudoAtual, "Qtd.") : null),
+        descricaoComercial:
+          proposta.descricaoComercial ??
+          (blocoPrecos
+            ? getFieldFromBlock(blocoPrecos.conteudoAtual, "Descrição") ??
+              getFieldFromBlock(blocoPrecos.conteudoAtual, "Descricao")
+            : null),
+      },
+      oportunidade,
+    );
+  }
+
+  return getPropostaBlocosExibicao(proposta, proposta.blocos ?? []);
+}
+
 export const propostaInclude = {
   oportunidade: {
     include: {
@@ -95,6 +157,7 @@ export const propostaInclude = {
       pessoa: true,
       obra: true,
       responsavel: true,
+      equipamento: true,
     },
   },
   blocos: {

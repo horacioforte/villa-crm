@@ -5,9 +5,10 @@ import { auditLog } from "@/lib/audit";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import {
+  getPropostaBlocosExibicaoCompleta,
   buildPropostaHtmlSnapshot,
-  getPropostaBlocosExibicao,
   getPropostaAccessWhere,
+  getPropostaTemplateUtilizadoExibicao,
   propostaInclude,
 } from "@/lib/propostas/service";
 import { propostaPatchSchema } from "@/lib/validations/proposta";
@@ -39,13 +40,22 @@ export async function GET(request: Request, context: PropostaRouteContext) {
     );
   }
 
-  const blocos = getPropostaBlocosExibicao(proposta, proposta.blocos);
+  const templateUtilizado = getPropostaTemplateUtilizadoExibicao(
+    proposta,
+    proposta.oportunidade,
+  );
+  const blocos = getPropostaBlocosExibicaoCompleta(
+    proposta,
+    proposta.oportunidade,
+  );
   const htmlSnapshot =
-    blocos.length === proposta.blocos.length
+    blocos.length === proposta.blocos.length &&
+    templateUtilizado === proposta.templateUtilizado
       ? proposta.htmlSnapshot
       : buildPropostaHtmlSnapshot(
           {
             ...proposta,
+            templateUtilizado,
             blocos,
           },
           proposta.oportunidade,
@@ -53,6 +63,7 @@ export async function GET(request: Request, context: PropostaRouteContext) {
 
   return NextResponse.json({
     ...proposta,
+    templateUtilizado,
     blocos,
     htmlSnapshot,
     currentUser: {

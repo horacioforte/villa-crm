@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { renderPropostaPdfBuffer } from "@/lib/propostas/pdf";
 import {
   getPropostaAccessWhere,
-  getPropostaBlocosExibicao,
+  getPropostaBlocosExibicaoCompleta,
+  getPropostaTemplateUtilizadoExibicao,
   propostaInclude,
 } from "@/lib/propostas/service";
 
@@ -45,10 +46,19 @@ export async function GET(request: Request, context: PropostaPdfRouteContext) {
     );
   }
 
+  const templateUtilizado = getPropostaTemplateUtilizadoExibicao(
+    proposta,
+    proposta.oportunidade,
+  );
+  const blocos = getPropostaBlocosExibicaoCompleta(
+    proposta,
+    proposta.oportunidade,
+  );
+
   const buffer = await renderPropostaPdfBuffer({
     numeroProposta: proposta.numeroProposta,
     versao: proposta.versao,
-    templateUtilizado: proposta.templateUtilizado,
+    templateUtilizado,
     cliente:
       proposta.oportunidade.empresa.nomeFantasia ??
       proposta.oportunidade.empresa.razaoSocial,
@@ -65,7 +75,7 @@ export async function GET(request: Request, context: PropostaPdfRouteContext) {
     observacoesComerciais: proposta.observacoesComerciais,
     observacoesTecnicas: proposta.observacoesTecnicas,
     condicoesPagamento: proposta.condicoesPagamento,
-    blocos: getPropostaBlocosExibicao(proposta, proposta.blocos),
+    blocos,
     data: proposta.createdAt,
   });
 

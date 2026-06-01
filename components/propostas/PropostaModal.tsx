@@ -81,6 +81,7 @@ const templateItems = PROPOSTA_TEMPLATES.map((template) => ({
   value: template.id,
 }));
 const DEFAULT_TEMPLATE = PROPOSTA_TEMPLATES[0];
+const BOMBA_TEMPLATE_ID = "locacao-bomba-concreto-com-operacao";
 const MANUAL_EQUIPAMENTO_VALUE = "manual";
 
 function getValidadePadrao(template: PropostaTemplate = DEFAULT_TEMPLATE) {
@@ -156,6 +157,35 @@ function getEquipamentoLabel(equipamento: EquipamentoProposta) {
   const codigo = getEquipamentoCodigo(equipamento);
 
   return codigo ? `${equipamento.nome} - ${codigo}` : equipamento.nome;
+}
+
+function getTemplateForEquipamento(equipamento?: EquipamentoProposta | null) {
+  if (equipamento?.tipo === "BOMBA_CONCRETO") {
+    return getPropostaTemplate(BOMBA_TEMPLATE_ID) ?? DEFAULT_TEMPLATE;
+  }
+
+  return DEFAULT_TEMPLATE;
+}
+
+function getPluralVariables(quantidade: string) {
+  const parsed = Number.parseInt(quantidade, 10);
+  const quantidadeValida = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  const plural = quantidadeValida > 1;
+
+  return {
+    singular_plural: plural ? "CAMINHÕES BETONEIRAS" : "CAMINHÃO BETONEIRA",
+    singular_plural_caps: plural ? "Caminhões Betoneiras" : "Caminhão Betoneira",
+    singular_plural_operador: plural
+      ? "caminhões betoneiras com operadores"
+      : "caminhão betoneira com operador",
+    equipamento_plural: plural ? "equipamentos" : "equipamento",
+    nos_equipamentos: plural ? "nos equipamentos" : "no equipamento",
+    dos_equipamentos: plural ? "dos equipamentos" : "do equipamento",
+    aos_equipamentos: plural ? "aos equipamentos" : "ao equipamento",
+    os_equipamentos: plural ? "os equipamentos" : "o equipamento",
+    os_pronome: plural ? "os" : "o",
+    numero_por_extenso: String(quantidadeValida),
+  };
 }
 
 function getEquipamentoPreco(
@@ -269,7 +299,6 @@ export function PropostaModal({
           oportunidadeResponse.json(),
           equipamentosResponse.json(),
         ]);
-        const initialTemplate = DEFAULT_TEMPLATE;
         const equipamentosDisponiveis = Array.isArray(equipamentosData)
           ? equipamentosData
           : [];
@@ -290,6 +319,7 @@ export function PropostaModal({
         const precoEquipamentoInicial = equipamentoInicial
           ? getEquipamentoPreco(equipamentoInicial, data.tipo)
           : null;
+        const initialTemplate = getTemplateForEquipamento(equipamentoInicial);
 
         setTemplateUtilizado(initialTemplate.id);
         setOportunidade(data);
@@ -397,8 +427,16 @@ export function PropostaModal({
     }
 
     const precoEquipamento = getEquipamentoPreco(equipamento, oportunidade?.tipo);
+    const nextTemplate = getTemplateForEquipamento(equipamento);
 
+    setTemplateUtilizado(nextTemplate.id);
     setDescricaoComercial(equipamento.nome);
+    setHorasGarantidas(nextTemplate.defaults.horasGarantidas);
+    setHoraExtra(nextTemplate.defaults.horaExtra ?? "");
+    setPrazoExecucao(nextTemplate.defaults.prazoExecucao);
+    setValidadeProposta(getValidadePadrao(nextTemplate));
+    setCondicoesPagamento(nextTemplate.condicoesPagamentoPadrao);
+    setObservacoesTecnicas(nextTemplate.observacoesTecnicasPadrao);
 
     if (precoEquipamento !== null) {
       setPrecoUnitario(formatCurrencyInput(precoEquipamento));
@@ -453,6 +491,7 @@ export function PropostaModal({
       responsavel: oportunidade.responsavel?.nome ?? "Equipe Comercial Villa",
       data: new Date().toLocaleDateString("pt-BR"),
       observacoes_comerciais: observacoesComerciais,
+      ...getPluralVariables(quantidadePreview),
     };
     const blocos = modeloPorM3
       ? buildM3BlocosSnapshot(templateUtilizado, templateVariables)

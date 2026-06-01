@@ -14,6 +14,8 @@ import {
 import { getPropostaTemplate } from "@/lib/propostas/templates";
 import { propostaCreateSchema } from "@/lib/validations/proposta";
 
+const BOMBA_TEMPLATE_ID = "locacao-bomba-concreto-com-operacao";
+
 type OportunidadePropostasRouteContext = {
   params: Promise<{
     id: string;
@@ -89,6 +91,7 @@ export async function POST(
         pessoa: true,
         obra: true,
         responsavel: true,
+        equipamento: true,
       },
     });
 
@@ -122,7 +125,11 @@ export async function POST(
       },
     });
     const versao = (latest?.versao ?? 0) + 1;
-    const template = getPropostaTemplate(data.templateUtilizado);
+    const templateUtilizado =
+      oportunidade.equipamento?.tipo === "BOMBA_CONCRETO"
+        ? BOMBA_TEMPLATE_ID
+        : data.templateUtilizado;
+    const template = getPropostaTemplate(templateUtilizado);
 
     if (!template?.disponivel) {
       return NextResponse.json(
@@ -158,6 +165,7 @@ export async function POST(
 
     const snapshotInput = {
       ...data,
+      templateUtilizado,
       valorTotal: valorTotalCalculado,
       numeroProposta,
       versao,
@@ -174,7 +182,7 @@ export async function POST(
     const proposta = await prisma.$transaction(async (tx) => {
       const created = await tx.propostaComercial.create({
         data: {
-          templateUtilizado: data.templateUtilizado,
+          templateUtilizado,
           valorTotal: valorTotalCalculado,
           validadeProposta: data.validadeProposta,
           prazoExecucao: data.prazoExecucao,
@@ -205,7 +213,7 @@ export async function POST(
               campo: "proposta",
               valorNovo: {
                 status: "RASCUNHO",
-                template: data.templateUtilizado,
+                template: templateUtilizado,
               },
               justificativa:
                 "Criacao da proposta a partir de template oficial Villa.",

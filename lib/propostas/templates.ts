@@ -483,10 +483,9 @@ export const PROPOSTA_TEMPLATES = [
         "O preço estabelecido por equipamento será o seguinte:",
         "Qtd.: {{quantidade}}",
         "Descrição: {{descricao_comercial}}",
-        "Horas Garantidas: {{horas_garantidas}}",
-        "Preço Unit./mês: {{preco_unitario}}",
-        "Preço Total/mês: {{valor}}",
-        "Hora Extra/h: {{hora_extra}}",
+        "Volume mínimo: {{horas_garantidas}}",
+        "Preço por m³: {{preco_unitario}}",
+        "Valor total: {{valor}}",
         "{{observacoes_comerciais}}",
       ]),
       bloco(60, "precos_referencia", "Tabela oficial de referência", "EDITAVEL_COM_APROVACAO", [
@@ -502,7 +501,7 @@ export const PROPOSTA_TEMPLATES = [
         "Obs.05: Caso a garantia mínima descrita na tabela não seja atingida pela Contratante no período mensal, o valor acordado continuará devido à Contratada, independentemente do produzido.",
       ]),
       bloco(70, "trabalho_extra", "Trabalho fora do expediente", "EDITAVEL_COM_APROVACAO", [
-        "Os serviços realizados pela auto bomba lança aos sábados, domingos, feriados e horários fora do expediente normal serão cobrados por hora excedente.",
+        "Os serviços realizados pela auto bomba lança aos sábados, domingos, feriados e horários fora do expediente normal serão cobrados separadamente por hora excedente, sem alterar o volume mínimo mensal contratado.",
         "Auto bomba lança 32 metros: R$ 350,00 por hora excedente.",
         "Auto bomba lança 36 metros: R$ 350,00 por hora excedente.",
         "Auto bomba lança 38 metros: R$ 350,00 por hora excedente.",

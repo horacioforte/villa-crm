@@ -187,16 +187,66 @@ function HeaderBlock({
   );
 }
 
-function PriceBlock({ content }: { content: string }) {
-  const rows = [
-    getFieldFromBlock(content, "Qtd."),
-    getFieldFromBlock(content, "Descrição") || getFieldFromBlock(content, "Descricao"),
-    getFieldFromBlock(content, "Horas Garantidas"),
-    getFieldFromBlock(content, "Preço Unit./mês") || getFieldFromBlock(content, "Preco Unit./mes"),
-    getFieldFromBlock(content, "Preço Total/mês") || getFieldFromBlock(content, "Preco Total/mes"),
-    getFieldFromBlock(content, "Hora Extra/h"),
-  ];
-  const widths = ["8%", "30%", "16%", "17%", "17%", "12%"];
+function PriceBlock({
+  content,
+  data,
+}: {
+  content: string;
+  data: PropostaRenderData;
+}) {
+  const variaveis = buildPropostaVariaveis(data);
+  const isM3 =
+    data.precoM3 !== null &&
+    data.precoM3 !== undefined &&
+    data.volumeMinimoM3 !== null &&
+    data.volumeMinimoM3 !== undefined;
+  const rows = isM3
+    ? [
+        getFieldFromBlock(content, "Qtd.") || variaveis.quantidade,
+        getFieldFromBlock(content, "Descrição") ||
+          getFieldFromBlock(content, "Descricao") ||
+          variaveis.descricao_comercial,
+        getFieldFromBlock(content, "Volume mínimo") ||
+          getFieldFromBlock(content, "Volume minimo") ||
+          variaveis.horas_garantidas,
+        getFieldFromBlock(content, "Preço por m³") ||
+          getFieldFromBlock(content, "Preco por m3") ||
+          getFieldFromBlock(content, "Preço Unit./mês") ||
+          getFieldFromBlock(content, "Preco Unit./mes") ||
+          variaveis.preco_unitario,
+        getFieldFromBlock(content, "Valor total") ||
+          getFieldFromBlock(content, "Preço Total/mês") ||
+          getFieldFromBlock(content, "Preco Total/mes") ||
+          variaveis.valor,
+      ]
+    : [
+        getFieldFromBlock(content, "Qtd.") || variaveis.quantidade,
+        getFieldFromBlock(content, "Descrição") ||
+          getFieldFromBlock(content, "Descricao") ||
+          variaveis.descricao_comercial,
+        getFieldFromBlock(content, "Horas Garantidas") ||
+          variaveis.horas_garantidas,
+        getFieldFromBlock(content, "Preço Unit./mês") ||
+          getFieldFromBlock(content, "Preco Unit./mes") ||
+          variaveis.preco_unitario,
+        getFieldFromBlock(content, "Preço Total/mês") ||
+          getFieldFromBlock(content, "Preco Total/mes") ||
+          variaveis.valor,
+        getFieldFromBlock(content, "Hora Extra/h") || variaveis.hora_extra,
+      ];
+  const headers = isM3
+    ? ["Qtd.", "Descrição", "Volume mínimo", "Preço por m³", "Valor total"]
+    : [
+        "Qtd.",
+        "Descrição",
+        "Horas Garantidas",
+        "Preço Unit./mês",
+        "Preço Total/mês",
+        "Hora Extra/h",
+      ];
+  const widths = isM3
+    ? ["8%", "34%", "18%", "20%", "20%"]
+    : ["8%", "30%", "16%", "17%", "17%", "12%"];
   const notes = content
     .split("\n")
     .map((line) => line.trim())
@@ -210,14 +260,7 @@ function PriceBlock({ content }: { content: string }) {
       </Text>
       <View style={styles.table}>
         <View style={styles.tableRow}>
-          {[
-            "Qtd.",
-            "Descrição",
-            "Horas Garantidas",
-            "Preço Unit./mês",
-            "Preço Total/mês",
-            "Hora Extra/h",
-          ].map((label, index) => (
+          {headers.map((label, index) => (
             <Text key={label} style={[styles.tableHeaderCell, { width: widths[index] }]}>
               {label}
             </Text>
@@ -324,6 +367,7 @@ function PropostaPdfDocument({ data }: { data: PropostaRenderData }) {
                   <PriceBlock
                     key={`${bloco.ordem}-${bloco.titulo}`}
                     content={bloco.conteudoAtual}
+                    data={data}
                   />
                 );
               }

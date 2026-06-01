@@ -120,6 +120,7 @@ enum StatusExcecaoProposta {
 enum TipoAtividade {
   LIGACAO
   WHATSAPP
+  EMAIL
   VISITA
   REUNIAO
   REUNIAO_ONLINE
@@ -617,6 +618,8 @@ model Tarefa {
   dataVencimento DateTime
   horaVencimento String?
   observacoes    String?
+  resultado      String?
+  resultadoCodigo String?
   concluidaEm    DateTime?
 
   oportunidadeId String?

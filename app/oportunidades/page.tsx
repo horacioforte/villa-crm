@@ -626,8 +626,8 @@ function OpportunityCard({
           </Badge>
         ) : null}
         {semProximaAcao ? (
-          <Badge className="w-fit bg-red-100 text-xs text-red-700">
-            SEM PROXIMA ACAO
+          <Badge className="w-fit animate-pulse border border-red-200 bg-red-100 text-xs font-semibold text-red-700">
+            🚨 SEM FOLLOW-UP
           </Badge>
         ) : null}
       </CardHeader>

@@ -131,6 +131,14 @@ function getMonthRange(date: Date) {
   };
 }
 
+function getTaskCompanyName(tarefa: {
+  empresa: { nomeFantasia: string | null; razaoSocial: string } | null;
+}) {
+  return tarefa.empresa
+    ? (tarefa.empresa.nomeFantasia ?? tarefa.empresa.razaoSocial)
+    : null;
+}
+
 function daysFromNow(value: Date) {
   const oneDay = 1000 * 60 * 60 * 24;
   const today = new Date();
@@ -1289,8 +1297,16 @@ export default async function Home() {
                             className="flex items-center gap-2 text-sm"
                           >
                             <span>{tipoConfig.emoji}</span>
-                            <span className="min-w-0 flex-1 truncate text-[#1A2E5A]">
-                              {tarefa.titulo}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[#1A2E5A]">
+                                {tarefa.titulo}
+                              </span>
+                              <span className="block truncate text-xs text-[#667085]">
+                                {getTaskCompanyName(tarefa) ?? "Sem empresa"}
+                                {tarefa.oportunidade
+                                  ? ` · ${tarefa.oportunidade.titulo}`
+                                  : ""}
+                              </span>
                             </span>
                             <span className="shrink-0 text-xs">
                               {formatDate(tarefa.dataVencimento)}

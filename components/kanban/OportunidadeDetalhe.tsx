@@ -54,6 +54,7 @@ import {
   TarefaModal,
   type TarefaModalData,
 } from "@/components/tarefas/TarefaModal";
+import { ConcluirTarefaDialog } from "@/components/tarefas/ConcluirTarefaDialog";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -205,6 +206,9 @@ export function OportunidadeDetalhe({
   const [tarefaModalOpen, setTarefaModalOpen] = useState(false);
   const [tarefaEditando, setTarefaEditando] =
     useState<TarefaOportunidade | null>(null);
+  const [tarefaConcluindo, setTarefaConcluindo] =
+    useState<TarefaOportunidade | null>(null);
+  const [concluirDialogOpen, setConcluirDialogOpen] = useState(false);
 
   // Histórico de contatos
   const [historicos, setHistoricos] = useState<HistoricoContato[]>([]);
@@ -301,33 +305,19 @@ export function OportunidadeDetalhe({
     }
   }
 
-  async function handleConcluirTarefa(tarefaId: string) {
-    try {
-      const response = await fetch(`/api/tarefas/${tarefaId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CONCLUIDA" }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Falha ao concluir tarefa.");
-      }
-
-      const tarefa = await response.json();
-      setTarefas((current) =>
-        current.map((item) => (item.id === tarefaId ? tarefa : item)),
-      );
-      toast.success("Tarefa concluida.");
-    } catch {
-      toast.error("Nao foi possivel concluir a tarefa.");
-    }
-  }
-
   async function reloadTarefas() {
     const response = await fetch(`/api/oportunidades/${id}/tarefas`);
 
     if (response.ok) {
       setTarefas(await response.json());
+    }
+  }
+
+  async function reloadHistoricos() {
+    const response = await fetch(`/api/oportunidades/${id}/historicos`);
+
+    if (response.ok) {
+      setHistoricos(await response.json());
     }
   }
 
@@ -601,7 +591,10 @@ export function OportunidadeDetalhe({
                                   type="button"
                                   size="icon-sm"
                                   variant="ghost"
-                                  onClick={() => handleConcluirTarefa(tarefa.id)}
+                                  onClick={() => {
+                                    setTarefaConcluindo(tarefa);
+                                    setConcluirDialogOpen(true);
+                                  }}
                                   className="rounded-full text-emerald-700"
                                   aria-label="Concluir tarefa"
                                 >
@@ -815,15 +808,31 @@ export function OportunidadeDetalhe({
         tarefa={tarefaEditando}
         contexto={{
           oportunidadeId: oportunidade?.id ?? id,
+          oportunidadeNome: oportunidade?.titulo ?? null,
           empresaId: oportunidade?.empresaId ?? null,
+          empresaNome: oportunidade
+            ? (oportunidade.empresa.nomeFantasia ?? oportunidade.empresa.razaoSocial)
+            : null,
           pessoaId: oportunidade?.pessoaId ?? null,
+          pessoaNome: oportunidade?.pessoa?.nome ?? null,
           obraId: oportunidade?.obraId ?? null,
+          obraNome: oportunidade?.obra?.nome ?? null,
         }}
         onFechar={() => {
           setTarefaModalOpen(false);
           setTarefaEditando(null);
         }}
         onSalvar={reloadTarefas}
+      />
+
+      <ConcluirTarefaDialog
+        aberto={concluirDialogOpen}
+        tarefa={tarefaConcluindo}
+        onFechar={() => setConcluirDialogOpen(false)}
+        onConcluido={() => {
+          reloadTarefas();
+          reloadHistoricos();
+        }}
       />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>

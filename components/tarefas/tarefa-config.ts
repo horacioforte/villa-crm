@@ -9,6 +9,7 @@ export const TIPO_CONFIG: Partial<
 > = {
   LIGACAO: { emoji: "📞", label: "Ligacao" },
   WHATSAPP: { emoji: "💬", label: "WhatsApp" },
+  EMAIL: { emoji: "✉️", label: "E-mail" },
   REUNIAO: { emoji: "🤝", label: "Reuniao" },
   VISITA: { emoji: "🏗️", label: "Visita Comercial" },
   VISTORIA: { emoji: "🔍", label: "Visita de Obra" },
@@ -22,6 +23,7 @@ export const TIPO_CONFIG: Partial<
 export const TIPOS_RAPIDOS: TipoAtividade[] = [
   "LIGACAO",
   "WHATSAPP",
+  "EMAIL",
   "REUNIAO",
   "VISITA",
   "VISTORIA",

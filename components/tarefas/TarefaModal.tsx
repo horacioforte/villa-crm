@@ -45,9 +45,13 @@ type Option = {
 
 type TarefaContexto = {
   oportunidadeId?: string | null;
+  oportunidadeNome?: string | null;
   empresaId?: string | null;
+  empresaNome?: string | null;
   pessoaId?: string | null;
+  pessoaNome?: string | null;
   obraId?: string | null;
+  obraNome?: string | null;
   propostaId?: string | null;
 };
 
@@ -60,12 +64,18 @@ export type TarefaModalData = {
   dataVencimento: string | Date;
   horaVencimento: string | null;
   observacoes: string | null;
+  resultado: string | null;
+  resultadoCodigo: string | null;
   oportunidadeId: string | null;
   empresaId: string | null;
   pessoaId: string | null;
   obraId: string | null;
   propostaId: string | null;
   responsavelId: string | null;
+  empresa?: { razaoSocial: string; nomeFantasia: string | null } | null;
+  obra?: { nome: string } | null;
+  oportunidade?: { titulo: string } | null;
+  pessoa?: { nome: string } | null;
 };
 
 type TarefaModalProps = {
@@ -93,11 +103,19 @@ type FormState = {
 };
 
 function todayInput() {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalDateInput(new Date());
 }
 
 function toDateInput(value: string | Date) {
-  return new Date(value).toISOString().slice(0, 10);
+  return toLocalDateInput(new Date(value));
+}
+
+function toLocalDateInput(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function toSelectValue(value?: string | null) {
@@ -172,6 +190,7 @@ export function TarefaModal({
   const [delegando, setDelegando] = useState(false);
 
   const isEditing = Boolean(tarefa?.id);
+  const hasContextoOportunidade = Boolean(contextoEfetivo.oportunidadeId);
 
   useEffect(() => {
     if (!aberto) {
@@ -348,6 +367,37 @@ export function TarefaModal({
   const responsavelSelecionado = usuarios.find(
     (usuario) => usuario.id === form.responsavelId,
   );
+  const empresaSelecionada = empresas.find((empresa) => empresa.id === form.empresaId);
+  const obraSelecionada = obras.find((obra) => obra.id === form.obraId);
+  const oportunidadeSelecionada = oportunidades.find(
+    (oportunidade) => oportunidade.id === form.oportunidadeId,
+  );
+  const pessoaSelecionada = pessoas.find((pessoa) => pessoa.id === form.pessoaId);
+  const contextoResumo = [
+    {
+      icon: "🏢",
+      label:
+        contextoEfetivo.empresaNome ??
+        tarefa?.empresa?.nomeFantasia ??
+        tarefa?.empresa?.razaoSocial ??
+        empresaSelecionada?.label,
+    },
+    {
+      icon: "🏗️",
+      label: contextoEfetivo.obraNome ?? tarefa?.obra?.nome ?? obraSelecionada?.label,
+    },
+    {
+      icon: "💼",
+      label:
+        contextoEfetivo.oportunidadeNome ??
+        tarefa?.oportunidade?.titulo ??
+        oportunidadeSelecionada?.label,
+    },
+    {
+      icon: "👤",
+      label: contextoEfetivo.pessoaNome ?? tarefa?.pessoa?.nome ?? pessoaSelecionada?.label,
+    },
+  ].filter((item) => item.label);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -368,6 +418,11 @@ export function TarefaModal({
 
     if (!form.proximaAcao.trim()) {
       toast.error("Informe a proxima acao.");
+      return;
+    }
+
+    if (!hasContextoOportunidade && form.empresaId === NONE_VALUE) {
+      toast.error("Selecione a empresa da tarefa.");
       return;
     }
 
@@ -432,6 +487,53 @@ export function TarefaModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {hasContextoOportunidade && contextoResumo.length > 0 ? (
+            <section className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">
+                Contexto comercial
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {contextoResumo.map((item) => (
+                  <span
+                    key={`${item.icon}-${item.label}`}
+                    className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#1A2E5A]"
+                  >
+                    {item.icon} {item.label}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <section className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-3">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">
+                Contexto comercial
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <AdvancedSelect
+                  label="Empresa*"
+                  value={form.empresaId}
+                  placeholder="Selecione a empresa"
+                  options={empresas}
+                  onChange={(value) => update("empresaId", value)}
+                />
+                <AdvancedSelect
+                  label="Obra"
+                  value={form.obraId}
+                  placeholder="Sem obra"
+                  options={obraOptions}
+                  onChange={(value) => update("obraId", value)}
+                />
+                <AdvancedSelect
+                  label="Oportunidade"
+                  value={form.oportunidadeId}
+                  placeholder="Sem oportunidade"
+                  options={oportunidades}
+                  onChange={handleOportunidadeChange}
+                />
+              </div>
+            </section>
+          )}
+
           <div className="space-y-2">
             <Label>Tipo</Label>
             <div className="flex flex-wrap gap-2">
@@ -578,22 +680,26 @@ export function TarefaModal({
                   />
                 ) : null}
                 {!contextoEfetivo.empresaId ? (
-                  <AdvancedSelect
-                    label="Empresa"
-                    value={form.empresaId}
-                    placeholder="Sem empresa"
-                    options={empresas}
-                    onChange={(value) => update("empresaId", value)}
-                  />
+                  !hasContextoOportunidade ? null : (
+                    <AdvancedSelect
+                      label="Empresa"
+                      value={form.empresaId}
+                      placeholder="Sem empresa"
+                      options={empresas}
+                      onChange={(value) => update("empresaId", value)}
+                    />
+                  )
                 ) : null}
                 {!contextoEfetivo.obraId ? (
-                  <AdvancedSelect
-                    label="Obra"
-                    value={form.obraId}
-                    placeholder="Sem obra"
-                    options={obraOptions}
-                    onChange={(value) => update("obraId", value)}
-                  />
+                  !hasContextoOportunidade ? null : (
+                    <AdvancedSelect
+                      label="Obra"
+                      value={form.obraId}
+                      placeholder="Sem obra"
+                      options={obraOptions}
+                      onChange={(value) => update("obraId", value)}
+                    />
+                  )
                 ) : null}
                 {!contextoEfetivo.pessoaId ? (
                   <AdvancedSelect
@@ -684,19 +790,18 @@ function AdvancedSelect({
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Select value={value} onValueChange={(nextValue) => onChange(nextValue ?? NONE_VALUE)}>
-        <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={NONE_VALUE}>{placeholder}</SelectItem>
-          {options.map((option) => (
-            <SelectItem key={option.id} value={option.id}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-2xl border border-input bg-[#F4F6FA] px-3 text-sm text-[#1A2E5A] outline-none focus:border-[#1E4FAB] focus:ring-2 focus:ring-[#1E4FAB]/20"
+      >
+        <option value={NONE_VALUE}>{placeholder}</option>
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

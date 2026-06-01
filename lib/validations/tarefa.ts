@@ -3,6 +3,7 @@ import { z } from "zod";
 export const tipoAtividadeValues = [
   "LIGACAO",
   "WHATSAPP",
+  "EMAIL",
   "VISITA",
   "REUNIAO",
   "REUNIAO_ONLINE",
@@ -97,6 +98,8 @@ export const tarefaCreateSchema = z.object({
   dataVencimento: requiredDate,
   horaVencimento: optionalTime,
   observacoes: optionalText,
+  resultado: optionalText,
+  resultadoCodigo: optionalText,
   oportunidadeId: optionalRelationId,
   empresaId: optionalRelationId,
   pessoaId: optionalRelationId,

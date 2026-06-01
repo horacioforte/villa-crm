@@ -8,6 +8,7 @@ import {
   ChartNoAxesCombined,
   ClipboardList,
   HardHat,
+  MessageSquarePlus,
   Truck,
   UserCog,
   Users,
@@ -22,6 +23,7 @@ const menuItems = [
   { label: "Obras", href: "/obras", icon: HardHat },
   { label: "Oportunidades", href: "/oportunidades", icon: ClipboardList },
   { label: "Agenda", href: "/tarefas", icon: CalendarCheck },
+  { label: "Feedback", href: "/feedback", icon: MessageSquarePlus },
   { label: "Equipamentos", href: "/equipamentos", icon: Truck },
   { label: "Usuarios", href: "/usuarios", icon: UserCog },
 ];

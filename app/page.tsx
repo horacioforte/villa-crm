@@ -12,6 +12,7 @@ import {
   HardHat,
   Menu,
   MessageCircle,
+  MessageSquarePlus,
   Phone,
   PhoneCall,
   Search,
@@ -935,6 +936,7 @@ export default async function Home() {
     { label: "Equipamentos", icon: Truck, href: "/equipamentos" },
     { label: "Usuarios", icon: UserCog, href: "/usuarios" },
     { label: "Agenda", icon: CalendarDays, href: "/tarefas" },
+    { label: "Feedback", icon: MessageSquarePlus, href: "/feedback" },
   ];
 
   const countByStatus = new Map(

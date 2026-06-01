@@ -152,6 +152,18 @@ enum StatusTarefa {
   ATRASADA
 }
 
+enum TipoFeedback {
+  BUG
+  SUGESTAO
+}
+
+enum StatusFeedback {
+  RECEBIDO
+  EM_ANALISE
+  IMPLEMENTADO
+  DESCARTADO
+}
+
 enum TipoContato {
   TELEFONE
   WHATSAPP
@@ -215,6 +227,7 @@ model Usuario {
   tarefasResponsavel           Tarefa[]                   @relation("TarefaResponsavel")
   tarefasCriadas               Tarefa[]                   @relation("TarefaCreatedBy")
   tarefasAtualizadas           Tarefa[]                   @relation("TarefaUpdatedBy")
+  feedbacks                    Feedback[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -734,6 +747,28 @@ model Equipamento {
   @@index([createdById])
   @@index([updatedById])
   @@index([status])
+}
+
+model Feedback {
+  id            String         @id @default(cuid())
+  numero        Int            @unique
+  tipo          TipoFeedback
+  titulo        String
+  descricao     String
+  area          String?
+  status        StatusFeedback @default(RECEBIDO)
+  respostaAdmin String?
+
+  autorId String
+  autor   Usuario @relation(fields: [autorId], references: [id])
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@index([autorId])
+  @@index([status])
+  @@index([tipo])
+  @@index([numero])
 }
 
 model AuditLog {

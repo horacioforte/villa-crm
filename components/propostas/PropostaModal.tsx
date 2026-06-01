@@ -71,6 +71,8 @@ type EquipamentoProposta = {
   tipo: "BOMBA_CONCRETO" | "BETONEIRA" | "OUTRO";
   status: "DISPONIVEL" | "LOCADO" | "MANUTENCAO" | "VENDIDO" | "INATIVO";
   valorLocacao: string | number | null;
+  valorM3: number | null;
+  volumeMinimoM3: number | null;
   valorVenda: string | number | null;
 };
 
@@ -125,6 +127,16 @@ function formatPreviewCurrency(value: number | null) {
   }).format(value);
 }
 
+function formatPreviewVolume(value: number | null) {
+  if (value === null || Number.isNaN(value)) {
+    return "0";
+  }
+
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 function formatCurrencyInput(value: number | null) {
   if (value === null || Number.isNaN(value)) {
     return "";
@@ -163,6 +175,31 @@ function getEquipamentoPreco(
   return null;
 }
 
+function buildM3BlocosSnapshot(
+  templateUtilizado: string,
+  variables: Parameters<typeof buildTemplateBlocosSnapshot>[1],
+) {
+  return buildTemplateBlocosSnapshot(templateUtilizado, variables).map((bloco) =>
+    bloco.chave === "precos"
+      ? {
+          ...bloco,
+          conteudoAtual: bloco.conteudoAtual
+            .split("\n")
+            .filter((line) => !line.startsWith("Hora Extra/h:"))
+            .map((line) =>
+              line
+                .replace("Horas Garantidas:", "Volume mínimo:")
+                .replace("Preço Unit./mês:", "Preço por m³:")
+                .replace("Preco Unit./mes:", "Preco por m3:")
+                .replace("Preço Total/mês:", "Valor total:")
+                .replace("Preco Total/mes:", "Valor total:"),
+            )
+            .join("\n"),
+        }
+      : bloco,
+  );
+}
+
 export function PropostaModal({
   aberto,
   oportunidadeId,
@@ -187,6 +224,8 @@ export function PropostaModal({
     DEFAULT_TEMPLATE.defaults.horasGarantidas,
   );
   const [precoUnitario, setPrecoUnitario] = useState("");
+  const [precoM3, setPrecoM3] = useState("");
+  const [volumeMinimoM3, setVolumeMinimoM3] = useState("");
   const [horaExtra, setHoraExtra] = useState<string>(
     DEFAULT_TEMPLATE.defaults.horaExtra ?? "",
   );
@@ -261,6 +300,16 @@ export function PropostaModal({
         );
         setHorasGarantidas(initialTemplate.defaults.horasGarantidas);
         setHoraExtra(initialTemplate.defaults.horaExtra ?? "");
+        setPrecoM3(
+          equipamentoInicial?.valorM3
+            ? formatCurrencyInput(equipamentoInicial.valorM3)
+            : "",
+        );
+        setVolumeMinimoM3(
+          equipamentoInicial?.volumeMinimoM3
+            ? String(equipamentoInicial.volumeMinimoM3)
+            : "",
+        );
         setPrazoExecucao(initialTemplate.defaults.prazoExecucao);
         setValidadeProposta(getValidadePadrao(initialTemplate));
         setPrecoUnitario(
@@ -313,6 +362,27 @@ export function PropostaModal({
       : equipamentoSelecionado
         ? getEquipamentoLabel(equipamentoSelecionado)
         : "Selecione o equipamento";
+  const modeloPorM3 = Boolean(equipamentoSelecionado?.valorM3);
+  const precoM3Calculado = useMemo(() => {
+    const parsed = parseCurrencyInput(precoM3);
+
+    return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
+  }, [precoM3]);
+  const volumeMinimoM3Calculado = useMemo(() => {
+    const parsed = parseCurrencyInput(volumeMinimoM3);
+
+    return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
+  }, [volumeMinimoM3]);
+  const valorTotalM3Calculado = useMemo(() => {
+    if (precoM3Calculado === null || volumeMinimoM3Calculado === null) {
+      return null;
+    }
+
+    return Math.round(precoM3Calculado * volumeMinimoM3Calculado * 100) / 100;
+  }, [precoM3Calculado, volumeMinimoM3Calculado]);
+  const valorTotalProposta = modeloPorM3
+    ? valorTotalM3Calculado
+    : valorTotalCalculado;
 
   function handleEquipamentoChange(value: string | null) {
     const nextValue = value ?? MANUAL_EQUIPAMENTO_VALUE;
@@ -333,6 +403,16 @@ export function PropostaModal({
     } else {
       setPrecoUnitario("");
     }
+
+    if (equipamento.valorM3) {
+      setPrecoM3(formatCurrencyInput(equipamento.valorM3));
+      setVolumeMinimoM3(
+        equipamento.volumeMinimoM3 ? String(equipamento.volumeMinimoM3) : "",
+      );
+    } else {
+      setPrecoM3("");
+      setVolumeMinimoM3("");
+    }
   }
 
   const previewHtml = useMemo(() => {
@@ -344,7 +424,7 @@ export function PropostaModal({
       oportunidade.empresa.nomeFantasia ?? oportunidade.empresa.razaoSocial;
     const quantidadePreview =
       quantidadeCalculada === null ? quantidade : String(quantidadeCalculada);
-    const blocos = buildTemplateBlocosSnapshot(templateUtilizado, {
+    const templateVariables = {
       numero_proposta: "PREVIEW",
       cliente,
       obra: oportunidade.obra?.nome ?? "Obra nao informada",
@@ -354,18 +434,27 @@ export function PropostaModal({
       estado: oportunidade.obra?.estado ?? "",
       quantidade: quantidadePreview,
       descricao_comercial: descricaoComercial,
-      horas_garantidas: horasGarantidas,
-      preco_unitario: formatPreviewCurrency(precoUnitarioCalculado),
-      valor: formatPreviewCurrency(valorTotalCalculado),
-      hora_extra: horaExtra
-        ? formatPreviewCurrency(parseCurrencyInput(horaExtra))
-        : "",
+      horas_garantidas: modeloPorM3
+        ? `${formatPreviewVolume(volumeMinimoM3Calculado)} m³`
+        : horasGarantidas,
+      preco_unitario: modeloPorM3
+        ? `${formatPreviewCurrency(precoM3Calculado)}/m³`
+        : formatPreviewCurrency(precoUnitarioCalculado),
+      valor: formatPreviewCurrency(valorTotalProposta),
+      hora_extra: modeloPorM3
+        ? ""
+        : horaExtra
+          ? formatPreviewCurrency(parseCurrencyInput(horaExtra))
+          : "",
       prazo: prazoExecucao,
       validade: validadeProposta,
       responsavel: oportunidade.responsavel?.nome ?? "Equipe Comercial Villa",
       data: new Date().toLocaleDateString("pt-BR"),
       observacoes_comerciais: observacoesComerciais,
-    });
+    };
+    const blocos = modeloPorM3
+      ? buildM3BlocosSnapshot(templateUtilizado, templateVariables)
+      : buildTemplateBlocosSnapshot(templateUtilizado, templateVariables);
 
     return renderPropostaHtml({
       numeroProposta: "PREVIEW",
@@ -380,9 +469,13 @@ export function PropostaModal({
       quantidade: quantidadePreview,
       descricaoComercial,
       horasGarantidas,
-      precoUnitario: precoUnitarioCalculado ?? 0,
-      horaExtra,
-      valorTotal: valorTotalCalculado ?? 0,
+      precoUnitario: modeloPorM3
+        ? (precoM3Calculado ?? 0)
+        : (precoUnitarioCalculado ?? 0),
+      horaExtra: modeloPorM3 ? null : horaExtra,
+      precoM3: modeloPorM3 ? precoM3Calculado : null,
+      volumeMinimoM3: modeloPorM3 ? volumeMinimoM3Calculado : null,
+      valorTotal: valorTotalProposta ?? 0,
       validadeProposta,
       prazoExecucao,
       responsavel: oportunidade.responsavel?.nome,
@@ -397,8 +490,10 @@ export function PropostaModal({
     email,
     horaExtra,
     horasGarantidas,
+    modeloPorM3,
     observacoesComerciais,
     observacoesTecnicas,
+    precoM3Calculado,
     oportunidade,
     precoUnitarioCalculado,
     prazoExecucao,
@@ -407,7 +502,10 @@ export function PropostaModal({
     templateUtilizado,
     telefone,
     validadeProposta,
+    volumeMinimoM3Calculado,
     valorTotalCalculado,
+    valorTotalM3Calculado,
+    valorTotalProposta,
   ]);
 
   async function handleSalvar() {
@@ -421,13 +519,23 @@ export function PropostaModal({
       return;
     }
 
-    if (precoUnitarioCalculado === null) {
+    if (!modeloPorM3 && precoUnitarioCalculado === null) {
       toast.error("Informe um valor unitario/mês positivo.");
       return;
     }
 
-    if (valorTotalCalculado === null) {
-      toast.error("Nao foi possivel calcular o valor total/mês.");
+    if (modeloPorM3 && precoM3Calculado === null) {
+      toast.error("Informe um preco por m3 positivo.");
+      return;
+    }
+
+    if (modeloPorM3 && volumeMinimoM3Calculado === null) {
+      toast.error("Informe um volume minimo positivo.");
+      return;
+    }
+
+    if (valorTotalProposta === null) {
+      toast.error("Nao foi possivel calcular o valor total.");
       return;
     }
 
@@ -443,12 +551,14 @@ export function PropostaModal({
           },
           body: JSON.stringify({
             templateUtilizado,
-            valorTotal: valorTotalCalculado,
+            valorTotal: valorTotalProposta,
             quantidade: quantidadeCalculada,
             descricaoComercial,
-            horasGarantidas,
-            precoUnitario: precoUnitarioCalculado,
-            horaExtra: horaExtra || null,
+            horasGarantidas: modeloPorM3 ? null : horasGarantidas,
+            precoUnitario: modeloPorM3 ? precoM3Calculado : precoUnitarioCalculado,
+            horaExtra: modeloPorM3 ? null : horaExtra || null,
+            precoM3: modeloPorM3 ? precoM3Calculado : null,
+            volumeMinimoM3: modeloPorM3 ? volumeMinimoM3Calculado : null,
             telefone,
             email,
             validadeProposta,
@@ -622,38 +732,74 @@ export function PropostaModal({
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
                 />
               </Field>
-              <Field label="Horas garantidas">
-                <Input
-                  value={horasGarantidas}
-                  onChange={(event) => setHorasGarantidas(event.target.value)}
-                  className="h-11 rounded-2xl bg-[#F4F6FA]"
-                />
-              </Field>
-              <Field label="Valor unitario/mês">
-                <Input
-                  inputMode="decimal"
-                  placeholder="Ex: 12500,00"
-                  value={precoUnitario}
-                  onChange={(event) => setPrecoUnitario(event.target.value)}
-                  className="h-11 rounded-2xl bg-[#F4F6FA]"
-                />
-              </Field>
-              <Field label="Valor total/mês calculado">
-                <Input
-                  readOnly
-                  value={formatCurrencyInput(valorTotalCalculado)}
-                  className="h-11 rounded-2xl border-[#D7DEEA] bg-[#E9EEF7] font-semibold text-[#1A2E5A]"
-                />
-              </Field>
-              <Field label="Hora extra (R$/h)">
-                <Input
-                  inputMode="decimal"
-                  placeholder="Ex: 166.67"
-                  value={horaExtra}
-                  onChange={(event) => setHoraExtra(event.target.value)}
-                  className="h-11 rounded-2xl bg-[#F4F6FA]"
-                />
-              </Field>
+              {modeloPorM3 ? (
+                <>
+                  <Field label="Preço por m³ (R$)">
+                    <Input
+                      inputMode="decimal"
+                      placeholder="Ex: 55,00"
+                      value={precoM3}
+                      onChange={(event) => setPrecoM3(event.target.value)}
+                      className="h-11 rounded-2xl bg-[#F4F6FA]"
+                    />
+                  </Field>
+                  <Field label="Volume mínimo (m³)">
+                    <Input
+                      inputMode="decimal"
+                      placeholder="Ex: 1500"
+                      value={volumeMinimoM3}
+                      onChange={(event) => setVolumeMinimoM3(event.target.value)}
+                      className="h-11 rounded-2xl bg-[#F4F6FA]"
+                    />
+                  </Field>
+                  <Field label="Valor total calculado" className="lg:col-span-2">
+                    <div className="flex min-h-11 flex-col gap-2 rounded-2xl bg-[#F4F6FA] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-[#667085]">
+                        {formatPreviewVolume(volumeMinimoM3Calculado)} m³ ×{" "}
+                        {formatPreviewCurrency(precoM3Calculado)}
+                      </span>
+                      <span className="font-semibold text-[#1A2E5A]">
+                        = {formatPreviewCurrency(valorTotalM3Calculado)}
+                      </span>
+                    </div>
+                  </Field>
+                </>
+              ) : (
+                <>
+                  <Field label="Horas garantidas">
+                    <Input
+                      value={horasGarantidas}
+                      onChange={(event) => setHorasGarantidas(event.target.value)}
+                      className="h-11 rounded-2xl bg-[#F4F6FA]"
+                    />
+                  </Field>
+                  <Field label="Valor unitario/mês">
+                    <Input
+                      inputMode="decimal"
+                      placeholder="Ex: 12500,00"
+                      value={precoUnitario}
+                      onChange={(event) => setPrecoUnitario(event.target.value)}
+                      className="h-11 rounded-2xl bg-[#F4F6FA]"
+                    />
+                  </Field>
+                  <Field label="Valor total/mês calculado">
+                    <Input
+                      readOnly
+                      value={formatCurrencyInput(valorTotalCalculado)}
+                      className="h-11 rounded-2xl border-[#D7DEEA] bg-[#E9EEF7] font-semibold text-[#1A2E5A]"
+                    />
+                  </Field>
+                  <Field label="Hora extra (R$/h)">
+                    <Input
+                      inputMode="decimal"
+                      placeholder="Ex: 166.67"
+                      value={horaExtra}
+                      onChange={(event) => setHoraExtra(event.target.value)}
+                      className="h-11 rounded-2xl bg-[#F4F6FA]"
+                    />
+                  </Field>
+                </>
+              )}
               <Field label="Telefone">
                 <Input
                   value={telefone}

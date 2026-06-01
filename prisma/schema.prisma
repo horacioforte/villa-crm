@@ -447,6 +447,8 @@ model PropostaComercial {
   observacoesTecnicas   String?
   condicoesPagamento    String?
   horaExtra             Decimal?                @db.Decimal(12, 2)
+  precoM3               Float?
+  volumeMinimoM3        Float?
   pdfUrl                String?
   wordUrl               String?
   htmlSnapshot          String                  @db.Text

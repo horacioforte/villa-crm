@@ -131,14 +131,26 @@ export async function POST(
       );
     }
 
-    const valorTotalCalculado =
-      Math.round(Number(data.quantidade) * data.precoUnitario * 100) / 100;
+    const modeloPorM3 = data.precoM3 !== null && data.precoM3 !== undefined;
+    const valorTotalCalculado = modeloPorM3
+      ? Math.round((data.precoM3 ?? 0) * (data.volumeMinimoM3 ?? 0) * 100) /
+        100
+      : Math.round(Number(data.quantidade) * data.precoUnitario * 100) / 100;
+
+    if (modeloPorM3 && (!data.volumeMinimoM3 || data.volumeMinimoM3 <= 0)) {
+      return NextResponse.json(
+        { message: "Informe o volume minimo para proposta por m3." },
+        { status: 400 },
+      );
+    }
 
     if (Math.abs(valorTotalCalculado - data.valorTotal) > 0.01) {
       return NextResponse.json(
         {
           message:
-            "O valor total da proposta deve ser igual a quantidade multiplicada pelo valor unitario.",
+            modeloPorM3
+              ? "O valor total da proposta deve ser igual ao preco por m3 multiplicado pelo volume minimo."
+              : "O valor total da proposta deve ser igual a quantidade multiplicada pelo valor unitario.",
         },
         { status: 400 },
       );
@@ -169,7 +181,9 @@ export async function POST(
           observacoesComerciais: data.observacoesComerciais,
           observacoesTecnicas: data.observacoesTecnicas,
           condicoesPagamento: data.condicoesPagamento,
-          horaExtra: data.horaExtra,
+          horaExtra: modeloPorM3 ? null : data.horaExtra,
+          precoM3: modeloPorM3 ? data.precoM3 : null,
+          volumeMinimoM3: modeloPorM3 ? data.volumeMinimoM3 : null,
           numeroProposta,
           versao,
           htmlSnapshot,

@@ -52,6 +52,8 @@ type PropostaSnapshotInput = {
   horasGarantidas?: string | null;
   precoUnitario?: DecimalLike | null;
   horaExtra?: DecimalLike | null;
+  precoM3?: DecimalLike | null;
+  volumeMinimoM3?: DecimalLike | null;
   telefone?: string | null;
   email?: string | null;
   blocos?: Array<{
@@ -145,11 +147,22 @@ function formatCurrency(value: string | number | { toString(): string }) {
   }).format(Number(value));
 }
 
+function formatVolume(value: DecimalLike) {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 2,
+  }).format(Number(value));
+}
+
 export function buildPropostaTemplateVariables(
   proposta: PropostaSnapshotInput,
   oportunidade: OportunidadeProposta,
 ) {
   const template = getPropostaTemplate(proposta.templateUtilizado);
+  const modeloPorM3 =
+    proposta.precoM3 !== null &&
+    proposta.precoM3 !== undefined &&
+    proposta.volumeMinimoM3 !== null &&
+    proposta.volumeMinimoM3 !== undefined;
 
   return {
     numero_proposta: proposta.numeroProposta,
@@ -167,10 +180,14 @@ export function buildPropostaTemplateVariables(
       template?.defaults.descricaoComercial ??
       "Caminhao Betoneira - 8m3",
     horas_garantidas:
-      proposta.horasGarantidas ?? template?.defaults.horasGarantidas ?? "180h",
-    preco_unitario: proposta.precoUnitario
-      ? formatCurrency(proposta.precoUnitario)
-      : formatCurrency(proposta.valorTotal),
+      modeloPorM3
+        ? `${formatVolume(proposta.volumeMinimoM3!)} m³`
+        : proposta.horasGarantidas ?? template?.defaults.horasGarantidas ?? "180h",
+    preco_unitario: modeloPorM3
+      ? `${formatCurrency(proposta.precoM3!)}/m³`
+      : proposta.precoUnitario
+        ? formatCurrency(proposta.precoUnitario)
+        : formatCurrency(proposta.valorTotal),
     valor: formatCurrency(proposta.valorTotal),
     hora_extra:
       proposta.horaExtra === null || proposta.horaExtra === undefined
@@ -189,9 +206,38 @@ export function buildPropostaBlocosSnapshot(
   proposta: PropostaSnapshotInput,
   oportunidade: OportunidadeProposta,
 ): PropostaBlocoSnapshot[] {
-  return buildTemplateBlocosSnapshot(
+  const blocos = buildTemplateBlocosSnapshot(
     proposta.templateUtilizado,
     buildPropostaTemplateVariables(proposta, oportunidade),
+  );
+  const modeloPorM3 =
+    proposta.precoM3 !== null &&
+    proposta.precoM3 !== undefined &&
+    proposta.volumeMinimoM3 !== null &&
+    proposta.volumeMinimoM3 !== undefined;
+
+  if (!modeloPorM3) {
+    return blocos;
+  }
+
+  return blocos.map((bloco) =>
+    bloco.chave === "precos"
+      ? {
+          ...bloco,
+          conteudoAtual: bloco.conteudoAtual
+            .split("\n")
+            .filter((line) => !line.startsWith("Hora Extra/h:"))
+            .map((line) =>
+              line
+                .replace("Horas Garantidas:", "Volume mínimo:")
+                .replace("Preço Unit./mês:", "Preço por m³:")
+                .replace("Preco Unit./mes:", "Preco por m3:")
+                .replace("Preço Total/mês:", "Valor total:")
+                .replace("Preco Total/mes:", "Valor total:"),
+            )
+            .join("\n"),
+        }
+      : bloco,
   );
 }
 
@@ -219,6 +265,8 @@ export function buildPropostaHtmlSnapshot(
     horasGarantidas: proposta.horasGarantidas,
     precoUnitario: proposta.precoUnitario,
     horaExtra: proposta.horaExtra,
+    precoM3: proposta.precoM3,
+    volumeMinimoM3: proposta.volumeMinimoM3,
     valorTotal: proposta.valorTotal,
     validadeProposta: proposta.validadeProposta,
     prazoExecucao: proposta.prazoExecucao,

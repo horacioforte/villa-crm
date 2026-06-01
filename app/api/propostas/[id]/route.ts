@@ -183,6 +183,11 @@ export async function PATCH(request: Request, context: PropostaRouteContext) {
             : data.condicoesPagamento,
         horaExtra:
           data.horaExtra === undefined ? before.horaExtra : data.horaExtra,
+        precoM3: data.precoM3 === undefined ? before.precoM3 : data.precoM3,
+        volumeMinimoM3:
+          data.volumeMinimoM3 === undefined
+            ? before.volumeMinimoM3
+            : data.volumeMinimoM3,
       };
 
       const htmlSnapshot = buildPropostaHtmlSnapshot(

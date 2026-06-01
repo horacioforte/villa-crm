@@ -20,6 +20,8 @@ export type PropostaRenderData = {
   horasGarantidas?: string | null;
   precoUnitario?: DecimalLike | null;
   horaExtra?: DecimalLike | null;
+  precoM3?: DecimalLike | null;
+  volumeMinimoM3?: DecimalLike | null;
   valorTotal: DecimalLike;
   validadeProposta: Date | string;
   prazoExecucao?: string | null;
@@ -109,17 +111,39 @@ function renderHeaderBlock() {
 }
 
 function renderPriceBlock(content: string) {
-  const rows = [
-    getFieldFromBlock(content, "Qtd."),
-    getFieldFromBlock(content, "Descrição") ||
-      getFieldFromBlock(content, "Descricao"),
-    getFieldFromBlock(content, "Horas Garantidas"),
-    getFieldFromBlock(content, "Preço Unit./mês") ||
-      getFieldFromBlock(content, "Preco Unit./mes"),
-    getFieldFromBlock(content, "Preço Total/mês") ||
-      getFieldFromBlock(content, "Preco Total/mes"),
-    getFieldFromBlock(content, "Hora Extra/h"),
-  ];
+  const isM3 = content.includes("Preço por m³") || content.includes("Preco por m3");
+  const rows = isM3
+    ? [
+        getFieldFromBlock(content, "Qtd."),
+        getFieldFromBlock(content, "Descrição") ||
+          getFieldFromBlock(content, "Descricao"),
+        getFieldFromBlock(content, "Volume mínimo") ||
+          getFieldFromBlock(content, "Volume minimo"),
+        getFieldFromBlock(content, "Preço por m³") ||
+          getFieldFromBlock(content, "Preco por m3"),
+        getFieldFromBlock(content, "Valor total"),
+      ]
+    : [
+        getFieldFromBlock(content, "Qtd."),
+        getFieldFromBlock(content, "Descrição") ||
+          getFieldFromBlock(content, "Descricao"),
+        getFieldFromBlock(content, "Horas Garantidas"),
+        getFieldFromBlock(content, "Preço Unit./mês") ||
+          getFieldFromBlock(content, "Preco Unit./mes"),
+        getFieldFromBlock(content, "Preço Total/mês") ||
+          getFieldFromBlock(content, "Preco Total/mes"),
+        getFieldFromBlock(content, "Hora Extra/h"),
+      ];
+  const headers = isM3
+    ? ["Qtd.", "Descrição", "Volume mínimo", "Preço por m³", "Valor total"]
+    : [
+        "Qtd.",
+        "Descrição",
+        "Horas Garantidas",
+        "Preço Unit./mês",
+        "Preço Total/mês",
+        "Hora Extra/h",
+      ];
   const observacoes = content
     .split("\n")
     .map((line) => line.trim())
@@ -130,19 +154,14 @@ function renderPriceBlock(content: string) {
     <table class="ptab">
       <thead>
         <tr>
-          <th>Qtd.</th>
-          <th>Descrição</th>
-          <th>Horas Garantidas</th>
-          <th>Preço Unit./mês</th>
-          <th>Preço Total/mês</th>
-          <th>Hora Extra/h</th>
+          ${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}
         </tr>
       </thead>
       <tbody>
         <tr>
           ${rows
             .map((value, index) =>
-              index === 4
+              index === (isM3 ? 4 : 4)
                 ? `<td class="tot">${escapeHtml(value)}</td>`
                 : `<td>${escapeHtml(value)}</td>`,
             )
@@ -225,6 +244,11 @@ export function buildPropostaVariaveis(
   data: PropostaRenderData,
 ): PropostaVariaveisRenderizadas {
   const template = getPropostaTemplate(data.templateUtilizado);
+  const modeloPorM3 =
+    data.precoM3 !== null &&
+    data.precoM3 !== undefined &&
+    data.volumeMinimoM3 !== null &&
+    data.volumeMinimoM3 !== undefined;
 
   return {
     cliente: data.cliente,
@@ -240,10 +264,16 @@ export function buildPropostaVariaveis(
       template?.defaults.descricaoComercial ||
       "Caminhao Betoneira - 8m3",
     horas_garantidas:
-      data.horasGarantidas || template?.defaults.horasGarantidas || "180h",
-    preco_unitario: data.precoUnitario
-      ? formatCurrency(data.precoUnitario)
-      : formatCurrency(data.valorTotal),
+      modeloPorM3
+        ? `${new Intl.NumberFormat("pt-BR", {
+            maximumFractionDigits: 2,
+          }).format(Number(data.volumeMinimoM3))} m³`
+        : data.horasGarantidas || template?.defaults.horasGarantidas || "180h",
+    preco_unitario: modeloPorM3
+      ? `${formatCurrency(data.precoM3!)}/m³`
+      : data.precoUnitario
+        ? formatCurrency(data.precoUnitario)
+        : formatCurrency(data.valorTotal),
     valor: formatCurrency(data.valorTotal),
     hora_extra:
       data.horaExtra === null || data.horaExtra === undefined

@@ -151,6 +151,8 @@ export const propostaCreateSchema = z.object({
   horasGarantidas: optionalText,
   precoUnitario: requiredDecimal,
   horaExtra: optionalDecimal,
+  precoM3: optionalDecimal,
+  volumeMinimoM3: optionalDecimal,
   telefone: optionalText,
   email: optionalText,
   observacoesComerciais: optionalText,

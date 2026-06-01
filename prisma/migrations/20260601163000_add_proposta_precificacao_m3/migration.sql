@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "PropostaComercial"
+ADD COLUMN "precoM3" DOUBLE PRECISION,
+ADD COLUMN "volumeMinimoM3" DOUBLE PRECISION;

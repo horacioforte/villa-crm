@@ -241,29 +241,30 @@ export function TarefaModal({
             fetch("/api/obras"),
           ]);
 
-        if (
-          !usuariosRes.ok ||
-          !empresasRes.ok ||
-          !oportunidadesRes.ok ||
-          !obrasRes.ok
-        ) {
+        if (!empresasRes.ok || !oportunidadesRes.ok || !obrasRes.ok) {
           throw new Error("Falha ao carregar dados do formulario.");
         }
 
-        const [usuariosData, empresasData, oportunidadesData, obrasData] =
+        const [empresasData, oportunidadesData, obrasData] =
           await Promise.all([
-            usuariosRes.json(),
             empresasRes.json(),
             oportunidadesRes.json(),
             obrasRes.json(),
           ]);
 
-        setUsuarios(
-          usuariosData.map((usuario: { id: string; nome: string }) => ({
-            id: usuario.id,
-            label: usuario.nome,
-          })),
-        );
+        if (usuariosRes.ok) {
+          const usuariosData = await usuariosRes.json();
+
+          setUsuarios(
+            usuariosData.map((usuario: { id: string; nome: string }) => ({
+              id: usuario.id,
+              label: usuario.nome,
+            })),
+          );
+        } else {
+          setUsuarios([]);
+        }
+
         setEmpresas(
           empresasData.map(
             (empresa: {

@@ -82,6 +82,8 @@ export const equipamentoSchema = z.object({
   ano: optionalYear,
   numeroSerie: optionalText,
   valorLocacao: optionalNumber("Informe um valor de locacao valido."),
+  valorM3: optionalNumber("Informe um valor por m3 valido."),
+  volumeMinimoM3: optionalNumber("Informe um volume minimo valido."),
   valorVenda: optionalNumber("Informe um valor de venda valido."),
   observacoes: optionalText,
 });

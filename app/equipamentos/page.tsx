@@ -61,6 +61,8 @@ type EquipamentoFormValues = {
   ano: string;
   numeroSerie: string;
   valorLocacao: string;
+  valorM3: string;
+  volumeMinimoM3: string;
   valorVenda: string;
   observacoes: string;
 };
@@ -77,6 +79,8 @@ type EquipamentoRow = {
   ano: number | null;
   numeroSerie: string | null;
   valorLocacao: string | null;
+  valorM3: number | null;
+  volumeMinimoM3: number | null;
   valorVenda: string | null;
   observacoes: string | null;
 };
@@ -91,6 +95,8 @@ const defaultValues: EquipamentoFormValues = {
   ano: "",
   numeroSerie: "",
   valorLocacao: "",
+  valorM3: "",
+  volumeMinimoM3: "",
   valorVenda: "",
   observacoes: "",
 };
@@ -161,6 +167,10 @@ function getFormValues(equipamento?: EquipamentoRow | null): EquipamentoFormValu
     ano: equipamento.ano ? String(equipamento.ano) : "",
     numeroSerie: equipamento.numeroSerie ?? "",
     valorLocacao: equipamento.valorLocacao ?? "",
+    valorM3: equipamento.valorM3 ? String(equipamento.valorM3) : "",
+    volumeMinimoM3: equipamento.volumeMinimoM3
+      ? String(equipamento.volumeMinimoM3)
+      : "",
     valorVenda: equipamento.valorVenda ?? "",
     observacoes: equipamento.observacoes ?? "",
   };
@@ -175,6 +185,29 @@ function formatCurrency(value: string | null) {
     style: "currency",
     currency: "BRL",
   }).format(Number(value));
+}
+
+function formatMoneyNumber(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
+
+function formatVolume(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function parseOptionalNumber(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value.replace(",", "."));
+
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 async function fetchEquipamentos() {
@@ -199,6 +232,14 @@ export default function EquipamentosPage() {
     resolver: zodResolver(equipamentoSchema) as unknown as Resolver<EquipamentoFormValues>,
     defaultValues,
   });
+  const valorM3Preview = parseOptionalNumber(form.watch("valorM3"));
+  const volumeMinimoM3Preview = parseOptionalNumber(
+    form.watch("volumeMinimoM3"),
+  );
+  const valorReferenciaLocacao =
+    valorM3Preview && volumeMinimoM3Preview
+      ? valorM3Preview * volumeMinimoM3Preview
+      : null;
 
   const loadEquipamentos = useCallback(async () => {
     setIsLoading(true);
@@ -480,7 +521,21 @@ export default function EquipamentosPage() {
                             .join(" / ") || "-"}
                         </TableCell>
                         <TableCell>
-                          {formatCurrency(equipamento.valorLocacao)}
+                          <div className="flex flex-col gap-1">
+                            <span>{formatCurrency(equipamento.valorLocacao)}</span>
+                            {equipamento.valorM3 ? (
+                              <span className="text-xs text-[#667085]">
+                                {formatMoneyNumber(equipamento.valorM3)}/m³
+                                {equipamento.volumeMinimoM3 ? (
+                                  <>
+                                    {" "}
+                                    · mín.{" "}
+                                    {formatVolume(equipamento.volumeMinimoM3)} m³
+                                  </>
+                                ) : null}
+                              </span>
+                            ) : null}
+                          </div>
                         </TableCell>
                         <TableCell>{formatCurrency(equipamento.valorVenda)}</TableCell>
                         <TableCell>
@@ -652,6 +707,53 @@ export default function EquipamentosPage() {
                 className="h-11 rounded-2xl bg-[#F4F6FA]"
               />
             </Field>
+
+            <div className="border-t border-[#D7DEEA] pt-4 md:col-span-2">
+              <p className="mb-3 text-sm font-medium text-[#1A2E5A]">
+                Precificacao por volume
+              </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field
+                  label="Valor por m³ (R$)"
+                  error={form.formState.errors.valorM3?.message}
+                >
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    {...form.register("valorM3")}
+                    placeholder="55,00"
+                    className="h-11 rounded-2xl bg-[#F4F6FA]"
+                  />
+                </Field>
+
+                <Field
+                  label="Volume minimo (m³)"
+                  error={form.formState.errors.volumeMinimoM3?.message}
+                >
+                  <Input
+                    type="number"
+                    step="1"
+                    min="0"
+                    {...form.register("volumeMinimoM3")}
+                    placeholder="1500"
+                    className="h-11 rounded-2xl bg-[#F4F6FA]"
+                  />
+                </Field>
+              </div>
+
+              {valorM3Preview && volumeMinimoM3Preview && valorReferenciaLocacao ? (
+                <div className="mt-3 flex flex-col gap-2 rounded-2xl bg-[#F4F6FA] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-[#667085]">
+                    {formatVolume(volumeMinimoM3Preview)} m³ ×{" "}
+                    {formatMoneyNumber(valorM3Preview)}
+                  </span>
+                  <span className="font-semibold text-[#1A2E5A]">
+                    = {formatMoneyNumber(valorReferenciaLocacao)}
+                  </span>
+                </div>
+              ) : null}
+            </div>
 
             <Field
               label="Valor de venda"

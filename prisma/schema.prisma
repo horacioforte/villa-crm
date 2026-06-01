@@ -726,6 +726,8 @@ model Equipamento {
   numeroSerie  String?
   status       StatusEquipamento @default(DISPONIVEL)
   valorLocacao Decimal?          @db.Decimal(12, 2)
+  valorM3      Float?
+  volumeMinimoM3 Float?
   valorVenda   Decimal?          @db.Decimal(12, 2)
   observacoes  String?
 

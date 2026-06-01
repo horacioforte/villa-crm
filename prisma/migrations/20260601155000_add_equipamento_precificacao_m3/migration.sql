@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Equipamento"
+ADD COLUMN "valorM3" DOUBLE PRECISION,
+ADD COLUMN "volumeMinimoM3" DOUBLE PRECISION;

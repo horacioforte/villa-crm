@@ -24,6 +24,8 @@ const equipamentoSelect = {
   ano: true,
   numeroSerie: true,
   valorLocacao: true,
+  valorM3: true,
+  volumeMinimoM3: true,
   valorVenda: true,
   observacoes: true,
   createdAt: true,
@@ -37,6 +39,8 @@ function serializeEquipamento(equipamento: Prisma.EquipamentoGetPayload<{
     ...equipamento,
     codigoInterno: equipamento.codigo,
     valorLocacao: equipamento.valorLocacao?.toString() ?? null,
+    valorM3: equipamento.valorM3 ?? null,
+    volumeMinimoM3: equipamento.volumeMinimoM3 ?? null,
     valorVenda: equipamento.valorVenda?.toString() ?? null,
   };
 }

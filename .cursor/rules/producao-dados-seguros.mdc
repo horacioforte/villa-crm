@@ -1,0 +1,33 @@
+---
+description: Regras obrigatórias para proteger dados reais em produção
+alwaysApply: true
+---
+
+# Proteção De Dados Em Produção
+
+O Villa CRM está em uso real. Empresas, contatos, obras, oportunidades, tarefas, históricos, usuários e filiais podem conter dados cadastrados pela equipe. Dado de produção é sagrado.
+
+Antes de qualquer alteração em Prisma, migrations, seed, scripts de banco ou APIs destrutivas:
+
+- Nunca remover tabela, coluna ou enum com dados sem plano explícito de migração segura e confirmação do usuário.
+- Novas colunas obrigatórias em tabelas existentes devem ser opcionais (`?`) ou ter `@default(...)`.
+- Nunca renomear/remover valor de enum em uso no mesmo passo. Adicione o novo valor, migre os dados e só remova o antigo em etapa separada.
+- Para migrations estruturais, gerar primeiro com `--create-only`, revisar o SQL e pedir confirmação antes de aplicar.
+- Se a migration tocar tabelas com dados reais, avisar claramente quais tabelas serão alteradas e aguardar confirmação.
+- Rodar `npx tsc --noEmit` e `npm run build` antes de publicar.
+
+## Contexto Do Banco
+
+- Banco de produção: Neon PostgreSQL.
+- A URL do banco vem de `DATABASE_URL` no `.env.local` e na Vercel.
+- Tabelas com dados reais: `Empresa`, `Pessoa`, `Obra`, `Oportunidade`, `Tarefa`, `HistoricoContato`, `Usuario` e `Filial`.
+
+## Checklist Antes De Migration
+
+- A migration adiciona coluna obrigatória? Então precisa ser opcional (`?`) ou ter `@default(...)`.
+- Nenhuma coluna ou tabela existente com dados reais está sendo removida?
+- Nenhum enum com valores em uso está sendo renomeado ou removido?
+- O SQL gerado foi revisado antes de aplicar?
+- Se tocar dados reais, o usuário confirmou antes de continuar?
+
+Em caso de dúvida, não aplicar a migration. Mostre o SQL ou a mudança proposta ao usuário primeiro.

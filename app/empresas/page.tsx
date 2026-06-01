@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Building2, Loader2, MapPin, Plus, Target, Users } from "lucide-react";
+import {
+  Building2,
+  Loader2,
+  MapPin,
+  Plus,
+  Search,
+  Target,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,11 +23,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 type EmpresaCard = {
   id: string;
   razaoSocial: string;
   nomeFantasia: string | null;
+  cnpj: string | null;
   segmento: string | null;
   cidade: string | null;
   estado: string | null;
@@ -42,6 +52,7 @@ function getInitials(name: string) {
 export default function EmpresasPage() {
   const [empresas, setEmpresas] = useState<EmpresaCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     async function loadEmpresas() {
@@ -71,6 +82,30 @@ export default function EmpresasPage() {
       ),
     [empresas],
   );
+
+  const empresasFiltradas = useMemo(() => {
+    const termo = searchTerm.trim().toLowerCase();
+
+    if (!termo) {
+      return empresas;
+    }
+
+    return empresas.filter((empresa) => {
+      const searchable = [
+        empresa.razaoSocial,
+        empresa.nomeFantasia,
+        empresa.cnpj,
+        empresa.segmento,
+        empresa.cidade,
+        empresa.estado,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(termo);
+    });
+  }, [empresas, searchTerm]);
 
   return (
     <main className="min-h-screen bg-[#F4F6FA] px-5 py-8 text-[#172033] sm:px-8">
@@ -125,6 +160,29 @@ export default function EmpresasPage() {
           </Card>
         </section>
 
+        <section className="mt-8 rounded-3xl border border-[#D7DEEA] bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-[#1A2E5A]">
+                Pesquisar empresa cadastrada
+              </h2>
+              <p className="text-sm text-[#667085]">
+                Digite o nome, razao social, segmento ou cidade antes de criar
+                uma nova empresa.
+              </p>
+            </div>
+            <div className="relative sm:w-96">
+              <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#667085]" />
+              <Input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Buscar empresa..."
+                className="h-12 rounded-2xl bg-[#F4F6FA] pl-11"
+              />
+            </div>
+          </div>
+        </section>
+
         {isLoading ? (
           <div className="mt-12 flex items-center justify-center rounded-3xl border border-dashed border-[#D7DEEA] bg-white p-12 text-[#667085]">
             <Loader2 className="mr-2 size-5 animate-spin" />
@@ -143,9 +201,22 @@ export default function EmpresasPage() {
               </p>
             </CardContent>
           </Card>
+        ) : empresasFiltradas.length === 0 ? (
+          <Card className="mt-8 rounded-3xl border-dashed border-[#D7DEEA] bg-white">
+            <CardContent className="flex flex-col items-center py-14 text-center">
+              <Search className="size-10 text-[#1E4FAB]" />
+              <h2 className="mt-4 text-xl font-bold text-[#1A2E5A]">
+                Nenhuma empresa encontrada
+              </h2>
+              <p className="mt-2 max-w-md text-sm text-[#667085]">
+                Nao encontramos cadastro com esse termo. Se for um cliente novo,
+                clique em Nova empresa para cadastrar.
+              </p>
+            </CardContent>
+          </Card>
         ) : (
           <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {empresas.map((empresa) => {
+            {empresasFiltradas.map((empresa) => {
               const displayName = empresa.nomeFantasia ?? empresa.razaoSocial;
 
               return (

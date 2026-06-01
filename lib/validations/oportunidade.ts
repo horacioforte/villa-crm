@@ -59,11 +59,40 @@ const optionalNumber = z
     return parsed;
   });
 
-export const tipoOperacaoValues = ["LOCACAO", "VENDA"] as const;
+export const tipoOperacaoValues = ["LOCACAO", "EQUIPAMENTO_USADO"] as const;
+
+export const tipoServicoValues = [
+  "BOMBA_LANCA",
+  "BOMBA_ESTACIONARIA",
+  "TELEBELT",
+  "BETONEIRA",
+  "CENTRAL_IN_LOCO",
+  "CONCRETO",
+  "SERVICO_ESPECIAL",
+] as const;
+
+export const faixaPotencialValues = [
+  "ATE_100_MIL",
+  "DE_100_A_500_MIL",
+  "DE_500_MIL_A_2_MILHOES",
+  "ACIMA_DE_2_MILHOES",
+] as const;
+
+export const canalOrigemValues = [
+  "INDICACAO",
+  "CLIENTE_ATUAL",
+  "GOOGLE",
+  "LINKEDIN",
+  "SITE",
+  "VISITA_COMERCIAL",
+  "OBRA_MAPEADA",
+  "MARKETPLACE",
+  "OLX",
+  "EVENTO",
+  "OUTROS",
+] as const;
 
 export const temperaturaOportunidadeValues = ["FRIA", "MEDIA", "QUENTE"] as const;
-
-export const origemOportunidadeValues = ["CLIENTE_RECORRENTE", "CLIENTE_NOVO"] as const;
 
 export const statusOportunidadeValues = [
   "NOVA",
@@ -78,19 +107,22 @@ const oportunidadeBaseSchema = z.object({
   titulo: z.string().trim().min(2, "Informe o titulo da oportunidade."),
   descricao: optionalText,
   tipo: z.enum(tipoOperacaoValues),
+  tipoServico: z.enum(tipoServicoValues).optional().nullable(),
   status: z.enum(statusOportunidadeValues).default("NOVA"),
-  valor: optionalNumber,
+  potencialOportunidade: optionalNumber,
+  faixaPotencial: z.enum(faixaPotencialValues).optional().nullable(),
+  valorContrato: optionalNumber,
   motivoPerda: optionalText,
   temperatura: z.enum(temperaturaOportunidadeValues).optional().nullable(),
-  origem: z.enum(origemOportunidadeValues).optional().nullable(),
+  canalOrigem: z.enum(canalOrigemValues).optional().nullable(),
   empresaId: requiredRelationId("Selecione a empresa."),
   pessoaId: optionalRelationId,
-  obraId: requiredRelationId("Selecione a obra."),
+  obraId: optionalRelationId,
   responsavelId: optionalRelationId,
   equipamentoId: optionalRelationId,
 });
 
-function validateMotivoPerda(
+function validateOportunidadeRules(
   data: Partial<z.output<typeof oportunidadeBaseSchema>>,
   ctx: z.RefinementCtx,
 ) {
@@ -101,14 +133,22 @@ function validateMotivoPerda(
       message: "Informe o motivo da perda.",
     });
   }
+
+  if (data.tipo === "LOCACAO" && !data.obraId) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["obraId"],
+      message: "Selecione a obra.",
+    });
+  }
 }
 
 export const oportunidadeSchema =
-  oportunidadeBaseSchema.superRefine(validateMotivoPerda);
+  oportunidadeBaseSchema.superRefine(validateOportunidadeRules);
 
 export const oportunidadePatchSchema = oportunidadeBaseSchema
   .partial()
-  .superRefine(validateMotivoPerda);
+  .superRefine(validateOportunidadeRules);
 
 export const oportunidadeStatusSchema = z.object({
   status: z.enum(statusOportunidadeValues),

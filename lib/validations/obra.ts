@@ -144,11 +144,12 @@ export const statusObraValues = [
 export const obraSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome da obra."),
   empresaId: z.string().trim().min(1, "Selecione a empresa vinculada."),
-  cidade: optionalText,
-  estado: optionalUf,
-  volumeEstimado: numericText,
-  dataInicio: optionalDate,
-  dataTermino: optionalDate,
+  endereco: optionalText.optional(),
+  cidade: optionalText.optional(),
+  estado: optionalUf.optional(),
+  volumeEstimado: numericText.optional(),
+  dataInicio: optionalDate.optional(),
+  dataTermino: optionalDate.optional(),
   status: z.enum(statusObraValues),
 });
 

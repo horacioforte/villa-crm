@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import type { Prisma } from "@/app/generated/prisma/client";
 import { auditLog } from "@/lib/audit";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { getValorPropostaAtiva } from "@/lib/propostas/utils";
 import { criarTarefaAutomatica } from "@/lib/tarefas/automaticas";
 import { oportunidadePatchSchema } from "@/lib/validations/oportunidade";
 
@@ -36,6 +38,21 @@ export async function GET(
       obra: true,
       responsavel: true,
       equipamento: true,
+      propostas: {
+        where: {
+          status: {
+            in: ["ENVIADA", "APROVADA", "ACEITA"],
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 1,
+        select: {
+          valorTotal: true,
+          status: true,
+        },
+      },
       historicos: true,
       tarefas: {
         select: {
@@ -70,21 +87,49 @@ export async function PATCH(
   try {
     const data = oportunidadePatchSchema.parse(await request.json());
     const before = await prisma.oportunidade.findUnique({ where: { id } });
+    const updateData: Prisma.OportunidadeUncheckedUpdateInput = {
+      ...data,
+      updatedById: authResult.id,
+    };
+
+    if (data.status === "GANHA" && !data.valorContrato) {
+      const valorPropostaAtiva = await getValorPropostaAtiva(id);
+
+      if (valorPropostaAtiva !== null) {
+        updateData.valorContrato = valorPropostaAtiva;
+      }
+    }
+
+    if (data.status === "GANHA" && before?.status !== "GANHA" && !before?.fechadaEm) {
+      updateData.fechadaEm = new Date();
+    }
 
     const oportunidade = await prisma.oportunidade.update({
       where: {
         id,
       },
-      data: {
-        ...data,
-        updatedById: authResult.id,
-      },
+      data: updateData,
       include: {
         empresa: true,
         pessoa: true,
         obra: true,
         responsavel: true,
         equipamento: true,
+        propostas: {
+          where: {
+            status: {
+              in: ["ENVIADA", "APROVADA", "ACEITA"],
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 1,
+          select: {
+            valorTotal: true,
+            status: true,
+          },
+        },
         tarefas: {
           select: {
             status: true,

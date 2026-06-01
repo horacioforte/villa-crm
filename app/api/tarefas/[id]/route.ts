@@ -9,6 +9,7 @@ import {
   serializeTarefa,
   tarefaInclude,
 } from "@/lib/tarefas/service";
+import type { TipoContato } from "@/app/generated/prisma/client";
 import { tarefaPatchSchema } from "@/lib/validations/tarefa";
 
 type TarefaRouteContext = {
@@ -82,6 +83,42 @@ export async function PATCH(request: Request, context: TarefaRouteContext) {
       },
       include: tarefaInclude,
     });
+
+    if (
+      data.status === "CONCLUIDA" &&
+      before.status !== "CONCLUIDA" &&
+      tarefa.oportunidadeId
+    ) {
+      const tipoContatoMap: Partial<Record<string, TipoContato>> = {
+        LIGACAO: "TELEFONE",
+        WHATSAPP: "WHATSAPP",
+        EMAIL: "EMAIL",
+        REUNIAO: "REUNIAO",
+        VISITA: "VISITA",
+        VISTORIA: "VISITA",
+        RETORNO_CLIENTE: "TELEFONE",
+        PROPOSTA: "EMAIL",
+        CONTRATO: "OUTRO",
+        COBRANCA: "TELEFONE",
+        OUTRO: "OUTRO",
+      };
+
+      await prisma.historicoContato.create({
+        data: {
+          tipo: tipoContatoMap[tarefa.tipo] ?? "OUTRO",
+          resumo: data.resultadoCodigo
+            ? `${tarefa.titulo} - ${data.resultadoCodigo}`
+            : tarefa.titulo,
+          detalhes: data.resultado ?? tarefa.observacoes ?? null,
+          oportunidadeId: tarefa.oportunidadeId,
+          empresaId: tarefa.empresaId,
+          pessoaId: tarefa.pessoaId,
+          usuarioId: authResult.id,
+          createdById: authResult.id,
+          updatedById: authResult.id,
+        },
+      });
+    }
 
     await auditLog({
       action:

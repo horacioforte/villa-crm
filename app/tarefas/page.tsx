@@ -23,6 +23,7 @@ import {
   PRIORIDADE_CONFIG,
   STATUS_TAREFA_CONFIG,
   TIPO_CONFIG,
+  TIPOS_RAPIDOS,
 } from "@/components/tarefas/tarefa-config";
 import {
   TarefaModal,
@@ -45,6 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ConcluirTarefaDialog } from "@/components/tarefas/ConcluirTarefaDialog";
 
 type Tarefa = TarefaModalData & {
   status: StatusTarefa;
@@ -115,10 +117,43 @@ function formatDate(value: string | Date) {
   }).format(new Date(value));
 }
 
+function corPrazo(dataVencimento: string | Date, status: StatusTarefa) {
+  if (status === "CONCLUIDA") {
+    return "text-emerald-600";
+  }
+
+  const vencimento = new Date(dataVencimento);
+
+  if (vencimento < startOfToday()) {
+    return "font-bold text-red-600";
+  }
+
+  if (isSameDay(vencimento)) {
+    return "font-medium text-amber-600";
+  }
+
+  return "text-[#667085]";
+}
+
 function getEmpresaName(tarefa: Tarefa) {
   return tarefa.empresa
     ? (tarefa.empresa.nomeFantasia ?? tarefa.empresa.razaoSocial)
     : "Sem empresa";
+}
+
+function getContextBadges(tarefa: Tarefa) {
+  return [
+    tarefa.empresa
+      ? {
+          icon: "🏢",
+          label: tarefa.empresa.nomeFantasia ?? tarefa.empresa.razaoSocial,
+        }
+      : null,
+    tarefa.obra ? { icon: "🏗️", label: tarefa.obra.nome } : null,
+    tarefa.oportunidade
+      ? { icon: "💼", label: tarefa.oportunidade.titulo }
+      : null,
+  ].filter(Boolean) as Array<{ icon: string; label: string }>;
 }
 
 function filterByPeriodo(tarefa: Tarefa, periodo: Periodo) {
@@ -142,6 +177,8 @@ export default function TarefasPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
   const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null);
+  const [tarefaConcluindo, setTarefaConcluindo] = useState<Tarefa | null>(null);
+  const [concluirDialogOpen, setConcluirDialogOpen] = useState(false);
   const [tab, setTab] = useState<TabStatus>("PENDENTE");
   const [periodo, setPeriodo] = useState<Periodo>("hoje");
   const [responsavelId, setResponsavelId] = useState("todas");
@@ -205,6 +242,7 @@ export default function TarefasPage() {
   const resumo = useMemo(() => {
     const hoje = startOfToday();
     const fimHoje = endOfToday();
+    const amanha = addDays(hoje, 1);
 
     return {
       atrasadas: tarefas.filter((tarefa) => tarefa.status === "ATRASADA").length,
@@ -216,9 +254,9 @@ export default function TarefasPage() {
           ["PENDENTE", "EM_ANDAMENTO"].includes(tarefa.status)
         );
       }).length,
-      semana: tarefas.filter(
+      amanha: tarefas.filter(
         (tarefa) =>
-          isThisWeek(tarefa.dataVencimento) &&
+          isSameDay(tarefa.dataVencimento, amanha) &&
           ["PENDENTE", "EM_ANDAMENTO"].includes(tarefa.status),
       ).length,
       concluidasHoje: tarefas.filter(
@@ -293,40 +331,6 @@ export default function TarefasPage() {
     ],
   );
 
-  async function updateStatus(tarefa: Tarefa, status: StatusTarefa) {
-    const previous = tarefas;
-    setTarefas((current) =>
-      current.map((item) => (item.id === tarefa.id ? { ...item, status } : item)),
-    );
-
-    try {
-      const response = await fetch(`/api/tarefas/${tarefa.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        throw new Error(data?.message ?? "Falha ao atualizar tarefa.");
-      }
-
-      toast.success(
-        status === "CONCLUIDA" ? "Tarefa concluida." : "Tarefa atualizada.",
-      );
-      loadTarefas();
-    } catch (error) {
-      setTarefas(previous);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Nao foi possivel atualizar a tarefa.",
-      );
-    }
-  }
-
   async function deleteTarefa(tarefa: Tarefa) {
     if (!window.confirm("Excluir esta tarefa?")) {
       return;
@@ -351,6 +355,11 @@ export default function TarefasPage() {
   function openEdit(tarefa: Tarefa) {
     setTarefaEditando(tarefa);
     setModalAberto(true);
+  }
+
+  function openConcluir(tarefa: Tarefa) {
+    setTarefaConcluindo(tarefa);
+    setConcluirDialogOpen(true);
   }
 
   function openCreate() {
@@ -401,8 +410,8 @@ export default function TarefasPage() {
               className: "border-amber-200 bg-amber-50 text-amber-700",
             },
             {
-              label: "Esta semana",
-              value: resumo.semana,
+              label: "Amanha",
+              value: resumo.amanha,
               icon: "🔵",
               className: "border-blue-200 bg-blue-50 text-blue-700",
             },
@@ -567,11 +576,19 @@ export default function TarefasPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todas">Tipo</SelectItem>
-                    {Object.entries(TIPO_CONFIG).map(([value, config]) => (
-                      <SelectItem key={value} value={value}>
-                        {config.emoji} {config.label}
-                      </SelectItem>
-                    ))}
+                    {TIPOS_RAPIDOS.map((value) => {
+                      const config = TIPO_CONFIG[value];
+
+                      if (!config) {
+                        return null;
+                      }
+
+                      return (
+                        <SelectItem key={value} value={value}>
+                          {config.emoji} {config.label}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -584,20 +601,23 @@ export default function TarefasPage() {
                 </div>
               ) : (
                 tarefasFiltradas.map((tarefa) => {
-                  const tipoConfig = TIPO_CONFIG[tarefa.tipo];
+                  const tipoConfig = TIPO_CONFIG[tarefa.tipo] ?? {
+                    emoji: "•",
+                    label: "Tarefa",
+                  };
                   const prioridadeConfig = PRIORIDADE_CONFIG[tarefa.prioridade];
-                  const isAtrasada = tarefa.status === "ATRASADA";
-                  const isHoje = isSameDay(tarefa.dataVencimento);
                   const isConcluida = tarefa.status === "CONCLUIDA";
+                  const prazoClassName = corPrazo(
+                    tarefa.dataVencimento,
+                    tarefa.status,
+                  );
+                  const contextBadges = getContextBadges(tarefa);
 
                   return (
                     <article
                       key={tarefa.id}
                       className={cn(
-                        "rounded-3xl border border-l-4 bg-white p-4 shadow-sm transition",
-                        prioridadeConfig.borderClassName,
-                        isAtrasada && "border-red-200 bg-red-50",
-                        isHoje && !isAtrasada && "bg-amber-50",
+                        "rounded-3xl border border-[#D7DEEA] bg-white p-4 shadow-sm transition",
                         isConcluida && "opacity-60",
                       )}
                     >
@@ -605,7 +625,7 @@ export default function TarefasPage() {
                         <div className="flex gap-3">
                           <button
                             type="button"
-                            onClick={() => updateStatus(tarefa, "CONCLUIDA")}
+                            onClick={() => openConcluir(tarefa)}
                             className={cn(
                               "mt-1 flex size-7 shrink-0 items-center justify-center rounded-full border border-[#D7DEEA] bg-white text-[#1E4FAB]",
                               isConcluida && "bg-emerald-100 text-emerald-700",
@@ -614,15 +634,9 @@ export default function TarefasPage() {
                           >
                             {isConcluida ? <Check className="size-4" /> : null}
                           </button>
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-xl">{tipoConfig.emoji}</span>
-                              <Badge className={prioridadeConfig.badgeClassName}>
-                                {prioridadeConfig.label}
-                              </Badge>
-                              <Badge variant="outline">
-                                {STATUS_TAREFA_CONFIG[tarefa.status].label}
-                              </Badge>
                               <h2
                                 className={cn(
                                   "text-lg font-bold text-[#1A2E5A]",
@@ -631,33 +645,53 @@ export default function TarefasPage() {
                               >
                                 {tarefa.titulo}
                               </h2>
+                              {["URGENTE", "ALTA"].includes(tarefa.prioridade) ? (
+                                <Badge className={prioridadeConfig.badgeClassName}>
+                                  {prioridadeConfig.label}
+                                </Badge>
+                              ) : null}
+                              <Badge variant="outline">
+                                {STATUS_TAREFA_CONFIG[tarefa.status].label}
+                              </Badge>
                             </div>
                             <p className="mt-1 text-sm text-[#667085]">
-                              {tarefa.responsavel?.nome ?? "Sem responsavel"} ·
-                              Criada em {formatDate(tarefa.createdAt)}
+                              {tarefa.responsavel?.nome ?? "Sem responsavel"}
                             </p>
-                            <p className="mt-2 text-sm text-[#667085]">
-                              Empresa: {getEmpresaName(tarefa)}
-                              {tarefa.oportunidade
-                                ? ` · Oportunidade: ${tarefa.oportunidade.titulo}`
-                                : ""}
-                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {contextBadges.length === 0 ? (
+                                <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
+                                  Sem contexto comercial
+                                </span>
+                              ) : (
+                                contextBadges.map((badge) => (
+                                  <span
+                                    key={`${tarefa.id}-${badge.icon}-${badge.label}`}
+                                    className="max-w-full truncate rounded-full bg-[#F4F6FA] px-2.5 py-1 text-xs font-semibold text-[#1A2E5A]"
+                                  >
+                                    {badge.icon} {badge.label}
+                                  </span>
+                                ))
+                              )}
+                            </div>
                             <p
                               className={cn(
                                 "mt-2 flex items-center gap-2 text-sm font-semibold",
-                                isAtrasada ? "text-red-700" : "text-[#1A2E5A]",
+                                prazoClassName,
                               )}
                             >
                               <Clock3 className="size-4" />
-                              Vencimento: {formatDate(tarefa.dataVencimento)}
+                              {formatDate(tarefa.dataVencimento)}
                               {tarefa.horaVencimento
-                                ? ` as ${tarefa.horaVencimento}`
+                                ? ` · ${tarefa.horaVencimento}`
                                 : ""}
                             </p>
-                            {tarefa.descricao ? (
-                              <p className="mt-3 text-sm leading-6 text-[#667085]">
-                                {tarefa.descricao}
-                              </p>
+                            {tarefa.observacoes ? (
+                              <details className="mt-3 text-sm text-[#667085]">
+                                <summary className="cursor-pointer font-semibold text-[#1E4FAB]">
+                                  Observacoes
+                                </summary>
+                                <p className="mt-1 leading-6">{tarefa.observacoes}</p>
+                              </details>
                             ) : null}
                           </div>
                         </div>
@@ -668,7 +702,7 @@ export default function TarefasPage() {
                               type="button"
                               variant="outline"
                               className="rounded-2xl"
-                              onClick={() => updateStatus(tarefa, "CONCLUIDA")}
+                              onClick={() => openConcluir(tarefa)}
                             >
                               Concluir
                             </Button>
@@ -705,6 +739,12 @@ export default function TarefasPage() {
         tarefa={tarefaEditando}
         onFechar={() => setModalAberto(false)}
         onSalvar={loadTarefas}
+      />
+      <ConcluirTarefaDialog
+        aberto={concluirDialogOpen}
+        tarefa={tarefaConcluindo}
+        onFechar={() => setConcluirDialogOpen(false)}
+        onConcluido={loadTarefas}
       />
     </main>
   );

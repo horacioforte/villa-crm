@@ -36,8 +36,8 @@ import type { PropostaTemplate } from "@/lib/propostas/templates";
 type OportunidadeProposta = {
   id: string;
   titulo: string;
-  tipo: "LOCACAO" | "VENDA";
-  valor: string | number | null;
+  tipo: "LOCACAO" | "EQUIPAMENTO_USADO";
+  potencialOportunidade: string | number | null;
   equipamentoId: string | null;
   empresa: {
     razaoSocial: string;
@@ -151,7 +151,7 @@ function getEquipamentoPreco(
   tipoOportunidade: OportunidadeProposta["tipo"] | null | undefined,
 ) {
   const valorPreferencial =
-    tipoOportunidade === "VENDA"
+    tipoOportunidade === "EQUIPAMENTO_USADO"
       ? equipamento.valorVenda
       : equipamento.valorLocacao;
   const parsed = parseCurrencyInput(String(valorPreferencial ?? ""));
@@ -266,8 +266,8 @@ export function PropostaModal({
         setPrecoUnitario(
           precoEquipamentoInicial !== null
             ? formatCurrencyInput(precoEquipamentoInicial)
-            : data.valor
-              ? String(data.valor)
+            : data.potencialOportunidade
+              ? String(data.potencialOportunidade)
               : "",
         );
         setTelefone(data.empresa?.telefone ?? "");
@@ -307,6 +307,12 @@ export function PropostaModal({
       ) ?? null,
     [equipamentoSelecionadoId, equipamentos],
   );
+  const equipamentoSelecionadoLabel =
+    equipamentoSelecionadoId === MANUAL_EQUIPAMENTO_VALUE
+      ? "Preencher manualmente"
+      : equipamentoSelecionado
+        ? getEquipamentoLabel(equipamentoSelecionado)
+        : "Selecione o equipamento";
 
   function handleEquipamentoChange(value: string | null) {
     const nextValue = value ?? MANUAL_EQUIPAMENTO_VALUE;
@@ -571,7 +577,12 @@ export function PropostaModal({
                   onValueChange={handleEquipamentoChange}
                 >
                   <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
-                    <SelectValue placeholder="Selecione o equipamento" />
+                    <span
+                      data-slot="select-value"
+                      className="flex flex-1 items-center gap-1.5 truncate text-left"
+                    >
+                      {equipamentoSelecionadoLabel}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={MANUAL_EQUIPAMENTO_VALUE}>

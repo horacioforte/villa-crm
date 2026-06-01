@@ -62,7 +62,8 @@ Classifique a temperatura desta oportunidade de negócio como QUENTE, MEDIA ou F
 - Título: ${oportunidade.titulo}
 - Tipo: ${oportunidade.tipo}
 - Status: ${oportunidade.status}
-- Valor: ${oportunidade.valor ? `R$ ${oportunidade.valor}` : "Não informado"}
+- Potencial da oportunidade: ${oportunidade.potencialOportunidade ? `R$ ${oportunidade.potencialOportunidade}` : "Não informado"}
+- Valor contratado: ${oportunidade.valorContrato ? `R$ ${oportunidade.valorContrato}` : "Não informado"}
 - Probabilidade: ${oportunidade.probabilidade ?? "Não informada"}%
 - Previsão de fechamento: ${oportunidade.previsaoFechamento ? new Date(oportunidade.previsaoFechamento).toLocaleDateString("pt-BR") : "Não informada"}
 - Empresa: ${oportunidade.empresa.nomeFantasia ?? oportunidade.empresa.razaoSocial}

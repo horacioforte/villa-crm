@@ -75,13 +75,13 @@ export const relacionamentoValues = [
 export const contatoSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome do contato."),
   empresaId: z.string().trim().min(1, "Selecione a empresa vinculada."),
-  cargo: optionalText,
-  tipoCargo: optionalText,
-  whatsapp: optionalText,
-  email: optionalEmail,
+  cargo: optionalText.optional(),
+  tipoCargo: optionalText.optional(),
+  whatsapp: optionalText.optional(),
+  email: optionalEmail.optional(),
   influenciaDecisao: z.enum(influenciaValues).default("INFLUENCIADOR"),
   nivelRelacionamento: z.enum(relacionamentoValues).default("NEUTRO"),
-  aniversario: optionalBirthday,
+  aniversario: optionalBirthday.optional(),
 });
 
 export const contatoPatchSchema = contatoSchema.partial();

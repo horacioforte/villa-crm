@@ -45,7 +45,38 @@ enum StatusObra {
 
 enum TipoOperacao {
   LOCACAO
-  VENDA
+  EQUIPAMENTO_USADO
+}
+
+enum TipoServico {
+  BOMBA_LANCA
+  BOMBA_ESTACIONARIA
+  TELEBELT
+  BETONEIRA
+  CENTRAL_IN_LOCO
+  CONCRETO
+  SERVICO_ESPECIAL
+}
+
+enum FaixaPotencial {
+  ATE_100_MIL
+  DE_100_A_500_MIL
+  DE_500_MIL_A_2_MILHOES
+  ACIMA_DE_2_MILHOES
+}
+
+enum CanalOrigem {
+  INDICACAO
+  CLIENTE_ATUAL
+  GOOGLE
+  LINKEDIN
+  SITE
+  VISITA_COMERCIAL
+  OBRA_MAPEADA
+  MARKETPLACE
+  OLX
+  EVENTO
+  OUTROS
 }
 
 enum StatusOportunidade {
@@ -89,6 +120,7 @@ enum StatusExcecaoProposta {
 enum TipoAtividade {
   LIGACAO
   WHATSAPP
+  EMAIL
   VISITA
   REUNIAO
   REUNIAO_ONLINE
@@ -335,11 +367,14 @@ model Oportunidade {
   id                 String                   @id @default(cuid())
   titulo             String
   descricao          String?
-  tipo               TipoOperacao
+  tipo               TipoOperacao             @default(LOCACAO)
+  tipoServico        TipoServico?
   status             StatusOportunidade       @default(NOVA)
-  valor              Decimal?                 @db.Decimal(12, 2)
+  potencialOportunidade Decimal?              @db.Decimal(12, 2)
+  faixaPotencial        FaixaPotencial?
+  valorContrato         Decimal?              @db.Decimal(12, 2)
   probabilidade      Int?
-  origem             String?
+  canalOrigem        CanalOrigem?
   motivoPerda        String?
   previsaoFechamento DateTime?
   fechadaEm          DateTime?
@@ -583,6 +618,8 @@ model Tarefa {
   dataVencimento DateTime
   horaVencimento String?
   observacoes    String?
+  resultado      String?
+  resultadoCodigo String?
   concluidaEm    DateTime?
 
   oportunidadeId String?

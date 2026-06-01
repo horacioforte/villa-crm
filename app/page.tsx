@@ -30,6 +30,7 @@ import {
 } from "@/app/generated/prisma/client";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { ProposalQuickActions } from "@/components/dashboard/ProposalQuickActions";
+import { TIPO_CONFIG } from "@/components/tarefas/tarefa-config";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
@@ -121,6 +122,21 @@ function formatCurrency(value: string | number | { toString(): string } | null) 
     style: "currency",
     currency: "BRL",
   }).format(Number(value));
+}
+
+function getMonthRange(date: Date) {
+  return {
+    start: new Date(date.getFullYear(), date.getMonth(), 1),
+    end: new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999),
+  };
+}
+
+function getTaskCompanyName(tarefa: {
+  empresa: { nomeFantasia: string | null; razaoSocial: string } | null;
+}) {
+  return tarefa.empresa
+    ? (tarefa.empresa.nomeFantasia ?? tarefa.empresa.razaoSocial)
+    : null;
 }
 
 function daysFromNow(value: Date) {
@@ -437,6 +453,7 @@ export default async function Home() {
         }
       : {};
   const hoje = new Date();
+  const mesAtual = getMonthRange(hoje);
   const inicioHoje = new Date(hoje);
   inicioHoje.setHours(0, 0, 0, 0);
   const fimHoje = new Date(hoje);
@@ -448,8 +465,22 @@ export default async function Home() {
     proximoContato,
     equipamentosDisponiveis,
     tarefasHoje,
+    tarefasAtrasadasLista,
+    tarefasProximas,
     tarefasAtrasadas,
     oportunidadesSemAcao,
+    pipelinePotencial,
+    pipelinePotencialCount,
+    pipelineProposto,
+    pipelinePropostoCount,
+    pipelineContratado,
+    pipelineContratadoCount,
+    locacaoAberta,
+    pipelineLocacao,
+    propostasLocacao,
+    usadoAberta,
+    pipelineUsado,
+    propostasUsado,
   ] = await Promise.all([
     prisma.oportunidade.count({
       where: {
@@ -469,7 +500,8 @@ export default async function Home() {
         id: true,
         titulo: true,
         status: true,
-        valor: true,
+        potencialOportunidade: true,
+        valorContrato: true,
         updatedAt: true,
         empresa: {
           select: {
@@ -495,6 +527,25 @@ export default async function Home() {
           select: {
             dataContato: true,
             proximoContato: true,
+          },
+        },
+        propostas: {
+          where: {
+            status: {
+              in: [
+                StatusPropostaComercial.ENVIADA,
+                StatusPropostaComercial.APROVADA,
+                StatusPropostaComercial.ACEITA,
+              ],
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 1,
+          select: {
+            valorTotal: true,
+            status: true,
           },
         },
       },
@@ -613,6 +664,68 @@ export default async function Home() {
       orderBy: [{ prioridade: "desc" }, { dataVencimento: "asc" }],
       take: 5,
     }),
+    prisma.tarefa.findMany({
+      where: {
+        ...tarefaAccessWhere,
+        status: {
+          in: ["PENDENTE", "EM_ANDAMENTO"],
+        },
+        dataVencimento: {
+          lt: inicioHoje,
+        },
+      },
+      include: {
+        oportunidade: {
+          select: {
+            titulo: true,
+          },
+        },
+        empresa: {
+          select: {
+            nomeFantasia: true,
+            razaoSocial: true,
+          },
+        },
+        responsavel: {
+          select: {
+            nome: true,
+          },
+        },
+      },
+      orderBy: [{ prioridade: "desc" }, { dataVencimento: "asc" }],
+      take: 3,
+    }),
+    prisma.tarefa.findMany({
+      where: {
+        ...tarefaAccessWhere,
+        status: {
+          in: ["PENDENTE", "EM_ANDAMENTO"],
+        },
+        dataVencimento: {
+          gt: fimHoje,
+        },
+      },
+      include: {
+        oportunidade: {
+          select: {
+            titulo: true,
+          },
+        },
+        empresa: {
+          select: {
+            nomeFantasia: true,
+            razaoSocial: true,
+          },
+        },
+        responsavel: {
+          select: {
+            nome: true,
+          },
+        },
+      },
+      orderBy: [{ dataVencimento: "asc" }],
+      take: 3,
+    }),
     prisma.tarefa.count({
       where: {
         ...tarefaAccessWhere,
@@ -637,6 +750,167 @@ export default async function Home() {
               in: ["PENDENTE", "EM_ANDAMENTO"],
             },
           },
+        },
+      },
+    }),
+    prisma.oportunidade.aggregate({
+      where: {
+        ...oportunidadeAccessWhere,
+        status: {
+          in: [
+            StatusOportunidade.NOVA,
+            StatusOportunidade.EM_ATENDIMENTO,
+            StatusOportunidade.PROPOSTA_ENVIADA,
+            StatusOportunidade.NEGOCIACAO,
+          ],
+        },
+        potencialOportunidade: {
+          not: null,
+        },
+      },
+      _sum: {
+        potencialOportunidade: true,
+      },
+    }),
+    prisma.oportunidade.count({
+      where: {
+        ...oportunidadeAccessWhere,
+        status: {
+          in: [
+            StatusOportunidade.NOVA,
+            StatusOportunidade.EM_ATENDIMENTO,
+            StatusOportunidade.PROPOSTA_ENVIADA,
+            StatusOportunidade.NEGOCIACAO,
+          ],
+        },
+        potencialOportunidade: {
+          not: null,
+        },
+      },
+    }),
+    prisma.propostaComercial.aggregate({
+      where: {
+        ...propostaAccessWhere,
+        status: {
+          in: [
+            StatusPropostaComercial.ENVIADA,
+            StatusPropostaComercial.APROVADA,
+          ],
+        },
+      },
+      _sum: {
+        valorTotal: true,
+      },
+    }),
+    prisma.propostaComercial.count({
+      where: {
+        ...propostaAccessWhere,
+        status: {
+          in: [
+            StatusPropostaComercial.ENVIADA,
+            StatusPropostaComercial.APROVADA,
+          ],
+        },
+      },
+    }),
+    prisma.oportunidade.aggregate({
+      where: {
+        ...oportunidadeAccessWhere,
+        status: StatusOportunidade.GANHA,
+        fechadaEm: {
+          gte: mesAtual.start,
+          lte: mesAtual.end,
+        },
+        valorContrato: {
+          not: null,
+        },
+      },
+      _sum: {
+        valorContrato: true,
+      },
+    }),
+    prisma.oportunidade.count({
+      where: {
+        ...oportunidadeAccessWhere,
+        status: StatusOportunidade.GANHA,
+        fechadaEm: {
+          gte: mesAtual.start,
+          lte: mesAtual.end,
+        },
+        valorContrato: {
+          not: null,
+        },
+      },
+    }),
+    prisma.oportunidade.count({
+      where: {
+        ...oportunidadeAccessWhere,
+        tipo: "LOCACAO",
+        status: {
+          notIn: [StatusOportunidade.GANHA, StatusOportunidade.PERDIDA],
+        },
+      },
+    }),
+    prisma.oportunidade.aggregate({
+      where: {
+        ...oportunidadeAccessWhere,
+        tipo: "LOCACAO",
+        status: {
+          notIn: [StatusOportunidade.GANHA, StatusOportunidade.PERDIDA],
+        },
+      },
+      _sum: {
+        potencialOportunidade: true,
+      },
+    }),
+    prisma.propostaComercial.count({
+      where: {
+        ...propostaAccessWhere,
+        status: {
+          in: [
+            StatusPropostaComercial.ENVIADA,
+            StatusPropostaComercial.APROVADA,
+          ],
+        },
+        oportunidade: {
+          ...oportunidadeAccessWhere,
+          tipo: "LOCACAO",
+        },
+      },
+    }),
+    prisma.oportunidade.count({
+      where: {
+        ...oportunidadeAccessWhere,
+        tipo: "EQUIPAMENTO_USADO",
+        status: {
+          notIn: [StatusOportunidade.GANHA, StatusOportunidade.PERDIDA],
+        },
+      },
+    }),
+    prisma.oportunidade.aggregate({
+      where: {
+        ...oportunidadeAccessWhere,
+        tipo: "EQUIPAMENTO_USADO",
+        status: {
+          notIn: [StatusOportunidade.GANHA, StatusOportunidade.PERDIDA],
+        },
+      },
+      _sum: {
+        potencialOportunidade: true,
+      },
+    }),
+    prisma.propostaComercial.count({
+      where: {
+        ...propostaAccessWhere,
+        status: {
+          in: [
+            StatusPropostaComercial.ENVIADA,
+            StatusPropostaComercial.APROVADA,
+          ],
+        },
+        oportunidade: {
+          ...oportunidadeAccessWhere,
+          tipo: "EQUIPAMENTO_USADO",
         },
       },
     }),
@@ -698,6 +972,67 @@ export default async function Home() {
       detail: "Status DISPONIVEL no cadastro",
       badge: "Operacao",
       badgeClassName: "bg-zinc-100 text-zinc-700",
+    },
+  ];
+  const pipelineCards = [
+    {
+      label: "Pipeline Potencial",
+      detail: "Estimativa das oportunidades abertas",
+      value: formatCurrency(pipelinePotencial._sum.potencialOportunidade),
+      count: `${pipelinePotencialCount} oportunidades`,
+      className: "bg-[#E8EEFB] text-[#1E4FAB]",
+      icon: ChartNoAxesCombined,
+    },
+    {
+      label: "Pipeline Proposto",
+      detail: "Propostas enviadas ou aprovadas",
+      value: formatCurrency(pipelineProposto._sum.valorTotal),
+      count: `${pipelinePropostoCount} propostas ativas`,
+      className: "bg-amber-100 text-amber-800",
+      icon: FileText,
+    },
+    {
+      label: "Pipeline Contratado",
+      detail: "Fechado este mes",
+      value: formatCurrency(pipelineContratado._sum.valorContrato),
+      count: `${pipelineContratadoCount} contratos`,
+      className: "bg-emerald-100 text-emerald-800",
+      icon: BadgeCheck,
+    },
+  ];
+  const businessPipelineCards = [
+    {
+      label: "Locacao",
+      oportunidades: locacaoAberta,
+      pipeline: pipelineLocacao._sum.potencialOportunidade,
+      propostas: propostasLocacao,
+      className: "bg-[#E8EEFB] text-[#1E4FAB]",
+      icon: HardHat,
+    },
+    {
+      label: "Equipamento usado",
+      oportunidades: usadoAberta,
+      pipeline: pipelineUsado._sum.potencialOportunidade,
+      propostas: propostasUsado,
+      className: "bg-amber-100 text-amber-800",
+      icon: Truck,
+    },
+  ];
+  const tarefaDashboardGroups = [
+    {
+      label: `Atrasadas (${tarefasAtrasadasLista.length})`,
+      className: "border-red-100 bg-red-50 text-red-700",
+      tarefas: tarefasAtrasadasLista,
+    },
+    {
+      label: `Hoje (${tarefasHoje.length})`,
+      className: "border-amber-100 bg-amber-50 text-amber-700",
+      tarefas: tarefasHoje,
+    },
+    {
+      label: `Proximas (${tarefasProximas.length})`,
+      className: "border-emerald-100 bg-emerald-50 text-emerald-700",
+      tarefas: tarefasProximas,
     },
   ];
   const nextContactOpportunity = proximoContato?.oportunidade;
@@ -797,6 +1132,92 @@ export default async function Home() {
           </section>
 
           <section className="mt-8 grid gap-5 md:grid-cols-3">
+            {pipelineCards.map((card) => {
+              const Icon = card.icon;
+
+              return (
+                <article
+                  key={card.label}
+                  className="rounded-3xl border border-[#D7DEEA] bg-white p-6 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-[#667085]">
+                        {card.label}
+                      </p>
+                      <h3 className="mt-3 text-3xl font-bold text-[#1A2E5A]">
+                        {card.value}
+                      </h3>
+                    </div>
+                    <div className={`rounded-2xl p-3 ${card.className}`}>
+                      <Icon className="size-6" />
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-[#1E4FAB]">
+                    {card.detail}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[#667085]">
+                    {card.count}
+                  </p>
+                </article>
+              );
+            })}
+          </section>
+
+          <section className="mt-8 grid gap-5 md:grid-cols-2">
+            {businessPipelineCards.map((card) => {
+              const Icon = card.icon;
+
+              return (
+                <article
+                  key={card.label}
+                  className="rounded-3xl border border-[#D7DEEA] bg-white p-6 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-[#667085]">
+                        Tipo de negocio
+                      </p>
+                      <h3 className="mt-1 text-2xl font-bold text-[#1A2E5A]">
+                        {card.label}
+                      </h3>
+                    </div>
+                    <div className={`rounded-2xl p-3 ${card.className}`}>
+                      <Icon className="size-6" />
+                    </div>
+                  </div>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl bg-[#F4F6FA] p-3">
+                      <p className="text-xs font-semibold text-[#667085]">
+                        Oportunidades
+                      </p>
+                      <p className="mt-1 text-xl font-bold text-[#1A2E5A]">
+                        {card.oportunidades}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-[#F4F6FA] p-3 sm:col-span-2">
+                      <p className="text-xs font-semibold text-[#667085]">
+                        Pipeline
+                      </p>
+                      <p className="mt-1 text-xl font-bold text-[#1A2E5A]">
+                        {formatCurrency(card.pipeline)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-[#F4F6FA] p-3 sm:col-span-3">
+                      <p className="text-xs font-semibold text-[#667085]">
+                        Propostas abertas
+                      </p>
+                      <p className="mt-1 text-xl font-bold text-[#1A2E5A]">
+                        {card.propostas}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+
+          <section className="mt-8 grid gap-5 md:grid-cols-3">
             {metrics.map((metric) => (
               <article
                 key={metric.label}
@@ -854,34 +1275,49 @@ export default async function Home() {
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {tarefasHoje.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#D7DEEA] p-5 text-sm text-[#667085] md:col-span-3">
-                  Nenhuma tarefa pendente para hoje.
+              {tarefaDashboardGroups.map((group) => (
+                <div
+                  key={group.label}
+                  className={`rounded-2xl border p-4 ${group.className}`}
+                >
+                  <p className="mb-3 text-xs font-bold">{group.label}</p>
+                  {group.tarefas.length === 0 ? (
+                    <p className="text-sm text-[#667085]">Nenhuma tarefa.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {group.tarefas.map((tarefa) => {
+                        const tipoConfig = TIPO_CONFIG[tarefa.tipo] ?? {
+                          emoji: "•",
+                          label: "Tarefa",
+                        };
+
+                        return (
+                          <div
+                            key={tarefa.id}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <span>{tipoConfig.emoji}</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[#1A2E5A]">
+                                {tarefa.titulo}
+                              </span>
+                              <span className="block truncate text-xs text-[#667085]">
+                                {getTaskCompanyName(tarefa) ?? "Sem empresa"}
+                                {tarefa.oportunidade
+                                  ? ` · ${tarefa.oportunidade.titulo}`
+                                  : ""}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-xs">
+                              {formatDate(tarefa.dataVencimento)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                tarefasHoje.map((tarefa) => (
-                  <div
-                    key={tarefa.id}
-                    className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-4"
-                  >
-                    <p className="font-semibold text-[#1A2E5A]">
-                      {tarefa.titulo}
-                    </p>
-                    <p className="mt-1 text-sm text-[#667085]">
-                      {tarefa.empresa
-                        ? (tarefa.empresa.nomeFantasia ??
-                          tarefa.empresa.razaoSocial)
-                        : "Sem empresa"}
-                    </p>
-                    <p className="mt-2 text-xs font-semibold text-[#1E4FAB]">
-                      hoje{tarefa.horaVencimento ? ` ${tarefa.horaVencimento}` : ""}
-                      {tarefa.oportunidade
-                        ? ` · ${tarefa.oportunidade.titulo}`
-                        : ""}
-                    </p>
-                  </div>
-                ))
-              )}
+              ))}
             </div>
           </section>
 
@@ -932,7 +1368,11 @@ export default async function Home() {
                       </div>
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                         <p className="text-sm font-semibold text-[#1A2E5A]">
-                          {formatCurrency(oportunidade.valor)}
+                          {oportunidade.valorContrato !== null
+                            ? `Contrato: ${formatCurrency(oportunidade.valorContrato)}`
+                            : oportunidade.propostas[0]
+                              ? `Proposta: ${formatCurrency(oportunidade.propostas[0].valorTotal)}`
+                              : `Potencial: ${formatCurrency(oportunidade.potencialOportunidade)}`}
                         </p>
                         <Link
                           href="/oportunidades"

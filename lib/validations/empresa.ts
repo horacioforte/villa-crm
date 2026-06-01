@@ -33,13 +33,14 @@ const optionalUf = z
   });
 
 export const empresaSchema = z.object({
-  nomeFantasia: optionalText,
+  nomeFantasia: optionalText.optional(),
   razaoSocial: z.string().trim().min(2, "Informe a razao social."),
-  cnpj: optionalText,
-  segmento: optionalText,
-  cidade: optionalText,
-  estado: optionalUf,
-  responsavel: optionalText,
+  cnpj: optionalText.optional(),
+  telefone: optionalText.optional(),
+  segmento: optionalText.optional(),
+  cidade: optionalText.optional(),
+  estado: optionalUf.optional(),
+  responsavel: optionalText.optional(),
 });
 
 export const empresaPatchSchema = empresaSchema.partial();

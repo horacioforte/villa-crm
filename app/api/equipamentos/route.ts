@@ -39,6 +39,10 @@ function serializeEquipamento(equipamento: Prisma.EquipamentoGetPayload<{
   };
 }
 
+function calcularValorLocacao(valorM3?: number | null, volumeMinimoM3?: number | null) {
+  return valorM3 && volumeMinimoM3 ? valorM3 * volumeMinimoM3 : null;
+}
+
 export async function GET(request: Request) {
   const authResult = await requirePermission("equipamentos", "read", request);
 
@@ -75,10 +79,12 @@ export async function POST(request: Request) {
 
   try {
     const data = equipamentoSchema.parse(await request.json());
+    const valorLocacao = calcularValorLocacao(data.valorM3, data.volumeMinimoM3);
 
     const equipamento = await prisma.equipamento.create({
       data: {
         ...data,
+        valorLocacao,
         filialId: authResult.filialId ?? undefined,
         createdById: authResult.id,
         updatedById: authResult.id,

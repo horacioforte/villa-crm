@@ -60,7 +60,6 @@ type EquipamentoFormValues = {
   modelo: string;
   ano: string;
   numeroSerie: string;
-  valorLocacao: string;
   valorM3: string;
   volumeMinimoM3: string;
   valorVenda: string;
@@ -94,7 +93,6 @@ const defaultValues: EquipamentoFormValues = {
   modelo: "",
   ano: "",
   numeroSerie: "",
-  valorLocacao: "",
   valorM3: "",
   volumeMinimoM3: "",
   valorVenda: "",
@@ -166,7 +164,6 @@ function getFormValues(equipamento?: EquipamentoRow | null): EquipamentoFormValu
     modelo: equipamento.modelo ?? "",
     ano: equipamento.ano ? String(equipamento.ano) : "",
     numeroSerie: equipamento.numeroSerie ?? "",
-    valorLocacao: equipamento.valorLocacao ?? "",
     valorM3: equipamento.valorM3 ? String(equipamento.valorM3) : "",
     volumeMinimoM3: equipamento.volumeMinimoM3
       ? String(equipamento.volumeMinimoM3)
@@ -488,6 +485,8 @@ export default function EquipamentosPage() {
                       <TableHead>Status</TableHead>
                       <TableHead>Marca/modelo</TableHead>
                       <TableHead>Locacao</TableHead>
+                      <TableHead>Preco/m³</TableHead>
+                      <TableHead>Vol. minimo</TableHead>
                       <TableHead>Venda</TableHead>
                       <TableHead className="text-right">Acoes</TableHead>
                     </TableRow>
@@ -521,21 +520,21 @@ export default function EquipamentosPage() {
                             .join(" / ") || "-"}
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <span>{formatCurrency(equipamento.valorLocacao)}</span>
-                            {equipamento.valorM3 ? (
-                              <span className="text-xs text-[#667085]">
-                                {formatMoneyNumber(equipamento.valorM3)}/m³
-                                {equipamento.volumeMinimoM3 ? (
-                                  <>
-                                    {" "}
-                                    · mín.{" "}
-                                    {formatVolume(equipamento.volumeMinimoM3)} m³
-                                  </>
-                                ) : null}
-                              </span>
-                            ) : null}
-                          </div>
+                          {equipamento.valorM3 && equipamento.volumeMinimoM3
+                            ? formatMoneyNumber(
+                                equipamento.valorM3 * equipamento.volumeMinimoM3,
+                              )
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {equipamento.valorM3
+                            ? formatMoneyNumber(equipamento.valorM3)
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {equipamento.volumeMinimoM3
+                            ? `${formatVolume(equipamento.volumeMinimoM3)} m³`
+                            : "-"}
                         </TableCell>
                         <TableCell>{formatCurrency(equipamento.valorVenda)}</TableCell>
                         <TableCell>
@@ -691,19 +690,6 @@ export default function EquipamentosPage() {
               <Input
                 {...form.register("numeroSerie")}
                 placeholder="Serie ou chassi"
-                className="h-11 rounded-2xl bg-[#F4F6FA]"
-              />
-            </Field>
-
-            <Field
-              label="Valor de locacao"
-              error={form.formState.errors.valorLocacao?.message}
-            >
-              <Input
-                type="number"
-                step="0.01"
-                {...form.register("valorLocacao")}
-                placeholder="15000"
                 className="h-11 rounded-2xl bg-[#F4F6FA]"
               />
             </Field>

@@ -1077,6 +1077,17 @@ export default async function Home() {
           ))}
         </nav>
         <div className="border-t border-white/10 p-4">
+          <div className="mb-3 rounded-2xl bg-white/10 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">
+              Usuario logado
+            </p>
+            <p className="mt-1 truncate text-sm font-bold text-white">
+              {currentUser.nome ?? currentUser.email ?? "Usuario"}
+            </p>
+            <p className="mt-0.5 text-xs font-semibold text-white/60">
+              {currentUser.papel}
+            </p>
+          </div>
           <a
             href="#"
             className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/10 hover:text-white"

@@ -216,8 +216,15 @@ function renderGovernedBlocks(data: PropostaRenderData) {
     return "";
   }
 
+  const modeloPorM3 =
+    data.precoM3 !== null &&
+    data.precoM3 !== undefined &&
+    data.volumeMinimoM3 !== null &&
+    data.volumeMinimoM3 !== undefined;
+
   return data.blocos
     .slice()
+    .filter((bloco) => !modeloPorM3 || bloco.chave !== "precos_referencia")
     .sort((left, right) => left.ordem - right.ordem)
     .map((bloco) => {
       if (bloco.chave === "cabecalho") {

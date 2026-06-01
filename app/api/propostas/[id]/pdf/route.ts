@@ -3,7 +3,11 @@ import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { renderPropostaPdfBuffer } from "@/lib/propostas/pdf";
-import { getPropostaAccessWhere, propostaInclude } from "@/lib/propostas/service";
+import {
+  getPropostaAccessWhere,
+  getPropostaBlocosExibicao,
+  propostaInclude,
+} from "@/lib/propostas/service";
 
 type PropostaPdfRouteContext = {
   params: Promise<{
@@ -53,13 +57,15 @@ export async function GET(request: Request, context: PropostaPdfRouteContext) {
     estado: proposta.oportunidade.obra?.estado,
     valorTotal: proposta.valorTotal,
     horaExtra: proposta.horaExtra,
+    precoM3: proposta.precoM3,
+    volumeMinimoM3: proposta.volumeMinimoM3,
     validadeProposta: proposta.validadeProposta,
     prazoExecucao: proposta.prazoExecucao,
     responsavel: proposta.oportunidade.responsavel?.nome,
     observacoesComerciais: proposta.observacoesComerciais,
     observacoesTecnicas: proposta.observacoesTecnicas,
     condicoesPagamento: proposta.condicoesPagamento,
-    blocos: proposta.blocos,
+    blocos: getPropostaBlocosExibicao(proposta, proposta.blocos),
     data: proposta.createdAt,
   });
 

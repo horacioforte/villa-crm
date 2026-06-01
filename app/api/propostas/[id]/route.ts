@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import {
   buildPropostaHtmlSnapshot,
+  getPropostaBlocosExibicao,
   getPropostaAccessWhere,
   propostaInclude,
 } from "@/lib/propostas/service";
@@ -38,8 +39,22 @@ export async function GET(request: Request, context: PropostaRouteContext) {
     );
   }
 
+  const blocos = getPropostaBlocosExibicao(proposta, proposta.blocos);
+  const htmlSnapshot =
+    blocos.length === proposta.blocos.length
+      ? proposta.htmlSnapshot
+      : buildPropostaHtmlSnapshot(
+          {
+            ...proposta,
+            blocos,
+          },
+          proposta.oportunidade,
+        );
+
   return NextResponse.json({
     ...proposta,
+    blocos,
+    htmlSnapshot,
     currentUser: {
       papel: authResult.papel,
     },

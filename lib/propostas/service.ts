@@ -66,6 +66,28 @@ type PropostaSnapshotInput = {
   createdAt?: Date | string;
 };
 
+export function isPropostaModeloM3(
+  proposta: Pick<PropostaSnapshotInput, "precoM3" | "volumeMinimoM3">,
+) {
+  return (
+    proposta.precoM3 !== null &&
+    proposta.precoM3 !== undefined &&
+    proposta.volumeMinimoM3 !== null &&
+    proposta.volumeMinimoM3 !== undefined
+  );
+}
+
+export function getPropostaBlocosExibicao<T extends { chave?: string }>(
+  proposta: Pick<PropostaSnapshotInput, "precoM3" | "volumeMinimoM3">,
+  blocos: T[],
+) {
+  if (!isPropostaModeloM3(proposta)) {
+    return blocos;
+  }
+
+  return blocos.filter((bloco) => bloco.chave !== "precos_referencia");
+}
+
 export const propostaInclude = {
   oportunidade: {
     include: {
@@ -158,11 +180,7 @@ export function buildPropostaTemplateVariables(
   oportunidade: OportunidadeProposta,
 ) {
   const template = getPropostaTemplate(proposta.templateUtilizado);
-  const modeloPorM3 =
-    proposta.precoM3 !== null &&
-    proposta.precoM3 !== undefined &&
-    proposta.volumeMinimoM3 !== null &&
-    proposta.volumeMinimoM3 !== undefined;
+  const modeloPorM3 = isPropostaModeloM3(proposta);
 
   return {
     numero_proposta: proposta.numeroProposta,
@@ -220,8 +238,7 @@ export function buildPropostaBlocosSnapshot(
     return blocos;
   }
 
-  return blocos
-    .filter((bloco) => bloco.chave !== "precos_referencia")
+  return getPropostaBlocosExibicao(proposta, blocos)
     .map((bloco) =>
       bloco.chave === "precos"
         ? {
@@ -248,8 +265,9 @@ export function buildPropostaHtmlSnapshot(
   oportunidade: OportunidadeProposta,
 ) {
   const template = getPropostaTemplate(proposta.templateUtilizado);
-  const blocos =
+  const rawBlocos =
     proposta.blocos ?? buildPropostaBlocosSnapshot(proposta, oportunidade);
+  const blocos = getPropostaBlocosExibicao(proposta, rawBlocos);
 
   return renderPropostaHtml({
     numeroProposta: proposta.numeroProposta,

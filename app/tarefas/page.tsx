@@ -20,6 +20,10 @@ import type {
 } from "@/app/generated/prisma/client";
 import { PageNavigation } from "@/components/layout/PageNavigation";
 import {
+  OportunidadeModal,
+  type OportunidadePrefill,
+} from "@/components/kanban/OportunidadeModal";
+import {
   PRIORIDADE_CONFIG,
   STATUS_TAREFA_CONFIG,
   TIPO_CONFIG,
@@ -178,6 +182,10 @@ export default function TarefasPage() {
   const [modalAberto, setModalAberto] = useState(false);
   const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null);
   const [tarefaConcluindo, setTarefaConcluindo] = useState<Tarefa | null>(null);
+  const [tarefaConvertendo, setTarefaConvertendo] = useState<Tarefa | null>(null);
+  const [oportunidadeModalAberto, setOportunidadeModalAberto] = useState(false);
+  const [prefillOportunidade, setPrefillOportunidade] =
+    useState<OportunidadePrefill | null>(null);
   const [concluirDialogOpen, setConcluirDialogOpen] = useState(false);
   const [tab, setTab] = useState<TabStatus>("PENDENTE");
   const [periodo, setPeriodo] = useState<Periodo>("hoje");
@@ -365,6 +373,23 @@ export default function TarefasPage() {
   function openCreate() {
     setTarefaEditando(null);
     setModalAberto(true);
+  }
+
+  function handleConverterEmOportunidade(tarefa: Tarefa) {
+    setTarefaConvertendo(tarefa);
+    setPrefillOportunidade({
+      empresaId: tarefa.empresaId,
+      pessoaId: tarefa.pessoaId,
+      obraId: tarefa.obraId,
+      titulo: tarefa.titulo,
+    });
+    setOportunidadeModalAberto(true);
+  }
+
+  function closeOportunidadeModal() {
+    setOportunidadeModalAberto(false);
+    setPrefillOportunidade(null);
+    setTarefaConvertendo(null);
   }
 
   return (
@@ -707,6 +732,16 @@ export default function TarefasPage() {
                               Concluir
                             </Button>
                           ) : null}
+                          {!tarefa.oportunidadeId ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="rounded-2xl border-[#D7DEEA] text-[#1E4FAB] hover:border-[#1E4FAB] hover:text-[#1A2E5A]"
+                              onClick={() => handleConverterEmOportunidade(tarefa)}
+                            >
+                              Converter em oportunidade
+                            </Button>
+                          ) : null}
                           <Button
                             type="button"
                             variant="outline"
@@ -739,6 +774,37 @@ export default function TarefasPage() {
         tarefa={tarefaEditando}
         onFechar={() => setModalAberto(false)}
         onSalvar={loadTarefas}
+      />
+      <OportunidadeModal
+        aberto={oportunidadeModalAberto}
+        onFechar={closeOportunidadeModal}
+        onSalvar={async (oportunidade) => {
+          if (!tarefaConvertendo) {
+            closeOportunidadeModal();
+            return;
+          }
+
+          const response = await fetch(`/api/tarefas/${tarefaConvertendo.id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              oportunidadeId: oportunidade.id,
+            }),
+          });
+
+          if (!response.ok) {
+            toast.error("Oportunidade criada, mas nao foi possivel vincular a tarefa.");
+          } else {
+            toast.success("Oportunidade criada e tarefa vinculada.");
+          }
+
+          closeOportunidadeModal();
+          await loadTarefas();
+        }}
+        statusInicial="NOVA"
+        prefill={prefillOportunidade ?? undefined}
       />
       <ConcluirTarefaDialog
         aberto={concluirDialogOpen}

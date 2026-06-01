@@ -6,11 +6,13 @@ import { Controller, type Resolver, useForm, useWatch } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import type { TipoAtividade } from "@/app/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { NovaEmpresaInline } from "@/components/kanban/inline/NovaEmpresaInline";
 import { NovaObraInline } from "@/components/kanban/inline/NovaObraInline";
 import { NovoContatoInline } from "@/components/kanban/inline/NovoContatoInline";
 import { Combobox } from "@/components/ui/combobox";
+import { TIPO_CONFIG } from "@/components/tarefas/tarefa-config";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +39,7 @@ import {
   statusOportunidadeValues,
   tipoOperacaoValues,
 } from "@/lib/validations/oportunidade";
+import { cn } from "@/lib/utils";
 
 type StatusOportunidade = (typeof statusOportunidadeValues)[number];
 type TipoOperacao = (typeof tipoOperacaoValues)[number];
@@ -88,6 +91,9 @@ type PessoaOption = {
 type OportunidadeSalva = {
   id: string;
   titulo: string;
+  empresaId?: string | null;
+  pessoaId?: string | null;
+  obraId?: string | null;
   tipo: TipoOperacao;
   status: StatusOportunidade;
   tipoServico?: TipoServico | null;
@@ -109,12 +115,20 @@ type OportunidadeSalva = {
   } | null;
 };
 
+export type OportunidadePrefill = {
+  empresaId?: string | null;
+  pessoaId?: string | null;
+  obraId?: string | null;
+  titulo?: string | null;
+};
+
 type OportunidadeModalProps = {
   aberto: boolean;
   onFechar: () => void;
   onSalvar: (op: OportunidadeSalva) => void;
   statusInicial: StatusOportunidade;
   oportunidadeId?: string | null;
+  prefill?: OportunidadePrefill;
 };
 
 const NONE_VALUE = "__none__";
@@ -174,10 +188,22 @@ const tipoItems = tipoOperacaoValues.map((tipo) => ({
   value: tipo,
 }));
 
-function getDefaultValues(statusInicial: StatusOportunidade): OportunidadeFormValues {
+function todayInput() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getDefaultValues(
+  statusInicial: StatusOportunidade,
+  prefill?: OportunidadePrefill,
+): OportunidadeFormValues {
   return {
-    titulo: "",
-    empresaId: "",
+    titulo: prefill?.titulo ?? "",
+    empresaId: prefill?.empresaId ?? "",
     status: statusInicial,
     tipo: "LOCACAO",
     tipoServico: null,
@@ -186,8 +212,8 @@ function getDefaultValues(statusInicial: StatusOportunidade): OportunidadeFormVa
     potencialOportunidade: "",
     valorContrato: "",
     equipamentoId: NONE_VALUE,
-    obraId: "",
-    pessoaId: NONE_VALUE,
+    obraId: prefill?.obraId ?? "",
+    pessoaId: prefill?.pessoaId ?? NONE_VALUE,
     responsavelId: NONE_VALUE,
     descricao: "",
     motivoPerda: "",
@@ -200,6 +226,7 @@ export function OportunidadeModal({
   onSalvar,
   statusInicial,
   oportunidadeId,
+  prefill,
 }: OportunidadeModalProps) {
   const [empresas, setEmpresas] = useState<EmpresaOption[]>([]);
   const [equipamentos, setEquipamentos] = useState<EquipamentoOption[]>([]);
@@ -210,10 +237,14 @@ export function OportunidadeModal({
   const [novaEmpresaOpen, setNovaEmpresaOpen] = useState(false);
   const [novaObraOpen, setNovaObraOpen] = useState(false);
   const [novoContatoOpen, setNovoContatoOpen] = useState(false);
+  const [criarTarefa, setCriarTarefa] = useState(false);
+  const [tarefaTipo, setTarefaTipo] = useState<TipoAtividade>("LIGACAO");
+  const [tarefaProximaAcao, setTarefaProximaAcao] = useState("");
+  const [tarefaData, setTarefaData] = useState(todayInput());
 
   const form = useForm<OportunidadeFormValues>({
     resolver: zodResolver(oportunidadeSchema) as unknown as Resolver<OportunidadeFormValues>,
-    defaultValues: getDefaultValues(statusInicial),
+    defaultValues: getDefaultValues(statusInicial, prefill),
   });
 
   const isEditing = Boolean(oportunidadeId);
@@ -352,7 +383,11 @@ export function OportunidadeModal({
             motivoPerda: oportunidade.motivoPerda ?? "",
           });
         } else {
-          form.reset(getDefaultValues(statusInicial));
+          form.reset(getDefaultValues(statusInicial, prefill));
+          setCriarTarefa(false);
+          setTarefaTipo("LIGACAO");
+          setTarefaProximaAcao("");
+          setTarefaData(todayInput());
         }
       } catch {
         toast.error("Nao foi possivel carregar os dados do formulario.");
@@ -362,9 +397,19 @@ export function OportunidadeModal({
     }
 
     loadData();
-  }, [aberto, form, oportunidadeId, statusInicial]);
+  }, [aberto, form, oportunidadeId, prefill, statusInicial]);
 
   async function handleSubmit(values: OportunidadeFormValues) {
+    if (!isEditing && criarTarefa && !tarefaProximaAcao.trim()) {
+      toast.error("Informe a primeira acao comercial.");
+      return;
+    }
+
+    if (!isEditing && criarTarefa && !tarefaData) {
+      toast.error("Informe a data da primeira acao.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -387,6 +432,34 @@ export function OportunidadeModal({
       }
 
       const oportunidade = await response.json();
+
+      if (!isEditing && criarTarefa && tarefaProximaAcao.trim() && tarefaData) {
+        const tarefaResponse = await fetch("/api/tarefas", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            titulo: tarefaProximaAcao.trim(),
+            descricao: tarefaProximaAcao.trim(),
+            tipo: tarefaTipo,
+            prioridade: "MEDIA",
+            dataVencimento: tarefaData,
+            oportunidadeId: oportunidade.id,
+            empresaId: oportunidade.empresaId ?? values.empresaId,
+            pessoaId: oportunidade.pessoaId ?? values.pessoaId,
+            obraId: oportunidade.obraId ?? values.obraId,
+          }),
+        });
+
+        if (!tarefaResponse.ok) {
+          const payload = await tarefaResponse.json().catch(() => null);
+          throw new Error(
+            payload?.message ??
+              "Oportunidade criada, mas nao foi possivel criar a primeira tarefa.",
+          );
+        }
+      }
 
       toast.success(
         isEditing
@@ -761,6 +834,84 @@ export function OportunidadeModal({
                 className="min-h-28 rounded-2xl bg-[#F4F6FA]"
               />
             </Field>
+
+            {!isEditing ? (
+              <section className="md:col-span-2 border-t border-[#D7DEEA] pt-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[#1A2E5A]">
+                      Primeira acao comercial
+                    </p>
+                    <p className="text-xs text-[#667085]">
+                      Crie uma tarefa junto com a oportunidade para garantir a
+                      proxima acao.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCriarTarefa((current) => !current)}
+                    className="text-xs font-semibold text-[#1E4FAB] hover:underline"
+                  >
+                    {criarTarefa ? "Remover" : "+ Adicionar tarefa"}
+                  </button>
+                </div>
+
+                {criarTarefa ? (
+                  <div className="space-y-3 rounded-2xl bg-[#F4F6FA] p-3">
+                    <div className="flex flex-wrap gap-2">
+                      {(
+                        [
+                          "LIGACAO",
+                          "WHATSAPP",
+                          "EMAIL",
+                          "REUNIAO",
+                          "VISITA",
+                        ] as TipoAtividade[]
+                      ).map((tipo) => {
+                        const config = TIPO_CONFIG[tipo];
+                        const ativo = tarefaTipo === tipo;
+
+                        if (!config) {
+                          return null;
+                        }
+
+                        return (
+                          <button
+                            key={tipo}
+                            type="button"
+                            onClick={() => setTarefaTipo(tipo)}
+                            className={cn(
+                              "rounded-2xl border px-3 py-1 text-xs transition-colors",
+                              ativo
+                                ? "border-[#1E4FAB] bg-[#1E4FAB] text-white"
+                                : "border-[#D7DEEA] bg-white text-[#667085] hover:border-[#1E4FAB]",
+                            )}
+                          >
+                            {config.emoji} {config.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <Input
+                      value={tarefaProximaAcao}
+                      onChange={(event) =>
+                        setTarefaProximaAcao(event.target.value)
+                      }
+                      placeholder="Ex: Ligar para confirmar necessidade de bomba"
+                      className="h-11 rounded-2xl bg-white"
+                    />
+
+                    <Input
+                      type="date"
+                      value={tarefaData}
+                      onChange={(event) => setTarefaData(event.target.value)}
+                      className="h-11 rounded-2xl bg-white"
+                    />
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
 
             <DialogFooter className="md:col-span-2">
               <Button

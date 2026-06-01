@@ -8,8 +8,7 @@ export const papelUsuarioValues = [
 ] as const;
 
 const optionalRelationId = z
-  .string()
-  .trim()
+  .union([z.string().trim(), z.null()])
   .optional()
   .transform((value) => (!value || value === "__none__" ? null : value));
 

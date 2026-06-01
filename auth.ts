@@ -17,6 +17,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   session: {
     strategy: "jwt",
+    maxAge: 8 * 60 * 60, // 8 horas — expira no fim do dia de trabalho
   },
   providers: [
     Credentials({

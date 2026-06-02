@@ -512,6 +512,7 @@ export const PROPOSTA_TEMPLATES = [
       ]),
       bloco(70, "trabalho_extra", "Trabalho fora do expediente", "EDITAVEL_COM_APROVACAO", [
         "Os serviços realizados pela auto bomba lança aos sábados, domingos, feriados e horários fora do expediente normal serão cobrados separadamente por hora excedente, sem alterar o volume mínimo mensal contratado.",
+        "Auto bomba lança 28 metros: R$ 350,00 por hora excedente.",
         "Auto bomba lança 32 metros: R$ 350,00 por hora excedente.",
         "Auto bomba lança 36 metros: R$ 350,00 por hora excedente.",
         "Auto bomba lança 38 metros: R$ 350,00 por hora excedente.",

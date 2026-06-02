@@ -90,6 +90,7 @@ type PropostaSnapshotInput = {
 };
 
 const bombaHoraExtraMatchers = [
+  { keys: ["28"], pattern: /auto bomba lan[cç]a 28 metros/i },
   { keys: ["32"], pattern: /auto bomba lan[cç]a 32 metros/i },
   { keys: ["36"], pattern: /auto bomba lan[cç]a 36 metros/i },
   { keys: ["38"], pattern: /auto bomba lan[cç]a 38 metros/i },

@@ -36,7 +36,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     tarefas: allActions,
     equipamentos: allActions,
     auditoria: ["read"],
-    usuarios: [],
+    usuarios: ["read"],
   },
   COMERCIAL: {
     empresas: ["read", "create", "update"],

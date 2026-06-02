@@ -79,13 +79,17 @@ type TarefaWithRelations = Prisma.TarefaGetPayload<{
 const statusAtivos: StatusTarefa[] = ["PENDENTE", "EM_ANDAMENTO"];
 
 export function getTarefaAccessWhere(user: AuthenticatedUser): Prisma.TarefaWhereInput {
-  if (user.papel !== "COMERCIAL") {
+  if (["ADMIN", "GERENTE"].includes(user.papel)) {
     return {};
   }
 
   return {
-    OR: [{ responsavelId: user.id }, { createdById: user.id }],
+    responsavelId: user.id,
   };
+}
+
+export function isTarefaGestor(user: AuthenticatedUser) {
+  return ["ADMIN", "GERENTE"].includes(user.papel);
 }
 
 export function getTarefaByIdWhere(

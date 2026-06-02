@@ -33,6 +33,7 @@ import {
   TarefaModal,
   type TarefaModalData,
 } from "@/components/tarefas/TarefaModal";
+import { temCadencia } from "@/lib/tarefas/cadencia";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,6 +62,19 @@ type Tarefa = TarefaModalData & {
   oportunidade: { id: string; titulo: string; status: string } | null;
   obra: { id: string; nome: string } | null;
   pessoa: { id: string; nome: string } | null;
+};
+
+type UsuarioFiltro = {
+  id: string;
+  nome: string;
+  ativo: boolean;
+};
+
+type TarefaContadores = {
+  atrasadas: number;
+  hoje: number;
+  amanha: number;
+  concluidas: number;
 };
 
 type TabStatus = "PENDENTE" | "EM_ANDAMENTO" | "ATRASADA" | "CONCLUIDA";
@@ -178,6 +192,14 @@ function filterByPeriodo(tarefa: Tarefa, periodo: Periodo) {
 
 export default function TarefasPage() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [usuarios, setUsuarios] = useState<UsuarioFiltro[]>([]);
+  const [canFiltrarResponsavel, setCanFiltrarResponsavel] = useState(false);
+  const [contadores, setContadores] = useState<TarefaContadores>({
+    atrasadas: 0,
+    hoje: 0,
+    amanha: 0,
+    concluidas: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
   const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null);
@@ -215,6 +237,28 @@ export default function TarefasPage() {
     }
   }
 
+  async function loadContadores(nextResponsavelId = responsavelId) {
+    try {
+      const params = new URLSearchParams();
+
+      if (canFiltrarResponsavel && nextResponsavelId !== "todas") {
+        params.set("responsavelId", nextResponsavelId);
+      }
+
+      const response = await fetch(
+        `/api/tarefas/contadores${params.toString() ? `?${params}` : ""}`,
+      );
+
+      if (!response.ok) {
+        throw new Error("Falha ao carregar contadores.");
+      }
+
+      setContadores(await response.json());
+    } catch {
+      toast.error("Nao foi possivel carregar os contadores de tarefas.");
+    }
+  }
+
   useEffect(() => {
     let ignore = false;
 
@@ -247,31 +291,38 @@ export default function TarefasPage() {
     };
   }, []);
 
-  const resumo = useMemo(() => {
-    const hoje = startOfToday();
-    const fimHoje = endOfToday();
-    const amanha = addDays(hoje, 1);
+  useEffect(() => {
+    fetch("/api/usuarios")
+      .then((response) => {
+        if (!response.ok) {
+          return null;
+        }
 
-    return {
-      atrasadas: tarefas.filter((tarefa) => tarefa.status === "ATRASADA").length,
-      hoje: tarefas.filter((tarefa) => {
-        const vencimento = new Date(tarefa.dataVencimento);
-        return (
-          vencimento >= hoje &&
-          vencimento <= fimHoje &&
-          ["PENDENTE", "EM_ANDAMENTO"].includes(tarefa.status)
+        return response.json();
+      })
+      .then((data) => {
+        if (!Array.isArray(data)) {
+          return;
+        }
+
+        setCanFiltrarResponsavel(true);
+        setUsuarios(
+          data
+            .filter((usuario: UsuarioFiltro) => usuario.ativo)
+            .sort((left: UsuarioFiltro, right: UsuarioFiltro) =>
+              left.nome.localeCompare(right.nome),
+            ),
         );
-      }).length,
-      amanha: tarefas.filter(
-        (tarefa) =>
-          isSameDay(tarefa.dataVencimento, amanha) &&
-          ["PENDENTE", "EM_ANDAMENTO"].includes(tarefa.status),
-      ).length,
-      concluidasHoje: tarefas.filter(
-        (tarefa) => tarefa.concluidaEm && isSameDay(tarefa.concluidaEm),
-      ).length,
-    };
-  }, [tarefas]);
+      })
+      .catch(() => {
+        setCanFiltrarResponsavel(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    loadContadores();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canFiltrarResponsavel, responsavelId]);
 
   const filtroOptions = useMemo(() => {
     const responsaveis = new Map<string, string>();
@@ -291,11 +342,13 @@ export default function TarefasPage() {
     }
 
     return {
-      responsaveis: [...responsaveis].map(([id, label]) => ({ id, label })),
+      responsaveis: canFiltrarResponsavel
+        ? usuarios.map((usuario) => ({ id: usuario.id, label: usuario.nome }))
+        : [...responsaveis].map(([id, label]) => ({ id, label })),
       empresas: [...empresas].map(([id, label]) => ({ id, label })),
       oportunidades: [...oportunidades].map(([id, label]) => ({ id, label })),
     };
-  }, [tarefas]);
+  }, [canFiltrarResponsavel, tarefas, usuarios]);
 
   const tarefasFiltradas = useMemo(
     () =>
@@ -426,25 +479,25 @@ export default function TarefasPage() {
           {[
             {
               label: "Atrasadas",
-              value: resumo.atrasadas,
+              value: contadores.atrasadas,
               icon: "🔴",
               className: "border-red-200 bg-red-50 text-red-700",
             },
             {
               label: "Hoje",
-              value: resumo.hoje,
+              value: contadores.hoje,
               icon: "🟡",
               className: "border-amber-200 bg-amber-50 text-amber-700",
             },
             {
               label: "Amanha",
-              value: resumo.amanha,
+              value: contadores.amanha,
               icon: "🔵",
               className: "border-blue-200 bg-blue-50 text-blue-700",
             },
             {
               label: "Concluidas hoje",
-              value: resumo.concluidasHoje,
+              value: contadores.concluidas,
               icon: "✅",
               className: "border-emerald-200 bg-emerald-50 text-emerald-700",
             },
@@ -460,6 +513,23 @@ export default function TarefasPage() {
             </Card>
           ))}
         </div>
+
+        <Card className="mt-6 rounded-3xl border-[#D7DEEA] bg-[#E8EEFB]">
+          <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#1E4FAB]">
+                Cadencia comercial ativa
+              </p>
+              <p className="mt-1 text-sm text-[#1A2E5A]">
+                Clique em Concluir / Cadencia para registrar o resultado e gerar
+                automaticamente a proxima acao.
+              </p>
+            </div>
+            <Badge className="w-fit rounded-2xl bg-[#1E4FAB] px-3 py-1 text-white">
+              Proxima tarefa automatica
+            </Badge>
+          </CardContent>
+        </Card>
 
         <Card className="mt-6 rounded-3xl border-[#D7DEEA]">
           <CardHeader>
@@ -522,22 +592,24 @@ export default function TarefasPage() {
                 Filtros avancados
               </summary>
               <div className="mt-4 grid gap-3 md:grid-cols-5">
-                <Select
-                  value={responsavelId}
-                  onValueChange={(value) => setResponsavelId(value ?? "todas")}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Responsavel" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Responsavel</SelectItem>
-                    {filtroOptions.responsaveis.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {canFiltrarResponsavel ? (
+                  <Select
+                    value={responsavelId}
+                    onValueChange={(value) => setResponsavelId(value ?? "todas")}
+                  >
+                    <SelectTrigger className="rounded-2xl">
+                      <SelectValue placeholder="Responsavel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Toda a equipe</SelectItem>
+                      {filtroOptions.responsaveis.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
 
                 <Select
                   value={empresaId}
@@ -634,6 +706,7 @@ export default function TarefasPage() {
                   };
                   const prioridadeConfig = PRIORIDADE_CONFIG[tarefa.prioridade];
                   const isConcluida = tarefa.status === "CONCLUIDA";
+                  const hasCadencia = temCadencia(tarefa.tipo);
                   const prazoClassName = corPrazo(
                     tarefa.dataVencimento,
                     tarefa.status,
@@ -680,6 +753,11 @@ export default function TarefasPage() {
                               <Badge variant="outline">
                                 {STATUS_TAREFA_CONFIG[tarefa.status].label}
                               </Badge>
+                              {hasCadencia ? (
+                                <Badge className="bg-[#E8EEFB] text-[#1E4FAB] hover:bg-[#E8EEFB]">
+                                  Cadencia
+                                </Badge>
+                              ) : null}
                             </div>
                             <p className="mt-1 text-sm text-[#667085]">
                               {tarefa.responsavel?.nome ?? "Sem responsavel"}
@@ -728,10 +806,10 @@ export default function TarefasPage() {
                             <Button
                               type="button"
                               variant="outline"
-                              className="rounded-2xl"
+                              className="rounded-2xl border-[#1E4FAB] text-[#1E4FAB] hover:bg-[#E8EEFB]"
                               onClick={() => openConcluir(tarefa)}
                             >
-                              Concluir
+                              {hasCadencia ? "Concluir / Cadencia" : "Concluir"}
                             </Button>
                           ) : null}
                           {!tarefa.oportunidadeId ? (

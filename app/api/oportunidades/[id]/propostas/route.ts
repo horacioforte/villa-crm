@@ -138,33 +138,8 @@ export async function POST(
       },
     });
     const versao = (latest?.versao ?? 0) + 1;
-    const equipamentoIdsSelecionados = Array.from(
-      new Set(
-        (data.itens?.length
-          ? data.itens.map((item) => item.equipamentoId)
-          : [oportunidade.equipamentoId]
-        ).filter((equipamentoId): equipamentoId is string => Boolean(equipamentoId)),
-      ),
-    );
-    const equipamentosSelecionados = equipamentoIdsSelecionados.length
-      ? await prisma.equipamento.findMany({
-          where: {
-            id: {
-              in: equipamentoIdsSelecionados,
-            },
-          },
-          select: {
-            id: true,
-            tipo: true,
-          },
-        })
-      : [];
-    const temBombaSelecionada = equipamentosSelecionados.some(
-      (equipamento) => equipamento.tipo === "BOMBA_CONCRETO",
-    );
-    const templateUtilizado = temBombaSelecionada
-      ? BOMBA_TEMPLATE_ID
-      : data.templateUtilizado;
+    const templateUtilizado = data.templateUtilizado;
+    const modeloPorM3 = templateUtilizado === BOMBA_TEMPLATE_ID;
     const template = getPropostaTemplate(templateUtilizado);
 
     if (!template?.disponivel) {
@@ -192,18 +167,21 @@ export async function POST(
             ordem: 0,
           },
         ]).map((item, index) => {
-      const valorTotal = calcularValorItem(item);
+      const itemNormalizado = {
+        ...item,
+        precoM3: modeloPorM3 ? item.precoM3 : null,
+        volumeMinimoM3: modeloPorM3 ? item.volumeMinimoM3 : null,
+        precoUnitario: modeloPorM3 ? null : item.precoUnitario,
+      };
+      const valorTotal = calcularValorItem(itemNormalizado);
 
       return {
-        ...item,
+        ...itemNormalizado,
         ordem: item.ordem ?? index,
         valorTotal,
       };
     });
     const primeiroItem = itensNormalizados[0];
-    const modeloPorM3 =
-      templateUtilizado === BOMBA_TEMPLATE_ID ||
-      (primeiroItem?.precoM3 !== null && primeiroItem?.precoM3 !== undefined);
     const valorTotalCalculado =
       Math.round(
         itensNormalizados.reduce((sum, item) => sum + item.valorTotal, 0) * 100,
@@ -220,6 +198,7 @@ export async function POST(
     }
 
     if (
+      modeloPorM3 &&
       itensNormalizados.some(
         (item) => item.precoM3 && (!item.volumeMinimoM3 || item.volumeMinimoM3 <= 0),
       )

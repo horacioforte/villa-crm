@@ -96,6 +96,8 @@ const templateItems = PROPOSTA_TEMPLATES.map((template) => ({
 }));
 const DEFAULT_TEMPLATE = PROPOSTA_TEMPLATES[0];
 const BOMBA_TEMPLATE_ID = "locacao-bomba-concreto-com-operacao";
+const BETONEIRA_COM_OPERADOR_ID = "locacao-betoneira-com-operador";
+const BETONEIRA_SEM_OPERADOR_ID = "locacao-betoneira-sem-operador";
 const MANUAL_EQUIPAMENTO_VALUE = "manual";
 
 function getValidadePadrao(template: PropostaTemplate = DEFAULT_TEMPLATE) {
@@ -520,9 +522,7 @@ export function PropostaModal({
       ? getEquipamentoLabel(equipamento)
       : item.descricao || "Selecione o equipamento";
   };
-  const modeloPorM3 =
-    equipamentoSelecionado?.tipo === "BOMBA_CONCRETO" ||
-    Boolean(equipamentoSelecionado?.valorM3);
+  const modeloPorM3 = templateUtilizado === BOMBA_TEMPLATE_ID;
   const precoM3Calculado = useMemo(() => {
     const parsed = parseCurrencyInput(precoM3);
 
@@ -562,33 +562,27 @@ export function PropostaModal({
     }
 
     const precoEquipamento = getEquipamentoPreco(equipamento, oportunidade?.tipo);
-    const nextTemplate = getTemplateForEquipamento(equipamento);
-
-    setTemplateUtilizado(nextTemplate.id);
     setDescricaoComercial(equipamento.nome);
-    setHorasGarantidas(nextTemplate.defaults.horasGarantidas);
-    setHoraExtra(nextTemplate.defaults.horaExtra ?? "");
-    setPrazoExecucao(nextTemplate.defaults.prazoExecucao);
-    setValidadeProposta(getValidadePadrao(nextTemplate));
-    setCondicoesPagamento(nextTemplate.condicoesPagamentoPadrao);
-    setObservacoesTecnicas(nextTemplate.observacoesTecnicasPadrao);
     setItens((current) => [
-      createItemFromEquipamento(equipamento, oportunidade?.tipo, 0),
+      {
+        ...createItemFromEquipamento(equipamento, oportunidade?.tipo, 0),
+        modeloPorM3,
+      },
       ...current.slice(1).map((item, index) => ({ ...item, ordem: index + 1 })),
     ]);
 
-    if (precoEquipamento !== null) {
+    if (!modeloPorM3 && precoEquipamento !== null) {
       setPrecoUnitario(formatCurrencyInput(precoEquipamento));
-    } else {
+    } else if (!modeloPorM3) {
       setPrecoUnitario("");
     }
 
-    if (equipamento.valorM3) {
+    if (modeloPorM3 && equipamento.valorM3) {
       setPrecoM3(formatCurrencyInput(equipamento.valorM3));
       setVolumeMinimoM3(
         equipamento.volumeMinimoM3 ? String(equipamento.volumeMinimoM3) : "",
       );
-    } else {
+    } else if (modeloPorM3) {
       setPrecoM3("");
       setVolumeMinimoM3("");
     }
@@ -616,8 +610,11 @@ export function PropostaModal({
 
     setItens((current) =>
       current.map((item, itemIndex) =>
-        itemIndex === index
-          ? createItemFromEquipamento(equipamento, oportunidade?.tipo, index)
+      itemIndex === index
+          ? {
+              ...createItemFromEquipamento(equipamento, oportunidade?.tipo, index),
+              modeloPorM3,
+            }
           : item,
       ),
     );
@@ -642,7 +639,7 @@ export function PropostaModal({
     const itemPrecoUnitario = parseCurrencyInput(item.precoUnitario);
 
     if (
-      item.modeloPorM3 &&
+      (modeloPorM3 || item.modeloPorM3) &&
       !Number.isNaN(itemPrecoM3) &&
       !Number.isNaN(itemVolumeMinimoM3)
     ) {
@@ -726,12 +723,12 @@ export function PropostaModal({
       ordem: index,
       descricao: item.descricao || `Equipamento ${index + 1}`,
       quantidade: parseQuantidadeInput(item.quantidade) ?? 1,
-      precoM3: item.modeloPorM3 ? parseCurrencyInput(item.precoM3) : null,
-      volumeMinimoM3: item.modeloPorM3
+      precoM3: modeloPorM3 ? parseCurrencyInput(item.precoM3) : null,
+      volumeMinimoM3: modeloPorM3
         ? parseCurrencyInput(item.volumeMinimoM3)
         : null,
       horasGarantidas: item.horasGarantidas || null,
-      precoUnitario: item.modeloPorM3 ? null : parseCurrencyInput(item.precoUnitario),
+      precoUnitario: modeloPorM3 ? null : parseCurrencyInput(item.precoUnitario),
       horaExtra: item.horaExtra ? parseCurrencyInput(item.horaExtra) : null,
       valorTotal: calcularTotalItem(item),
     }));
@@ -884,7 +881,7 @@ export function PropostaModal({
             volumeMinimoM3: modeloPorM3
               ? (primeiroItem?.volumeMinimoM3 ?? volumeMinimoM3Calculado)
               : null,
-            itens: modeloPorM3 ? itensPayload : undefined,
+            itens: itensPayload,
             telefone,
             email,
             validadeProposta,
@@ -953,15 +950,37 @@ export function PropostaModal({
                     const nextTemplateId = value ?? DEFAULT_TEMPLATE.id;
                     const nextTemplate =
                       getPropostaTemplate(nextTemplateId) ?? DEFAULT_TEMPLATE;
+                    const nextModeloPorM3 = nextTemplateId === BOMBA_TEMPLATE_ID;
+                    const nextModeloMensal =
+                      nextTemplateId === BETONEIRA_COM_OPERADOR_ID ||
+                      nextTemplateId === BETONEIRA_SEM_OPERADOR_ID;
 
                     setTemplateUtilizado(nextTemplateId);
                     setDescricaoComercial(nextTemplate.defaults.descricaoComercial);
-                    setHorasGarantidas(nextTemplate.defaults.horasGarantidas);
                     setHoraExtra(nextTemplate.defaults.horaExtra ?? "");
                     setPrazoExecucao(nextTemplate.defaults.prazoExecucao);
                     setValidadeProposta(getValidadePadrao(nextTemplate));
                     setCondicoesPagamento(nextTemplate.condicoesPagamentoPadrao);
                     setObservacoesTecnicas(nextTemplate.observacoesTecnicasPadrao);
+                    setItens((current) =>
+                      current.map((item) => ({
+                        ...item,
+                        modeloPorM3: nextModeloPorM3,
+                      })),
+                    );
+
+                    if (nextModeloPorM3) {
+                      setHorasGarantidas("");
+                      setPrecoUnitario("");
+                      return;
+                    }
+
+                    if (nextModeloMensal) {
+                      setPrecoM3("");
+                      setVolumeMinimoM3("");
+                    }
+
+                    setHorasGarantidas(nextTemplate.defaults.horasGarantidas);
                   }}
                 >
                   <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">

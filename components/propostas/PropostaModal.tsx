@@ -824,7 +824,23 @@ export function PropostaModal({
           horaExtra: parseOptionalPositive(item.horaExtra),
           ordem: index,
         }))
-      : [];
+      : [
+          {
+            equipamentoId:
+              equipamentoSelecionadoId === MANUAL_EQUIPAMENTO_VALUE
+                ? null
+                : equipamentoSelecionadoId,
+            descricao:
+              descricaoComercial || equipamentoSelecionado?.nome || "Equipamento",
+            quantidade: quantidadeCalculada,
+            precoM3: null,
+            volumeMinimoM3: null,
+            horasGarantidas,
+            precoUnitario: precoUnitarioCalculado,
+            horaExtra: parseOptionalPositive(horaExtra),
+            ordem: 0,
+          },
+        ];
     const primeiroItem = itensPayload[0];
 
     if (

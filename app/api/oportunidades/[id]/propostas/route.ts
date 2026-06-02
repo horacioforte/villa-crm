@@ -138,10 +138,33 @@ export async function POST(
       },
     });
     const versao = (latest?.versao ?? 0) + 1;
-    const templateUtilizado =
-      oportunidade.equipamento?.tipo === "BOMBA_CONCRETO"
-        ? BOMBA_TEMPLATE_ID
-        : data.templateUtilizado;
+    const equipamentoIdsSelecionados = Array.from(
+      new Set(
+        (data.itens?.length
+          ? data.itens.map((item) => item.equipamentoId)
+          : [oportunidade.equipamentoId]
+        ).filter((equipamentoId): equipamentoId is string => Boolean(equipamentoId)),
+      ),
+    );
+    const equipamentosSelecionados = equipamentoIdsSelecionados.length
+      ? await prisma.equipamento.findMany({
+          where: {
+            id: {
+              in: equipamentoIdsSelecionados,
+            },
+          },
+          select: {
+            id: true,
+            tipo: true,
+          },
+        })
+      : [];
+    const temBombaSelecionada = equipamentosSelecionados.some(
+      (equipamento) => equipamento.tipo === "BOMBA_CONCRETO",
+    );
+    const templateUtilizado = temBombaSelecionada
+      ? BOMBA_TEMPLATE_ID
+      : data.templateUtilizado;
     const template = getPropostaTemplate(templateUtilizado);
 
     if (!template?.disponivel) {

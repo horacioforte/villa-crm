@@ -92,15 +92,6 @@ type PropostaSnapshotInput = {
   createdAt?: Date | string;
 };
 
-const bombaHoraExtraPatterns = [
-  /auto bomba lan[cç]a 28 metros/i,
-  /auto bomba lan[cç]a 32 metros/i,
-  /auto bomba lan[cç]a 36 metros/i,
-  /auto bomba lan[cç]a 38 metros/i,
-  /auto bomba lan[cç]a 42\/43 metros/i,
-  /auto bomba lan[cç]a 56\/58 metros/i,
-];
-
 function getHoraExtraBombaPadrao(descricao: string) {
   const normalizedDescricao = descricao.toLowerCase();
 
@@ -117,6 +108,10 @@ function getHoraExtraBombaPadrao(descricao: string) {
   }
 
   return null;
+}
+
+function isLinhaHoraExtraBomba(line: string) {
+  return /auto bomba/i.test(line) && /hora excedente/i.test(line);
 }
 
 function formatHoraExtraItem(item: PropostaItemSnapshot) {
@@ -141,10 +136,7 @@ function filtrarTrabalhoExtraBomba(
   const linhasManuais = itens
     .map((item) => formatHoraExtraItem(item))
     .filter(Boolean) as string[];
-  const linhasFinais = linhas.filter(
-    (line) =>
-      !bombaHoraExtraPatterns.some((pattern) => pattern.test(line)),
-  );
+  const linhasFinais = linhas.filter((line) => !isLinhaHoraExtraBomba(line));
   const insertIndex = Math.max(
     1,
     linhasFinais.findIndex((line) => line.startsWith("Não será concedido")),

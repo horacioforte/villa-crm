@@ -76,6 +76,7 @@ export async function GET(request: Request, context: PropostaPdfRouteContext) {
     observacoesTecnicas: proposta.observacoesTecnicas,
     condicoesPagamento: proposta.condicoesPagamento,
     blocos,
+    itens: proposta.itens,
     data: proposta.createdAt,
   });
 

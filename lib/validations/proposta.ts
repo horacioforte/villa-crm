@@ -125,6 +125,23 @@ const requiredPositiveInteger = z
     return String(parsed);
   });
 
+const requiredPositiveIntegerNumber = z
+  .union([z.string(), z.number()])
+  .transform((value, ctx) => {
+    const parsed =
+      typeof value === "number" ? value : Number(value.trim().replace(",", "."));
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Informe uma quantidade inteira positiva.",
+      });
+      return z.NEVER;
+    }
+
+    return parsed;
+  });
+
 const requiredDate = z
   .union([z.string(), z.date()])
   .transform((value, ctx) => {
@@ -158,6 +175,21 @@ export const propostaCreateSchema = z.object({
   observacoesComerciais: optionalText,
   observacoesTecnicas: optionalText,
   condicoesPagamento: optionalText,
+  itens: z
+    .array(
+      z.object({
+        equipamentoId: optionalText,
+        descricao: requiredText("Informe a descricao do item."),
+        quantidade: requiredPositiveIntegerNumber.default(1),
+        precoM3: optionalDecimal,
+        volumeMinimoM3: optionalDecimal,
+        horasGarantidas: optionalText,
+        precoUnitario: optionalDecimal,
+        horaExtra: optionalDecimal,
+        ordem: z.number().int().nonnegative().optional(),
+      }),
+    )
+    .optional(),
 });
 
 export const propostaBlocoPatchSchema = z.object({

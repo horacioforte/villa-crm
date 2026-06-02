@@ -13,6 +13,8 @@ import {
 } from "@/lib/propostas/render";
 import { getPropostaTemplate } from "@/lib/propostas/templates";
 
+type DecimalLike = string | number | { toString(): string };
+
 const styles = StyleSheet.create({
   page: {
     padding: 44,
@@ -94,6 +96,15 @@ const styles = StyleSheet.create({
     borderBottom: "1 solid #98A2B3",
     borderRight: "1 solid #98A2B3",
     fontSize: 7,
+    padding: 5,
+  },
+  tableTotalCell: {
+    backgroundColor: "#1A2E5A",
+    borderBottom: "1 solid #98A2B3",
+    borderRight: "1 solid #98A2B3",
+    color: "#FFFFFF",
+    fontSize: 7,
+    fontWeight: 700,
     padding: 5,
   },
   signatureGrid: {
@@ -194,6 +205,67 @@ function PriceBlock({
   content: string;
   data: PropostaRenderData;
 }) {
+  if ((data.itens?.length ?? 0) > 1) {
+    const headers = ["Qtd.", "Descrição", "Volume mínimo", "Preço por m³", "Valor total"];
+    const widths = ["8%", "34%", "18%", "20%", "20%"];
+    const total = data.itens!.reduce(
+      (sum, item) => sum + Number(item.valorTotal),
+      0,
+    );
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>4. Preços</Text>
+        <Text style={styles.paragraph}>
+          Os preços ofertados nesta proposta serão os seguintes:
+        </Text>
+        <View style={styles.table}>
+          <View style={styles.tableRow}>
+            {headers.map((label, index) => (
+              <Text key={label} style={[styles.tableHeaderCell, { width: widths[index] }]}>
+                {label}
+              </Text>
+            ))}
+          </View>
+          {data.itens!.map((item) => (
+            <View key={`${item.ordem}-${item.descricao}`} style={styles.tableRow}>
+              {[
+                String(item.quantidade),
+                item.descricao,
+                item.volumeMinimoM3
+                  ? `${formatPdfVolume(item.volumeMinimoM3)} m³`
+                  : item.horasGarantidas ?? "-",
+                item.precoM3
+                  ? `${formatPdfCurrency(item.precoM3)}/m³`
+                  : item.precoUnitario
+                    ? formatPdfCurrency(item.precoUnitario)
+                    : "-",
+                formatPdfCurrency(item.valorTotal),
+              ].map((value, index) => (
+                <Text
+                  key={`${index}-${value}`}
+                  style={[styles.tableCell, { width: widths[index] }]}
+                >
+                  {value}
+                </Text>
+              ))}
+            </View>
+          ))}
+          <View style={styles.tableRow}>
+            {["", "", "", "TOTAL", formatPdfCurrency(total)].map((value, index) => (
+              <Text
+                key={`${index}-${value}`}
+                style={[styles.tableTotalCell, { width: widths[index] }]}
+              >
+                {value}
+              </Text>
+            ))}
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   const variaveis = buildPropostaVariaveis(data);
   const isM3 =
     data.precoM3 !== null &&
@@ -333,6 +405,19 @@ function SignatureBlock({
 
 function variaveisData(data: PropostaRenderData) {
   return buildPropostaVariaveis(data).data;
+}
+
+function formatPdfCurrency(value: DecimalLike) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value));
+}
+
+function formatPdfVolume(value: DecimalLike) {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 2,
+  }).format(Number(value));
 }
 
 function PropostaPdfDocument({ data }: { data: PropostaRenderData }) {

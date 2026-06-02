@@ -472,6 +472,7 @@ model PropostaComercial {
   excecoes   PropostaExcecaoAprovacao[]
   auditorias PropostaAuditoriaCampo[]
   tarefas    Tarefa[]
+  itens      PropostaItem[]
 
   @@unique([numeroProposta, versao])
   @@index([oportunidadeId])
@@ -480,6 +481,31 @@ model PropostaComercial {
   @@index([updatedById])
   @@index([status])
   @@index([validadeProposta])
+}
+
+model PropostaItem {
+  id              String  @id @default(cuid())
+  ordem           Int     @default(0)
+  descricao       String
+  quantidade      Int     @default(1)
+  precoM3         Float?
+  volumeMinimoM3  Float?
+  horasGarantidas String?
+  precoUnitario   Float?
+  horaExtra       Float?
+  valorTotal      Float
+
+  propostaId String
+  proposta   PropostaComercial @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+
+  equipamentoId String?
+  equipamento   Equipamento? @relation(fields: [equipamentoId], references: [id], onDelete: SetNull)
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@index([propostaId])
+  @@index([equipamentoId])
 }
 
 model PropostaTemplateMaster {
@@ -743,6 +769,7 @@ model Equipamento {
   updatedBy   Usuario? @relation("EquipamentoUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   oportunidades Oportunidade[]
+  propostaItens PropostaItem[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")

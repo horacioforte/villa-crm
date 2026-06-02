@@ -22,6 +22,19 @@ type OportunidadePropostasRouteContext = {
   }>;
 };
 
+function calcularValorItem(item: {
+  quantidade: number;
+  precoM3: number | null;
+  volumeMinimoM3: number | null;
+  precoUnitario: number | null;
+}) {
+  if (item.precoM3 && item.volumeMinimoM3) {
+    return Math.round(item.quantidade * item.precoM3 * item.volumeMinimoM3 * 100) / 100;
+  }
+
+  return Math.round(item.quantidade * (item.precoUnitario ?? 0) * 100) / 100;
+}
+
 export async function GET(
   request: Request,
   context: OportunidadePropostasRouteContext,
@@ -138,13 +151,45 @@ export async function POST(
       );
     }
 
-    const modeloPorM3 = data.precoM3 !== null && data.precoM3 !== undefined;
-    const valorTotalCalculado = modeloPorM3
-      ? Math.round((data.precoM3 ?? 0) * (data.volumeMinimoM3 ?? 0) * 100) /
-        100
-      : Math.round(Number(data.quantidade) * data.precoUnitario * 100) / 100;
+    const itensNormalizados = (data.itens?.length
+      ? data.itens
+      : [
+          {
+            equipamentoId: oportunidade.equipamentoId,
+            descricao:
+              data.descricaoComercial ??
+              oportunidade.equipamento?.nome ??
+              template.defaults.descricaoComercial,
+            quantidade: Number(data.quantidade),
+            precoM3: data.precoM3,
+            volumeMinimoM3: data.volumeMinimoM3,
+            horasGarantidas: data.horasGarantidas,
+            precoUnitario: data.precoUnitario,
+            horaExtra: data.horaExtra,
+            ordem: 0,
+          },
+        ]).map((item, index) => {
+      const valorTotal = calcularValorItem(item);
 
-    if (modeloPorM3 && (!data.volumeMinimoM3 || data.volumeMinimoM3 <= 0)) {
+      return {
+        ...item,
+        ordem: item.ordem ?? index,
+        valorTotal,
+      };
+    });
+    const primeiroItem = itensNormalizados[0];
+    const modeloPorM3 =
+      primeiroItem?.precoM3 !== null && primeiroItem?.precoM3 !== undefined;
+    const valorTotalCalculado =
+      Math.round(
+        itensNormalizados.reduce((sum, item) => sum + item.valorTotal, 0) * 100,
+      ) / 100;
+
+    if (
+      itensNormalizados.some(
+        (item) => item.precoM3 && (!item.volumeMinimoM3 || item.volumeMinimoM3 <= 0),
+      )
+    ) {
       return NextResponse.json(
         { message: "Informe o volume minimo para proposta por m3." },
         { status: 400 },
@@ -167,6 +212,16 @@ export async function POST(
       ...data,
       templateUtilizado,
       valorTotal: valorTotalCalculado,
+      quantidade: String(primeiroItem?.quantidade ?? data.quantidade),
+      descricaoComercial: primeiroItem?.descricao ?? data.descricaoComercial,
+      horasGarantidas: modeloPorM3 ? null : primeiroItem?.horasGarantidas,
+      precoUnitario: modeloPorM3
+        ? primeiroItem?.precoM3 ?? data.precoUnitario
+        : primeiroItem?.precoUnitario ?? data.precoUnitario,
+      horaExtra: modeloPorM3 ? null : primeiroItem?.horaExtra,
+      precoM3: modeloPorM3 ? primeiroItem?.precoM3 : null,
+      volumeMinimoM3: modeloPorM3 ? primeiroItem?.volumeMinimoM3 : null,
+      itens: itensNormalizados,
       numeroProposta,
       versao,
     };
@@ -189,9 +244,9 @@ export async function POST(
           observacoesComerciais: data.observacoesComerciais,
           observacoesTecnicas: data.observacoesTecnicas,
           condicoesPagamento: data.condicoesPagamento,
-          horaExtra: modeloPorM3 ? null : data.horaExtra,
-          precoM3: modeloPorM3 ? data.precoM3 : null,
-          volumeMinimoM3: modeloPorM3 ? data.volumeMinimoM3 : null,
+          horaExtra: modeloPorM3 ? null : primeiroItem?.horaExtra,
+          precoM3: modeloPorM3 ? primeiroItem?.precoM3 : null,
+          volumeMinimoM3: modeloPorM3 ? primeiroItem?.volumeMinimoM3 : null,
           numeroProposta,
           versao,
           htmlSnapshot,
@@ -206,6 +261,20 @@ export async function POST(
               ordem: item.ordem,
               conteudoOriginal: item.conteudoOriginal,
               conteudoAtual: item.conteudoAtual,
+            })),
+          },
+          itens: {
+            create: itensNormalizados.map((item) => ({
+              ordem: item.ordem,
+              descricao: item.descricao,
+              quantidade: item.quantidade,
+              equipamentoId: item.equipamentoId,
+              precoM3: item.precoM3,
+              volumeMinimoM3: item.volumeMinimoM3,
+              horasGarantidas: item.horasGarantidas,
+              precoUnitario: item.precoUnitario,
+              horaExtra: item.horaExtra,
+              valorTotal: item.valorTotal,
             })),
           },
           auditorias: {

@@ -36,6 +36,17 @@ export type PropostaRenderData = {
     ordem: number;
     conteudoAtual: string;
   }>;
+  itens?: Array<{
+    ordem: number;
+    descricao: string;
+    quantidade: number;
+    precoM3?: DecimalLike | null;
+    volumeMinimoM3?: DecimalLike | null;
+    horasGarantidas?: string | null;
+    precoUnitario?: DecimalLike | null;
+    horaExtra?: DecimalLike | null;
+    valorTotal: DecimalLike;
+  }>;
   data?: Date | string;
 };
 
@@ -153,7 +164,54 @@ function renderHeaderBlock() {
   return "";
 }
 
-function renderPriceBlock(content: string) {
+function formatVolume(value: DecimalLike) {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 2,
+  }).format(Number(value));
+}
+
+function renderMultiItemPriceBlock(data: PropostaRenderData) {
+  const itens = data.itens ?? [];
+  const total = itens.reduce((sum, item) => sum + Number(item.valorTotal), 0);
+
+  return `<div class="section">4. Preços</div>
+    <p>Os preços ofertados nesta proposta serão os seguintes:</p>
+    <table class="ptab">
+      <thead>
+        <tr>
+          <th>Qtd.</th>
+          <th>Descrição</th>
+          <th>Volume mínimo</th>
+          <th>Preço por m³</th>
+          <th>Valor total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itens
+          .map(
+            (item) => `<tr>
+              <td>${item.quantidade}</td>
+              <td>${escapeHtml(item.descricao)}</td>
+              <td>${item.volumeMinimoM3 ? `${formatVolume(item.volumeMinimoM3)} m³` : escapeHtml(item.horasGarantidas ?? "-")}</td>
+              <td>${item.precoM3 ? `${formatCurrency(item.precoM3)}/m³` : item.precoUnitario ? formatCurrency(item.precoUnitario) : "-"}</td>
+              <td class="tot">${formatCurrency(item.valorTotal)}</td>
+            </tr>`,
+          )
+          .join("")}
+        <tr>
+          <td class="tot" colspan="3"></td>
+          <td class="tot">TOTAL</td>
+          <td class="tot">${formatCurrency(total)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+}
+
+function renderPriceBlock(content: string, data: PropostaRenderData) {
+  if ((data.itens?.length ?? 0) > 1) {
+    return renderMultiItemPriceBlock(data);
+  }
+
   const isM3 = content.includes("Preço por m³") || content.includes("Preco por m3");
   const rows = isM3
     ? [
@@ -275,7 +333,7 @@ function renderGovernedBlocks(data: PropostaRenderData) {
       }
 
       if (bloco.chave === "precos") {
-        return renderPriceBlock(bloco.conteudoAtual);
+        return renderPriceBlock(bloco.conteudoAtual, data);
       }
 
       if (bloco.chave === "assinaturas") {

@@ -76,6 +76,20 @@ type EquipamentoProposta = {
   valorVenda: string | number | null;
 };
 
+type PropostaItemForm = {
+  id: string;
+  equipamentoId: string;
+  descricao: string;
+  quantidade: string;
+  precoM3: string;
+  volumeMinimoM3: string;
+  horasGarantidas: string;
+  precoUnitario: string;
+  horaExtra: string;
+  modeloPorM3: boolean;
+  ordem: number;
+};
+
 const templateItems = PROPOSTA_TEMPLATES.map((template) => ({
   label: template.nome,
   value: template.id,
@@ -188,6 +202,22 @@ function getPluralVariables(quantidade: string) {
   };
 }
 
+function createEmptyItem(ordem = 0): PropostaItemForm {
+  return {
+    id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${ordem}`,
+    equipamentoId: "",
+    descricao: "",
+    quantidade: "1",
+    precoM3: "",
+    volumeMinimoM3: "",
+    horasGarantidas: "",
+    precoUnitario: "",
+    horaExtra: "",
+    modeloPorM3: false,
+    ordem,
+  };
+}
+
 function getEquipamentoPreco(
   equipamento: EquipamentoProposta,
   tipoOportunidade: OportunidadeProposta["tipo"] | null | undefined,
@@ -203,6 +233,36 @@ function getEquipamentoPreco(
   }
 
   return null;
+}
+
+function createItemFromEquipamento(
+  equipamento: EquipamentoProposta,
+  tipoOportunidade: OportunidadeProposta["tipo"] | null | undefined,
+  ordem = 0,
+): PropostaItemForm {
+  const precoEquipamento = getEquipamentoPreco(equipamento, tipoOportunidade);
+  const modeloPorM3 = Boolean(equipamento.valorM3);
+
+  return {
+    ...createEmptyItem(ordem),
+    equipamentoId: equipamento.id,
+    descricao: equipamento.nome,
+    precoM3:
+      modeloPorM3 && equipamento.valorM3
+        ? formatCurrencyInput(equipamento.valorM3)
+        : "",
+    volumeMinimoM3:
+      modeloPorM3 && equipamento.volumeMinimoM3
+        ? String(equipamento.volumeMinimoM3)
+        : "",
+    precoUnitario:
+      !modeloPorM3 && precoEquipamento !== null
+        ? formatCurrencyInput(precoEquipamento)
+        : "",
+    modeloPorM3,
+    horasGarantidas: modeloPorM3 ? "" : DEFAULT_TEMPLATE.defaults.horasGarantidas,
+    horaExtra: modeloPorM3 ? "" : (DEFAULT_TEMPLATE.defaults.horaExtra ?? ""),
+  };
 }
 
 function buildM3BlocosSnapshot(
@@ -245,6 +305,7 @@ export function PropostaModal({
   const [equipamentoSelecionadoId, setEquipamentoSelecionadoId] = useState<string>(
     MANUAL_EQUIPAMENTO_VALUE,
   );
+  const [itens, setItens] = useState<PropostaItemForm[]>([createEmptyItem()]);
   const [templateUtilizado, setTemplateUtilizado] = useState<string>(
     DEFAULT_TEMPLATE.id,
   );
@@ -326,6 +387,11 @@ export function PropostaModal({
         setEquipamentos(equipamentosComVinculado);
         setEquipamentoSelecionadoId(
           equipamentoInicial?.id ?? MANUAL_EQUIPAMENTO_VALUE,
+        );
+        setItens(
+          equipamentoInicial
+            ? [createItemFromEquipamento(equipamentoInicial, data.tipo)]
+            : [createEmptyItem()],
         );
         setDescricaoComercial(
           equipamentoInicial?.nome ?? initialTemplate.defaults.descricaoComercial,
@@ -412,8 +478,15 @@ export function PropostaModal({
 
     return Math.round(precoM3Calculado * volumeMinimoM3Calculado * 100) / 100;
   }, [precoM3Calculado, volumeMinimoM3Calculado]);
+  const totalItensCalculado = useMemo(
+    () =>
+      Math.round(
+        itens.reduce((sum, item) => sum + calcularTotalItem(item), 0) * 100,
+      ) / 100,
+    [itens],
+  );
   const valorTotalProposta = modeloPorM3
-    ? valorTotalM3Calculado
+    ? totalItensCalculado
     : valorTotalCalculado;
 
   function handleEquipamentoChange(value: string | null) {
@@ -437,6 +510,10 @@ export function PropostaModal({
     setValidadeProposta(getValidadePadrao(nextTemplate));
     setCondicoesPagamento(nextTemplate.condicoesPagamentoPadrao);
     setObservacoesTecnicas(nextTemplate.observacoesTecnicasPadrao);
+    setItens((current) => [
+      createItemFromEquipamento(equipamento, oportunidade?.tipo, 0),
+      ...current.slice(1).map((item, index) => ({ ...item, ordem: index + 1 })),
+    ]);
 
     if (precoEquipamento !== null) {
       setPrecoUnitario(formatCurrencyInput(precoEquipamento));
@@ -453,6 +530,68 @@ export function PropostaModal({
       setPrecoM3("");
       setVolumeMinimoM3("");
     }
+  }
+
+  function atualizarItem(
+    index: number,
+    field: keyof PropostaItemForm,
+    value: string | boolean | number,
+  ) {
+    setItens((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: String(value) } : item,
+      ),
+    );
+  }
+
+  function handleItemEquipamentoChange(index: number, equipamentoId: string | null) {
+    const equipamento = equipamentos.find((item) => item.id === equipamentoId);
+
+    if (!equipamento) {
+      atualizarItem(index, "equipamentoId", "");
+      return;
+    }
+
+    setItens((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? createItemFromEquipamento(equipamento, oportunidade?.tipo, index)
+          : item,
+      ),
+    );
+  }
+
+  function adicionarItem() {
+    setItens((current) => [...current, createEmptyItem(current.length)]);
+  }
+
+  function removerItem(index: number) {
+    setItens((current) =>
+      current
+        .filter((_, itemIndex) => itemIndex !== index)
+        .map((item, itemIndex) => ({ ...item, ordem: itemIndex })),
+    );
+  }
+
+  function calcularTotalItem(item: PropostaItemForm) {
+    const quantidadeItem = parseQuantidadeInput(item.quantidade) ?? 1;
+    const itemPrecoM3 = parseCurrencyInput(item.precoM3);
+    const itemVolumeMinimoM3 = parseCurrencyInput(item.volumeMinimoM3);
+    const itemPrecoUnitario = parseCurrencyInput(item.precoUnitario);
+
+    if (
+      item.modeloPorM3 &&
+      !Number.isNaN(itemPrecoM3) &&
+      !Number.isNaN(itemVolumeMinimoM3)
+    ) {
+      return quantidadeItem * itemPrecoM3 * itemVolumeMinimoM3;
+    }
+
+    if (!Number.isNaN(itemPrecoUnitario)) {
+      return quantidadeItem * itemPrecoUnitario;
+    }
+
+    return 0;
   }
 
   const previewHtml = useMemo(() => {
@@ -496,6 +635,19 @@ export function PropostaModal({
     const blocos = modeloPorM3
       ? buildM3BlocosSnapshot(templateUtilizado, templateVariables)
       : buildTemplateBlocosSnapshot(templateUtilizado, templateVariables);
+    const itensPreview = itens.map((item, index) => ({
+      ordem: index,
+      descricao: item.descricao || `Equipamento ${index + 1}`,
+      quantidade: parseQuantidadeInput(item.quantidade) ?? 1,
+      precoM3: item.modeloPorM3 ? parseCurrencyInput(item.precoM3) : null,
+      volumeMinimoM3: item.modeloPorM3
+        ? parseCurrencyInput(item.volumeMinimoM3)
+        : null,
+      horasGarantidas: item.horasGarantidas || null,
+      precoUnitario: item.modeloPorM3 ? null : parseCurrencyInput(item.precoUnitario),
+      horaExtra: item.horaExtra ? parseCurrencyInput(item.horaExtra) : null,
+      valorTotal: calcularTotalItem(item),
+    }));
 
     return renderPropostaHtml({
       numeroProposta: "PREVIEW",
@@ -524,6 +676,7 @@ export function PropostaModal({
       observacoesTecnicas,
       condicoesPagamento,
       blocos,
+      itens: modeloPorM3 ? itensPreview : undefined,
     });
   }, [
     condicoesPagamento,
@@ -531,6 +684,7 @@ export function PropostaModal({
     email,
     horaExtra,
     horasGarantidas,
+    itens,
     modeloPorM3,
     observacoesComerciais,
     observacoesTecnicas,
@@ -549,6 +703,12 @@ export function PropostaModal({
     valorTotalProposta,
   ]);
 
+  function parseOptionalPositive(value: string) {
+    const parsed = parseCurrencyInput(value);
+
+    return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
+  }
+
   async function handleSalvar() {
     if (!oportunidade?.obra) {
       toast.error("A oportunidade precisa ter obra vinculada.");
@@ -565,13 +725,26 @@ export function PropostaModal({
       return;
     }
 
-    if (modeloPorM3 && precoM3Calculado === null) {
-      toast.error("Informe um preco por m3 positivo.");
-      return;
-    }
+    const itensPayload = modeloPorM3
+      ? itens.map((item, index) => ({
+          equipamentoId: item.equipamentoId || null,
+          descricao: item.descricao || `Equipamento ${index + 1}`,
+          quantidade: parseQuantidadeInput(item.quantidade) ?? 1,
+          precoM3: parseOptionalPositive(item.precoM3),
+          volumeMinimoM3: parseOptionalPositive(item.volumeMinimoM3),
+          horasGarantidas: item.horasGarantidas || null,
+          precoUnitario: parseOptionalPositive(item.precoUnitario),
+          horaExtra: parseOptionalPositive(item.horaExtra),
+          ordem: index,
+        }))
+      : [];
+    const primeiroItem = itensPayload[0];
 
-    if (modeloPorM3 && volumeMinimoM3Calculado === null) {
-      toast.error("Informe um volume minimo positivo.");
+    if (
+      modeloPorM3 &&
+      itensPayload.some((item) => !item.precoM3 || !item.volumeMinimoM3)
+    ) {
+      toast.error("Informe preco por m3 e volume minimo em todos os equipamentos.");
       return;
     }
 
@@ -593,13 +766,22 @@ export function PropostaModal({
           body: JSON.stringify({
             templateUtilizado,
             valorTotal: valorTotalProposta,
-            quantidade: quantidadeCalculada,
-            descricaoComercial,
+            quantidade: modeloPorM3
+              ? (primeiroItem?.quantidade ?? quantidadeCalculada)
+              : quantidadeCalculada,
+            descricaoComercial: modeloPorM3
+              ? (primeiroItem?.descricao ?? descricaoComercial)
+              : descricaoComercial,
             horasGarantidas: modeloPorM3 ? null : horasGarantidas,
-            precoUnitario: modeloPorM3 ? precoM3Calculado : precoUnitarioCalculado,
+            precoUnitario: modeloPorM3
+              ? (primeiroItem?.precoM3 ?? precoM3Calculado)
+              : precoUnitarioCalculado,
             horaExtra: modeloPorM3 ? null : horaExtra || null,
-            precoM3: modeloPorM3 ? precoM3Calculado : null,
-            volumeMinimoM3: modeloPorM3 ? volumeMinimoM3Calculado : null,
+            precoM3: modeloPorM3 ? (primeiroItem?.precoM3 ?? precoM3Calculado) : null,
+            volumeMinimoM3: modeloPorM3
+              ? (primeiroItem?.volumeMinimoM3 ?? volumeMinimoM3Calculado)
+              : null,
+            itens: modeloPorM3 ? itensPayload : undefined,
             telefone,
             email,
             validadeProposta,
@@ -755,58 +937,144 @@ export function PropostaModal({
                   </p>
                 ) : null}
               </Field>
-              <Field label="Quantidade">
-                <Input
-                  inputMode="numeric"
-                  placeholder="Ex: 2"
-                  value={quantidade}
-                  onChange={(event) => setQuantidade(event.target.value)}
-                  className="h-11 rounded-2xl bg-[#F4F6FA]"
-                />
-              </Field>
-              <Field label="Descricao comercial">
-                <Input
-                  value={descricaoComercial}
-                  onChange={(event) =>
-                    setDescricaoComercial(event.target.value)
-                  }
-                  className="h-11 rounded-2xl bg-[#F4F6FA]"
-                />
-              </Field>
               {modeloPorM3 ? (
-                <>
-                  <Field label="Preço por m³ (R$)">
-                    <Input
-                      inputMode="decimal"
-                      placeholder="Ex: 55,00"
-                      value={precoM3}
-                      onChange={(event) => setPrecoM3(event.target.value)}
-                      className="h-11 rounded-2xl bg-[#F4F6FA]"
-                    />
-                  </Field>
-                  <Field label="Volume mínimo (m³)">
-                    <Input
-                      inputMode="decimal"
-                      placeholder="Ex: 1500"
-                      value={volumeMinimoM3}
-                      onChange={(event) => setVolumeMinimoM3(event.target.value)}
-                      className="h-11 rounded-2xl bg-[#F4F6FA]"
-                    />
-                  </Field>
-                  <Field label="Valor total calculado" className="lg:col-span-2">
-                    <div className="flex min-h-11 flex-col gap-2 rounded-2xl bg-[#F4F6FA] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-[#667085]">
-                        {formatPreviewVolume(volumeMinimoM3Calculado)} m³ ×{" "}
-                        {formatPreviewCurrency(precoM3Calculado)}
-                      </span>
-                      <span className="font-semibold text-[#1A2E5A]">
-                        = {formatPreviewCurrency(valorTotalM3Calculado)}
-                      </span>
+                <section className="space-y-3 rounded-2xl border border-[#D7DEEA] bg-white p-4 lg:col-span-2">
+                  <div>
+                    <p className="font-semibold text-[#1A2E5A]">
+                      Equipamentos da proposta
+                    </p>
+                    <p className="text-sm text-[#667085]">
+                      Adicione uma ou mais bombas, cada uma com volume mínimo e
+                      preço por m³.
+                    </p>
+                  </div>
+
+                  {itens.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-4"
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <span className="text-sm font-semibold text-[#1A2E5A]">
+                          Equipamento {index + 1}
+                        </span>
+                        {itens.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => removerItem(index)}
+                            className="text-xs font-semibold text-red-600 hover:underline"
+                          >
+                            Remover
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <Field label="Equipamento">
+                          <Select
+                            value={item.equipamentoId || undefined}
+                            onValueChange={(value) =>
+                              handleItemEquipamentoChange(index, value)
+                            }
+                          >
+                            <SelectTrigger className="h-11 w-full rounded-2xl bg-white">
+                              <SelectValue placeholder="Selecione o equipamento" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {equipamentos.map((equipamento) => (
+                                <SelectItem key={equipamento.id} value={equipamento.id}>
+                                  {getEquipamentoLabel(equipamento)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </Field>
+
+                        <Field label="Descricao">
+                          <Input
+                            value={item.descricao}
+                            onChange={(event) =>
+                              atualizarItem(index, "descricao", event.target.value)
+                            }
+                            className="h-11 rounded-2xl bg-white"
+                          />
+                        </Field>
+
+                        <Field label="Quantidade">
+                          <Input
+                            inputMode="numeric"
+                            value={item.quantidade}
+                            onChange={(event) =>
+                              atualizarItem(index, "quantidade", event.target.value)
+                            }
+                            className="h-11 rounded-2xl bg-white"
+                          />
+                        </Field>
+
+                        <Field label="Preço por m³ (R$)">
+                          <Input
+                            inputMode="decimal"
+                            value={item.precoM3}
+                            onChange={(event) =>
+                              atualizarItem(index, "precoM3", event.target.value)
+                            }
+                            className="h-11 rounded-2xl bg-white"
+                          />
+                        </Field>
+
+                        <Field label="Volume mínimo (m³)">
+                          <Input
+                            inputMode="decimal"
+                            value={item.volumeMinimoM3}
+                            onChange={(event) =>
+                              atualizarItem(index, "volumeMinimoM3", event.target.value)
+                            }
+                            className="h-11 rounded-2xl bg-white"
+                          />
+                        </Field>
+
+                        <div className="flex min-h-11 items-center justify-end rounded-2xl bg-white px-4 text-sm font-semibold text-[#1A2E5A]">
+                          {formatPreviewCurrency(calcularTotalItem(item))}
+                        </div>
+                      </div>
                     </div>
-                  </Field>
-                </>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={adicionarItem}
+                    className="w-full rounded-2xl border-2 border-dashed border-[#D7DEEA] py-2.5 text-sm font-semibold text-[#1E4FAB] transition-colors hover:border-[#1E4FAB]"
+                  >
+                    + Adicionar equipamento
+                  </button>
+
+                  <div className="flex items-center justify-between rounded-2xl bg-[#1A2E5A] px-4 py-3 text-white">
+                    <span className="text-sm">Total geral</span>
+                    <span className="font-semibold">
+                      {formatPreviewCurrency(totalItensCalculado)}
+                    </span>
+                  </div>
+                </section>
               ) : (
                 <>
+                  <Field label="Quantidade">
+                    <Input
+                      inputMode="numeric"
+                      placeholder="Ex: 2"
+                      value={quantidade}
+                      onChange={(event) => setQuantidade(event.target.value)}
+                      className="h-11 rounded-2xl bg-[#F4F6FA]"
+                    />
+                  </Field>
+                  <Field label="Descricao comercial">
+                    <Input
+                      value={descricaoComercial}
+                      onChange={(event) =>
+                        setDescricaoComercial(event.target.value)
+                      }
+                      className="h-11 rounded-2xl bg-[#F4F6FA]"
+                    />
+                  </Field>
                   <Field label="Horas garantidas">
                     <Input
                       value={horasGarantidas}

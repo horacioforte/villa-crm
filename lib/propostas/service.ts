@@ -67,6 +67,17 @@ type PropostaSnapshotInput = {
     ordem: number;
     conteudoAtual: string;
   }>;
+  itens?: Array<{
+    ordem: number;
+    descricao: string;
+    quantidade: number;
+    precoM3?: DecimalLike | null;
+    volumeMinimoM3?: DecimalLike | null;
+    horasGarantidas?: string | null;
+    precoUnitario?: DecimalLike | null;
+    horaExtra?: DecimalLike | null;
+    valorTotal: DecimalLike;
+  }>;
   createdAt?: Date | string;
 };
 
@@ -183,6 +194,14 @@ export const propostaInclude = {
     include: {
       usuario: true,
       bloco: true,
+    },
+  },
+  itens: {
+    orderBy: {
+      ordem: "asc",
+    },
+    include: {
+      equipamento: true,
     },
   },
   criadoPor: true,
@@ -417,6 +436,7 @@ export function buildPropostaHtmlSnapshot(
     condicoesPagamento:
       proposta.condicoesPagamento ?? template?.condicoesPagamentoPadrao,
     blocos,
+    itens: proposta.itens,
     data: proposta.createdAt ?? new Date(),
   });
 }

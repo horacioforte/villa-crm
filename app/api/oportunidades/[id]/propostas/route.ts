@@ -179,11 +179,22 @@ export async function POST(
     });
     const primeiroItem = itensNormalizados[0];
     const modeloPorM3 =
-      primeiroItem?.precoM3 !== null && primeiroItem?.precoM3 !== undefined;
+      templateUtilizado === BOMBA_TEMPLATE_ID ||
+      (primeiroItem?.precoM3 !== null && primeiroItem?.precoM3 !== undefined);
     const valorTotalCalculado =
       Math.round(
         itensNormalizados.reduce((sum, item) => sum + item.valorTotal, 0) * 100,
       ) / 100;
+
+    if (
+      templateUtilizado === BOMBA_TEMPLATE_ID &&
+      itensNormalizados.some((item) => !item.precoM3 || item.precoM3 <= 0)
+    ) {
+      return NextResponse.json(
+        { message: "Proposta de bomba requer preco por m3." },
+        { status: 400 },
+      );
+    }
 
     if (
       itensNormalizados.some(

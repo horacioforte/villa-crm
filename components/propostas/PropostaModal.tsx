@@ -241,7 +241,8 @@ function createItemFromEquipamento(
   ordem = 0,
 ): PropostaItemForm {
   const precoEquipamento = getEquipamentoPreco(equipamento, tipoOportunidade);
-  const modeloPorM3 = Boolean(equipamento.valorM3);
+  const modeloPorM3 =
+    equipamento.tipo === "BOMBA_CONCRETO" || Boolean(equipamento.valorM3);
 
   return {
     ...createEmptyItem(ordem),
@@ -460,7 +461,9 @@ export function PropostaModal({
       : equipamentoSelecionado
         ? getEquipamentoLabel(equipamentoSelecionado)
         : "Selecione o equipamento";
-  const modeloPorM3 = Boolean(equipamentoSelecionado?.valorM3);
+  const modeloPorM3 =
+    equipamentoSelecionado?.tipo === "BOMBA_CONCRETO" ||
+    Boolean(equipamentoSelecionado?.valorM3);
   const precoM3Calculado = useMemo(() => {
     const parsed = parseCurrencyInput(precoM3);
 
@@ -601,8 +604,22 @@ export function PropostaModal({
 
     const cliente =
       oportunidade.empresa.nomeFantasia ?? oportunidade.empresa.razaoSocial;
+    const primeiroItem = itens[0];
+    const primeiroItemQuantidade = primeiroItem
+      ? (parseQuantidadeInput(primeiroItem.quantidade) ?? 1)
+      : null;
+    const primeiroItemPrecoM3 = primeiroItem
+      ? parseCurrencyInput(primeiroItem.precoM3)
+      : Number.NaN;
+    const primeiroItemVolumeMinimoM3 = primeiroItem
+      ? parseCurrencyInput(primeiroItem.volumeMinimoM3)
+      : Number.NaN;
     const quantidadePreview =
-      quantidadeCalculada === null ? quantidade : String(quantidadeCalculada);
+      modeloPorM3 && primeiroItemQuantidade !== null
+        ? String(primeiroItemQuantidade)
+        : quantidadeCalculada === null
+          ? quantidade
+          : String(quantidadeCalculada);
     const templateVariables = {
       numero_proposta: "PREVIEW",
       cliente,
@@ -612,12 +629,23 @@ export function PropostaModal({
       cidade: oportunidade.obra?.cidade ?? "",
       estado: oportunidade.obra?.estado ?? "",
       quantidade: quantidadePreview,
-      descricao_comercial: descricaoComercial,
+      descricao_comercial:
+        modeloPorM3 && primeiroItem?.descricao
+          ? primeiroItem.descricao
+          : descricaoComercial,
       horas_garantidas: modeloPorM3
-        ? `${formatPreviewVolume(volumeMinimoM3Calculado)} m³`
+        ? `${formatPreviewVolume(
+            Number.isNaN(primeiroItemVolumeMinimoM3)
+              ? volumeMinimoM3Calculado
+              : primeiroItemVolumeMinimoM3,
+          )} m³`
         : horasGarantidas,
       preco_unitario: modeloPorM3
-        ? `${formatPreviewCurrency(precoM3Calculado)}/m³`
+        ? `${formatPreviewCurrency(
+            Number.isNaN(primeiroItemPrecoM3)
+              ? precoM3Calculado
+              : primeiroItemPrecoM3,
+          )}/m³`
         : formatPreviewCurrency(precoUnitarioCalculado),
       valor: formatPreviewCurrency(valorTotalProposta),
       hora_extra: modeloPorM3

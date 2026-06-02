@@ -521,20 +521,20 @@ export const PROPOSTA_TEMPLATES = [
         "Não será concedido desconto por dias parados devido a períodos festivos, feriados ou recessos indicados pela Contratante.",
         "Para cálculo proporcional de valores, considera-se o mês com 30 dias corridos, independentemente do número real de dias.",
       ]),
-      bloco(80, "prazo_duracao", "5. Prazo para inicialização e 6. Duração do contrato", "EDITAVEL_COM_APROVACAO", [
-        "5. Prazo para inicialização do serviço:",
+      bloco(80, "prazo_inicializacao", "5. Prazo para inicialização do serviço", "EDITAVEL_COM_APROVACAO", [
         "O contrato começa a prevalecer na chegada do equipamento à obra, independentemente do tempo em que permaneça parado aguardando trâmites legais da Contratante ou de seu cliente.",
-        "6. Duração do Contrato:",
+      ]),
+      bloco(90, "duracao_contrato", "6. Duração do contrato", "EDITAVEL_COM_APROVACAO", [
         "O contrato terá duração mínima de 03 (três) meses, podendo ser renovado por período maior conforme necessidade da Contratante.",
         "Caso a devolução do equipamento ocorra antes do período mínimo, as mensalidades restantes serão pagas integralmente sem abatimento até a data da efetiva devolução.",
         "O instrumento poderá ser rescindido por qualquer parte, a qualquer momento, sem motivo relevante, mediante comunicação prévia de 15 dias, sempre por e-mail.",
         "A Contratante deverá informar a Contratada com prazo mínimo de 15 dias para devolução do equipamento locado. A falta dessa informação acarretará cobrança da diferença dos dias mencionados.",
       ]),
-      bloco(90, "contrato_pagamento", "7. Elaboração do contrato e 8. Medição, faturamento e pagamento", "EDITAVEL_COM_APROVACAO", [
-        "7. Elaboração do Contrato:",
+      bloco(100, "elaboracao_contrato", "7. Elaboração do contrato", "EDITAVEL_COM_APROVACAO", [
         "Serão feitos dois contratos: um referente a 90% do faturamento, com fatura de locação de equipamento, e outro referente a 10% com nota fiscal de locação de mão de obra.",
         "Esta proposta tem valor de pré-contrato e garante o pagamento das medições mensais nos seus termos, mesmo que o contrato definitivo esteja em assinatura.",
-        "8. Medição, Faturamento e Pagamento:",
+      ]),
+      bloco(110, "medicao_pagamento", "8. Medição, faturamento e pagamento", "EDITAVEL_COM_APROVACAO", [
         "Os serviços executados serão medidos do dia 1º ao último dia do mês anterior ao mês de pagamento.",
         "No primeiro dia útil subsequente aos 30 dias de utilização, a Contratada emitirá Boletim de Medição e enviará à Contratante, que terá até 5 dias corridos para aprovação.",
         "O pagamento deverá ser efetuado exclusivamente via boleto bancário até o 15º dia corrido contado do fechamento da medição.",
@@ -547,13 +547,13 @@ export const PROPOSTA_TEMPLATES = [
         "Após 48 horas do vencimento sem pagamento, a Contratada poderá paralisar a operação sem penalidade, independentemente de notificação, contabilizando o equipamento como à disposição até regularização.",
         "Inadimplência superior a 15 dias autoriza rescisão a critério da Contratada, com pagamento imediato de parcelas em atraso, correções, multas e perdas e danos. A Contratante deverá devolver o equipamento no prazo máximo de 10 dias úteis, assumindo custos de remoção, transporte e logística.",
       ]),
-      bloco(100, "reajuste_validade", "9. Reajustes e 10. Validade da proposta", "EDITAVEL_COM_APROVACAO", [
-        "9. Reajustes:",
+      bloco(120, "reajustes", "9. Reajustes", "EDITAVEL_COM_APROVACAO", [
         "Os preços estabelecidos nesta proposta serão reajustados anualmente, com base nos índices de reajustes da construção civil que melhor se adequarem ao serviço prestado de acordo com a FGV.",
-        "10. Validade da proposta:",
+      ]),
+      bloco(130, "validade", "10. Validade da proposta", "EDITAVEL_COM_APROVACAO", [
         "A proposta terá validade de {{validade}}.",
       ]),
-      bloco(110, "assinaturas", "11. Aceite, assinaturas e testemunhas", "BLOQUEADO", [
+      bloco(140, "assinaturas", "11. Aceite, assinaturas e testemunhas", "BLOQUEADO", [
         "Confirmamos e estamos de acordo com os serviços ofertados nesta proposta de nº {{numero_proposta}}, como também todos os seus termos.",
         "{{cliente}}",
         "_________________________________",

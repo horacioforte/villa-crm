@@ -54,7 +54,10 @@ type PropostaItemSnapshot = {
 };
 
 type PropostaBlocoAplicavel = {
+  id?: string;
   chave?: string;
+  titulo: string;
+  ordem: number;
   conteudoAtual: string;
   conteudoOriginal?: string;
 };
@@ -89,32 +92,41 @@ type PropostaSnapshotInput = {
   createdAt?: Date | string;
 };
 
-const bombaHoraExtraMatchers = [
-  { keys: ["28"], pattern: /auto bomba lan[cç]a 28 metros/i },
-  { keys: ["32"], pattern: /auto bomba lan[cç]a 32 metros/i },
-  { keys: ["36"], pattern: /auto bomba lan[cç]a 36 metros/i },
-  { keys: ["38"], pattern: /auto bomba lan[cç]a 38 metros/i },
-  { keys: ["42", "43"], pattern: /auto bomba lan[cç]a 42\/43 metros/i },
-  { keys: ["56", "58"], pattern: /auto bomba lan[cç]a 56\/58 metros/i },
+const bombaHoraExtraPatterns = [
+  /auto bomba lan[cç]a 28 metros/i,
+  /auto bomba lan[cç]a 32 metros/i,
+  /auto bomba lan[cç]a 36 metros/i,
+  /auto bomba lan[cç]a 38 metros/i,
+  /auto bomba lan[cç]a 42\/43 metros/i,
+  /auto bomba lan[cç]a 56\/58 metros/i,
 ];
 
-function itemSolicitaHoraExtraPadrao(descricao: string, line: string) {
+function getHoraExtraBombaPadrao(descricao: string) {
   const normalizedDescricao = descricao.toLowerCase();
-  const matcher = bombaHoraExtraMatchers.find((item) => item.pattern.test(line));
 
-  if (!matcher) {
-    return false;
+  if (normalizedDescricao.includes("56") || normalizedDescricao.includes("58")) {
+    return 450;
   }
 
-  return matcher.keys.some((key) => normalizedDescricao.includes(key));
+  if (
+    ["28", "32", "36", "38", "42", "43"].some((metragem) =>
+      normalizedDescricao.includes(metragem),
+    )
+  ) {
+    return 350;
+  }
+
+  return null;
 }
 
 function formatHoraExtraItem(item: PropostaItemSnapshot) {
-  if (!item.horaExtra) {
+  const horaExtra = item.horaExtra ?? getHoraExtraBombaPadrao(item.descricao);
+
+  if (!horaExtra) {
     return null;
   }
 
-  return `${item.descricao}: ${formatCurrency(item.horaExtra)} por hora excedente.`;
+  return `${item.descricao}: ${formatCurrency(horaExtra)} por hora excedente.`;
 }
 
 function filtrarTrabalhoExtraBomba(
@@ -126,24 +138,136 @@ function filtrarTrabalhoExtraBomba(
   }
 
   const linhas = content.split("\n");
-  const linhasPadrao = linhas.filter((line) =>
-    bombaHoraExtraMatchers.some((matcher) => matcher.pattern.test(line)),
-  );
-  const linhasSolicitadas = linhasPadrao.filter((line) =>
-    itens.some((item) => itemSolicitaHoraExtraPadrao(item.descricao, line)),
-  );
   const linhasManuais = itens
     .map((item) => formatHoraExtraItem(item))
     .filter(Boolean) as string[];
-  const linhasPermitidas = new Set([...linhasSolicitadas, ...linhasManuais]);
+  const linhasFinais = linhas.filter(
+    (line) =>
+      !bombaHoraExtraPatterns.some((pattern) => pattern.test(line)),
+  );
+  const insertIndex = Math.max(
+    1,
+    linhasFinais.findIndex((line) => line.startsWith("Não será concedido")),
+  );
 
-  return linhas
-    .filter(
-      (line) =>
-        !linhasPadrao.includes(line) ||
-        linhasPermitidas.has(line),
-    )
-    .join("\n");
+  linhasFinais.splice(insertIndex, 0, ...linhasManuais);
+
+  return linhasFinais.join("\n");
+}
+
+function splitConteudoPorMarcador(content: string, marcador: string) {
+  const linhas = content.split("\n");
+  const index = linhas.findIndex((line) =>
+    line.toLowerCase().startsWith(marcador.toLowerCase()),
+  );
+
+  if (index < 0) {
+    return [content, ""] as const;
+  }
+
+  const limparTitulo = (line: string) =>
+    /^\d+\.\s/.test(line.trim()) ? "" : line;
+
+  return [
+    linhas.slice(0, index).map(limparTitulo).filter(Boolean).join("\n"),
+    linhas.slice(index + 1).map(limparTitulo).filter(Boolean).join("\n"),
+  ] as const;
+}
+
+function splitBlocoCombinado<T extends PropostaBlocoAplicavel>(
+  bloco: T,
+  config: {
+    marcador: string;
+    first: { chave: string; titulo: string; ordem: number };
+    second: { chave: string; titulo: string; ordem: number };
+  },
+) {
+  const [firstAtual, secondAtual] = splitConteudoPorMarcador(
+    bloco.conteudoAtual,
+    config.marcador,
+  );
+  const [firstOriginal, secondOriginal] = bloco.conteudoOriginal
+    ? splitConteudoPorMarcador(bloco.conteudoOriginal, config.marcador)
+    : [undefined, undefined];
+
+  return [
+    {
+      ...bloco,
+      id: bloco.id ? `${bloco.id}-${config.first.chave}` : undefined,
+      chave: config.first.chave,
+      titulo: config.first.titulo,
+      ordem: config.first.ordem,
+      conteudoAtual: firstAtual,
+      ...(firstOriginal ? { conteudoOriginal: firstOriginal } : {}),
+    },
+    {
+      ...bloco,
+      id: bloco.id ? `${bloco.id}-${config.second.chave}` : undefined,
+      chave: config.second.chave,
+      titulo: config.second.titulo,
+      ordem: config.second.ordem,
+      conteudoAtual: secondAtual,
+      ...(secondOriginal ? { conteudoOriginal: secondOriginal } : {}),
+    },
+  ] as T[];
+}
+
+function separarClausulasBomba<T extends PropostaBlocoAplicavel>(blocos: T[]) {
+  return blocos.flatMap((bloco) => {
+    if (bloco.chave === "prazo_duracao") {
+      return splitBlocoCombinado(bloco, {
+        marcador: "6. Duração",
+        first: {
+          chave: "prazo_inicializacao",
+          titulo: "5. Prazo para inicialização do serviço",
+          ordem: 80,
+        },
+        second: {
+          chave: "duracao_contrato",
+          titulo: "6. Duração do contrato",
+          ordem: 90,
+        },
+      });
+    }
+
+    if (bloco.chave === "contrato_pagamento") {
+      return splitBlocoCombinado(bloco, {
+        marcador: "8. Medição",
+        first: {
+          chave: "elaboracao_contrato",
+          titulo: "7. Elaboração do contrato",
+          ordem: 100,
+        },
+        second: {
+          chave: "medicao_pagamento",
+          titulo: "8. Medição, faturamento e pagamento",
+          ordem: 110,
+        },
+      });
+    }
+
+    if (bloco.chave === "reajuste_validade") {
+      return splitBlocoCombinado(bloco, {
+        marcador: "10. Validade",
+        first: {
+          chave: "reajustes",
+          titulo: "9. Reajustes",
+          ordem: 120,
+        },
+        second: {
+          chave: "validade",
+          titulo: "10. Validade da proposta",
+          ordem: 130,
+        },
+      });
+    }
+
+    if (bloco.chave === "assinaturas" && bloco.ordem < 140) {
+      return [{ ...bloco, ordem: 140 }];
+    }
+
+    return [bloco];
+  });
 }
 
 function aplicarRegrasBlocosProposta<T extends PropostaBlocoAplicavel>(
@@ -154,7 +278,7 @@ function aplicarRegrasBlocosProposta<T extends PropostaBlocoAplicavel>(
     return blocos;
   }
 
-  return blocos.map((bloco) =>
+  return separarClausulasBomba(blocos).map((bloco) =>
     bloco.chave === "trabalho_extra"
       ? {
           ...bloco,

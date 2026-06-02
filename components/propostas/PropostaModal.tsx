@@ -235,6 +235,24 @@ function getEquipamentoPreco(
   return null;
 }
 
+function getHoraExtraBombaPadrao(descricao: string) {
+  const normalized = descricao.toLowerCase();
+
+  if (normalized.includes("56") || normalized.includes("58")) {
+    return "450,00";
+  }
+
+  if (
+    ["28", "32", "36", "38", "42", "43"].some((metragem) =>
+      normalized.includes(metragem),
+    )
+  ) {
+    return "350,00";
+  }
+
+  return "";
+}
+
 function createItemFromEquipamento(
   equipamento: EquipamentoProposta,
   tipoOportunidade: OportunidadeProposta["tipo"] | null | undefined,
@@ -262,7 +280,9 @@ function createItemFromEquipamento(
         : "",
     modeloPorM3,
     horasGarantidas: modeloPorM3 ? "" : DEFAULT_TEMPLATE.defaults.horasGarantidas,
-    horaExtra: modeloPorM3 ? "" : (DEFAULT_TEMPLATE.defaults.horaExtra ?? ""),
+    horaExtra: modeloPorM3
+      ? getHoraExtraBombaPadrao(equipamento.nome)
+      : (DEFAULT_TEMPLATE.defaults.horaExtra ?? ""),
   };
 }
 
@@ -271,14 +291,19 @@ function buildM3BlocosSnapshot(
   variables: Parameters<typeof buildTemplateBlocosSnapshot>[1],
   itens: PropostaItemForm[] = [],
 ) {
-  const horaExtraMatchers = [
-    { keys: ["28"], pattern: /auto bomba lan[cç]a 28 metros/i },
-    { keys: ["32"], pattern: /auto bomba lan[cç]a 32 metros/i },
-    { keys: ["36"], pattern: /auto bomba lan[cç]a 36 metros/i },
-    { keys: ["38"], pattern: /auto bomba lan[cç]a 38 metros/i },
-    { keys: ["42", "43"], pattern: /auto bomba lan[cç]a 42\/43 metros/i },
-    { keys: ["56", "58"], pattern: /auto bomba lan[cç]a 56\/58 metros/i },
-  ];
+  const linhasHoraExtra = itens
+    .map((item) => {
+      const horaExtra = parseCurrencyInput(item.horaExtra);
+
+      if (Number.isNaN(horaExtra) || horaExtra <= 0) {
+        return null;
+      }
+
+      return `${item.descricao}: ${formatPreviewCurrency(
+        horaExtra,
+      )} por hora excedente.`;
+    })
+    .filter(Boolean) as string[];
 
   return buildTemplateBlocosSnapshot(templateUtilizado, variables)
     .filter((bloco) => bloco.chave !== "precos_referencia")
@@ -299,27 +324,20 @@ function buildM3BlocosSnapshot(
               )
               .join("\n"),
           }
-        : bloco.chave === "trabalho_extra" && itens.length
+        : bloco.chave === "trabalho_extra" && linhasHoraExtra.length
           ? {
               ...bloco,
-              conteudoAtual: bloco.conteudoAtual
-                .split("\n")
-                .filter((line) => {
-                  const matcher = horaExtraMatchers.find((item) =>
-                    item.pattern.test(line),
-                  );
-
-                  if (!matcher) {
-                    return true;
-                  }
-
-                  return itens.some((item) =>
-                    matcher.keys.some((key) =>
-                      item.descricao.toLowerCase().includes(key),
-                    ),
-                  );
-                })
-                .join("\n"),
+              conteudoAtual: [
+                bloco.conteudoAtual.split("\n")[0],
+                ...linhasHoraExtra,
+                ...bloco.conteudoAtual
+                  .split("\n")
+                  .filter(
+                    (line) =>
+                      line.startsWith("Não será concedido") ||
+                      line.startsWith("Para cálculo"),
+                  ),
+              ].join("\n"),
             }
         : bloco,
     );
@@ -1102,6 +1120,17 @@ export function PropostaModal({
                             value={item.volumeMinimoM3}
                             onChange={(event) =>
                               atualizarItem(index, "volumeMinimoM3", event.target.value)
+                            }
+                            className="h-11 rounded-2xl bg-white"
+                          />
+                        </Field>
+
+                        <Field label="Hora extra (R$/h)">
+                          <Input
+                            inputMode="decimal"
+                            value={item.horaExtra}
+                            onChange={(event) =>
+                              atualizarItem(index, "horaExtra", event.target.value)
                             }
                             className="h-11 rounded-2xl bg-white"
                           />

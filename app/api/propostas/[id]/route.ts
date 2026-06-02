@@ -48,9 +48,19 @@ export async function GET(request: Request, context: PropostaRouteContext) {
     proposta,
     proposta.oportunidade,
   );
-  const htmlSnapshot =
+  const blocosIguais =
     blocos.length === proposta.blocos.length &&
-    templateUtilizado === proposta.templateUtilizado
+    blocos.every((bloco, index) => {
+      const original = proposta.blocos[index];
+
+      return (
+        original &&
+        bloco.chave === original.chave &&
+        bloco.conteudoAtual === original.conteudoAtual
+      );
+    });
+  const htmlSnapshot =
+    blocosIguais && templateUtilizado === proposta.templateUtilizado
       ? proposta.htmlSnapshot
       : buildPropostaHtmlSnapshot(
           {

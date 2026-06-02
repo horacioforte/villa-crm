@@ -41,6 +41,24 @@ type OportunidadeProposta = {
   } | null;
 };
 
+type PropostaItemSnapshot = {
+  ordem: number;
+  descricao: string;
+  quantidade: number;
+  precoM3?: DecimalLike | null;
+  volumeMinimoM3?: DecimalLike | null;
+  horasGarantidas?: string | null;
+  precoUnitario?: DecimalLike | null;
+  horaExtra?: DecimalLike | null;
+  valorTotal: DecimalLike;
+};
+
+type PropostaBlocoAplicavel = {
+  chave?: string;
+  conteudoAtual: string;
+  conteudoOriginal?: string;
+};
+
 type PropostaSnapshotInput = {
   numeroProposta: string;
   versao: number;
@@ -67,19 +85,94 @@ type PropostaSnapshotInput = {
     ordem: number;
     conteudoAtual: string;
   }>;
-  itens?: Array<{
-    ordem: number;
-    descricao: string;
-    quantidade: number;
-    precoM3?: DecimalLike | null;
-    volumeMinimoM3?: DecimalLike | null;
-    horasGarantidas?: string | null;
-    precoUnitario?: DecimalLike | null;
-    horaExtra?: DecimalLike | null;
-    valorTotal: DecimalLike;
-  }>;
+  itens?: PropostaItemSnapshot[];
   createdAt?: Date | string;
 };
+
+const bombaHoraExtraMatchers = [
+  { keys: ["32"], pattern: /auto bomba lan[cç]a 32 metros/i },
+  { keys: ["36"], pattern: /auto bomba lan[cç]a 36 metros/i },
+  { keys: ["38"], pattern: /auto bomba lan[cç]a 38 metros/i },
+  { keys: ["42", "43"], pattern: /auto bomba lan[cç]a 42\/43 metros/i },
+  { keys: ["56", "58"], pattern: /auto bomba lan[cç]a 56\/58 metros/i },
+];
+
+function itemSolicitaHoraExtraPadrao(descricao: string, line: string) {
+  const normalizedDescricao = descricao.toLowerCase();
+  const matcher = bombaHoraExtraMatchers.find((item) => item.pattern.test(line));
+
+  if (!matcher) {
+    return false;
+  }
+
+  return matcher.keys.some((key) => normalizedDescricao.includes(key));
+}
+
+function formatHoraExtraItem(item: PropostaItemSnapshot) {
+  if (!item.horaExtra) {
+    return null;
+  }
+
+  return `${item.descricao}: ${formatCurrency(item.horaExtra)} por hora excedente.`;
+}
+
+function filtrarTrabalhoExtraBomba(
+  content: string,
+  itens: PropostaSnapshotInput["itens"] | undefined,
+) {
+  if (!itens?.length) {
+    return content;
+  }
+
+  const linhas = content.split("\n");
+  const linhasPadrao = linhas.filter((line) =>
+    bombaHoraExtraMatchers.some((matcher) => matcher.pattern.test(line)),
+  );
+  const linhasSolicitadas = linhasPadrao.filter((line) =>
+    itens.some((item) => itemSolicitaHoraExtraPadrao(item.descricao, line)),
+  );
+  const linhasManuais = itens
+    .map((item) => formatHoraExtraItem(item))
+    .filter(Boolean) as string[];
+  const linhasPermitidas = new Set([...linhasSolicitadas, ...linhasManuais]);
+
+  return linhas
+    .filter(
+      (line) =>
+        !linhasPadrao.includes(line) ||
+        linhasPermitidas.has(line),
+    )
+    .join("\n");
+}
+
+function aplicarRegrasBlocosProposta<T extends PropostaBlocoAplicavel>(
+  proposta: PropostaSnapshotInput,
+  blocos: T[],
+) {
+  if (proposta.templateUtilizado !== BOMBA_TEMPLATE_ID) {
+    return blocos;
+  }
+
+  return blocos.map((bloco) =>
+    bloco.chave === "trabalho_extra"
+      ? {
+          ...bloco,
+          conteudoAtual: filtrarTrabalhoExtraBomba(
+            bloco.conteudoAtual,
+            proposta.itens,
+          ),
+          ...(bloco.conteudoOriginal
+            ? {
+                conteudoOriginal: filtrarTrabalhoExtraBomba(
+                  bloco.conteudoOriginal,
+                  proposta.itens,
+                ),
+              }
+            : {}),
+        }
+      : bloco,
+  );
+}
 
 export function isPropostaModeloM3(
   proposta: Pick<PropostaSnapshotInput, "precoM3" | "volumeMinimoM3">,
@@ -158,7 +251,10 @@ export function getPropostaBlocosExibicaoCompleta(
     );
   }
 
-  return getPropostaBlocosExibicao(proposta, proposta.blocos ?? []);
+  return aplicarRegrasBlocosProposta(
+    { ...proposta, templateUtilizado },
+    getPropostaBlocosExibicao(proposta, proposta.blocos ?? []),
+  );
 }
 
 export const propostaInclude = {
@@ -377,7 +473,7 @@ export function buildPropostaBlocosSnapshot(
     return blocos;
   }
 
-  return getPropostaBlocosExibicao(proposta, blocos)
+  const blocosModeloM3 = getPropostaBlocosExibicao(proposta, blocos)
     .map((bloco) =>
       bloco.chave === "precos"
         ? {
@@ -397,6 +493,8 @@ export function buildPropostaBlocosSnapshot(
           }
         : bloco,
     );
+
+  return aplicarRegrasBlocosProposta(proposta, blocosModeloM3);
 }
 
 export function buildPropostaHtmlSnapshot(

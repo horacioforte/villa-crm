@@ -269,7 +269,16 @@ function createItemFromEquipamento(
 function buildM3BlocosSnapshot(
   templateUtilizado: string,
   variables: Parameters<typeof buildTemplateBlocosSnapshot>[1],
+  itens: PropostaItemForm[] = [],
 ) {
+  const horaExtraMatchers = [
+    { keys: ["32"], pattern: /auto bomba lan[cç]a 32 metros/i },
+    { keys: ["36"], pattern: /auto bomba lan[cç]a 36 metros/i },
+    { keys: ["38"], pattern: /auto bomba lan[cç]a 38 metros/i },
+    { keys: ["42", "43"], pattern: /auto bomba lan[cç]a 42\/43 metros/i },
+    { keys: ["56", "58"], pattern: /auto bomba lan[cç]a 56\/58 metros/i },
+  ];
+
   return buildTemplateBlocosSnapshot(templateUtilizado, variables)
     .filter((bloco) => bloco.chave !== "precos_referencia")
     .map((bloco) =>
@@ -289,6 +298,28 @@ function buildM3BlocosSnapshot(
               )
               .join("\n"),
           }
+        : bloco.chave === "trabalho_extra" && itens.length
+          ? {
+              ...bloco,
+              conteudoAtual: bloco.conteudoAtual
+                .split("\n")
+                .filter((line) => {
+                  const matcher = horaExtraMatchers.find((item) =>
+                    item.pattern.test(line),
+                  );
+
+                  if (!matcher) {
+                    return true;
+                  }
+
+                  return itens.some((item) =>
+                    matcher.keys.some((key) =>
+                      item.descricao.toLowerCase().includes(key),
+                    ),
+                  );
+                })
+                .join("\n"),
+            }
         : bloco,
     );
 }
@@ -461,6 +492,15 @@ export function PropostaModal({
       : equipamentoSelecionado
         ? getEquipamentoLabel(equipamentoSelecionado)
         : "Selecione o equipamento";
+  const getItemEquipamentoLabel = (item: PropostaItemForm) => {
+    const equipamento = equipamentos.find(
+      (current) => current.id === item.equipamentoId,
+    );
+
+    return equipamento
+      ? getEquipamentoLabel(equipamento)
+      : item.descricao || "Selecione o equipamento";
+  };
   const modeloPorM3 =
     equipamentoSelecionado?.tipo === "BOMBA_CONCRETO" ||
     Boolean(equipamentoSelecionado?.valorM3);
@@ -661,7 +701,7 @@ export function PropostaModal({
       ...getPluralVariables(quantidadePreview),
     };
     const blocos = modeloPorM3
-      ? buildM3BlocosSnapshot(templateUtilizado, templateVariables)
+      ? buildM3BlocosSnapshot(templateUtilizado, templateVariables, itens)
       : buildTemplateBlocosSnapshot(templateUtilizado, templateVariables);
     const itensPreview = itens.map((item, index) => ({
       ordem: index,
@@ -1006,7 +1046,12 @@ export function PropostaModal({
                             }
                           >
                             <SelectTrigger className="h-11 w-full rounded-2xl bg-white">
-                              <SelectValue placeholder="Selecione o equipamento" />
+                              <span
+                                data-slot="select-value"
+                                className="flex flex-1 items-center gap-1.5 truncate text-left"
+                              >
+                                {getItemEquipamentoLabel(item)}
+                              </span>
                             </SelectTrigger>
                             <SelectContent>
                               {equipamentos.map((equipamento) => (

@@ -90,6 +90,31 @@ type PropostaItemForm = {
   ordem: number;
 };
 
+type TipoProposta = "BETONEIRA" | "BOMBA" | "CENTRAL" | "TELEBELT" | "OUTRO";
+type ModoModal = "escolha" | "nova_proposta" | "revisao";
+
+type PropostaGrupoResumo = {
+  id: string;
+  numero: string;
+  tipoProposta: TipoProposta;
+  descricao: string | null;
+  versoes: Array<{
+    id: string;
+    versao: number;
+    ativa: boolean;
+    valorTotal: string | number;
+    status: string;
+  }>;
+};
+
+const tipoPropostaLabels: Record<TipoProposta, string> = {
+  BETONEIRA: "Betoneira",
+  BOMBA: "Bomba de concreto",
+  CENTRAL: "Central de concreto",
+  TELEBELT: "Telebelt",
+  OUTRO: "Outro",
+};
+
 const templateItems = PROPOSTA_TEMPLATES.map((template) => ({
   label: template.nome,
   value: template.id,
@@ -355,6 +380,10 @@ export function PropostaModal({
     null,
   );
   const [equipamentos, setEquipamentos] = useState<EquipamentoProposta[]>([]);
+  const [propostasGrupo, setPropostasGrupo] = useState<PropostaGrupoResumo[]>([]);
+  const [modoModal, setModoModal] = useState<ModoModal>("escolha");
+  const [propostaGrupoId, setPropostaGrupoId] = useState<string | null>(null);
+  const [tipoProposta, setTipoProposta] = useState<TipoProposta>("BETONEIRA");
   const [equipamentoSelecionadoId, setEquipamentoSelecionadoId] = useState<string>(
     MANUAL_EQUIPAMENTO_VALUE,
   );
@@ -398,21 +427,36 @@ export function PropostaModal({
     async function loadOportunidade() {
       setIsLoading(true);
       setIsPreviewVisible(false);
+      setModoModal("escolha");
+      setPropostaGrupoId(null);
 
       try {
-        const [oportunidadeResponse, equipamentosResponse] = await Promise.all([
+        const [
+          oportunidadeResponse,
+          equipamentosResponse,
+          propostasResponse,
+        ] = await Promise.all([
           fetch(`/api/oportunidades/${oportunidadeId}`),
           fetch("/api/equipamentos"),
+          fetch(`/api/oportunidades/${oportunidadeId}/propostas`),
         ]);
 
-        if (!oportunidadeResponse.ok || !equipamentosResponse.ok) {
+        if (
+          !oportunidadeResponse.ok ||
+          !equipamentosResponse.ok ||
+          !propostasResponse.ok
+        ) {
           throw new Error("Falha ao carregar oportunidade.");
         }
 
-        const [data, equipamentosData] = await Promise.all([
+        const [data, equipamentosData, propostasData] = await Promise.all([
           oportunidadeResponse.json(),
           equipamentosResponse.json(),
+          propostasResponse.json(),
         ]);
+        const gruposDisponiveis = Array.isArray(propostasData?.grupos)
+          ? propostasData.grupos
+          : [];
         const equipamentosDisponiveis = Array.isArray(equipamentosData)
           ? equipamentosData
           : [];
@@ -438,6 +482,10 @@ export function PropostaModal({
         setTemplateUtilizado(initialTemplate.id);
         setOportunidade(data);
         setEquipamentos(equipamentosComVinculado);
+        setPropostasGrupo(gruposDisponiveis);
+        setTipoProposta(
+          initialTemplate.id === BOMBA_TEMPLATE_ID ? "BOMBA" : "BETONEIRA",
+        );
         setEquipamentoSelecionadoId(
           equipamentoInicial?.id ?? MANUAL_EQUIPAMENTO_VALUE,
         );
@@ -550,6 +598,10 @@ export function PropostaModal({
   const valorTotalProposta = modeloPorM3
     ? totalItensCalculado
     : valorTotalCalculado;
+  const propostaGrupoSelecionada =
+    propostasGrupo.find((grupo) => grupo.id === propostaGrupoId) ?? null;
+  const getVersaoAtiva = (grupo: PropostaGrupoResumo) =>
+    grupo.versoes.find((versao) => versao.ativa) ?? grupo.versoes[0] ?? null;
 
   function handleEquipamentoChange(value: string | null) {
     const nextValue = value ?? MANUAL_EQUIPAMENTO_VALUE;
@@ -799,6 +851,21 @@ export function PropostaModal({
       return;
     }
 
+    if (modoModal === "escolha") {
+      toast.error("Escolha se deseja criar nova proposta ou revisar uma existente.");
+      return;
+    }
+
+    if (modoModal === "nova_proposta" && !tipoProposta) {
+      toast.error("Informe o tipo da proposta.");
+      return;
+    }
+
+    if (modoModal === "revisao" && !propostaGrupoSelecionada) {
+      toast.error("Selecione a proposta que deseja revisar.");
+      return;
+    }
+
     if (quantidadeCalculada === null) {
       toast.error("Informe uma quantidade inteira positiva.");
       return;
@@ -864,6 +931,13 @@ export function PropostaModal({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            modo: modoModal,
+            tipoProposta:
+              modoModal === "nova_proposta" ? tipoProposta : undefined,
+            descricaoProposta:
+              modoModal === "nova_proposta" ? descricaoComercial : undefined,
+            propostaId:
+              modoModal === "revisao" ? propostaGrupoSelecionada?.id : undefined,
             templateUtilizado,
             valorTotal: valorTotalProposta,
             quantidade: modeloPorM3
@@ -912,6 +986,131 @@ export function PropostaModal({
     }
   }
 
+  if (!isLoading && modoModal === "escolha") {
+    return (
+      <Dialog
+        open={aberto}
+        onOpenChange={(open) => {
+          if (!open) {
+            onFechar();
+          }
+        }}
+      >
+        <DialogContent className="max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-[#1A2E5A]">
+              Nova proposta
+            </DialogTitle>
+            <DialogDescription>
+              Escolha se deseja criar uma proposta independente ou revisar uma
+              proposta existente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <button
+              type="button"
+              onClick={() => setModoModal("nova_proposta")}
+              className="w-full rounded-2xl border-2 border-[#1E4FAB] bg-white p-4 text-left transition-colors hover:bg-[#F4F6FA]"
+            >
+              <p className="font-semibold text-[#1A2E5A]">
+                Criar nova proposta independente
+              </p>
+              <p className="mt-1 text-sm text-[#667085]">
+                Cria um novo número de proposta para Betoneira, Bomba, Central
+                ou outro serviço.
+              </p>
+            </button>
+            <button
+              type="button"
+              disabled={propostasGrupo.length === 0}
+              onClick={() => setModoModal("revisao")}
+              className="w-full rounded-2xl border-2 border-[#D7DEEA] bg-white p-4 text-left transition-colors hover:bg-[#F4F6FA] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <p className="font-semibold text-[#1A2E5A]">
+                Revisar proposta existente
+              </p>
+              <p className="mt-1 text-sm text-[#667085]">
+                Cria uma nova versão mantendo o número da proposta escolhida.
+              </p>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (!isLoading && modoModal === "revisao" && !propostaGrupoSelecionada) {
+    return (
+      <Dialog
+        open={aberto}
+        onOpenChange={(open) => {
+          if (!open) {
+            onFechar();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-[#1A2E5A]">
+              Qual proposta deseja revisar?
+            </DialogTitle>
+            <DialogDescription>
+              A nova revisão será criada como versão ativa e a anterior ficará
+              arquivada.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {propostasGrupo.map((grupo) => {
+              const ativa = getVersaoAtiva(grupo);
+
+              return (
+                <button
+                  key={grupo.id}
+                  type="button"
+                  onClick={() => {
+                    setPropostaGrupoId(grupo.id);
+                    setTipoProposta(grupo.tipoProposta);
+                  }}
+                  className="w-full rounded-2xl border border-[#D7DEEA] bg-white p-4 text-left transition-colors hover:bg-[#F4F6FA]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[#1A2E5A]">
+                        {tipoPropostaLabels[grupo.tipoProposta]}
+                      </p>
+                      {grupo.descricao ? (
+                        <p className="mt-1 text-xs text-[#667085]">
+                          {grupo.descricao}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="text-xs font-semibold text-[#667085]">
+                      {grupo.numero}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-[#667085]">
+                    Versão ativa: v{ativa?.versao ?? "?"} ·{" "}
+                    {formatPreviewCurrency(Number(ativa?.valorTotal ?? 0))}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setModoModal("escolha")}
+              className="rounded-2xl"
+            >
+              Voltar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog
       open={aberto}
@@ -942,6 +1141,38 @@ export function PropostaModal({
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-5 py-4 sm:px-6">
             <div className="grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+              {modoModal === "nova_proposta" ? (
+                <Field label="Tipo de proposta" className="lg:col-span-2">
+                  <Select
+                    value={tipoProposta}
+                    onValueChange={(value) =>
+                      setTipoProposta((value as TipoProposta) ?? "OUTRO")
+                    }
+                  >
+                    <SelectTrigger className="h-11 w-full rounded-2xl bg-[#F4F6FA]">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(tipoPropostaLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              ) : propostaGrupoSelecionada ? (
+                <section className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-3 lg:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">
+                    Revisão de proposta
+                  </p>
+                  <p className="mt-1 font-semibold text-[#1A2E5A]">
+                    {tipoPropostaLabels[propostaGrupoSelecionada.tipoProposta]} ·{" "}
+                    {propostaGrupoSelecionada.numero}
+                  </p>
+                </section>
+              ) : null}
+
               <Field label="Template" className="lg:col-span-2">
                 <Select
                   items={templateItems}

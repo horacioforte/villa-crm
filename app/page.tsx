@@ -532,11 +532,11 @@ export default async function Home() {
         },
         propostas: {
           where: {
+            ativa: true,
             status: {
-              in: [
-                StatusPropostaComercial.ENVIADA,
-                StatusPropostaComercial.APROVADA,
-                StatusPropostaComercial.ACEITA,
+              notIn: [
+                StatusPropostaComercial.CANCELADA,
+                StatusPropostaComercial.REJEITADA,
               ],
             },
           },
@@ -792,10 +792,11 @@ export default async function Home() {
     prisma.propostaComercial.aggregate({
       where: {
         ...propostaAccessWhere,
+        ativa: true,
         status: {
-          in: [
-            StatusPropostaComercial.ENVIADA,
-            StatusPropostaComercial.APROVADA,
+          notIn: [
+            StatusPropostaComercial.CANCELADA,
+            StatusPropostaComercial.REJEITADA,
           ],
         },
       },
@@ -806,10 +807,11 @@ export default async function Home() {
     prisma.propostaComercial.count({
       where: {
         ...propostaAccessWhere,
+        ativa: true,
         status: {
-          in: [
-            StatusPropostaComercial.ENVIADA,
-            StatusPropostaComercial.APROVADA,
+          notIn: [
+            StatusPropostaComercial.CANCELADA,
+            StatusPropostaComercial.REJEITADA,
           ],
         },
       },
@@ -867,10 +869,11 @@ export default async function Home() {
     prisma.propostaComercial.count({
       where: {
         ...propostaAccessWhere,
+        ativa: true,
         status: {
-          in: [
-            StatusPropostaComercial.ENVIADA,
-            StatusPropostaComercial.APROVADA,
+          notIn: [
+            StatusPropostaComercial.CANCELADA,
+            StatusPropostaComercial.REJEITADA,
           ],
         },
         oportunidade: {
@@ -903,10 +906,11 @@ export default async function Home() {
     prisma.propostaComercial.count({
       where: {
         ...propostaAccessWhere,
+        ativa: true,
         status: {
-          in: [
-            StatusPropostaComercial.ENVIADA,
-            StatusPropostaComercial.APROVADA,
+          notIn: [
+            StatusPropostaComercial.CANCELADA,
+            StatusPropostaComercial.REJEITADA,
           ],
         },
         oportunidade: {

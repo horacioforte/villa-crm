@@ -5,9 +5,9 @@ import { auditLog } from "@/lib/audit";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import {
-  buildNumeroProposta,
   buildPropostaBlocosSnapshot,
   buildPropostaHtmlSnapshot,
+  gerarNumeroProposta,
   getOportunidadeAccessWhere,
   propostaInclude,
 } from "@/lib/propostas/service";
@@ -15,6 +15,7 @@ import { getPropostaTemplate } from "@/lib/propostas/templates";
 import { propostaCreateSchema } from "@/lib/validations/proposta";
 
 const BOMBA_TEMPLATE_ID = "locacao-bomba-concreto-com-operacao";
+const STATUS_EXCLUIDOS_TOTAL = new Set(["CANCELADA", "REJEITADA"]);
 
 type OportunidadePropostasRouteContext = {
   params: Promise<{
@@ -60,9 +61,31 @@ export async function GET(
   }
 
   try {
-    const propostas = await prisma.propostaComercial.findMany({
+    const grupos = await prisma.proposta.findMany({
       where: {
         oportunidadeId: id,
+      },
+      orderBy: {
+        criadoEm: "asc",
+      },
+      include: {
+        versoes: {
+          orderBy: [
+            {
+              versao: "desc",
+            },
+            {
+              createdAt: "desc",
+            },
+          ],
+          include: propostaInclude,
+        },
+      },
+    });
+    const legadas = await prisma.propostaComercial.findMany({
+      where: {
+        oportunidadeId: id,
+        propostaId: null,
       },
       orderBy: [
         {
@@ -74,11 +97,57 @@ export async function GET(
       ],
       include: propostaInclude,
     });
+    const totalProposto =
+      Math.round(
+        grupos.reduce((soma, grupo) => {
+          const ativa = grupo.versoes.find(
+            (versao) =>
+              versao.ativa && !STATUS_EXCLUIDOS_TOTAL.has(versao.status),
+          );
 
-    return NextResponse.json(propostas);
+          return soma + Number(ativa?.valorTotal ?? 0);
+        }, 0) * 100,
+      ) / 100;
+
+    return NextResponse.json({ grupos, legadas, totalProposto });
   } catch (error) {
     console.error("Falha ao carregar propostas da oportunidade", error);
-    return NextResponse.json([]);
+
+    try {
+      const propostasLegadas = await prisma.propostaComercial.findMany({
+        where: {
+          oportunidadeId: id,
+        },
+        orderBy: [
+          {
+            versao: "desc",
+          },
+          {
+            createdAt: "desc",
+          },
+        ],
+        select: {
+          id: true,
+          numeroProposta: true,
+          versao: true,
+          status: true,
+          templateUtilizado: true,
+          valorTotal: true,
+          validadeProposta: true,
+          createdAt: true,
+          excecoes: {
+            select: {
+              status: true,
+            },
+          },
+        },
+      });
+
+      return NextResponse.json(propostasLegadas);
+    } catch (fallbackError) {
+      console.error("Falha ao carregar propostas legadas", fallbackError);
+      return NextResponse.json({ grupos: [], legadas: [], totalProposto: 0 });
+    }
   }
 }
 
@@ -125,19 +194,7 @@ export async function POST(
       );
     }
 
-    const numeroProposta = buildNumeroProposta(oportunidade.id);
-    const latest = await prisma.propostaComercial.findFirst({
-      where: {
-        numeroProposta,
-      },
-      orderBy: {
-        versao: "desc",
-      },
-      select: {
-        versao: true,
-      },
-    });
-    const versao = (latest?.versao ?? 0) + 1;
+    const modo = data.modo ?? "nova_proposta";
     const templateUtilizado = data.templateUtilizado;
     const modeloPorM3 = templateUtilizado === BOMBA_TEMPLATE_ID;
     const template = getPropostaTemplate(templateUtilizado);
@@ -148,6 +205,43 @@ export async function POST(
         { status: 400 },
       );
     }
+
+    const grupoRevisao =
+      modo === "revisao"
+        ? await prisma.proposta.findFirst({
+            where: {
+              id: data.propostaId ?? "",
+              oportunidadeId: oportunidade.id,
+            },
+            include: {
+              versoes: {
+                orderBy: {
+                  versao: "desc",
+                },
+                take: 1,
+                select: {
+                  versao: true,
+                },
+              },
+            },
+          })
+        : null;
+
+    if (modo === "revisao" && !grupoRevisao) {
+      return NextResponse.json(
+        { message: "Proposta para revisao nao encontrada." },
+        { status: 404 },
+      );
+    }
+
+    const numeroProposta =
+      modo === "revisao" && grupoRevisao
+        ? grupoRevisao.numero
+        : await gerarNumeroProposta(prisma);
+    const versao =
+      modo === "revisao" && grupoRevisao
+        ? (grupoRevisao.versoes[0]?.versao ?? 0) + 1
+        : 1;
 
     const itensNormalizados = (data.itens?.length
       ? data.itens
@@ -248,6 +342,31 @@ export async function POST(
     );
 
     const proposta = await prisma.$transaction(async (tx) => {
+      const grupo =
+        modo === "revisao" && grupoRevisao
+          ? grupoRevisao
+          : await tx.proposta.create({
+              data: {
+                numero: numeroProposta,
+                tipoProposta: data.tipoProposta ?? "OUTRO",
+                descricao: data.descricaoProposta,
+                oportunidadeId: oportunidade.id,
+                createdById: authResult.id,
+              },
+            });
+
+      if (modo === "revisao") {
+        await tx.propostaComercial.updateMany({
+          where: {
+            propostaId: grupo.id,
+            ativa: true,
+          },
+          data: {
+            ativa: false,
+          },
+        });
+      }
+
       const created = await tx.propostaComercial.create({
         data: {
           templateUtilizado,
@@ -262,6 +381,8 @@ export async function POST(
           volumeMinimoM3: modeloPorM3 ? primeiroItem?.volumeMinimoM3 : null,
           numeroProposta,
           versao,
+          ativa: true,
+          propostaId: grupo.id,
           htmlSnapshot,
           oportunidadeId: oportunidade.id,
           createdById: authResult.id,

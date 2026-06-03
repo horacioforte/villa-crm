@@ -202,6 +202,7 @@ export function OportunidadeDetalhe({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [propostaModalOpen, setPropostaModalOpen] = useState(false);
   const [propostasRefresh, setPropostasRefresh] = useState(0);
+  const [totalProposto, setTotalProposto] = useState<number | null>(null);
   const [tarefas, setTarefas] = useState<TarefaOportunidade[]>([]);
   const [tarefaModalOpen, setTarefaModalOpen] = useState(false);
   const [tarefaEditando, setTarefaEditando] =
@@ -382,8 +383,10 @@ export function OportunidadeDetalhe({
                     />
                     <ValueRow
                       label="Proposta"
-                      description="Mais recente enviada/aprovada"
-                      value={formatCurrency(getValorProposta(oportunidade))}
+                      description="Soma das versões ativas"
+                      value={formatCurrency(
+                        totalProposto ?? getValorProposta(oportunidade),
+                      )}
                       className="bg-amber-100 text-amber-800"
                     />
                     <ValueRow
@@ -495,6 +498,7 @@ export function OportunidadeDetalhe({
                 <PropostasList
                   oportunidadeId={id}
                   refreshKey={propostasRefresh}
+                  onTotalPropostoChange={setTotalProposto}
                   onChanged={() => {
                     setOportunidade((current) =>
                       current

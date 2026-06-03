@@ -24,6 +24,13 @@ export const statusExcecaoPropostaValues = [
   "APROVADA",
   "REJEITADA",
 ] as const;
+export const tipoPropostaValues = [
+  "BETONEIRA",
+  "BOMBA",
+  "CENTRAL",
+  "TELEBELT",
+  "OUTRO",
+] as const;
 
 export const propostaTemplateValues = PROPOSTA_TEMPLATES.map(
   (template) => template.id,
@@ -158,8 +165,12 @@ const requiredDate = z
     return date;
   });
 
-export const propostaCreateSchema = z.object({
+const propostaCreateBaseSchema = z.object({
   templateUtilizado: z.enum(propostaTemplateValues),
+  modo: z.enum(["nova_proposta", "revisao"]).default("nova_proposta"),
+  tipoProposta: z.enum(tipoPropostaValues).optional(),
+  descricaoProposta: optionalText,
+  propostaId: optionalText,
   valorTotal: requiredDecimal,
   validadeProposta: requiredDate,
   prazoExecucao: requiredText("Informe o prazo de execucao."),
@@ -192,13 +203,33 @@ export const propostaCreateSchema = z.object({
     .optional(),
 });
 
+export const propostaCreateSchema = propostaCreateBaseSchema.superRefine(
+  (data, ctx) => {
+    if (data.modo === "nova_proposta" && !data.tipoProposta) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["tipoProposta"],
+        message: "Nova proposta requer tipoProposta.",
+      });
+    }
+
+    if (data.modo === "revisao" && !data.propostaId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["propostaId"],
+        message: "Revisao requer propostaId.",
+      });
+    }
+  },
+);
+
 export const propostaBlocoPatchSchema = z.object({
   id: z.string().min(1, "Informe o bloco."),
   conteudoAtual: requiredText("Informe o conteudo do bloco."),
   justificativa: optionalText,
 });
 
-export const propostaPatchSchema = propostaCreateSchema.partial().extend({
+export const propostaPatchSchema = propostaCreateBaseSchema.partial().extend({
   blocos: z.array(propostaBlocoPatchSchema).optional(),
   justificativa: optionalText,
 });

@@ -117,6 +117,14 @@ enum StatusExcecaoProposta {
   REJEITADA
 }
 
+enum TipoProposta {
+  BETONEIRA
+  BOMBA
+  CENTRAL
+  TELEBELT
+  OUTRO
+}
+
 enum TipoAtividade {
   LIGACAO
   WHATSAPP
@@ -218,6 +226,7 @@ model Usuario {
   historicosContatoAtualizados HistoricoContato[]         @relation("HistoricoContatoUpdatedBy")
   propostasCriadas             PropostaComercial[]        @relation("PropostaComercialCreatedBy")
   propostasAtualizadas         PropostaComercial[]        @relation("PropostaComercialUpdatedBy")
+  propostasCriadasGrupo        Proposta[]                 @relation("PropostaCreatedBy")
   templatesPropostaCriados     PropostaTemplateMaster[]   @relation("PropostaTemplateMasterCreatedBy")
   templatesPropostaAtualizados PropostaTemplateMaster[]   @relation("PropostaTemplateMasterUpdatedBy")
   excecoesPropostaSolicitadas  PropostaExcecaoAprovacao[] @relation("PropostaExcecaoSolicitante")
@@ -418,6 +427,7 @@ model Oportunidade {
 
   historicos HistoricoContato[]
   propostas  PropostaComercial[]
+  propostasGrupo Proposta[]
   tarefas    Tarefa[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
@@ -432,6 +442,27 @@ model Oportunidade {
   @@index([updatedById])
   @@index([ativa])
   @@index([status])
+}
+
+model Proposta {
+  id           String       @id @default(cuid())
+  numero       String       @unique
+  tipoProposta TipoProposta
+  descricao    String?
+
+  oportunidadeId String
+  oportunidade   Oportunidade @relation(fields: [oportunidadeId], references: [id], onDelete: Cascade)
+
+  versoes PropostaComercial[]
+
+  createdById String?
+  createdBy   Usuario? @relation("PropostaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@index([oportunidadeId])
+  @@index([createdById])
 }
 
 model PropostaComercial {
@@ -452,6 +483,10 @@ model PropostaComercial {
   pdfUrl                String?
   wordUrl               String?
   htmlSnapshot          String                  @db.Text
+  ativa                 Boolean                 @default(false)
+
+  propostaId String?
+  proposta   Proposta? @relation(fields: [propostaId], references: [id], onDelete: SetNull)
 
   templateMasterId String?
   templateMaster   PropostaTemplateMaster? @relation(fields: [templateMasterId], references: [id], onDelete: SetNull)
@@ -475,6 +510,7 @@ model PropostaComercial {
   itens      PropostaItem[]
 
   @@unique([numeroProposta, versao])
+  @@index([propostaId])
   @@index([oportunidadeId])
   @@index([templateMasterId])
   @@index([createdById])

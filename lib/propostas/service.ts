@@ -417,6 +417,7 @@ export const propostaInclude = {
       equipamento: true,
     },
   },
+  proposta: true,
   criadoPor: true,
   updatedBy: true,
 } as const;
@@ -451,6 +452,36 @@ export function getPropostaAccessWhere(id: string, user: AuthenticatedUser) {
 
 export function buildNumeroProposta(oportunidadeId: string, date = new Date()) {
   return `VILLA-${date.getFullYear()}-${oportunidadeId.slice(-6).toUpperCase()}`;
+}
+
+export async function gerarNumeroProposta(prismaClient: {
+  proposta: {
+    findFirst: (args: {
+      where: { numero: { startsWith: string } };
+      orderBy: { numero: "desc" };
+      select: { numero: true };
+    }) => Promise<{ numero: string } | null>;
+  };
+}) {
+  const ano = new Date().getFullYear();
+  const prefixo = `VILLA-${ano}-`;
+  const ultima = await prismaClient.proposta.findFirst({
+    where: { numero: { startsWith: prefixo } },
+    orderBy: { numero: "desc" },
+    select: { numero: true },
+  });
+
+  let proximo = 1;
+  if (ultima) {
+    const sufixo = ultima.numero.replace(prefixo, "");
+    const numeroAtual = Number.parseInt(sufixo, 10);
+
+    if (!Number.isNaN(numeroAtual)) {
+      proximo = numeroAtual + 1;
+    }
+  }
+
+  return `${prefixo}${String(proximo).padStart(6, "0")}`;
 }
 
 function formatDate(value: Date | string) {

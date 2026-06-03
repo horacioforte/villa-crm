@@ -175,7 +175,7 @@ function buildQuery(filters: Record<string, string>, formato?: string) {
   const params = new URLSearchParams();
 
   Object.entries(filters).forEach(([key, value]) => {
-    if (value && value !== "__all") {
+    if (value && value !== "__all" && value !== "_all") {
       params.set(key, value);
     }
   });
@@ -189,6 +189,25 @@ function buildQuery(filters: Record<string, string>, formato?: string) {
 
 function downloadRelatorio(url: string) {
   window.open(url, "_blank");
+}
+
+function FilterField({
+  label,
+  children,
+  className = "",
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col gap-1 ${className}`}>
+      <span className="text-xs font-semibold uppercase tracking-wide text-[#667085]">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
 }
 
 function CardTotal({
@@ -291,30 +310,34 @@ function SortableTable<T>({
 }
 
 function FilterSelect({
+  label,
   value,
   onChange,
   placeholder,
   options,
 }: {
+  label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <Select value={value} onValueChange={(nextValue) => onChange(nextValue ?? "__all")}>
-      <SelectTrigger className="h-11 min-w-48 rounded-2xl bg-white">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="__all">{placeholder}</SelectItem>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <FilterField label={label} className="min-w-48">
+      <Select value={value} onValueChange={(nextValue) => onChange(nextValue ?? "__all")}>
+        <SelectTrigger className="h-11 w-full rounded-2xl bg-white">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__all">{placeholder}</SelectItem>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FilterField>
   );
 }
 
@@ -399,30 +422,36 @@ function RelatorioOportunidades() {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap gap-3">
-        <Input
-          type="date"
-          value={filters.dataInicio}
-          onChange={(event) =>
-            setFilters((current) => ({ ...current, dataInicio: event.target.value }))
-          }
-          className="h-11 w-40 rounded-2xl bg-white"
-        />
-        <Input
-          type="date"
-          value={filters.dataFim}
-          onChange={(event) =>
-            setFilters((current) => ({ ...current, dataFim: event.target.value }))
-          }
-          className="h-11 w-40 rounded-2xl bg-white"
-        />
+      <div className="flex flex-wrap items-end gap-3">
+        <FilterField label="Início" className="w-40">
+          <Input
+            type="date"
+            value={filters.dataInicio}
+            onChange={(event) =>
+              setFilters((current) => ({ ...current, dataInicio: event.target.value }))
+            }
+            className="h-11 w-full rounded-2xl bg-white"
+          />
+        </FilterField>
+        <FilterField label="Fim" className="w-40">
+          <Input
+            type="date"
+            value={filters.dataFim}
+            onChange={(event) =>
+              setFilters((current) => ({ ...current, dataFim: event.target.value }))
+            }
+            className="h-11 w-full rounded-2xl bg-white"
+          />
+        </FilterField>
         <FilterSelect
+          label="Status"
           value={filters.status}
           onChange={(status) => setFilters((current) => ({ ...current, status }))}
           placeholder="Todos os status"
           options={statusOportunidade.map((status) => ({ value: status, label: status }))}
         />
         <FilterSelect
+          label="Estado"
           value={filters.estado}
           onChange={(estado) => setFilters((current) => ({ ...current, estado }))}
           placeholder="Todos os estados"
@@ -432,6 +461,7 @@ function RelatorioOportunidades() {
           }))}
         />
         <FilterSelect
+          label="Temperatura"
           value={filters.temperatura}
           onChange={(temperatura) =>
             setFilters((current) => ({ ...current, temperatura }))
@@ -440,6 +470,7 @@ function RelatorioOportunidades() {
           options={temperaturaOptions}
         />
         <FilterSelect
+          label="Origem"
           value={filters.canalOrigem}
           onChange={(canalOrigem) =>
             setFilters((current) => ({ ...current, canalOrigem }))
@@ -448,6 +479,7 @@ function RelatorioOportunidades() {
           options={canalOrigemOptions}
         />
         <FilterSelect
+          label="Responsável"
           value={filters.responsavelId}
           onChange={(responsavelId) =>
             setFilters((current) => ({ ...current, responsavelId }))
@@ -590,30 +622,36 @@ function RelatorioPropostas() {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap gap-3">
-        <Input
-          type="date"
-          value={filters.dataInicio}
-          onChange={(event) =>
-            setFilters((current) => ({ ...current, dataInicio: event.target.value }))
-          }
-          className="h-11 w-40 rounded-2xl bg-white"
-        />
-        <Input
-          type="date"
-          value={filters.dataFim}
-          onChange={(event) =>
-            setFilters((current) => ({ ...current, dataFim: event.target.value }))
-          }
-          className="h-11 w-40 rounded-2xl bg-white"
-        />
+      <div className="flex flex-wrap items-end gap-3">
+        <FilterField label="Início" className="w-40">
+          <Input
+            type="date"
+            value={filters.dataInicio}
+            onChange={(event) =>
+              setFilters((current) => ({ ...current, dataInicio: event.target.value }))
+            }
+            className="h-11 w-full rounded-2xl bg-white"
+          />
+        </FilterField>
+        <FilterField label="Fim" className="w-40">
+          <Input
+            type="date"
+            value={filters.dataFim}
+            onChange={(event) =>
+              setFilters((current) => ({ ...current, dataFim: event.target.value }))
+            }
+            className="h-11 w-full rounded-2xl bg-white"
+          />
+        </FilterField>
         <FilterSelect
+          label="Status"
           value={filters.status}
           onChange={(status) => setFilters((current) => ({ ...current, status }))}
           placeholder="Todos os status"
           options={statusProposta.map((status) => ({ value: status, label: status }))}
         />
         <FilterSelect
+          label="Template"
           value={filters.templateUtilizado}
           onChange={(templateUtilizado) =>
             setFilters((current) => ({ ...current, templateUtilizado }))
@@ -622,6 +660,7 @@ function RelatorioPropostas() {
           options={templates.map((template) => ({ value: template, label: template }))}
         />
         <FilterSelect
+          label="Responsável"
           value={filters.responsavelId}
           onChange={(responsavelId) =>
             setFilters((current) => ({ ...current, responsavelId }))

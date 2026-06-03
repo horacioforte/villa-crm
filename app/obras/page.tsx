@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Building2, CalendarDays, Loader2, Plus } from "lucide-react";
+import { Building2, CalendarDays, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -77,6 +77,7 @@ export default function ObrasPage() {
   const router = useRouter();
   const [obras, setObras] = useState<ObraRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingObraId, setDeletingObraId] = useState<string | null>(null);
   const obrasAtivasLabel =
     obras.length === 1 ? "1 obra ativa" : `${obras.length} obras ativas`;
 
@@ -99,6 +100,38 @@ export default function ObrasPage() {
 
     loadObras();
   }, []);
+
+  async function handleExcluirObra(obra: ObraRow) {
+    if (
+      !window.confirm(
+        `Excluir a obra "${obra.nome}"? Ela saira da lista de obras ativas.`,
+      )
+    ) {
+      return;
+    }
+
+    setDeletingObraId(obra.id);
+
+    try {
+      const response = await fetch(`/api/obras/${obra.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message ?? "Falha ao excluir obra.");
+      }
+
+      setObras((current) => current.filter((item) => item.id !== obra.id));
+      toast.success("Obra excluida.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Nao foi possivel excluir a obra.",
+      );
+    } finally {
+      setDeletingObraId(null);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#F4F6FA] px-5 py-8 text-[#172033] sm:px-8">
@@ -162,6 +195,7 @@ export default function ObrasPage() {
                     <TableHead className="text-right">
                       Oportunidades vinculadas
                     </TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -212,6 +246,27 @@ export default function ObrasPage() {
                       </TableCell>
                       <TableCell className="text-right font-semibold">
                         {obra._count.oportunidades}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={deletingObraId === obra.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleExcluirObra(obra);
+                          }}
+                          onKeyDown={(event) => event.stopPropagation()}
+                          className="h-9 rounded-2xl border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                          aria-label={`Excluir obra ${obra.nome}`}
+                        >
+                          {deletingObraId === obra.id ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="size-4" />
+                          )}
+                          Excluir
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

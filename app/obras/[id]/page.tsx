@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, HardHat, Loader2 } from "lucide-react";
+import { ArrowLeft, HardHat, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ZodError } from "zod";
 
@@ -116,6 +116,7 @@ export default function ObraDetalhePage() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const empresaItems = useMemo(
     () =>
       empresas.map((empresa) => ({
@@ -237,6 +238,43 @@ export default function ObraDetalhePage() {
       }
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!obra) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Excluir a obra "${obra.nome}"? Ela saira da lista de obras ativas.`,
+      )
+    ) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/obras/${params.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message ?? "Falha ao excluir obra.");
+      }
+
+      toast.success("Obra excluida.");
+      router.push("/obras");
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Nao foi possivel excluir a obra.",
+      );
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -398,6 +436,20 @@ export default function ObraDetalhePage() {
                 </Field>
 
                 <div className="flex flex-col-reverse gap-3 pt-2 md:col-span-2 md:flex-row md:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSubmitting || isDeleting}
+                    onClick={handleDelete}
+                    className="h-11 rounded-2xl border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 md:mr-auto"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                    Excluir obra
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"

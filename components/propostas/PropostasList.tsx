@@ -280,9 +280,12 @@ export function PropostasList({
           {ativa ? renderActions(ativa) : null}
 
           {anteriores.length ? (
-            <details className="mt-3 rounded-2xl bg-[#F4F6FA] px-3 py-2 text-sm text-[#667085]">
+            <details
+              open
+              className="mt-3 rounded-2xl bg-[#F4F6FA] px-3 py-2 text-sm text-[#667085]"
+            >
               <summary className="cursor-pointer font-semibold text-[#1A2E5A]">
-                Versões anteriores ({anteriores.length})
+                {anteriores.length} revisões anteriores salvas
               </summary>
               <div className="mt-2 space-y-2">
                 {anteriores.map((versao) => (

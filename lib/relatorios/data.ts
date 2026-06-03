@@ -1,6 +1,8 @@
 import {
+  CanalOrigem,
   StatusOportunidade,
   StatusPropostaComercial,
+  TemperaturaOportunidade,
   type Prisma,
 } from "@/app/generated/prisma/client";
 import type { AuthenticatedUser } from "@/lib/auth/session";
@@ -46,12 +48,22 @@ export function buildOportunidadeWhere(
   const dataFim = parseDateParam(searchParams.get("dataFim"), true);
   const status = searchParams.get("status");
   const responsavelId = searchParams.get("responsavelId");
+  const estado = searchParams.get("estado");
+  const temperatura = searchParams.get("temperatura");
+  const canalOrigem = searchParams.get("canalOrigem");
 
   return {
     ativa: true,
     ...oportunidadeAccessWhere(user),
     ...(status ? { status: status as StatusOportunidade } : {}),
     ...(user.papel !== "COMERCIAL" && responsavelId ? { responsavelId } : {}),
+    ...(estado ? { obra: { is: { estado } } } : {}),
+    ...(temperatura === "sem_classificacao"
+      ? { temperatura: null }
+      : temperatura
+        ? { temperatura: temperatura as TemperaturaOportunidade }
+        : {}),
+    ...(canalOrigem ? { canalOrigem: canalOrigem as CanalOrigem } : {}),
     ...(dataInicio || dataFim
       ? {
           createdAt: {
@@ -226,6 +238,19 @@ export async function getRelatorioPipeline(user: AuthenticatedUser) {
         potencialOportunidade: true,
         valorContrato: true,
         createdAt: true,
+        temperatura: true,
+        canalOrigem: true,
+        obra: { select: { estado: true } },
+        propostas: {
+          where: { status: { notIn: statusPropostaExcluidos } },
+          select: {
+            numeroProposta: true,
+            versao: true,
+            valorTotal: true,
+            ativa: true,
+          },
+          orderBy: [{ numeroProposta: "asc" }, { versao: "desc" }],
+        },
       },
     }),
     prisma.oportunidade.groupBy({
@@ -300,6 +325,101 @@ export async function getRelatorioPipeline(user: AuthenticatedUser) {
       { empresa: string; valorProposto: number; oportunidades: Set<string> }
     >(),
   );
+  const getValorPropostoOportunidade = (oportunidade: (typeof oportunidades)[number]) => {
+    const ativas = oportunidade.propostas.filter((proposta) => proposta.ativa);
+    const propostasParaSoma =
+      ativas.length > 0
+        ? ativas
+        : Array.from(
+            oportunidade.propostas
+              .reduce((mapa, proposta) => {
+                const atual = mapa.get(proposta.numeroProposta);
+                if (!atual || proposta.versao > atual.versao) {
+                  mapa.set(proposta.numeroProposta, proposta);
+                }
+                return mapa;
+              }, new Map<string, (typeof oportunidade.propostas)[number]>())
+              .values(),
+          );
+
+    return propostasParaSoma.reduce(
+      (soma, proposta) => soma + Number(proposta.valorTotal),
+      0,
+    );
+  };
+  const porEstadoMap = oportunidades.reduce(
+    (mapa, oportunidade) => {
+      const estado = oportunidade.obra?.estado ?? "Não informado";
+      const atual = mapa.get(estado) ?? {
+        estado,
+        quantidade: 0,
+        valorPotencial: 0,
+        valorProposto: 0,
+      };
+
+      atual.quantidade += 1;
+      atual.valorPotencial += Number(oportunidade.potencialOportunidade ?? 0);
+      atual.valorProposto += getValorPropostoOportunidade(oportunidade);
+      mapa.set(estado, atual);
+
+      return mapa;
+    },
+    new Map<
+      string,
+      {
+        estado: string;
+        quantidade: number;
+        valorPotencial: number;
+        valorProposto: number;
+      }
+    >(),
+  );
+  const porTemperatura = [
+    TemperaturaOportunidade.QUENTE,
+    TemperaturaOportunidade.MEDIA,
+    TemperaturaOportunidade.FRIA,
+    null,
+  ].map((temperatura) => {
+    const oportunidadesFiltradas = oportunidades.filter(
+      (oportunidade) => oportunidade.temperatura === temperatura,
+    );
+
+    return {
+      temperatura: temperatura ?? "sem_classificacao",
+      quantidade: oportunidadesFiltradas.length,
+      valorProposto: oportunidadesFiltradas.reduce(
+        (soma, oportunidade) => soma + getValorPropostoOportunidade(oportunidade),
+        0,
+      ),
+    };
+  });
+  const porOrigemMap = oportunidades.reduce(
+    (mapa, oportunidade) => {
+      const canalOrigem = oportunidade.canalOrigem ?? "Não informado";
+      const atual = mapa.get(canalOrigem) ?? {
+        canalOrigem,
+        quantidade: 0,
+        valorPotencial: 0,
+        valorProposto: 0,
+      };
+
+      atual.quantidade += 1;
+      atual.valorPotencial += Number(oportunidade.potencialOportunidade ?? 0);
+      atual.valorProposto += getValorPropostoOportunidade(oportunidade);
+      mapa.set(canalOrigem, atual);
+
+      return mapa;
+    },
+    new Map<
+      string,
+      {
+        canalOrigem: string;
+        quantidade: number;
+        valorPotencial: number;
+        valorProposto: number;
+      }
+    >(),
+  );
 
   return {
     totalPotencial: oportunidades.reduce(
@@ -335,6 +455,13 @@ export async function getRelatorioPipeline(user: AuthenticatedUser) {
       }))
       .sort((a, b) => b.valorProposto - a.valorProposto)
       .slice(0, 5),
+    porEstado: Array.from(porEstadoMap.values()).sort(
+      (a, b) => b.valorProposto - a.valorProposto,
+    ),
+    porTemperatura,
+    porOrigem: Array.from(porOrigemMap.values()).sort(
+      (a, b) => b.valorProposto - a.valorProposto,
+    ),
     evolucaoMensal: meses.map(({ start, end }) => {
       const label = new Intl.DateTimeFormat("pt-BR", {
         month: "short",

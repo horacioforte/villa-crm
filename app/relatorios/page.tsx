@@ -82,6 +82,23 @@ type PipelineRelatorio = {
     valorProposto: number;
     quantidadeOportunidades: number;
   }>;
+  porEstado: Array<{
+    estado: string;
+    quantidade: number;
+    valorPotencial: number;
+    valorProposto: number;
+  }>;
+  porTemperatura: Array<{
+    temperatura: string;
+    quantidade: number;
+    valorProposto: number;
+  }>;
+  porOrigem: Array<{
+    canalOrigem: string;
+    quantidade: number;
+    valorPotencial: number;
+    valorProposto: number;
+  }>;
   evolucaoMensal: Array<{
     mes: string;
     oportunidadesCriadas: number;
@@ -113,6 +130,29 @@ const templates = [
   "locacao-betoneira-sem-operador",
   "locacao-bomba-concreto-com-operacao",
 ];
+const temperaturaOptions = [
+  { value: "QUENTE", label: "Quente" },
+  { value: "MEDIA", label: "Média" },
+  { value: "FRIA", label: "Fria" },
+  { value: "sem_classificacao", label: "Sem classificação" },
+];
+const canalOrigemLabels: Record<string, string> = {
+  INDICACAO: "Indicação",
+  CLIENTE_ATUAL: "Cliente atual",
+  OBRA_MAPEADA: "Obra mapeada",
+  GOOGLE: "Google",
+  LINKEDIN: "LinkedIn",
+  SITE: "Site",
+  VISITA_COMERCIAL: "Visita comercial",
+  MARKETPLACE: "Marketplace",
+  OLX: "OLX",
+  EVENTO: "Evento",
+  OUTROS: "Outros",
+  "Não informado": "Não informado",
+};
+const canalOrigemOptions = Object.entries(canalOrigemLabels)
+  .filter(([value]) => value !== "Não informado")
+  .map(([value, label]) => ({ value, label }));
 
 function formatCurrency(value: string | number | null | undefined) {
   return new Intl.NumberFormat("pt-BR", {
@@ -296,14 +336,36 @@ function useUsuarios() {
   return usuarios;
 }
 
+function useEstadosDisponiveis() {
+  const [estados, setEstados] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function loadEstados() {
+      const response = await fetch("/api/relatorios/estados");
+      if (!response.ok) return;
+
+      const data = await response.json();
+      setEstados(Array.isArray(data.estados) ? data.estados : []);
+    }
+
+    loadEstados();
+  }, []);
+
+  return estados;
+}
+
 function RelatorioOportunidades() {
   const usuarios = useUsuarios();
+  const estadosDisponiveis = useEstadosDisponiveis();
   const [data, setData] = useState<OportunidadeRelatorio[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filters, setFilters] = useState({
     dataInicio: "",
     dataFim: "",
     status: "__all",
+    estado: "__all",
+    temperatura: "__all",
+    canalOrigem: "__all",
     responsavelId: "__all",
   });
 
@@ -359,6 +421,31 @@ function RelatorioOportunidades() {
           onChange={(status) => setFilters((current) => ({ ...current, status }))}
           placeholder="Todos os status"
           options={statusOportunidade.map((status) => ({ value: status, label: status }))}
+        />
+        <FilterSelect
+          value={filters.estado}
+          onChange={(estado) => setFilters((current) => ({ ...current, estado }))}
+          placeholder="Todos os estados"
+          options={estadosDisponiveis.map((estado) => ({
+            value: estado,
+            label: estado,
+          }))}
+        />
+        <FilterSelect
+          value={filters.temperatura}
+          onChange={(temperatura) =>
+            setFilters((current) => ({ ...current, temperatura }))
+          }
+          placeholder="Todas as temperaturas"
+          options={temperaturaOptions}
+        />
+        <FilterSelect
+          value={filters.canalOrigem}
+          onChange={(canalOrigem) =>
+            setFilters((current) => ({ ...current, canalOrigem }))
+          }
+          placeholder="Todas as origens"
+          options={canalOrigemOptions}
         />
         <FilterSelect
           value={filters.responsavelId}
@@ -694,6 +781,41 @@ function RelatorioPipeline() {
             formatCurrency(item.valorTotal),
           ])}
           headers={["Status", "Qtd.", "Valor total"]}
+        />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <ResumoTable
+          title="Por Estado"
+          rows={data.porEstado.map((item) => [
+            item.estado,
+            item.quantidade,
+            formatCurrency(item.valorProposto),
+          ])}
+          headers={["Estado", "Qtd.", "Valor proposto"]}
+        />
+        <ResumoTable
+          title="Por Temperatura"
+          rows={data.porTemperatura.map((item) => [
+            item.temperatura === "QUENTE"
+              ? "Quente"
+              : item.temperatura === "MEDIA"
+                ? "Média"
+                : item.temperatura === "FRIA"
+                  ? "Fria"
+                  : "Sem classificação",
+            item.quantidade,
+            formatCurrency(item.valorProposto),
+          ])}
+          headers={["Temperatura", "Qtd.", "Valor proposto"]}
+        />
+        <ResumoTable
+          title="Por Origem"
+          rows={data.porOrigem.map((item) => [
+            canalOrigemLabels[item.canalOrigem] ?? item.canalOrigem,
+            item.quantidade,
+            formatCurrency(item.valorProposto),
+          ])}
+          headers={["Origem", "Qtd.", "Valor proposto"]}
         />
       </div>
       <ResumoTable

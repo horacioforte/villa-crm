@@ -6,6 +6,7 @@ export type Resource =
   | "contatos"
   | "oportunidades"
   | "propostas"
+  | "relatorios"
   | "tarefas"
   | "equipamentos"
   | "auditoria"
@@ -22,6 +23,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     contatos: allActions,
     oportunidades: allActions,
     propostas: allActions,
+    relatorios: ["read"],
     tarefas: allActions,
     equipamentos: allActions,
     auditoria: ["read"],
@@ -33,6 +35,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     contatos: allActions,
     oportunidades: allActions,
     propostas: allActions,
+    relatorios: ["read"],
     tarefas: allActions,
     equipamentos: allActions,
     auditoria: ["read"],
@@ -44,6 +47,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     contatos: ["read", "create", "update"],
     oportunidades: ["read", "create", "update"],
     propostas: ["read", "create", "update"],
+    relatorios: ["read"],
     tarefas: ["read", "create", "update"],
     equipamentos: ["read"],
     auditoria: [],
@@ -55,6 +59,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     contatos: ["read"],
     oportunidades: ["read"],
     propostas: ["read"],
+    relatorios: [],
     tarefas: ["read"],
     equipamentos: ["read"],
     auditoria: [],

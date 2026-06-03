@@ -456,30 +456,29 @@ export function buildNumeroProposta(oportunidadeId: string, date = new Date()) {
 
 export async function gerarNumeroProposta(prismaClient: {
   proposta: {
-    findFirst: (args: {
+    findMany: (args: {
       where: { numero: { startsWith: string } };
-      orderBy: { numero: "desc" };
       select: { numero: true };
-    }) => Promise<{ numero: string } | null>;
+    }) => Promise<Array<{ numero: string }>>;
   };
 }) {
   const ano = new Date().getFullYear();
   const prefixo = `VILLA-${ano}-`;
-  const ultima = await prismaClient.proposta.findFirst({
+  const propostasDoAno = await prismaClient.proposta.findMany({
     where: { numero: { startsWith: prefixo } },
-    orderBy: { numero: "desc" },
     select: { numero: true },
   });
 
-  let proximo = 1;
-  if (ultima) {
-    const sufixo = ultima.numero.replace(prefixo, "");
-    const numeroAtual = Number.parseInt(sufixo, 10);
+  const maiorNumero = propostasDoAno.reduce((maior, proposta) => {
+    const sufixo = proposta.numero.slice(prefixo.length);
 
-    if (!Number.isNaN(numeroAtual)) {
-      proximo = numeroAtual + 1;
+    if (!/^\d+$/.test(sufixo)) {
+      return maior;
     }
-  }
+
+    return Math.max(maior, Number.parseInt(sufixo, 10));
+  }, 0);
+  const proximo = maiorNumero + 1;
 
   return `${prefixo}${String(proximo).padStart(6, "0")}`;
 }

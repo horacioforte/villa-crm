@@ -457,12 +457,13 @@ export async function POST(
       );
     }
 
+    console.error("Falha ao salvar proposta da oportunidade", error);
+
     return NextResponse.json(
       {
-        message:
-          "O modulo de propostas ainda precisa da migration do banco para salvar rascunhos.",
+        message: "Nao foi possivel salvar o rascunho da proposta.",
       },
-      { status: 503 },
+      { status: 500 },
     );
   }
 }

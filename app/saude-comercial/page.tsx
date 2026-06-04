@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock3,
+  FileDown,
+  HeartPulse,
   Loader2,
   RefreshCw,
   ShieldAlert,
@@ -52,7 +54,29 @@ type SaudeComercialData = {
     propostasAguardandoRetorno: number;
     oportunidadesSemResponsavel: number;
     cumprimentoCadencia: number;
+    oportunidadesDentroCadencia: number;
+    oportunidadesForaCadencia: number;
+    taxaConclusaoTarefas: number;
+    saudeGeral: {
+      score: number;
+      status: "excelente" | "atencao" | "critico";
+      label: string;
+      color: HealthColor;
+    };
   };
+  comparativo: Array<{
+    indicador: string;
+    anterior: number;
+    atual: number;
+    sufixo?: string;
+  }>;
+  series: Array<{
+    periodo: string;
+    oportunidades: number;
+    tarefasConcluidas: number;
+    cadencia: number;
+    propostasSemRetorno: number;
+  }>;
   listas: {
     oportunidadesSemProximaAcao: Array<{
       id: string;
@@ -224,6 +248,139 @@ function MetricCard({
         </span>
       </div>
     </button>
+  );
+}
+
+function HealthSummary({ data }: { data: SaudeComercialData }) {
+  const config = {
+    verde: {
+      className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    },
+    amarelo: {
+      className: "border-amber-200 bg-amber-50 text-amber-800",
+    },
+    vermelho: {
+      className: "border-red-200 bg-red-50 text-red-800",
+    },
+  }[data.indicadores.saudeGeral.color];
+
+  return (
+    <Card className={`rounded-3xl border ${config.className}`}>
+      <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-4">
+          <span className="rounded-2xl bg-white/70 p-3">
+            <HeartPulse className="size-6" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em]">
+              Saúde geral da operação
+            </p>
+            <p className="mt-1 text-3xl font-bold">
+              {data.indicadores.saudeGeral.label}
+            </p>
+          </div>
+        </div>
+        <div className="text-sm font-semibold">
+          Score {data.indicadores.saudeGeral.score}/100 · Cadência{" "}
+          {data.indicadores.cumprimentoCadencia}% · Conclusão{" "}
+          {data.indicadores.taxaConclusaoTarefas}%
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SimpleBarChart({
+  title,
+  data,
+  dataKey,
+  suffix = "",
+}: {
+  title: string;
+  data: SaudeComercialData["series"];
+  dataKey: keyof SaudeComercialData["series"][number];
+  suffix?: string;
+}) {
+  const values = data.map((item) => Number(item[dataKey]) || 0);
+  const max = Math.max(...values, 1);
+
+  return (
+    <Card className="rounded-3xl border-[#D7DEEA] bg-white">
+      <CardContent className="p-5">
+        <h2 className="text-lg font-bold text-[#1A2E5A]">{title}</h2>
+        <div className="mt-5 flex h-40 items-end gap-2">
+          {data.map((item) => {
+            const value = Number(item[dataKey]) || 0;
+
+            return (
+              <div key={`${title}-${item.periodo}`} className="flex flex-1 flex-col items-center gap-2">
+                <div className="flex h-28 w-full items-end rounded-t-xl bg-[#E8EEFB]">
+                  <div
+                    className="w-full rounded-t-xl bg-[#1E4FAB]"
+                    style={{ height: `${Math.max((value / max) * 100, value ? 8 : 0)}%` }}
+                    title={`${value}${suffix}`}
+                  />
+                </div>
+                <span className="text-xs font-semibold text-[#1A2E5A]">
+                  {value}
+                  {suffix}
+                </span>
+                <span className="text-[10px] text-[#667085]">{item.periodo}</span>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function HistoricalComparison({ data }: { data: SaudeComercialData }) {
+  return (
+    <Card className="rounded-3xl border-[#D7DEEA] bg-white">
+      <CardContent className="p-5">
+        <h2 className="text-lg font-bold text-[#1A2E5A]">Comparativo histórico</h2>
+        <p className="mt-1 text-sm text-[#667085]">
+          Compara o período selecionado com o período imediatamente anterior.
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[620px] text-sm">
+            <thead>
+              <tr className="border-b border-[#D7DEEA] text-left text-[#667085]">
+                <th className="py-3">Indicador</th>
+                <th className="py-3">Período anterior</th>
+                <th className="py-3">Atual</th>
+                <th className="py-3">Evolução</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.comparativo.map((item) => {
+                const delta = item.atual - item.anterior;
+
+                return (
+                  <tr key={item.indicador} className="border-b border-[#EEF2F7]">
+                    <td className="py-3 font-semibold text-[#1A2E5A]">{item.indicador}</td>
+                    <td className="py-3 text-[#667085]">
+                      {item.anterior}
+                      {item.sufixo ?? ""}
+                    </td>
+                    <td className="py-3 font-bold text-[#1A2E5A]">
+                      {item.atual}
+                      {item.sufixo ?? ""}
+                    </td>
+                    <td className={`py-3 font-semibold ${delta >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                      {delta > 0 ? "+" : ""}
+                      {delta}
+                      {item.sufixo ?? ""}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -442,6 +599,11 @@ export default function SaudeComercialPage() {
     }
   }
 
+  function handleDownloadReport() {
+    const query = buildQuery(filters);
+    window.open(`/api/saude-comercial/pdf?${query}`, "_blank", "noopener,noreferrer");
+  }
+
   useEffect(() => {
     loadData();
   }, []);
@@ -469,18 +631,29 @@ export default function SaudeComercialPage() {
               propostas sem retorno e disciplina de cadência da equipe.
             </p>
           </div>
-          <Button
-            type="button"
-            onClick={loadData}
-            className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
-          >
-            {isLoading ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <RefreshCw className="size-4" />
-            )}
-            Atualizar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              onClick={handleDownloadReport}
+              className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+            >
+              <FileDown className="size-4" />
+              Gerar relatório
+            </Button>
+            <Button
+              type="button"
+              onClick={loadData}
+              variant="outline"
+              className="rounded-2xl"
+            >
+              {isLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4" />
+              )}
+              Atualizar
+            </Button>
+          </div>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
@@ -532,6 +705,8 @@ export default function SaudeComercialPage() {
         </div>
       ) : (
         <div className="mt-6 space-y-6">
+          <HealthSummary data={data} />
+
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               title="Oportunidades abertas"
@@ -578,11 +753,8 @@ export default function SaudeComercialPage() {
             />
             <MetricCard
               title="Conclusão de tarefas"
-              value={`${Math.round(
-                data.listas.tarefasPorUsuario.reduce((sum, item) => sum + item.taxa, 0) /
-                  Math.max(data.listas.tarefasPorUsuario.length, 1),
-              )}%`}
-              subtitle="Média por usuário no período"
+              value={`${data.indicadores.taxaConclusaoTarefas}%`}
+              subtitle="Tarefas concluídas no período"
               icon={CheckCircle2}
               tone="green"
               active={selectedSection === "taxa-tarefas"}
@@ -609,6 +781,32 @@ export default function SaudeComercialPage() {
           </div>
 
           <DetailPanel section={selectedSection} data={data} />
+
+          <HistoricalComparison data={data} />
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SimpleBarChart
+              title="Evolução das oportunidades"
+              data={data.series}
+              dataKey="oportunidades"
+            />
+            <SimpleBarChart
+              title="Evolução das tarefas concluídas"
+              data={data.series}
+              dataKey="tarefasConcluidas"
+            />
+            <SimpleBarChart
+              title="Evolução da cadência"
+              data={data.series}
+              dataKey="cadencia"
+              suffix="%"
+            />
+            <SimpleBarChart
+              title="Evolução das propostas sem retorno"
+              data={data.series}
+              dataKey="propostasSemRetorno"
+            />
+          </div>
         </div>
       )}
     </main>

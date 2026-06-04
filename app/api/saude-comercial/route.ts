@@ -52,6 +52,14 @@ function getPeriodRange(periodo: string | null) {
   return { start, end };
 }
 
+function getPreviousRange(start: Date, end: Date) {
+  const duration = end.getTime() - start.getTime();
+  const previousEnd = new Date(start.getTime() - 1);
+  const previousStart = new Date(previousEnd.getTime() - duration);
+
+  return { previousStart, previousEnd };
+}
+
 function getAccessWhere(authResult: { id: string; papel: PapelUsuario }) {
   return authResult.papel === PapelUsuario.COMERCIAL
     ? { OR: [{ responsavelId: authResult.id }, { createdById: authResult.id }] }
@@ -114,8 +122,25 @@ function getHealthColor(days: number) {
   return "vermelho";
 }
 
+function getOperationalHealth(score: number) {
+  if (score >= 85) {
+    return { status: "excelente", label: "Excelente", color: "verde" };
+  }
+
+  if (score >= 65) {
+    return { status: "atencao", label: "Atenção", color: "amarelo" };
+  }
+
+  return { status: "critico", label: "Crítico", color: "vermelho" };
+}
+
 export async function GET(request: Request) {
-  const authResult = await requirePermission("relatorios", "read", request);
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = request.headers.get("authorization");
+  const authResult =
+    cronSecret && authHeader === `Bearer ${cronSecret}`
+      ? { id: "cron", papel: PapelUsuario.ADMIN }
+      : await requirePermission("relatorios", "read", request);
 
   if (authResult instanceof NextResponse) {
     return authResult;
@@ -124,6 +149,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const hoje = startOfToday();
   const { start, end } = getPeriodRange(searchParams.get("periodo"));
+  const { previousStart, previousEnd } = getPreviousRange(start, end);
   const oportunidadeWhere = buildOpportunityWhere(searchParams, authResult);
   const tarefaWhereBase: Prisma.TarefaWhereInput = {
     ...(authResult.papel === PapelUsuario.COMERCIAL
@@ -381,6 +407,180 @@ export async function GET(request: Request) {
   const cumprimentoCadencia = oportunidadesAbertas.length
     ? Math.round((oportunidadesComCadencia / oportunidadesAbertas.length) * 100)
     : 100;
+  const oportunidadesForaCadencia =
+    oportunidadesAbertas.length - oportunidadesComCadencia;
+  const taxaConclusaoGeral = tarefasPeriodo.length
+    ? Math.round(
+        (tarefasPeriodo.filter(
+          (tarefa) => tarefa.status === StatusTarefa.CONCLUIDA || tarefa.concluidaEm,
+        ).length /
+          tarefasPeriodo.length) *
+          100,
+      )
+    : 0;
+  const saudeScore = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(
+        100 -
+          (oportunidadesSemProximaAcao.length /
+            Math.max(oportunidadesAbertas.length, 1)) *
+            30 -
+          (tarefasVencidas.length / Math.max(tarefasPeriodo.length, 1)) * 25 -
+          (propostasAguardandoRetorno.length /
+            Math.max(propostasEnviadas.length, 1)) *
+            20 -
+          ((100 - cumprimentoCadencia) / 100) * 25,
+      ),
+    ),
+  );
+  const [oportunidadesBaseAnterior, tarefasPeriodoAnterior, tarefasVencidasAnterior, propostasSemRetornoAnterior] =
+    await Promise.all([
+      prisma.oportunidade.findMany({
+        where: {
+          ...oportunidadeWhere,
+          createdAt: { lte: previousEnd },
+        },
+        select: {
+          responsavelId: true,
+          tarefas: {
+            select: {
+              status: true,
+              dataVencimento: true,
+            },
+          },
+          historicos: {
+            where: { dataContato: { lte: previousEnd } },
+            orderBy: { dataContato: "desc" },
+            take: 1,
+            select: { dataContato: true },
+          },
+        },
+      }),
+      prisma.tarefa.findMany({
+        where: {
+          ...tarefaWhereBase,
+          createdAt: { gte: previousStart, lte: previousEnd },
+        },
+        select: { status: true, concluidaEm: true },
+      }),
+      prisma.tarefa.count({
+        where: {
+          ...tarefaWhereBase,
+          status: { in: activeTaskStatuses },
+          dataVencimento: { lt: previousEnd },
+        },
+      }),
+      prisma.propostaComercial.count({
+        where: {
+          status: StatusPropostaComercial.ENVIADA,
+          createdAt: {
+            lt: new Date(previousEnd.getTime() - 5 * 24 * 60 * 60 * 1000),
+          },
+          oportunidade: { is: oportunidadeWhere },
+        },
+      }),
+    ]);
+  const oportunidadesSemProximaAcaoAnterior = oportunidadesBaseAnterior.filter(
+    (oportunidade) => {
+      const temProximaTarefa = oportunidade.tarefas.some(
+        (tarefa) =>
+          activeTaskStatusSet.has(tarefa.status) &&
+          tarefa.dataVencimento >= previousEnd,
+      );
+
+      return !oportunidade.responsavelId || !temProximaTarefa;
+    },
+  ).length;
+  const oportunidadesCadenciaAnterior = oportunidadesBaseAnterior.filter(
+    (oportunidade) =>
+      oportunidade.tarefas.some(
+        (tarefa) =>
+          activeTaskStatusSet.has(tarefa.status) &&
+          tarefa.dataVencimento >= previousEnd,
+      ) ||
+      (oportunidade.historicos[0]?.dataContato &&
+        differenceInDays(oportunidade.historicos[0].dataContato, previousEnd) <= 5),
+  ).length;
+  const cumprimentoCadenciaAnterior = oportunidadesBaseAnterior.length
+    ? Math.round(
+        (oportunidadesCadenciaAnterior / oportunidadesBaseAnterior.length) * 100,
+      )
+    : 100;
+  const taxaConclusaoAnterior = tarefasPeriodoAnterior.length
+    ? Math.round(
+        (tarefasPeriodoAnterior.filter(
+          (tarefa) => tarefa.status === StatusTarefa.CONCLUIDA || tarefa.concluidaEm,
+        ).length /
+          tarefasPeriodoAnterior.length) *
+          100,
+      )
+    : 0;
+  const seriesLabels = Array.from({ length: 6 }, (_, index) => {
+    const bucketStart = new Date(start);
+    const bucketSize = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 6));
+    bucketStart.setTime(start.getTime() + bucketSize * index);
+    const bucketEnd = new Date(
+      index === 5 ? end.getTime() : start.getTime() + bucketSize * (index + 1) - 1,
+    );
+
+    return { start: bucketStart, end: bucketEnd };
+  });
+  const [oportunidadesSerie, tarefasSerie, propostasSerie] = await Promise.all([
+    prisma.oportunidade.findMany({
+      where: {
+        ...oportunidadeWhere,
+        createdAt: { gte: start, lte: end },
+      },
+      select: { createdAt: true },
+    }),
+    prisma.tarefa.findMany({
+      where: {
+        ...tarefaWhereBase,
+        createdAt: { gte: start, lte: end },
+      },
+      select: { createdAt: true, concluidaEm: true, status: true },
+    }),
+    prisma.propostaComercial.findMany({
+      where: {
+        status: StatusPropostaComercial.ENVIADA,
+        createdAt: { gte: start, lte: end },
+        oportunidade: { is: oportunidadeWhere },
+      },
+      select: { createdAt: true },
+    }),
+  ]);
+  const series = seriesLabels.map((bucket) => {
+    const label = new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+    }).format(bucket.start);
+    const tarefasBucket = tarefasSerie.filter(
+      (tarefa) => tarefa.createdAt >= bucket.start && tarefa.createdAt <= bucket.end,
+    );
+    const tarefasConcluidas = tarefasBucket.filter(
+      (tarefa) => tarefa.status === StatusTarefa.CONCLUIDA || tarefa.concluidaEm,
+    ).length;
+
+    return {
+      periodo: label,
+      oportunidades: oportunidadesSerie.filter(
+        (oportunidade) =>
+          oportunidade.createdAt >= bucket.start && oportunidade.createdAt <= bucket.end,
+      ).length,
+      tarefasConcluidas,
+      cadencia: tarefasBucket.length
+        ? Math.round((tarefasConcluidas / tarefasBucket.length) * 100)
+        : 0,
+      propostasSemRetorno: propostasSerie.filter(
+        (proposta) =>
+          proposta.createdAt >= bucket.start &&
+          proposta.createdAt <= bucket.end &&
+          differenceInDays(proposta.createdAt) > 5,
+      ).length,
+    };
+  });
 
   return NextResponse.json({
     filtros: {
@@ -399,7 +599,49 @@ export async function GET(request: Request) {
       propostasAguardandoRetorno: propostasAguardandoRetorno.length,
       oportunidadesSemResponsavel: oportunidadesSemResponsavel.length,
       cumprimentoCadencia,
+      oportunidadesDentroCadencia: oportunidadesComCadencia,
+      oportunidadesForaCadencia,
+      taxaConclusaoTarefas: taxaConclusaoGeral,
+      saudeGeral: {
+        score: saudeScore,
+        ...getOperationalHealth(saudeScore),
+      },
     },
+    comparativo: [
+      {
+        indicador: "Oportunidades abertas",
+        anterior: oportunidadesBaseAnterior.length,
+        atual: oportunidadesAbertas.length,
+      },
+      {
+        indicador: "Sem próxima ação",
+        anterior: oportunidadesSemProximaAcaoAnterior,
+        atual: oportunidadesSemProximaAcao.length,
+      },
+      {
+        indicador: "Tarefas vencidas",
+        anterior: tarefasVencidasAnterior,
+        atual: tarefasVencidas.length,
+      },
+      {
+        indicador: "Cumprimento da cadência",
+        anterior: cumprimentoCadenciaAnterior,
+        atual: cumprimentoCadencia,
+        sufixo: "%",
+      },
+      {
+        indicador: "Conclusão de tarefas",
+        anterior: taxaConclusaoAnterior,
+        atual: taxaConclusaoGeral,
+        sufixo: "%",
+      },
+      {
+        indicador: "Propostas sem retorno",
+        anterior: propostasSemRetornoAnterior,
+        atual: propostasAguardandoRetorno.length,
+      },
+    ],
+    series,
     listas: {
       oportunidadesSemProximaAcao,
       oportunidadesSemResponsavel,

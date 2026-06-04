@@ -254,6 +254,18 @@ export default function OportunidadesPage() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
+        const motivoObrigatorio =
+          nextStatus === "PERDIDA" &&
+          (payload?.message === "Informe o motivo da perda." ||
+            payload?.errors?.motivoPerda?.length);
+
+        if (motivoObrigatorio) {
+          setOportunidades(previous);
+          setPerdaPendente({ oportunidadeId: id, previous });
+          setMotivoPerda("");
+          return;
+        }
+
         throw new Error(payload?.message ?? "Falha ao atualizar status.");
       }
 

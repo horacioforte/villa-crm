@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  Activity,
   BarChart2,
   Building2,
   CalendarCheck,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 const menuItems = [
   { label: "Dashboard", href: "/", icon: ChartNoAxesCombined },
+  { label: "Saúde Comercial", href: "/saude-comercial", icon: Activity },
   { label: "Empresas", href: "/empresas", icon: Building2 },
   { label: "Contatos", href: "/contatos", icon: Users },
   { label: "Obras", href: "/obras", icon: HardHat },

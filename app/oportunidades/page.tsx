@@ -20,6 +20,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { OportunidadeDetalhe } from "@/components/kanban/OportunidadeDetalhe";
 import { OportunidadeModal } from "@/components/kanban/OportunidadeModal";
 import { PageNavigation } from "@/components/layout/PageNavigation";
@@ -171,6 +179,12 @@ export default function OportunidadesPage() {
     string | null
   >(null);
   const [filtroTipo, setFiltroTipo] = useState<TipoNegocioFiltro>("TODOS");
+  const [perdaPendente, setPerdaPendente] = useState<{
+    oportunidadeId: string;
+    previous: Oportunidade[];
+  } | null>(null);
+  const [motivoPerda, setMotivoPerda] = useState("");
+  const [salvandoPerda, setSalvandoPerda] = useState(false);
 
   useEffect(() => {
     async function loadOportunidades() {
@@ -208,6 +222,21 @@ export default function OportunidadesPage() {
     }
 
     const previous = oportunidades;
+    if (nextStatus === "PERDIDA") {
+      setPerdaPendente({ oportunidadeId: id, previous });
+      setMotivoPerda("");
+      return;
+    }
+
+    await atualizarStatusOportunidade(id, nextStatus, previous);
+  }
+
+  async function atualizarStatusOportunidade(
+    id: string,
+    nextStatus: StatusOportunidade,
+    previous: Oportunidade[],
+    payloadExtra: Record<string, unknown> = {},
+  ) {
     setOportunidades((current) =>
       current.map((item) =>
         item.id === id ? { ...item, status: nextStatus } : item,
@@ -220,7 +249,7 @@ export default function OportunidadesPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify({ status: nextStatus, ...payloadExtra }),
       });
 
       if (!response.ok) {
@@ -237,6 +266,34 @@ export default function OportunidadesPage() {
           : "Nao foi possivel mover a oportunidade.",
       );
     }
+  }
+
+  async function handleConfirmarPerda() {
+    const motivo = motivoPerda.trim();
+
+    if (!perdaPendente || !motivo) {
+      toast.error("Informe o motivo da perda.");
+      return;
+    }
+
+    setSalvandoPerda(true);
+    try {
+      await atualizarStatusOportunidade(
+        perdaPendente.oportunidadeId,
+        "PERDIDA",
+        perdaPendente.previous,
+        { motivoPerda: motivo },
+      );
+      setPerdaPendente(null);
+      setMotivoPerda("");
+    } finally {
+      setSalvandoPerda(false);
+    }
+  }
+
+  function handleCancelarPerda() {
+    setPerdaPendente(null);
+    setMotivoPerda("");
   }
 
   function handleAbrirCriacao(status: StatusOportunidade = "NOVA") {
@@ -441,6 +498,49 @@ export default function OportunidadesPage() {
           onDeletar={handleDeletar}
         />
       ) : null}
+
+      <Dialog
+        open={Boolean(perdaPendente)}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancelarPerda();
+          }
+        }}
+      >
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Informe o motivo da perda</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-[#667085]">
+              Para mover a oportunidade para Perdida, registre o motivo. Esse
+              histórico ajuda a equipe a acompanhar perdas e ajustar a
+              estratégia comercial.
+            </p>
+            <Textarea
+              value={motivoPerda}
+              onChange={(event) => setMotivoPerda(event.target.value)}
+              placeholder="Ex.: cliente desistiu, preço acima do esperado, obra parada..."
+              className="min-h-28 rounded-2xl bg-[#F4F6FA]"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleCancelarPerda}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmarPerda}
+              disabled={salvandoPerda}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {salvandoPerda ? <Loader2 className="size-4 animate-spin" /> : null}
+              Marcar como perdida
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

@@ -5,7 +5,7 @@ import { authConfig } from "@/auth.config";
 
 const { auth } = NextAuth(authConfig);
 
-const publicRoutes = ["/login", "/api/agent"];
+const publicRoutes = ["/login", "/contato", "/api/agent", "/api/webhook/site"];
 
 export default auth((request) => {
   const { pathname } = request.nextUrl;

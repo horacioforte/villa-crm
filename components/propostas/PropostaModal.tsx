@@ -418,6 +418,8 @@ export function PropostaModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
+  const [sugerirPotencial, setSugerirPotencial] = useState(false);
+  const [valorPropostaSugerido, setValorPropostaSugerido] = useState(0);
 
   useEffect(() => {
     if (!aberto) {
@@ -427,6 +429,8 @@ export function PropostaModal({
     async function loadOportunidade() {
       setIsLoading(true);
       setIsPreviewVisible(false);
+      setSugerirPotencial(false);
+      setValorPropostaSugerido(0);
       setModoModal("escolha");
       setPropostaGrupoId(null);
 
@@ -972,7 +976,28 @@ export function PropostaModal({
         throw new Error(payload?.message ?? "Falha ao salvar proposta.");
       }
 
+      const propostaSalva = await response.json();
+      const oportunidadeResponse = await fetch(`/api/oportunidades/${oportunidadeId}`);
+      const oportunidadeAtual = oportunidadeResponse.ok
+        ? await oportunidadeResponse.json()
+        : oportunidade;
+      const potencialAtual = oportunidadeAtual?.potencialOportunidade;
+      const valorSugerido = Number(propostaSalva?.valorTotal ?? valorTotalProposta);
+
       toast.success("Rascunho de proposta salvo.");
+
+      if (
+        (potencialAtual === null ||
+          potencialAtual === undefined ||
+          Number(potencialAtual) <= 0) &&
+        Number.isFinite(valorSugerido) &&
+        valorSugerido > 0
+      ) {
+        setValorPropostaSugerido(valorSugerido);
+        setSugerirPotencial(true);
+        return;
+      }
+
       onSalvar();
       onFechar();
     } catch (error) {
@@ -984,6 +1009,48 @@ export function PropostaModal({
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  async function handleAtualizarPotencial() {
+    if (!valorPropostaSugerido || valorPropostaSugerido <= 0) {
+      handleDispensarSugestao();
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/oportunidades/${oportunidadeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          potencialOportunidade: valorPropostaSugerido,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message ?? "Falha ao atualizar potencial.");
+      }
+
+      toast.success("Valor potencial atualizado.");
+      setSugerirPotencial(false);
+      onSalvar();
+      onFechar();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel atualizar o potencial.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function handleDispensarSugestao() {
+    setSugerirPotencial(false);
+    onSalvar();
+    onFechar();
   }
 
   if (!isLoading && modoModal === "escolha") {
@@ -1535,6 +1602,58 @@ export function PropostaModal({
           </div>
         )}
 
+        {sugerirPotencial ? (
+          <div className="mx-5 mb-4 rounded-2xl border border-[#1E4FAB] bg-[#E8EEFB] p-4 sm:mx-6">
+            <div className="flex items-start gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[#1A2E5A]">
+                  Esta oportunidade ainda nao tem valor potencial definido.
+                </p>
+                <p className="mt-1 text-sm text-[#667085]">
+                  Deseja usar o valor da proposta como estimativa?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-xl bg-white px-4 py-3 text-center">
+              <span className="text-2xl font-bold text-[#1A2E5A]">
+                {formatPreviewCurrency(valorPropostaSugerido)}
+              </span>
+              <p className="mt-1 text-xs text-[#667085]">
+                valor da proposta gerada
+              </p>
+            </div>
+
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                onClick={handleAtualizarPotencial}
+                disabled={isSubmitting}
+                className="flex-1 rounded-2xl bg-[#1E4FAB] text-sm text-white hover:bg-[#1A2E5A]"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Atualizando...
+                  </>
+                ) : (
+                  "Sim, usar como potencial"
+                )}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleDispensarSugestao}
+                disabled={isSubmitting}
+                variant="outline"
+                className="flex-1 rounded-2xl text-sm"
+              >
+                Nao, obrigado
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {!sugerirPotencial ? (
         <DialogFooter className="m-0 mx-0 mb-0 shrink-0 rounded-none border-t border-[#D7DEEA] px-5 py-4 sm:px-6">
           <Button
             type="button"
@@ -1561,6 +1680,7 @@ export function PropostaModal({
             )}
           </Button>
         </DialogFooter>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

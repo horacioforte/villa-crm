@@ -113,7 +113,12 @@ type OportunidadeSalva = {
   obra: {
     nome: string;
   } | null;
+  tarefas?: Array<{
+    status: string;
+  }>;
 };
+
+type PassoModal = "dados" | "proxima_acao";
 
 export type OportunidadePrefill = {
   empresaId?: string | null;
@@ -242,6 +247,11 @@ export function OportunidadeModal({
   const [tarefaTipo, setTarefaTipo] = useState<TipoAtividade>("LIGACAO");
   const [tarefaProximaAcao, setTarefaProximaAcao] = useState("");
   const [tarefaData, setTarefaData] = useState(todayInput());
+  const [passo, setPasso] = useState<PassoModal>("dados");
+  const [oportunidadeCriada, setOportunidadeCriada] =
+    useState<OportunidadeSalva | null>(null);
+  const [acaoHora, setAcaoHora] = useState("09:00");
+  const [acaoObservacao, setAcaoObservacao] = useState("");
 
   const form = useForm<OportunidadeFormValues>({
     resolver: zodResolver(oportunidadeSchema) as unknown as Resolver<OportunidadeFormValues>,
@@ -249,7 +259,7 @@ export function OportunidadeModal({
   });
 
   const isEditing = Boolean(oportunidadeId);
-  const deveCriarPrimeiraTarefa =
+  const deveSugerirProximaAcao =
     !isEditing && !prefill?.usarTarefaExistenteComoPrimeiraAcao;
   const statusAtual = useWatch({
     control: form.control,
@@ -387,9 +397,13 @@ export function OportunidadeModal({
           });
         } else {
           form.reset(getDefaultValues(statusInicial, prefill));
+          setPasso("dados");
+          setOportunidadeCriada(null);
           setTarefaTipo("LIGACAO");
           setTarefaProximaAcao("");
           setTarefaData(todayInput());
+          setAcaoHora("09:00");
+          setAcaoObservacao("");
         }
       } catch {
         toast.error("Nao foi possivel carregar os dados do formulario.");
@@ -402,19 +416,45 @@ export function OportunidadeModal({
   }, [aberto, form, oportunidadeId, prefill, statusInicial]);
 
   async function handleSubmit(values: OportunidadeFormValues) {
-    if (deveCriarPrimeiraTarefa && !tarefaProximaAcao.trim()) {
-      toast.error("Defina a primeira acao comercial antes de salvar.");
-      return;
-    }
+    if (!isEditing) {
+      if (!values.titulo.trim()) {
+        toast.error("Informe o titulo da oportunidade.");
+        return;
+      }
 
-    if (deveCriarPrimeiraTarefa && !tarefaData) {
-      toast.error("Defina a data da primeira acao comercial.");
-      return;
+      if (!values.empresaId) {
+        toast.error("Selecione a empresa.");
+        return;
+      }
+
+      if (!values.canalOrigem) {
+        toast.error("Informe como o cliente chegou ate nos.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
 
     try {
+      const payload = isEditing
+        ? values
+        : {
+            titulo: values.titulo.trim(),
+            empresaId: values.empresaId,
+            canalOrigem: values.canalOrigem,
+            tipo: values.tipo,
+            status: values.status,
+            pessoaId: null,
+            obraId: null,
+            equipamentoId: null,
+            potencialOportunidade: null,
+            faixaPotencial: null,
+            tipoServico: null,
+            descricao: null,
+            responsavelId: null,
+            valorContrato: null,
+            motivoPerda: null,
+          };
       const response = await fetch(
         oportunidadeId
           ? `/api/oportunidades/${oportunidadeId}`
@@ -424,7 +464,7 @@ export function OportunidadeModal({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(values),
+          body: JSON.stringify(payload),
         },
       );
 
@@ -435,46 +475,80 @@ export function OportunidadeModal({
 
       const oportunidade = await response.json();
 
-      if (deveCriarPrimeiraTarefa && tarefaProximaAcao.trim() && tarefaData) {
-        const tarefaResponse = await fetch("/api/tarefas", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            titulo: tarefaProximaAcao.trim(),
-            descricao: tarefaProximaAcao.trim(),
-            tipo: tarefaTipo,
-            prioridade: "MEDIA",
-            dataVencimento: tarefaData,
-            oportunidadeId: oportunidade.id,
-            empresaId: oportunidade.empresaId ?? values.empresaId,
-            pessoaId: oportunidade.pessoaId ?? values.pessoaId,
-            obraId: oportunidade.obraId ?? values.obraId,
-          }),
-        });
-
-        if (!tarefaResponse.ok) {
-          const payload = await tarefaResponse.json().catch(() => null);
-          throw new Error(
-            payload?.message ??
-              "Oportunidade criada, mas nao foi possivel criar a primeira tarefa.",
-          );
-        }
-      }
-
       toast.success(
         isEditing
           ? "Oportunidade atualizada com sucesso."
           : "Oportunidade criada com sucesso.",
       );
       onSalvar(oportunidade);
-      onFechar();
+      if (isEditing || !deveSugerirProximaAcao) {
+        onFechar();
+        return;
+      }
+
+      setOportunidadeCriada(oportunidade);
+      setPasso("proxima_acao");
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : "Nao foi possivel salvar a oportunidade.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleSalvarAcao() {
+    if (!oportunidadeCriada) {
+      return;
+    }
+
+    if (!tarefaTipo || !tarefaData) {
+      toast.error("Defina o tipo e a data da proxima acao.");
+      return;
+    }
+
+    const config = TIPO_CONFIG[tarefaTipo];
+    const tituloTarefa = `${config?.label ?? "Tarefa"} - ${oportunidadeCriada.titulo}`;
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(
+        `/api/oportunidades/${oportunidadeCriada.id}/tarefas`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            titulo: tituloTarefa,
+            descricao: acaoObservacao || null,
+            tipo: tarefaTipo,
+            prioridade: "MEDIA",
+            dataVencimento: tarefaData,
+            horaVencimento: acaoHora || null,
+            observacoes: acaoObservacao || null,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message ?? "Falha ao salvar proxima acao.");
+      }
+
+      toast.success("Proxima acao agendada!");
+      onSalvar({
+        ...oportunidadeCriada,
+        tarefas: [{ status: "PENDENTE" }],
+      });
+      onFechar();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel salvar a proxima acao.",
       );
     } finally {
       setIsSubmitting(false);
@@ -494,10 +568,18 @@ export function OportunidadeModal({
         <DialogContent className="max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-[#1A2E5A]">
-            {isEditing ? "Editar oportunidade" : "Nova oportunidade"}
+            {isEditing
+              ? "Editar oportunidade"
+              : passo === "proxima_acao"
+                ? "Qual e o proximo passo?"
+                : "Nova oportunidade"}
           </DialogTitle>
           <DialogDescription>
-            Preencha os dados comerciais para atualizar o pipeline da Villa.
+            {isEditing
+              ? "Preencha os dados comerciais para atualizar o pipeline da Villa."
+              : passo === "proxima_acao"
+                ? "A oportunidade foi criada. Agende a proxima acao para manter o follow-up em dia."
+                : "Preencha o essencial agora. Os demais dados podem ser adicionados depois no detalhe da oportunidade."}
           </DialogDescription>
         </DialogHeader>
 
@@ -506,12 +588,110 @@ export function OportunidadeModal({
             <Loader2 className="mr-2 size-5 animate-spin" />
             Carregando formulario...
           </div>
+        ) : !isEditing && passo === "proxima_acao" && oportunidadeCriada ? (
+          <div className="space-y-5">
+            <div className="rounded-2xl bg-[#E8EEFB] p-4 text-sm font-semibold text-[#1A2E5A]">
+              Oportunidade criada! Defina agora o proximo passo.
+            </div>
+
+            <div>
+              <Label className="text-[#1A2E5A]">Tipo de atividade *</Label>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {(
+                  [
+                    "LIGACAO",
+                    "WHATSAPP",
+                    "EMAIL",
+                    "VISITA",
+                    "PROPOSTA",
+                    "OUTRO",
+                  ] as TipoAtividade[]
+                ).map((tipo) => {
+                  const config = TIPO_CONFIG[tipo];
+                  const ativo = tarefaTipo === tipo;
+
+                  return (
+                    <button
+                      key={tipo}
+                      type="button"
+                      onClick={() => setTarefaTipo(tipo)}
+                      className={cn(
+                        "flex flex-col items-center gap-1 rounded-2xl border-2 p-3 text-sm font-medium transition-colors",
+                        ativo
+                          ? "border-[#1E4FAB] bg-[#E8EEFB] text-[#1A2E5A]"
+                          : "border-[#D7DEEA] bg-white text-[#667085] hover:border-[#1E4FAB]",
+                      )}
+                    >
+                      <span className="text-xl">{config?.emoji ?? "•"}</span>
+                      {config?.label ?? tipo}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Data">
+                <Input
+                  type="date"
+                  value={tarefaData}
+                  min={todayInput()}
+                  onChange={(event) => setTarefaData(event.target.value)}
+                  className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+              <Field label="Hora">
+                <Input
+                  type="time"
+                  value={acaoHora}
+                  onChange={(event) => setAcaoHora(event.target.value)}
+                  className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+            </div>
+
+            <Field label="Observacao (opcional)">
+              <Input
+                value={acaoObservacao}
+                onChange={(event) => setAcaoObservacao(event.target.value)}
+                placeholder="Ex: Confirmar disponibilidade de bomba lanca 36m"
+                className="h-11 rounded-2xl bg-[#F4F6FA]"
+              />
+            </Field>
+
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={isSubmitting}
+                onClick={onFechar}
+                className="rounded-2xl text-[#667085] underline"
+              >
+                Pular por agora
+              </Button>
+              <Button
+                type="button"
+                disabled={isSubmitting || !tarefaTipo || !tarefaData}
+                onClick={handleSalvarAcao}
+                className="h-11 rounded-2xl bg-[#1E4FAB] px-6 text-white hover:bg-[#1A2E5A]"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar e concluir"
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
         ) : (
           <form
             onSubmit={form.handleSubmit(handleSubmit)}
             className="grid gap-5 md:grid-cols-2"
           >
-            <Field label="Titulo" error={form.formState.errors.titulo?.message}>
+            <Field label="Titulo *" error={form.formState.errors.titulo?.message}>
               <Input
                 {...form.register("titulo")}
                 placeholder="Locacao de bomba para obra residencial"
@@ -520,7 +700,7 @@ export function OportunidadeModal({
             </Field>
 
             <Field
-              label="Empresa"
+              label="Empresa *"
               error={form.formState.errors.empresaId?.message}
             >
               <div className="space-y-2">
@@ -562,7 +742,10 @@ export function OportunidadeModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {statusOportunidadeValues.map((status) => (
+                      {(isEditing
+                        ? statusOportunidadeValues
+                        : (["NOVA", "EM_ATENDIMENTO"] as StatusOportunidade[])
+                      ).map((status) => (
                         <SelectItem key={status} value={status}>
                           {statusLabels[status]}
                         </SelectItem>
@@ -573,7 +756,7 @@ export function OportunidadeModal({
               />
             </Field>
 
-            <Field label="Como chegou ate nos">
+            <Field label="Como chegou ate nos *">
               <Controller
                 control={form.control}
                 name="canalOrigem"
@@ -641,6 +824,8 @@ export function OportunidadeModal({
               />
             </Field>
 
+            {isEditing ? (
+              <>
             {watchedTipo === "LOCACAO" ? (
               <Field label="Tipo de servico">
                 <Controller
@@ -837,65 +1022,7 @@ export function OportunidadeModal({
               />
             </Field>
 
-            {deveCriarPrimeiraTarefa ? (
-              <section className="md:col-span-2 border-t border-[#D7DEEA] pt-4">
-                <p className="mb-3 text-sm font-semibold text-[#1A2E5A]">
-                  Primeira acao comercial <span className="text-red-500">*</span>
-                </p>
-
-                <div className="space-y-3 rounded-2xl bg-[#F4F6FA] p-3">
-                  <div className="flex flex-wrap gap-2">
-                    {(
-                      [
-                        "LIGACAO",
-                        "WHATSAPP",
-                        "EMAIL",
-                        "REUNIAO",
-                        "VISITA",
-                      ] as TipoAtividade[]
-                    ).map((tipo) => {
-                      const config = TIPO_CONFIG[tipo];
-                      const ativo = tarefaTipo === tipo;
-
-                      if (!config) {
-                        return null;
-                      }
-
-                      return (
-                        <button
-                          key={tipo}
-                          type="button"
-                          onClick={() => setTarefaTipo(tipo)}
-                          className={cn(
-                            "rounded-2xl border px-3 py-1 text-xs transition-colors",
-                            ativo
-                              ? "border-[#1E4FAB] bg-[#1E4FAB] text-white"
-                              : "border-[#D7DEEA] bg-white text-[#667085] hover:border-[#1E4FAB]",
-                          )}
-                        >
-                          {config.emoji} {config.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <Input
-                    value={tarefaProximaAcao}
-                    onChange={(event) =>
-                      setTarefaProximaAcao(event.target.value)
-                    }
-                    placeholder="Ex: Ligar para confirmar necessidade de bomba"
-                    className="h-11 rounded-2xl bg-white"
-                  />
-
-                  <Input
-                    type="date"
-                    value={tarefaData}
-                    onChange={(event) => setTarefaData(event.target.value)}
-                    className="h-11 rounded-2xl bg-white"
-                  />
-                </div>
-              </section>
+              </>
             ) : null}
 
             <DialogFooter className="md:col-span-2">
@@ -919,7 +1046,7 @@ export function OportunidadeModal({
                     Salvando...
                   </>
                 ) : (
-                  "Salvar"
+                  isEditing ? "Salvar" : "Criar oportunidade"
                 )}
               </Button>
             </DialogFooter>

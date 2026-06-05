@@ -134,13 +134,7 @@ function validateOportunidadeRules(
     });
   }
 
-  if (data.tipo === "LOCACAO" && !data.obraId) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["obraId"],
-      message: "Selecione a obra.",
-    });
-  }
+  // A obra pode ser preenchida depois no detalhe da oportunidade.
 }
 
 export const oportunidadeSchema =

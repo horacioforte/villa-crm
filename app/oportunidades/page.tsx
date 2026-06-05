@@ -738,8 +738,8 @@ function OpportunityCard({
           </Badge>
         ) : null}
         {semProximaAcao ? (
-          <Badge className="w-fit animate-pulse border border-red-200 bg-red-100 text-xs font-semibold text-red-700">
-            🚨 SEM FOLLOW-UP
+          <Badge className="w-fit border border-amber-200 bg-amber-100 text-xs font-semibold text-amber-700">
+            Sem próxima ação
           </Badge>
         ) : null}
       </CardHeader>

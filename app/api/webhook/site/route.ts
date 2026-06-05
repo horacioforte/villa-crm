@@ -19,23 +19,22 @@ import { prisma } from "@/lib/prisma";
 
 const siteWebhookSchema = z.object({
   nome: z.string().trim().min(2),
-  email: z.string().trim().email(),
   telefone: z.string().trim().min(8),
-  mensagem: z.string().trim().min(3),
+  tipoNecessidade: z.string().trim().min(1),
+  cidadeObra: z.string().trim().min(2),
+  prazo: z.string().trim().min(1),
+  volumeEstimado: z.string().trim().optional(),
+  email: z
+    .string()
+    .trim()
+    .email()
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
   empresa: z.string().trim().optional(),
+  mensagem: z.string().trim().optional(),
 });
 
 type SiteWebhookInput = z.infer<typeof siteWebhookSchema>;
-
-function detectarTipoServico(mensagem: string): TipoServico | undefined {
-  const texto = mensagem.toLowerCase();
-
-  if (texto.includes("betoneira")) return TipoServico.BETONEIRA;
-  if (texto.includes("central")) return TipoServico.CENTRAL_IN_LOCO;
-  if (texto.includes("bomba")) return TipoServico.BOMBA_LANCA;
-
-  return undefined;
-}
 
 function getTaskDueDate() {
   const date = new Date();
@@ -43,8 +42,46 @@ function getTaskDueDate() {
   return date;
 }
 
+function mapTipoServico(tipoNecessidade: string): TipoServico | undefined {
+  const tipos: Record<string, TipoServico | undefined> = {
+    "Bomba de concreto": TipoServico.BOMBA_LANCA,
+    Betoneira: TipoServico.BETONEIRA,
+    "Central de concreto": TipoServico.CENTRAL_IN_LOCO,
+    Telebelt: TipoServico.TELEBELT,
+    "Não sei ainda": undefined,
+  };
+
+  return tipos[tipoNecessidade];
+}
+
+function mapTemperatura(prazo: string): TemperaturaOportunidade {
+  if (prazo === "Imediato (preciso agora)" || prazo === "Até 30 dias") {
+    return TemperaturaOportunidade.QUENTE;
+  }
+
+  if (prazo === "30 a 60 dias") {
+    return TemperaturaOportunidade.MEDIA;
+  }
+
+  return TemperaturaOportunidade.FRIA;
+}
+
+function getResumoContato(data: SiteWebhookInput) {
+  return [
+    `Contato via site — ${data.tipoNecessidade} em ${data.cidadeObra}.`,
+    `Prazo: ${data.prazo}.`,
+    data.volumeEstimado ? `Volume: ${data.volumeEstimado}.` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 async function enviarConfirmacaoBrevo(data: SiteWebhookInput) {
   const apiKey = process.env.BREVO_API_KEY;
+
+  if (!data.email) {
+    return;
+  }
 
   if (!apiKey) {
     console.warn("[WEBHOOK_SITE] BREVO_API_KEY não configurada.");
@@ -114,7 +151,7 @@ async function criarPendenciasEmBackground({
       data: {
         tipo: TipoContato.OUTRO,
         resumo: "Contato via formulário do site",
-        detalhes: data.mensagem,
+        detalhes: [getResumoContato(data), data.mensagem].filter(Boolean).join("\n\n"),
         oportunidadeId,
         empresaId,
         pessoaId,
@@ -122,8 +159,17 @@ async function criarPendenciasEmBackground({
     }),
     prisma.tarefa.create({
       data: {
-        titulo: `Retornar contato: ${data.nome}`,
-        descricao: `Lead recebido pelo formulário do site.\nTelefone/WhatsApp: ${data.telefone}\nEmail: ${data.email}`,
+        titulo: `Retornar contato: ${data.nome} — ${data.tipoNecessidade} ${data.cidadeObra}`,
+        descricao: [
+          `Lead recebido pelo formulário do site.`,
+          `Telefone/WhatsApp: ${data.telefone}`,
+          data.email ? `Email: ${data.email}` : null,
+          `Prazo: ${data.prazo}`,
+          data.volumeEstimado ? `Volume: ${data.volumeEstimado}` : null,
+          data.mensagem ? `Mensagem: ${data.mensagem}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
         tipo: TipoAtividade.LIGACAO,
         prioridade: PrioridadeTarefa.ALTA,
         status: StatusTarefa.PENDENTE,
@@ -157,17 +203,29 @@ export async function POST(request: Request) {
   const data = parsed.data;
   const empresaNome = data.empresa?.trim() || data.nome;
   const titulo = `Inbound — ${data.nome}${data.empresa ? ` / ${data.empresa}` : ""}`;
-  const tipoServico = detectarTipoServico(data.mensagem);
+  const tipoServico = mapTipoServico(data.tipoNecessidade);
+  const temperatura = mapTemperatura(data.prazo);
+  const descricao = [
+    getResumoContato(data),
+    data.mensagem ? `Mensagem adicional: ${data.mensagem}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      const empresaWhere = data.email
+        ? {
+            OR: [
+              { email: { equals: data.email, mode: "insensitive" as const } },
+              { razaoSocial: { equals: empresaNome, mode: "insensitive" as const } },
+            ],
+          }
+        : {
+            razaoSocial: { equals: empresaNome, mode: "insensitive" as const },
+          };
       let empresa = await tx.empresa.findFirst({
-        where: {
-          OR: [
-            { email: { equals: data.email, mode: "insensitive" } },
-            { razaoSocial: { equals: empresaNome, mode: "insensitive" } },
-          ],
-        },
+        where: empresaWhere,
       });
 
       if (!empresa) {
@@ -176,29 +234,36 @@ export async function POST(request: Request) {
             razaoSocial: empresaNome,
             nomeFantasia: data.empresa?.trim() || null,
             telefone: data.telefone,
-            email: data.email,
+            email: data.email ?? null,
             segmento: "Lead inbound",
-            observacoes: "Origem: formulário do site",
+            cidade: data.cidadeObra,
+            observacoes: `Origem: formulário do site\n${getResumoContato(data)}`,
             ativa: true,
           },
         });
       }
 
+      const pessoaWhere = data.email
+        ? {
+            empresaId: empresa.id,
+            OR: [
+              { email: { equals: data.email, mode: "insensitive" as const } },
+              { nome: { equals: data.nome, mode: "insensitive" as const } },
+            ],
+          }
+        : {
+            empresaId: empresa.id,
+            nome: { equals: data.nome, mode: "insensitive" as const },
+          };
       let pessoa = await tx.pessoa.findFirst({
-        where: {
-          empresaId: empresa.id,
-          OR: [
-            { email: { equals: data.email, mode: "insensitive" } },
-            { nome: { equals: data.nome, mode: "insensitive" } },
-          ],
-        },
+        where: pessoaWhere,
       });
 
       if (!pessoa) {
         pessoa = await tx.pessoa.create({
           data: {
             nome: data.nome,
-            email: data.email,
+            email: data.email ?? null,
             telefone: data.telefone,
             whatsapp: data.telefone,
             tipo: TipoPessoa.CONTATO,
@@ -213,12 +278,12 @@ export async function POST(request: Request) {
       const oportunidade = await tx.oportunidade.create({
         data: {
           titulo,
-          descricao: data.mensagem,
+          descricao,
           tipo: TipoOperacao.LOCACAO,
           tipoServico,
           canalOrigem: CanalOrigem.SITE,
           status: StatusOportunidade.NOVA,
-          temperatura: TemperaturaOportunidade.MEDIA,
+          temperatura,
           empresaId: empresa.id,
           pessoaId: pessoa.id,
           ativa: true,

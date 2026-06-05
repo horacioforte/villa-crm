@@ -6,19 +6,42 @@ import { Loader2, Send, Truck } from "lucide-react";
 
 type FormState = {
   nome: string;
-  email: string;
   telefone: string;
+  tipoNecessidade: string;
+  cidadeObra: string;
+  prazo: string;
+  volumeEstimado: string;
+  email: string;
   empresa: string;
   mensagem: string;
 };
 
 const initialState: FormState = {
   nome: "",
-  email: "",
   telefone: "",
+  tipoNecessidade: "",
+  cidadeObra: "",
+  prazo: "",
+  volumeEstimado: "",
+  email: "",
   empresa: "",
   mensagem: "",
 };
+
+const tiposNecessidade = [
+  "Bomba de concreto",
+  "Betoneira",
+  "Central de concreto",
+  "Telebelt",
+  "Não sei ainda",
+];
+
+const prazos = [
+  "Imediato (preciso agora)",
+  "Até 30 dias",
+  "30 a 60 dias",
+  "Mais de 60 dias",
+];
 
 export default function ContatoPublicoPage() {
   const [form, setForm] = useState<FormState>(initialState);
@@ -32,6 +55,11 @@ export default function ContatoPublicoPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!form.tipoNecessidade || !form.prazo) {
+      setStatus("error");
+      return;
+    }
+
     setIsSubmitting(true);
     setStatus(null);
 
@@ -41,10 +69,14 @@ export default function ContatoPublicoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nome: form.nome,
-          email: form.email,
           telefone: form.telefone,
-          mensagem: form.mensagem,
+          tipoNecessidade: form.tipoNecessidade,
+          cidadeObra: form.cidadeObra,
+          prazo: form.prazo,
+          volumeEstimado: form.volumeEstimado || undefined,
+          email: form.email || undefined,
           empresa: form.empresa || undefined,
+          mensagem: form.mensagem || undefined,
         }),
       });
 
@@ -112,17 +144,6 @@ export default function ContatoPublicoPage() {
               />
             </Field>
 
-            <Field label="Email" required>
-              <input
-                required
-                type="email"
-                value={form.email}
-                onChange={(event) => updateField("email", event.target.value)}
-                className="h-12 w-full rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-4 outline-none focus:border-[#1E4FAB]"
-                placeholder="seu@email.com"
-              />
-            </Field>
-
             <Field label="Telefone / WhatsApp" required>
               <input
                 required
@@ -130,6 +151,55 @@ export default function ContatoPublicoPage() {
                 onChange={(event) => updateField("telefone", event.target.value)}
                 className="h-12 w-full rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-4 outline-none focus:border-[#1E4FAB]"
                 placeholder="(81) 99999-9999"
+              />
+            </Field>
+
+            <Field label="Tipo de necessidade" required className="sm:col-span-2">
+              <ButtonSelector
+                options={tiposNecessidade}
+                value={form.tipoNecessidade}
+                onChange={(value) => updateField("tipoNecessidade", value)}
+              />
+            </Field>
+
+            <Field label="Cidade da obra" required>
+              <input
+                required
+                value={form.cidadeObra}
+                onChange={(event) =>
+                  updateField("cidadeObra", event.target.value)
+                }
+                className="h-12 w-full rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-4 outline-none focus:border-[#1E4FAB]"
+                placeholder="Ex.: Recife, PE"
+              />
+            </Field>
+
+            <Field label="Prazo" required className="sm:col-span-2">
+              <ButtonSelector
+                options={prazos}
+                value={form.prazo}
+                onChange={(value) => updateField("prazo", value)}
+              />
+            </Field>
+
+            <Field label="Volume estimado">
+              <input
+                value={form.volumeEstimado}
+                onChange={(event) =>
+                  updateField("volumeEstimado", event.target.value)
+                }
+                className="h-12 w-full rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-4 outline-none focus:border-[#1E4FAB]"
+                placeholder="Ex.: 500 m³/mês"
+              />
+            </Field>
+
+            <Field label="Email">
+              <input
+                type="email"
+                value={form.email}
+                onChange={(event) => updateField("email", event.target.value)}
+                className="h-12 w-full rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-4 outline-none focus:border-[#1E4FAB]"
+                placeholder="seu@email.com"
               />
             </Field>
 
@@ -142,13 +212,12 @@ export default function ContatoPublicoPage() {
               />
             </Field>
 
-            <Field label="Mensagem / Descreva sua necessidade" required className="sm:col-span-2">
+            <Field label="Mensagem adicional" className="sm:col-span-2">
               <textarea
-                required
                 value={form.mensagem}
                 onChange={(event) => updateField("mensagem", event.target.value)}
-                className="min-h-36 w-full rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-4 py-3 outline-none focus:border-[#1E4FAB]"
-                placeholder="Ex.: preciso de bomba para uma concretagem, volume previsto, cidade, prazo..."
+                className="min-h-24 w-full rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-4 py-3 outline-none focus:border-[#1E4FAB]"
+                placeholder="Detalhes adicionais sobre a obra, acesso ou operação..."
               />
             </Field>
           </div>
@@ -185,6 +254,39 @@ export default function ContatoPublicoPage() {
         </form>
       </section>
     </main>
+  );
+}
+
+function ButtonSelector({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {options.map((option) => {
+        const isSelected = value === option;
+
+        return (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option)}
+            className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+              isSelected
+                ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                : "border-[#D7DEEA] bg-white text-[#1A2E5A] hover:bg-[#F4F6FA]"
+            }`}
+          >
+            {option}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

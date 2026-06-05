@@ -447,7 +447,7 @@ export function OportunidadeModal({
             pessoaId: null,
             obraId: null,
             equipamentoId: null,
-            potencialOportunidade: null,
+            potencialOportunidade: values.potencialOportunidade || null,
             faixaPotencial: null,
             tipoServico: null,
             descricao: null,
@@ -823,6 +823,18 @@ export function OportunidadeModal({
                 )}
               />
             </Field>
+
+            {!isEditing ? (
+              <Field label="Valor da oportunidade">
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...form.register("potencialOportunidade")}
+                  placeholder="Opcional. Ex: 15000"
+                  className="h-11 rounded-2xl bg-[#F4F6FA]"
+                />
+              </Field>
+            ) : null}
 
             {isEditing ? (
               <>

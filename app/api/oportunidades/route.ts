@@ -65,6 +65,7 @@ export async function POST(request: Request) {
     const oportunidade = await prisma.oportunidade.create({
       data: {
         ...data,
+        responsavelId: data.responsavelId ?? authResult.id,
         createdById: authResult.id,
         updatedById: authResult.id,
       },

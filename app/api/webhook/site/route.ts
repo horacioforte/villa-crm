@@ -51,40 +51,97 @@ async function enviarConfirmacaoBrevo(data: SiteWebhookInput) {
     return;
   }
 
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "api-key": apiKey,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      sender: {
-        name: "Villa Empreendimentos",
-        email: "comercial@villaempreendimentos.com.br",
-      },
-      to: [{ email: data.email, name: data.nome }],
-      replyTo: {
-        email: "comercial@villaempreendimentos.com.br",
-        name: "Villa Empreendimentos",
-      },
-      subject: "Recebemos seu contato — Villa Empreendimentos",
-      htmlContent: `
-        <p>Olá ${data.nome}!</p>
-        <p>Recebemos sua mensagem e nossa equipe entrará em contato em até 2 horas.</p>
-        <p>Qualquer dúvida, responda este email.</p>
-        <p>
-          Villa Empreendimentos<br />
-          (81) XXXX-XXXX
-        </p>
-      `,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
-    console.error("[WEBHOOK_SITE] Erro ao enviar Brevo:", errorText);
+  try {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        accept: "application/json",
+        "api-key": apiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: "Villa Empreendimentos",
+          email: "comercial@villaempreendimentos.com.br",
+        },
+        to: [{ email: data.email, name: data.nome }],
+        replyTo: {
+          email: "comercial@villaempreendimentos.com.br",
+          name: "Villa Empreendimentos",
+        },
+        subject: "Recebemos seu contato — Villa Empreendimentos",
+        htmlContent: `
+          <p>Olá ${data.nome}!</p>
+          <p>Recebemos sua mensagem e nossa equipe entrará em contato em até 2 horas.</p>
+          <p>Qualquer dúvida, responda este email.</p>
+          <p>
+            Villa Empreendimentos<br />
+            (81) XXXX-XXXX
+          </p>
+        `,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error("[WEBHOOK_SITE] Erro ao enviar Brevo:", errorText);
+    }
+  } catch (error) {
+    console.error("[WEBHOOK_SITE] Falha/timeout no Brevo:", error);
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+async function criarPendenciasEmBackground({
+  data,
+  oportunidadeId,
+  empresaId,
+  pessoaId,
+}: {
+  data: SiteWebhookInput;
+  oportunidadeId: string;
+  empresaId: string;
+  pessoaId: string;
+}) {
+  const dataVencimento = getTaskDueDate();
+  const results = await Promise.allSettled([
+    prisma.historicoContato.create({
+      data: {
+        tipo: TipoContato.OUTRO,
+        resumo: "Contato via formulário do site",
+        detalhes: data.mensagem,
+        oportunidadeId,
+        empresaId,
+        pessoaId,
+      },
+    }),
+    prisma.tarefa.create({
+      data: {
+        titulo: `Retornar contato: ${data.nome}`,
+        descricao: `Lead recebido pelo formulário do site.\nTelefone/WhatsApp: ${data.telefone}\nEmail: ${data.email}`,
+        tipo: TipoAtividade.LIGACAO,
+        prioridade: PrioridadeTarefa.ALTA,
+        status: StatusTarefa.PENDENTE,
+        dataVencimento,
+        horaVencimento: dataVencimento.toTimeString().slice(0, 5),
+        oportunidadeId,
+        empresaId,
+        pessoaId,
+      },
+    }),
+    enviarConfirmacaoBrevo(data),
+  ]);
+
+  results.forEach((result) => {
+    if (result.status === "rejected") {
+      console.error("[WEBHOOK_SITE] Erro em tarefa de background:", result.reason);
+    }
+  });
 }
 
 export async function POST(request: Request) {
@@ -101,7 +158,6 @@ export async function POST(request: Request) {
   const empresaNome = data.empresa?.trim() || data.nome;
   const titulo = `Inbound — ${data.nome}${data.empresa ? ` / ${data.empresa}` : ""}`;
   const tipoServico = detectarTipoServico(data.mensagem);
-  const dataVencimento = getTaskDueDate();
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -169,36 +225,24 @@ export async function POST(request: Request) {
         },
       });
 
-      await tx.historicoContato.create({
-        data: {
-          tipo: TipoContato.OUTRO,
-          resumo: "Contato via formulário do site",
-          detalhes: data.mensagem,
-          oportunidadeId: oportunidade.id,
-          empresaId: empresa.id,
-          pessoaId: pessoa.id,
-        },
-      });
-
-      await tx.tarefa.create({
-        data: {
-          titulo: `Retornar contato: ${data.nome}`,
-          descricao: `Lead recebido pelo formulário do site.\nTelefone/WhatsApp: ${data.telefone}\nEmail: ${data.email}`,
-          tipo: TipoAtividade.LIGACAO,
-          prioridade: PrioridadeTarefa.ALTA,
-          status: StatusTarefa.PENDENTE,
-          dataVencimento,
-          horaVencimento: dataVencimento.toTimeString().slice(0, 5),
-          oportunidadeId: oportunidade.id,
-          empresaId: empresa.id,
-          pessoaId: pessoa.id,
-        },
-      });
-
-      return { oportunidadeId: oportunidade.id };
+      return {
+        oportunidadeId: oportunidade.id,
+        empresaId: empresa.id,
+        pessoaId: pessoa.id,
+      };
     });
 
-    await enviarConfirmacaoBrevo(data);
+    void criarPendenciasEmBackground({
+      data,
+      oportunidadeId: result.oportunidadeId,
+      empresaId: result.empresaId,
+      pessoaId: result.pessoaId,
+    }).catch((backgroundError) => {
+      console.error(
+        "[WEBHOOK_SITE] Erro em processamento de background:",
+        backgroundError,
+      );
+    });
 
     return NextResponse.json(
       { success: true, oportunidadeId: result.oportunidadeId },

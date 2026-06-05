@@ -73,7 +73,7 @@ async function enviarConfirmacaoBrevo(data: SiteWebhookInput) {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -162,7 +162,6 @@ async function criarPendenciasEmBackground({
         pessoaId,
       },
     }),
-    enviarConfirmacaoBrevo(data),
   ]);
 
   results.forEach((result) => {
@@ -284,6 +283,8 @@ export async function POST(request: Request) {
         backgroundError,
       );
     });
+
+    await enviarConfirmacaoBrevo(data);
 
     return NextResponse.json(
       { success: true, oportunidadeId: result.oportunidadeId },

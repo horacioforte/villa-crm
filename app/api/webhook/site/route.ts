@@ -22,7 +22,6 @@ const siteWebhookSchema = z.object({
   telefone: z.string().trim().min(8),
   tipoNecessidade: z.string().trim().min(1),
   cidadeObra: z.string().trim().min(2),
-  prazo: z.string().trim().min(1),
   volumeEstimado: z.string().trim().optional(),
   email: z
     .string()
@@ -31,7 +30,6 @@ const siteWebhookSchema = z.object({
     .optional()
     .or(z.literal("").transform(() => undefined)),
   empresa: z.string().trim().optional(),
-  mensagem: z.string().trim().optional(),
 });
 
 type SiteWebhookInput = z.infer<typeof siteWebhookSchema>;
@@ -48,28 +46,14 @@ function mapTipoServico(tipoNecessidade: string): TipoServico | undefined {
     Betoneira: TipoServico.BETONEIRA,
     "Central de concreto": TipoServico.CENTRAL_IN_LOCO,
     Telebelt: TipoServico.TELEBELT,
-    "Não sei ainda": undefined,
   };
 
   return tipos[tipoNecessidade];
 }
 
-function mapTemperatura(prazo: string): TemperaturaOportunidade {
-  if (prazo === "Imediato (preciso agora)" || prazo === "Até 30 dias") {
-    return TemperaturaOportunidade.QUENTE;
-  }
-
-  if (prazo === "30 a 60 dias") {
-    return TemperaturaOportunidade.MEDIA;
-  }
-
-  return TemperaturaOportunidade.FRIA;
-}
-
 function getResumoContato(data: SiteWebhookInput) {
   return [
     `Contato via site — ${data.tipoNecessidade} em ${data.cidadeObra}.`,
-    `Prazo: ${data.prazo}.`,
     data.volumeEstimado ? `Volume: ${data.volumeEstimado}.` : null,
   ]
     .filter(Boolean)
@@ -151,7 +135,7 @@ async function criarPendenciasEmBackground({
       data: {
         tipo: TipoContato.OUTRO,
         resumo: "Contato via formulário do site",
-        detalhes: [getResumoContato(data), data.mensagem].filter(Boolean).join("\n\n"),
+        detalhes: getResumoContato(data),
         oportunidadeId,
         empresaId,
         pessoaId,
@@ -164,9 +148,7 @@ async function criarPendenciasEmBackground({
           `Lead recebido pelo formulário do site.`,
           `Telefone/WhatsApp: ${data.telefone}`,
           data.email ? `Email: ${data.email}` : null,
-          `Prazo: ${data.prazo}`,
           data.volumeEstimado ? `Volume: ${data.volumeEstimado}` : null,
-          data.mensagem ? `Mensagem: ${data.mensagem}` : null,
         ]
           .filter(Boolean)
           .join("\n"),
@@ -204,13 +186,7 @@ export async function POST(request: Request) {
   const empresaNome = data.empresa?.trim() || data.nome;
   const titulo = `Inbound — ${data.nome}${data.empresa ? ` / ${data.empresa}` : ""}`;
   const tipoServico = mapTipoServico(data.tipoNecessidade);
-  const temperatura = mapTemperatura(data.prazo);
-  const descricao = [
-    getResumoContato(data),
-    data.mensagem ? `Mensagem adicional: ${data.mensagem}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const descricao = getResumoContato(data);
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -283,7 +259,7 @@ export async function POST(request: Request) {
           tipoServico,
           canalOrigem: CanalOrigem.SITE,
           status: StatusOportunidade.NOVA,
-          temperatura,
+          temperatura: TemperaturaOportunidade.MEDIA,
           empresaId: empresa.id,
           pessoaId: pessoa.id,
           ativa: true,

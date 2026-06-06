@@ -91,7 +91,7 @@ async function enviarConfirmacaoBrevo(data: SiteWebhookInput) {
         },
         to: [{ email: data.email, name: data.nome }],
         replyTo: {
-          email: "comercial@villaempreendimentos.com.br",
+          email: "horacio@villaempreendimentos.com.br",
           name: "Villa Empreendimentos",
         },
         subject: "Recebemos seu contato — Villa Empreendimentos",

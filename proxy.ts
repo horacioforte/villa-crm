@@ -9,6 +9,7 @@ const publicRoutes = [
   "/login",
   "/contato",
   "/diagnostico-central-de-concreto",
+  "/api/contato",
   "/api/agent",
   "/api/webhook/site",
   "/api/webhook/whatsapp",

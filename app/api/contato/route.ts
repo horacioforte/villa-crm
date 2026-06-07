@@ -119,10 +119,13 @@ async function enviarBoasVindasWhatsApp(data: ContatoInput) {
       body: JSON.stringify({
         number: telefone,
         text: [
-          `Olá, ${data.nome}! Aqui é a Maria, da Villa Empreendimentos.`,
+          `Olá, ${data.nome}! 👋 Aqui é a Maria da Villa Empreendimentos.`,
           "",
-          "Recebemos seu diagnóstico sobre central de concreto e já vamos analisar as informações da sua obra.",
-          "Nossa equipe retorna em até 2 horas para orientar o melhor caminho.",
+          "Recebi seu diagnóstico de Central de Concreto agora mesmo e já estou analisando suas respostas.",
+          "",
+          "Em até 2 horas te envio a avaliação completa informando se sua obra tem perfil para uma central exclusiva. 🏗️",
+          "",
+          "Qualquer dúvida é só falar aqui!",
         ].join("\n"),
       }),
     });

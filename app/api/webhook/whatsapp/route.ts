@@ -1,0 +1,498 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+import {
+  CanalOrigem,
+  InfluenciaDecisao,
+  NivelRelacionamento,
+  PrioridadeTarefa,
+  StatusOportunidade,
+  StatusTarefa,
+  TemperaturaOportunidade,
+  TipoAtividade,
+  TipoContato,
+  TipoOperacao,
+  TipoPessoa,
+  TipoServico,
+} from "@/app/generated/prisma/client";
+import { prisma } from "@/lib/prisma";
+
+export const maxDuration = 60;
+
+const tipoServicoSchema = z
+  .enum([
+    "BOMBA_LANCA",
+    "BOMBA_ESTACIONARIA",
+    "BETONEIRA",
+    "CENTRAL_IN_LOCO",
+    "TELEBELT",
+  ])
+  .nullable()
+  .optional();
+
+const mariaResponseSchema = z.object({
+  resposta: z.string().trim().min(1),
+  isLead: z.boolean(),
+  qualificado: z.boolean(),
+  tipoServico: tipoServicoSchema,
+  cidade: z.string().nullable().optional(),
+  volume: z.string().nullable().optional(),
+  prazo: z.string().nullable().optional(),
+  temperatura: z.enum(["QUENTE", "MEDIA", "FRIA"]).default("MEDIA"),
+  urgente: z.boolean().default(false),
+});
+
+type MariaResponse = z.infer<typeof mariaResponseSchema>;
+
+type EvolutionWebhookPayload = {
+  event?: string;
+  data?: {
+    key?: {
+      fromMe?: boolean;
+      remoteJid?: string;
+    };
+    message?: {
+      conversation?: string;
+      extendedTextMessage?: {
+        text?: string;
+      };
+    };
+    pushName?: string;
+  };
+};
+
+const MARIA_SYSTEM_PROMPT = `Você é Maria, SDR receptiva da Villa Empreendimentos (locação de bombas de concreto, betoneiras, centrais de concreto e telebelt).
+
+Personalidade: rápida, simpática, humana. Nunca robótica. Uma pergunta por mensagem.
+
+Fluxo de qualificação (máximo 4 perguntas):
+1. Tipo de serviço (bomba, betoneira, central ou telebelt?)
+2. Cidade da obra
+3. Volume estimado de concreto por mês
+4. Data prevista de início
+
+Quando tiver informações suficientes (mínimo tipo + cidade), encerre com:
+"Ótimo! Vou passar seu contato para nosso consultor. Ele retorna em até 2 horas."
+
+Regras:
+- Uma pergunta por mensagem.
+- Tom caloroso e direto.
+- Se pedir preço, informe que depende do volume e localização.
+- Se urgente, diga que vai acionar o consultor agora.
+- Se mencionar apenas "bomba", use BOMBA_LANCA como tipoServico.
+
+Responda APENAS com JSON válido, sem markdown:
+{
+  "resposta": "texto da resposta para o cliente",
+  "isLead": true/false,
+  "qualificado": true/false,
+  "tipoServico": "BOMBA_LANCA|BOMBA_ESTACIONARIA|BETONEIRA|CENTRAL_IN_LOCO|TELEBELT|null",
+  "cidade": "cidade mencionada ou null",
+  "volume": "volume mencionado ou null",
+  "prazo": "prazo mencionado ou null",
+  "temperatura": "QUENTE|MEDIA|FRIA",
+  "urgente": true/false
+}`;
+
+function extractJson(text: string) {
+  const cleaned = text
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+    throw new Error("Resposta da Maria nao contem JSON.");
+  }
+
+  return cleaned.slice(firstBrace, lastBrace + 1);
+}
+
+function getTextMessage(payload: EvolutionWebhookPayload) {
+  return (
+    payload.data?.message?.conversation ??
+    payload.data?.message?.extendedTextMessage?.text ??
+    ""
+  ).trim();
+}
+
+function getWhatsappNumber(remoteJid?: string) {
+  if (!remoteJid || remoteJid.endsWith("@g.us")) {
+    return null;
+  }
+
+  const [number] = remoteJid.split("@");
+  const digits = number?.replace(/\D/g, "");
+  return digits || null;
+}
+
+function cleanNullable(value: string | null | undefined) {
+  const trimmed = value?.trim();
+
+  if (!trimmed || trimmed.toLowerCase() === "null") {
+    return null;
+  }
+
+  return trimmed;
+}
+
+function getTaskDueDate(urgente: boolean) {
+  const date = new Date();
+
+  if (urgente) {
+    date.setMinutes(date.getMinutes() + 30);
+    return date;
+  }
+
+  date.setHours(date.getHours() + 2);
+  return date;
+}
+
+function getTipoServico(tipoServico: MariaResponse["tipoServico"]) {
+  if (!tipoServico) {
+    return null;
+  }
+
+  const tipos: Record<NonNullable<MariaResponse["tipoServico"]>, TipoServico> = {
+    BOMBA_LANCA: TipoServico.BOMBA_LANCA,
+    BOMBA_ESTACIONARIA: TipoServico.BOMBA_ESTACIONARIA,
+    BETONEIRA: TipoServico.BETONEIRA,
+    CENTRAL_IN_LOCO: TipoServico.CENTRAL_IN_LOCO,
+    TELEBELT: TipoServico.TELEBELT,
+  };
+
+  return tipos[tipoServico];
+}
+
+async function analisarMensagem({
+  nomeContato,
+  texto,
+}: {
+  nomeContato: string;
+  texto: string;
+}) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("ANTHROPIC_API_KEY nao configurada.");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        system: MARIA_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: `Nome do cliente: ${nomeContato}\nMensagem: ${texto}`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new Error(`Erro Anthropic ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    const responseText = data.content?.[0]?.type === "text" ? data.content[0].text : "";
+    return mariaResponseSchema.parse(JSON.parse(extractJson(responseText)));
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function enviarWhatsapp({
+  telefone,
+  texto,
+}: {
+  telefone: string;
+  texto: string;
+}) {
+  const apiUrl = process.env.EVOLUTION_API_URL?.replace(/\/+$/, "");
+  const apiKey = process.env.EVOLUTION_API_KEY;
+  const instance = process.env.EVOLUTION_INSTANCE;
+
+  if (!apiUrl || !apiKey || !instance) {
+    throw new Error("Variaveis da Evolution API nao configuradas.");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(`${apiUrl}/message/sendText/${instance}`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        apikey: apiKey,
+      },
+      body: JSON.stringify({
+        number: telefone,
+        text: texto,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new Error(`Erro Evolution ${response.status}: ${errorText}`);
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function registrarLeadQualificado({
+  dados,
+  nomeContato,
+  telefone,
+  texto,
+}: {
+  dados: MariaResponse;
+  nomeContato: string;
+  telefone: string;
+  texto: string;
+}) {
+  const tipoServico = getTipoServico(dados.tipoServico);
+  const cidade = cleanNullable(dados.cidade);
+  const volume = cleanNullable(dados.volume);
+  const prazo = cleanNullable(dados.prazo);
+  const temperatura = dados.temperatura as TemperaturaOportunidade;
+  const dataVencimento = getTaskDueDate(dados.urgente);
+
+  if (!tipoServico || !cidade) {
+    return { oportunidadeId: null, criada: false };
+  }
+
+  return prisma.$transaction(async (tx) => {
+    let pessoa = await tx.pessoa.findFirst({
+      where: {
+        OR: [{ whatsapp: telefone }, { telefone }],
+      },
+      include: {
+        empresa: true,
+      },
+    });
+
+    let empresa =
+      pessoa?.empresa ??
+      (await tx.empresa.findFirst({
+        where: {
+          OR: [
+            { telefone },
+            { razaoSocial: { equals: nomeContato, mode: "insensitive" } },
+          ],
+        },
+      }));
+
+    if (!empresa) {
+      empresa = await tx.empresa.create({
+        data: {
+          razaoSocial: nomeContato,
+          telefone,
+          segmento: "Lead WhatsApp",
+          cidade,
+          observacoes: `Origem: WhatsApp\nMensagem inicial: ${texto}`,
+          ativa: true,
+        },
+      });
+    }
+
+    if (!pessoa) {
+      pessoa = await tx.pessoa.create({
+        data: {
+          nome: nomeContato,
+          telefone,
+          whatsapp: telefone,
+          tipo: TipoPessoa.CONTATO,
+          influenciaDecisao: InfluenciaDecisao.INFLUENCIADOR,
+          nivelRelacionamento: NivelRelacionamento.NEUTRO,
+          empresaId: empresa.id,
+          ativa: true,
+        },
+        include: {
+          empresa: true,
+        },
+      });
+    }
+
+    const oportunidadeAberta = await tx.oportunidade.findFirst({
+      where: {
+        pessoaId: pessoa.id,
+        ativa: true,
+        status: {
+          notIn: [StatusOportunidade.GANHA, StatusOportunidade.PERDIDA],
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const descricao = [
+      `Lead recebido via WhatsApp.`,
+      `Cidade: ${cidade}`,
+      volume ? `Volume: ${volume}` : null,
+      prazo ? `Prazo: ${prazo}` : null,
+      `Telefone: ${telefone}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const oportunidade = oportunidadeAberta
+      ? await tx.oportunidade.update({
+          where: {
+            id: oportunidadeAberta.id,
+          },
+          data: {
+            tipoServico: oportunidadeAberta.tipoServico ?? tipoServico,
+            temperatura,
+            temperaturaMotivo: dados.urgente
+              ? "Lead WhatsApp com urgencia informada."
+              : "Lead WhatsApp qualificado pela Maria.",
+          },
+        })
+      : await tx.oportunidade.create({
+          data: {
+            titulo: `WhatsApp - ${nomeContato}${cidade ? ` / ${cidade}` : ""}`,
+            descricao,
+            tipo: TipoOperacao.LOCACAO,
+            tipoServico,
+            canalOrigem: CanalOrigem.OUTROS,
+            status: StatusOportunidade.NOVA,
+            temperatura,
+            temperaturaMotivo: dados.urgente
+              ? "Lead WhatsApp com urgencia informada."
+              : "Lead WhatsApp qualificado pela Maria.",
+            empresaId: empresa.id,
+            pessoaId: pessoa.id,
+            ativa: true,
+          },
+        });
+
+    await tx.historicoContato.create({
+      data: {
+        tipo: TipoContato.WHATSAPP,
+        resumo: `WhatsApp de ${nomeContato} (${telefone})`,
+        detalhes: [
+          `Mensagem: ${texto}`,
+          `Resposta Maria: ${dados.resposta}`,
+          `Cidade: ${cidade}`,
+          volume ? `Volume: ${volume}` : null,
+          prazo ? `Prazo: ${prazo}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        oportunidadeId: oportunidade.id,
+        empresaId: empresa.id,
+        pessoaId: pessoa.id,
+      },
+    });
+
+    const tarefaExistente = await tx.tarefa.findFirst({
+      where: {
+        oportunidadeId: oportunidade.id,
+        tipo: TipoAtividade.WHATSAPP,
+        status: {
+          in: [StatusTarefa.PENDENTE, StatusTarefa.EM_ANDAMENTO],
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!tarefaExistente) {
+      await tx.tarefa.create({
+        data: {
+          titulo: `Retornar WhatsApp: ${nomeContato} (${telefone})`,
+          descricao,
+          tipo: TipoAtividade.WHATSAPP,
+          prioridade: dados.urgente ? PrioridadeTarefa.URGENTE : PrioridadeTarefa.ALTA,
+          status: StatusTarefa.PENDENTE,
+          dataVencimento,
+          horaVencimento: dataVencimento.toTimeString().slice(0, 5),
+          oportunidadeId: oportunidade.id,
+          empresaId: empresa.id,
+          pessoaId: pessoa.id,
+        },
+      });
+    }
+
+    return {
+      oportunidadeId: oportunidade.id,
+      criada: !oportunidadeAberta,
+    };
+  });
+}
+
+export async function POST(request: Request) {
+  let body: EvolutionWebhookPayload;
+
+  try {
+    body = (await request.json()) as EvolutionWebhookPayload;
+  } catch {
+    return NextResponse.json({ ok: false, message: "Payload JSON invalido." }, { status: 400 });
+  }
+
+  if (body.event !== "messages.upsert") {
+    return NextResponse.json({ ok: true });
+  }
+
+  if (body.data?.key?.fromMe) {
+    return NextResponse.json({ ok: true });
+  }
+
+  const texto = getTextMessage(body);
+
+  if (!texto) {
+    return NextResponse.json({ ok: true });
+  }
+
+  const telefone = getWhatsappNumber(body.data?.key?.remoteJid);
+
+  if (!telefone) {
+    return NextResponse.json({ ok: true });
+  }
+
+  const nomeContato = body.data?.pushName?.trim() || "Cliente";
+
+  try {
+    const dados = await analisarMensagem({ nomeContato, texto });
+    await enviarWhatsapp({ telefone, texto: dados.resposta });
+
+    const lead = dados.isLead && dados.qualificado
+      ? await registrarLeadQualificado({ dados, nomeContato, telefone, texto })
+      : { oportunidadeId: null, criada: false };
+
+    return NextResponse.json({
+      ok: true,
+      leadQualificado: Boolean(lead.oportunidadeId),
+      oportunidadeId: lead.oportunidadeId,
+      oportunidadeCriada: lead.criada,
+    });
+  } catch (error) {
+    console.error("[WEBHOOK_WHATSAPP] Erro ao processar mensagem:", error);
+    const message = error instanceof Error ? error.message : "Erro interno.";
+    const status = message.includes("configurada") ? 503 : 500;
+
+    return NextResponse.json({ ok: false, message }, { status });
+  }
+}

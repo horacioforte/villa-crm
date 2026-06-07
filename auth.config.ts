@@ -1,6 +1,12 @@
 import type { NextAuthConfig } from "next-auth";
 
-const publicRoutes = ["/login"];
+const publicRoutes = [
+  "/login",
+  "/api/webhook/site",
+  "/api/webhook/whatsapp",
+  "/api/email/cron",
+  "/api/email/processar",
+];
 const authSecret =
   process.env.AUTH_SECRET ??
   process.env.NEXTAUTH_SECRET ??

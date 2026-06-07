@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   Activity,
   BarChart2,
+  Bot,
   Building2,
   CalendarCheck,
   ChartNoAxesCombined,
@@ -30,6 +31,7 @@ const menuItems = [
   { label: "Feedback", href: "/feedback", icon: MessageSquarePlus },
   { label: "Equipamentos", href: "/equipamentos", icon: Truck },
   { label: "Usuarios", href: "/usuarios", icon: UserCog },
+  { label: "Agentes", href: "/admin/agentes", icon: Bot, adminOnly: true },
 ];
 
 type PageNavigationProps = {
@@ -42,6 +44,7 @@ export function PageNavigation({
   currentHref,
 }: PageNavigationProps) {
   const [tarefasAtrasadas, setTarefasAtrasadas] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     async function loadTarefasAtrasadas() {
@@ -54,6 +57,21 @@ export function PageNavigation({
     }
 
     loadTarefasAtrasadas();
+  }, []);
+
+  useEffect(() => {
+    async function loadSession() {
+      const response = await fetch("/api/auth/session");
+
+      if (!response.ok) {
+        return;
+      }
+
+      const session = await response.json();
+      setIsAdmin(session?.user?.papel === "ADMIN");
+    }
+
+    loadSession();
   }, []);
 
   return (
@@ -78,32 +96,34 @@ export function PageNavigation({
         </Link>
 
         <nav className="flex flex-wrap gap-2" aria-label="Menu principal">
-          {menuItems.map((item) => {
-            const isActive =
-              currentHref === item.href ||
-              (item.href !== "/" && currentHref?.startsWith(item.href));
+          {menuItems
+            .filter((item) => !item.adminOnly || isAdmin)
+            .map((item) => {
+              const isActive =
+                currentHref === item.href ||
+                (item.href !== "/" && currentHref?.startsWith(item.href));
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold transition",
-                  isActive
-                    ? "bg-[#1A2E5A] text-white"
-                    : "bg-[#F4F6FA] text-[#1A2E5A] hover:bg-[#E8EEFB]",
-                )}
-              >
-                <item.icon className="size-4" />
-                {item.label}
-                {item.href === "/tarefas" && tarefasAtrasadas > 0 ? (
-                  <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                    {tarefasAtrasadas}
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold transition",
+                    isActive
+                      ? "bg-[#1A2E5A] text-white"
+                      : "bg-[#F4F6FA] text-[#1A2E5A] hover:bg-[#E8EEFB]",
+                  )}
+                >
+                  <item.icon className="size-4" />
+                  {item.label}
+                  {item.href === "/tarefas" && tarefasAtrasadas > 0 ? (
+                    <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      {tarefasAtrasadas}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
         </nav>
       </div>
 

@@ -10,7 +10,8 @@ export type Resource =
   | "tarefas"
   | "equipamentos"
   | "auditoria"
-  | "usuarios";
+  | "usuarios"
+  | "agentes";
 
 export type Action = "read" | "create" | "update" | "delete";
 
@@ -28,6 +29,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     equipamentos: allActions,
     auditoria: ["read"],
     usuarios: allActions,
+    agentes: allActions,
   },
   GERENTE: {
     empresas: allActions,
@@ -40,6 +42,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     equipamentos: allActions,
     auditoria: ["read"],
     usuarios: ["read"],
+    agentes: [],
   },
   COMERCIAL: {
     empresas: ["read", "create", "update"],
@@ -52,6 +55,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     equipamentos: ["read"],
     auditoria: [],
     usuarios: [],
+    agentes: [],
   },
   OPERACIONAL: {
     empresas: ["read"],
@@ -64,6 +68,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     equipamentos: ["read"],
     auditoria: [],
     usuarios: [],
+    agentes: [],
   },
 };
 

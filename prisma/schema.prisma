@@ -838,6 +838,25 @@ model Feedback {
   @@index([numero])
 }
 
+model AgenteConfig {
+  id              String   @id @default(cuid())
+  agente          String   @unique
+  nome            String
+  descricao       String
+  personalidade   String   @db.Text
+  regrasQuente    String   @db.Text
+  regrasMedia     String   @db.Text
+  regrasFria      String   @db.Text
+  ignorar         String   @db.Text
+  exemplosLead    String   @db.Text
+  exemplosNaoLead String   @db.Text
+  historicoErros  String   @db.Text
+  promptCompleto  String   @db.Text
+  ativo           Boolean  @default(true)
+  atualizadoEm    DateTime @updatedAt
+  atualizadoPor   String?
+}
+
 model AuditLog {
   id        String  @id @default(cuid())
   action    String

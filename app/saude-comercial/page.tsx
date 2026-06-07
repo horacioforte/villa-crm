@@ -5,6 +5,7 @@ import type { ElementType, ReactNode } from "react";
 import {
   AlertTriangle,
   BarChart3,
+  Bot,
   CheckCircle2,
   ClipboardList,
   Clock3,
@@ -22,6 +23,7 @@ import { PageNavigation } from "@/components/layout/PageNavigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DashboardMaria } from "@/app/saude-comercial/components/DashboardMaria";
 import {
   Select,
   SelectContent,
@@ -32,6 +34,7 @@ import {
 
 type Option = { id: string; nome: string };
 type HealthColor = "verde" | "amarelo" | "vermelho";
+type ActiveTab = "saude" | "maria";
 type DetailSection =
   | "sem-proxima-acao"
   | "tarefas-vencidas"
@@ -575,6 +578,7 @@ function DetailRow({
 export default function SaudeComercialPage() {
   const [data, setData] = useState<SaudeComercialData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("saude");
   const [selectedSection, setSelectedSection] =
     useState<DetailSection>("sem-proxima-acao");
   const [filters, setFilters] = useState({
@@ -604,9 +608,12 @@ export default function SaudeComercialPage() {
     window.open(`/api/saude-comercial/pdf?${query}`, "_blank", "noopener,noreferrer");
   }
 
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
+    // Carregamento inicial do dashboard ao montar a página.
     loadData();
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   const criticalInteractions = useMemo(
     () => data?.listas.diasSemInteracao.filter((item) => item.cor === "vermelho").length ?? 0,
@@ -631,32 +638,66 @@ export default function SaudeComercialPage() {
               propostas sem retorno e disciplina de cadência da equipe.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              onClick={handleDownloadReport}
-              className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
-            >
-              <FileDown className="size-4" />
-              Gerar relatório
-            </Button>
-            <Button
-              type="button"
-              onClick={loadData}
-              variant="outline"
-              className="rounded-2xl"
-            >
-              {isLoading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <RefreshCw className="size-4" />
-              )}
-              Atualizar
-            </Button>
-          </div>
+          {activeTab === "saude" ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                onClick={handleDownloadReport}
+                className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+              >
+                <FileDown className="size-4" />
+                Gerar relatório
+              </Button>
+              <Button
+                type="button"
+                onClick={loadData}
+                variant="outline"
+                className="rounded-2xl"
+              >
+                {isLoading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+                Atualizar
+              </Button>
+            </div>
+          ) : null}
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-6 flex flex-wrap gap-3" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "saude"}
+            onClick={() => setActiveTab("saude")}
+            className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-bold transition ${
+              activeTab === "saude"
+                ? "border-[#1A2E5A] bg-[#1A2E5A] text-white"
+                : "border-[#D7DEEA] bg-white text-[#1A2E5A] hover:bg-[#E8EEFB]"
+            }`}
+          >
+            <HeartPulse className="size-4" />
+            Saúde Comercial
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "maria"}
+            onClick={() => setActiveTab("maria")}
+            className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-bold transition ${
+              activeTab === "maria"
+                ? "border-[#1A2E5A] bg-[#1A2E5A] text-white"
+                : "border-[#D7DEEA] bg-white text-[#1A2E5A] hover:bg-[#E8EEFB]"
+            }`}
+          >
+            <Bot className="size-4" />
+            Maria SDR
+          </button>
+        </div>
+
+        {activeTab === "saude" ? (
+          <div className="mt-6 flex flex-wrap gap-3">
           <SelectFiltro
             value={filters.vendedorId}
             onChange={(vendedorId) =>
@@ -695,10 +736,13 @@ export default function SaudeComercialPage() {
           >
             Aplicar filtros
           </Button>
-        </div>
+          </div>
+        ) : null}
       </section>
 
-      {isLoading || !data ? (
+      {activeTab === "maria" ? (
+        <DashboardMaria />
+      ) : isLoading || !data ? (
         <div className="mt-6 flex items-center rounded-3xl border border-[#D7DEEA] bg-white p-6 text-[#667085]">
           <Loader2 className="mr-2 size-5 animate-spin" />
           Carregando painel de saúde comercial...

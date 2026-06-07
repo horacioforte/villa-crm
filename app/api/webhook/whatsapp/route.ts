@@ -80,6 +80,7 @@ Regras:
 - Se pedir preço, informe que depende do volume e localização.
 - Se urgente, diga que vai acionar o consultor agora.
 - Se mencionar apenas "bomba", use BOMBA_LANCA como tipoServico.
+- Use o contexto recente da conversa para completar dados. Se o cliente responder só a cidade, combine com o tipo de serviço perguntado/mencionado antes.
 
 Responda APENAS com JSON válido, sem markdown:
 {
@@ -170,9 +171,11 @@ function getTipoServico(tipoServico: MariaResponse["tipoServico"]) {
 async function analisarMensagem({
   nomeContato,
   texto,
+  contexto,
 }: {
   nomeContato: string;
   texto: string;
+  contexto: string;
 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -199,7 +202,13 @@ async function analisarMensagem({
         messages: [
           {
             role: "user",
-            content: `Nome do cliente: ${nomeContato}\nMensagem: ${texto}`,
+            content: [
+              `Nome do cliente: ${nomeContato}`,
+              contexto ? `Contexto recente da conversa:\n${contexto}` : null,
+              `Mensagem atual: ${texto}`,
+            ]
+              .filter(Boolean)
+              .join("\n\n"),
           },
         ],
       }),
@@ -216,6 +225,165 @@ async function analisarMensagem({
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function getContextoConversa(telefone: string) {
+  const pessoa = await prisma.pessoa.findFirst({
+    where: {
+      OR: [{ whatsapp: telefone }, { telefone }],
+    },
+    select: {
+      id: true,
+      historicos: {
+        where: {
+          tipo: TipoContato.WHATSAPP,
+        },
+        orderBy: {
+          dataContato: "desc",
+        },
+        take: 6,
+        select: {
+          resumo: true,
+          detalhes: true,
+          dataContato: true,
+        },
+      },
+      oportunidades: {
+        where: {
+          ativa: true,
+          status: {
+            notIn: [StatusOportunidade.GANHA, StatusOportunidade.PERDIDA],
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 1,
+        select: {
+          titulo: true,
+          descricao: true,
+          tipoServico: true,
+        },
+      },
+    },
+  });
+
+  if (!pessoa) {
+    return "";
+  }
+
+  const oportunidade = pessoa.oportunidades[0];
+  const linhasOportunidade = oportunidade
+    ? [
+        "Oportunidade aberta existente:",
+        `- Titulo: ${oportunidade.titulo}`,
+        oportunidade.tipoServico ? `- Tipo: ${oportunidade.tipoServico}` : null,
+        oportunidade.descricao ? `- Descricao: ${oportunidade.descricao}` : null,
+      ].filter(Boolean)
+    : [];
+
+  const linhasHistorico = pessoa.historicos
+    .slice()
+    .reverse()
+    .map((historico) =>
+      [
+        `- ${historico.resumo}`,
+        historico.detalhes ? historico.detalhes : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+
+  return [...linhasOportunidade, ...linhasHistorico].join("\n").slice(0, 3000);
+}
+
+async function registrarInteracaoParcial({
+  dados,
+  nomeContato,
+  telefone,
+  texto,
+}: {
+  dados: MariaResponse;
+  nomeContato: string;
+  telefone: string;
+  texto: string;
+}) {
+  const cidade = cleanNullable(dados.cidade);
+  const volume = cleanNullable(dados.volume);
+  const prazo = cleanNullable(dados.prazo);
+  const tipoServico = getTipoServico(dados.tipoServico);
+
+  await prisma.$transaction(async (tx) => {
+    let pessoa = await tx.pessoa.findFirst({
+      where: {
+        OR: [{ whatsapp: telefone }, { telefone }],
+      },
+      include: {
+        empresa: true,
+      },
+    });
+
+    let empresa =
+      pessoa?.empresa ??
+      (await tx.empresa.findFirst({
+        where: {
+          OR: [
+            { telefone },
+            { razaoSocial: { equals: nomeContato, mode: "insensitive" } },
+          ],
+        },
+      }));
+
+    if (!empresa) {
+      empresa = await tx.empresa.create({
+        data: {
+          razaoSocial: nomeContato,
+          telefone,
+          segmento: "Lead WhatsApp",
+          cidade,
+          observacoes: `Origem: WhatsApp\nLead ainda em qualificacao.`,
+          ativa: true,
+        },
+      });
+    }
+
+    if (!pessoa) {
+      pessoa = await tx.pessoa.create({
+        data: {
+          nome: nomeContato,
+          telefone,
+          whatsapp: telefone,
+          tipo: TipoPessoa.CONTATO,
+          influenciaDecisao: InfluenciaDecisao.INFLUENCIADOR,
+          nivelRelacionamento: NivelRelacionamento.NEUTRO,
+          empresaId: empresa.id,
+          ativa: true,
+        },
+        include: {
+          empresa: true,
+        },
+      });
+    }
+
+    await tx.historicoContato.create({
+      data: {
+        tipo: TipoContato.WHATSAPP,
+        resumo: `WhatsApp em qualificacao de ${nomeContato} (${telefone})`,
+        detalhes: [
+          `Mensagem: ${texto}`,
+          `Resposta Maria: ${dados.resposta}`,
+          tipoServico ? `Tipo: ${tipoServico}` : null,
+          cidade ? `Cidade: ${cidade}` : null,
+          volume ? `Volume: ${volume}` : null,
+          prazo ? `Prazo: ${prazo}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        empresaId: empresa.id,
+        pessoaId: pessoa.id,
+      },
+    });
+  });
 }
 
 async function enviarWhatsapp({
@@ -475,12 +643,17 @@ export async function POST(request: Request) {
   const nomeContato = body.data?.pushName?.trim() || "Cliente";
 
   try {
-    const dados = await analisarMensagem({ nomeContato, texto });
+    const contexto = await getContextoConversa(telefone);
+    const dados = await analisarMensagem({ nomeContato, texto, contexto });
     await enviarWhatsapp({ telefone, texto: dados.resposta });
 
     const lead = dados.isLead && dados.qualificado
       ? await registrarLeadQualificado({ dados, nomeContato, telefone, texto })
       : { oportunidadeId: null, criada: false };
+
+    if (dados.isLead && !dados.qualificado) {
+      await registrarInteracaoParcial({ dados, nomeContato, telefone, texto });
+    }
 
     return NextResponse.json({
       ok: true,

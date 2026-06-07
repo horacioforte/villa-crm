@@ -39,7 +39,14 @@ const mariaResponseSchema = z.object({
   volume: z.string().nullable().optional(),
   prazo: z.string().nullable().optional(),
   temperatura: z.enum(["QUENTE", "MEDIA", "FRIA"]).default("MEDIA"),
+  temperaturaMotivo: z.string().nullable().optional(),
   urgente: z.boolean().default(false),
+});
+
+const termometroLeadSchema = z.object({
+  temperatura: z.enum(["QUENTE", "MEDIA", "FRIA"]),
+  urgente: z.boolean(),
+  motivo: z.string().trim().min(1),
 });
 
 type MariaResponse = z.infer<typeof mariaResponseSchema>;
@@ -305,6 +312,85 @@ async function analisarMensagem({
   }
 }
 
+async function classificarTermometroLead({
+  dados,
+  nomeContato,
+  telefone,
+  texto,
+  contexto,
+}: {
+  dados: MariaResponse;
+  nomeContato: string;
+  telefone: string;
+  texto: string;
+  contexto: string;
+}) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("ANTHROPIC_API_KEY nao configurada.");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  const prompt = `Você é Maria, SDR da Villa Empreendimentos.
+
+Classifique o termômetro deste lead de WhatsApp com base no contexto comercial completo.
+
+Critérios:
+- QUENTE: urgência declarada, pediu preço/orçamento, prazo menor que 30 dias, data definida, alto volume, ou intenção clara de contratar.
+- MEDIA: tem necessidade real com tipo de serviço e cidade, mas ainda faltam volume/prazo/urgência.
+- FRIA: curiosidade inicial, informação vaga, sem obra clara ou sem intenção comercial.
+
+Dados já identificados:
+- Nome: ${nomeContato}
+- Telefone: ${telefone}
+- Tipo de serviço: ${dados.tipoServico ?? "não informado"}
+- Cidade: ${cleanNullable(dados.cidade) ?? "não informada"}
+- Volume: ${cleanNullable(dados.volume) ?? "não informado"}
+- Prazo: ${cleanNullable(dados.prazo) ?? "não informado"}
+- Mensagem atual: ${texto}
+
+Contexto recente:
+${contexto || "Sem histórico anterior."}
+
+Responda APENAS com JSON válido, sem markdown:
+{
+  "temperatura": "QUENTE|MEDIA|FRIA",
+  "urgente": true/false,
+  "motivo": "motivo objetivo em uma frase curta"
+}`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 300,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new Error(`Erro Anthropic ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    const responseText = data.content?.[0]?.type === "text" ? data.content[0].text : "";
+    return termometroLeadSchema.parse(JSON.parse(extractJson(responseText)));
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function getContextoConversa(telefone: string) {
   const pessoa = await prisma.pessoa.findFirst({
     where: {
@@ -521,6 +607,11 @@ async function registrarLeadQualificado({
   const volume = cleanNullable(dados.volume);
   const prazo = cleanNullable(dados.prazo);
   const temperatura = dados.temperatura as TemperaturaOportunidade;
+  const temperaturaMotivo =
+    cleanNullable(dados.temperaturaMotivo) ??
+    (dados.urgente
+      ? "Lead WhatsApp com urgencia informada."
+      : "Lead WhatsApp qualificado pela Maria.");
   const dataVencimento = getTaskDueDate(dados.urgente);
 
   if (!tipoServico || !cidade) {
@@ -610,9 +701,7 @@ async function registrarLeadQualificado({
           data: {
             tipoServico: oportunidadeAberta.tipoServico ?? tipoServico,
             temperatura,
-            temperaturaMotivo: dados.urgente
-              ? "Lead WhatsApp com urgencia informada."
-              : "Lead WhatsApp qualificado pela Maria.",
+            temperaturaMotivo,
           },
         })
       : await tx.oportunidade.create({
@@ -624,9 +713,7 @@ async function registrarLeadQualificado({
             canalOrigem: CanalOrigem.OUTROS,
             status: StatusOportunidade.NOVA,
             temperatura,
-            temperaturaMotivo: dados.urgente
-              ? "Lead WhatsApp com urgencia informada."
-              : "Lead WhatsApp qualificado pela Maria.",
+            temperaturaMotivo,
             empresaId: empresa.id,
             pessoaId: pessoa.id,
             ativa: true,
@@ -723,8 +810,24 @@ export async function POST(request: Request) {
   try {
     const contexto = await getContextoConversa(telefone);
     const dadosMaria = await analisarMensagem({ nomeContato, texto, contexto });
-    const dados = normalizarDadosComContexto({ dados: dadosMaria, texto, contexto });
+    let dados = normalizarDadosComContexto({ dados: dadosMaria, texto, contexto });
     await enviarWhatsapp({ telefone, texto: dados.resposta });
+
+    if (dados.isLead && dados.qualificado) {
+      const termometro = await classificarTermometroLead({
+        dados,
+        nomeContato,
+        telefone,
+        texto,
+        contexto,
+      });
+      dados = {
+        ...dados,
+        temperatura: termometro.temperatura,
+        temperaturaMotivo: termometro.motivo,
+        urgente: termometro.urgente,
+      };
+    }
 
     const lead = dados.isLead && dados.qualificado
       ? await registrarLeadQualificado({ dados, nomeContato, telefone, texto })

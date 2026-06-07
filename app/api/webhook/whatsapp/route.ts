@@ -168,6 +168,84 @@ function getTipoServico(tipoServico: MariaResponse["tipoServico"]) {
   return tipos[tipoServico];
 }
 
+function inferTipoServico(texto: string) {
+  const lower = texto.toLowerCase();
+
+  if (lower.includes("bomba_estacionaria") || lower.includes("estacionaria")) {
+    return "BOMBA_ESTACIONARIA" as const;
+  }
+
+  if (
+    lower.includes("bomba_lanca") ||
+    lower.includes("bomba lança") ||
+    lower.includes("bomba lanca") ||
+    lower.includes("bomba")
+  ) {
+    return "BOMBA_LANCA" as const;
+  }
+
+  if (lower.includes("betoneira")) {
+    return "BETONEIRA" as const;
+  }
+
+  if (
+    lower.includes("central_in_loco") ||
+    lower.includes("central") ||
+    lower.includes("concreto")
+  ) {
+    return "CENTRAL_IN_LOCO" as const;
+  }
+
+  if (lower.includes("telebelt")) {
+    return "TELEBELT" as const;
+  }
+
+  return null;
+}
+
+function inferCidade(texto: string, contexto: string) {
+  const textoLimpo = cleanNullable(texto);
+
+  if (
+    textoLimpo &&
+    textoLimpo.length <= 60 &&
+    /^[\p{L}\s.'-]+$/u.test(textoLimpo) &&
+    !inferTipoServico(textoLimpo)
+  ) {
+    return textoLimpo;
+  }
+
+  const cidadeAtual = texto.match(/\b(?:em|de|para)\s+([\p{L}\s.'-]{2,60})/iu)?.[1];
+  if (cidadeAtual) {
+    return cidadeAtual.trim();
+  }
+
+  const cidadeContexto = contexto.match(/\bCidade:\s*([^\n]+)/i)?.[1];
+  return cleanNullable(cidadeContexto);
+}
+
+function normalizarDadosComContexto({
+  dados,
+  texto,
+  contexto,
+}: {
+  dados: MariaResponse;
+  texto: string;
+  contexto: string;
+}): MariaResponse {
+  const tipoServico = dados.tipoServico ?? inferTipoServico(`${texto}\n${contexto}`);
+  const cidade = cleanNullable(dados.cidade) ?? inferCidade(texto, contexto);
+  const qualificado = Boolean(tipoServico && cidade) || dados.qualificado;
+
+  return {
+    ...dados,
+    isLead: dados.isLead || Boolean(tipoServico),
+    qualificado,
+    tipoServico,
+    cidade,
+  };
+}
+
 async function analisarMensagem({
   nomeContato,
   texto,
@@ -644,7 +722,8 @@ export async function POST(request: Request) {
 
   try {
     const contexto = await getContextoConversa(telefone);
-    const dados = await analisarMensagem({ nomeContato, texto, contexto });
+    const dadosMaria = await analisarMensagem({ nomeContato, texto, contexto });
+    const dados = normalizarDadosComContexto({ dados: dadosMaria, texto, contexto });
     await enviarWhatsapp({ telefone, texto: dados.resposta });
 
     const lead = dados.isLead && dados.qualificado

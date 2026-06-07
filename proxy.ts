@@ -15,11 +15,15 @@ const publicRoutes = [
   "/api/email/processar",
 ];
 
+const publicRoutePrefixes = ["/api/webhook/whatsapp/contexto/"];
+
 export default auth((request) => {
   const { pathname } = request.nextUrl;
   const isLoggedIn = Boolean(request.auth?.user);
   const isPublicRoute =
-    publicRoutes.includes(pathname) || pathname.startsWith("/api/auth");
+    publicRoutes.includes(pathname) ||
+    publicRoutePrefixes.some((route) => pathname.startsWith(route)) ||
+    pathname.startsWith("/api/auth");
   const isApiRoute = pathname.startsWith("/api");
 
   if (isPublicRoute && isLoggedIn && pathname === "/login") {

@@ -7,6 +7,7 @@ const publicRoutes = [
   "/api/email/cron",
   "/api/email/processar",
 ];
+const publicRoutePrefixes = ["/api/webhook/whatsapp/contexto/"];
 const authSecret =
   process.env.AUTH_SECRET ??
   process.env.NEXTAUTH_SECRET ??
@@ -45,7 +46,9 @@ export const authConfig = {
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
       const isPublicRoute =
-        publicRoutes.includes(pathname) || pathname.startsWith("/api/auth");
+        publicRoutes.includes(pathname) ||
+        publicRoutePrefixes.some((route) => pathname.startsWith(route)) ||
+        pathname.startsWith("/api/auth");
 
       if (isPublicRoute) {
         return true;

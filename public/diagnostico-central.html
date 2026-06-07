@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Você precisa de uma Central de Concreto? — Villa Empreendimentos</title>
+  <meta name="description" content="Descubra em menos de 2 minutos se a implantação de uma central exclusiva pode reduzir custos e garantir o abastecimento da sua obra." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+    /* ── Navbar ── */
+    .navbar { background: #00304c; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+    .navbar-brand { color: #fff; font-weight: 700; font-size: 18px; text-decoration: none; }
+    .navbar-brand span { color: #7ab8f5; }
+    .navbar-phone { color: rgba(255,255,255,.72); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+    .navbar-phone svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* ── Hero ── */
+    .hero { background: #00304c; color: #fff; padding: 56px 24px 68px; text-align: center; position: relative; overflow: hidden; }
+    .hero::before { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E") repeat; }
+    .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 20px; }
+    .hero h1 { font-size: clamp(22px, 4.5vw, 44px); font-weight: 900; line-height: 1.15; letter-spacing: -.5px; margin-bottom: 16px; }
+    .hero h1 em { color: #7ab8f5; font-style: normal; }
+    .hero p { font-size: clamp(14px, 2vw, 17px); color: rgba(255,255,255,.82); max-width: 560px; margin: 0 auto 32px; line-height: 1.65; }
+    .hero-cta { display: inline-flex; align-items: center; gap: 10px; background: #f57c00; color: #fff; font-weight: 800; font-size: 17px; padding: 17px 38px; border-radius: 999px; border: none; cursor: pointer; transition: background .2s, transform .15s; box-shadow: 0 4px 20px rgba(245,124,0,.45); }
+    .hero-cta:hover { background: #e65100; transform: translateY(-2px); }
+    .hero-trust { margin-top: 28px; display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; }
+    .trust-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: rgba(255,255,255,.68); }
+    .trust-item svg { width: 15px; height: 15px; color: #7ab8f5; flex-shrink: 0; }
+
+    /* ── Progress ── */
+    .prog-wrap { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 13px 24px; position: sticky; top: 0; z-index: 100; display: none; }
+    .prog-wrap.show { display: block; }
+    .prog-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; }
+    .prog-lbl { font-weight: 600; color: #0b487f; }
+    .prog-step { color: #94a3b8; }
+    .prog-bar { height: 6px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+    .prog-fill { height: 100%; background: #0b487f; border-radius: 999px; transition: width .4s ease; }
+
+    /* ── Quiz Container ── */
+    .quiz-wrap { max-width: 660px; margin: 0 auto; padding: 32px 20px 80px; }
+
+    /* ── Card ── */
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.08); padding: 32px 28px; animation: fadeIn .3s ease; display: none; }
+    .card.on { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Question ── */
+    .q-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #e8f1fa; color: #0b487f; font-size: 12px; font-weight: 700; border-radius: 50%; margin-bottom: 10px; }
+    .q-title { font-size: clamp(16px, 3vw, 20px); font-weight: 800; line-height: 1.3; margin-bottom: 5px; }
+    .q-sub { font-size: 13px; color: #64748b; margin-bottom: 22px; line-height: 1.55; }
+    .q-note { font-size: 12px; color: #c45f00; background: #fff8f0; border: 1px solid #ffd099; border-radius: 8px; padding: 10px 13px; margin-top: 12px; line-height: 1.5; }
+
+    /* ── Options ── */
+    .opts { display: flex; flex-direction: column; gap: 9px; }
+    .opt { display: flex; align-items: center; gap: 13px; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; background: #fff; cursor: pointer; text-align: left; width: 100%; transition: all .15s; }
+    .opt:hover { border-color: #0b487f; background: #e8f1fa; }
+    .opt.sel { border-color: #0b487f; background: #e8f1fa; box-shadow: 0 0 0 3px rgba(11,72,127,.12); }
+    .opt-icon { font-size: 22px; flex-shrink: 0; }
+    .opt-body { flex: 1; }
+    .opt-label { font-size: 14px; font-weight: 700; color: #1e293b; line-height: 1.3; }
+    .opt-desc { font-size: 12px; color: #64748b; margin-top: 2px; }
+    .opt-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #cbd5e1; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+    .opt.sel .opt-check { background: #0b487f; border-color: #0b487f; }
+    .opt.sel .opt-check::after { content: ''; display: block; width: 5px; height: 9px; border: 2px solid #fff; border-top: none; border-left: none; transform: rotate(45deg) translate(-1px,-1px); }
+
+    /* ── Nav ── */
+    .nav-btns { display: flex; gap: 10px; margin-top: 24px; }
+    .btn-back { padding: 12px 18px; border: 2px solid #e2e8f0; border-radius: 9px; background: #fff; font-size: 14px; font-weight: 600; color: #64748b; cursor: pointer; transition: all .15s; font-family: inherit; }
+    .btn-back:hover { border-color: #94a3b8; color: #1e293b; }
+    .btn-next { flex: 1; padding: 13px 20px; background: #0b487f; color: #fff; border: none; border-radius: 9px; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity .15s; font-family: inherit; }
+    .btn-next:hover:not(:disabled) { opacity: .85; }
+    .btn-next:disabled { opacity: .35; cursor: not-allowed; }
+
+    /* ── Form ── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-label { font-size: 12px; font-weight: 600; color: #64748b; }
+    .form-input { padding: 11px 13px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: inherit; color: #1e293b; background: #fff; transition: border-color .15s; }
+    .form-input:focus { outline: none; border-color: #0b487f; }
+    .form-input::placeholder { color: #94a3b8; }
+
+    /* ── Loading ── */
+    #loading { display: none; text-align: center; padding: 60px 20px; }
+    .loader { width: 44px; height: 44px; border: 4px solid #e2e8f0; border-top-color: #0b487f; border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Result ── */
+    #result { display: none; }
+    .res-header { border-radius: 12px; padding: 36px 24px; text-align: center; color: #fff; margin-bottom: 14px; }
+    .res-header.verde   { background: #2e7d32; }
+    .res-header.laranja { background: #e65100; }
+    .res-header.azul    { background: #0b487f; }
+    .res-icon  { font-size: 52px; margin-bottom: 12px; }
+    .res-tag   { display: inline-block; padding: 4px 14px; background: rgba(255,255,255,.2); border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 12px; }
+    .res-title { font-size: clamp(18px, 3.5vw, 24px); font-weight: 800; line-height: 1.25; margin-bottom: 10px; }
+    .res-sub   { font-size: 14px; opacity: .88; line-height: 1.65; max-width: 460px; margin: 0 auto; }
+
+    .res-body { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.08); padding: 24px; }
+    .aviso { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 10px; padding: 15px 17px; margin-bottom: 18px; display: flex; align-items: flex-start; gap: 12px; }
+    .aviso-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+    .aviso-text { font-size: 13px; color: #1b5e20; line-height: 1.6; font-weight: 500; }
+
+    .res-resumo { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 18px; }
+    .res-item { background: #f8fafc; border-radius: 8px; padding: 11px 13px; }
+    .res-lbl { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; }
+    .res-val { font-size: 13px; font-weight: 700; color: #1e293b; margin-top: 3px; }
+
+    .btn-wpp { display: flex; align-items: center; justify-content: center; gap: 9px; padding: 15px; background: #25d366; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; font-family: inherit; transition: opacity .18s; }
+    .btn-wpp:hover { opacity: .88; }
+    .res-note { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 9px; line-height: 1.5; }
+
+    /* ── WhatsApp Float ── */
+    .wa-float { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; align-items: center; gap: 10px; background: #25d366; color: #fff; border-radius: 999px; padding: 14px 20px 14px 16px; text-decoration: none; font-weight: 700; font-size: 14px; font-family: inherit; box-shadow: 0 4px 20px rgba(37,211,102,.45); transition: transform .2s, box-shadow .2s; white-space: nowrap; }
+    .wa-float svg { width: 26px; height: 26px; flex-shrink: 0; }
+    .wa-float:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(37,211,102,.55); }
+
+    /* ── Responsive ── */
+    @media (max-width: 520px) {
+      .card { padding: 22px 16px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .res-resumo { grid-template-columns: 1fr; }
+      .nav-btns { flex-direction: column-reverse; }
+      .btn-back { text-align: center; }
+    }
+    @media (max-width: 400px) {
+      .wa-float { padding: 14px; border-radius: 50%; }
+      .wa-float span { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="https://villaempreendimentos.com.br" class="navbar-brand" target="_blank">Villa <span>Empreendimentos</span></a>
+  <div class="navbar-phone">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 7V5z"/></svg>
+    (81) 3325-1144
+  </div>
+</nav>
+
+<div class="prog-wrap" id="prog-wrap">
+  <div class="prog-top">
+    <span class="prog-lbl">Diagnóstico — Central de Concreto</span>
+    <span class="prog-step" id="prog-step">Pergunta 1 de 5</span>
+  </div>
+  <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+</div>
+
+<section class="hero" id="hero">
+  <div class="hero-badge">✦ Diagnóstico gratuito · menos de 2 minutos</div>
+  <h1>Sua obra realmente precisa de uma<br/><em>central de concreto própria?</em></h1>
+  <p>Descubra se a implantação de uma central exclusiva pode reduzir custos, aumentar a produtividade e garantir o abastecimento da sua obra.</p>
+  <button class="hero-cta" onclick="startQuiz()">
+    ▶ Iniciar diagnóstico
+  </button>
+  <div class="hero-trust">
+    <div class="trust-item">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Atendimento em todo o Brasil
+    </div>
+    <div class="trust-item">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Resposta em até 2 horas
+    </div>
+    <div class="trust-item">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+      +20 anos de experiência
+    </div>
+  </div>
+</section>
+
+<div class="quiz-wrap" id="quiz-wrap" style="display:none;">
+
+  <!-- Q1 -->
+  <div id="q1" class="card">
+    <div class="q-num">1</div>
+    <div class="q-title">Qual o volume total estimado de concreto da obra?</div>
+    <div class="q-sub">Considere o volume total do projeto, do início ao fim.</div>
+    <div class="opts">
+      <button class="opt" data-q="1" data-v="a" data-s="0"  onclick="pick(this)"><span class="opt-icon">🏠</span><div class="opt-body"><div class="opt-label">Menos de 5.000 m³</div><div class="opt-desc">Obras de pequeno porte</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="1" data-v="b" data-s="10" onclick="pick(this)"><span class="opt-icon">🏗️</span><div class="opt-body"><div class="opt-label">Entre 5.000 e 15.000 m³</div><div class="opt-desc">Médio porte — edifícios, galpões</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="1" data-v="c" data-s="25" onclick="pick(this)"><span class="opt-icon">🏢</span><div class="opt-body"><div class="opt-label">Entre 15.000 e 30.000 m³</div><div class="opt-desc">Grande porte — empreendimentos, indústria</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="1" data-v="d" data-s="35" onclick="pick(this)"><span class="opt-icon">🏭</span><div class="opt-body"><div class="opt-label">Acima de 30.000 m³</div><div class="opt-desc">Mega obras, infraestrutura</div></div><div class="opt-check"></div></button>
+    </div>
+    <div class="nav-btns"><button class="btn-next" id="n1" disabled onclick="nxt(1)">Próximo →</button></div>
+  </div>
+
+  <!-- Q2 -->
+  <div id="q2" class="card">
+    <div class="q-num">2</div>
+    <div class="q-title">Qual será o consumo médio mensal de concreto?</div>
+    <div class="q-sub">Estime o volume médio por mês durante o período de obras.</div>
+    <div class="opts">
+      <button class="opt" data-q="2" data-v="a" data-s="0"  onclick="pick(this)"><span class="opt-icon">📉</span><div class="opt-body"><div class="opt-label">Menos de 500 m³/mês</div><div class="opt-desc">Volume baixo para central exclusiva</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="2" data-v="b" data-s="5"  onclick="pick(this)"><span class="opt-icon">📊</span><div class="opt-body"><div class="opt-label">Entre 500 e 1.500 m³/mês</div><div class="opt-desc">Volume em análise de viabilidade</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="2" data-v="c" data-s="20" onclick="pick(this)"><span class="opt-icon">📈</span><div class="opt-body"><div class="opt-label">Entre 1.500 e 3.000 m³/mês</div><div class="opt-desc">Volume adequado para central própria</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="2" data-v="d" data-s="25" onclick="pick(this)"><span class="opt-icon">🚀</span><div class="opt-body"><div class="opt-label">Acima de 3.000 m³/mês</div><div class="opt-desc">Alto volume — excelente perfil</div></div><div class="opt-check"></div></button>
+    </div>
+    <div class="nav-btns"><button class="btn-back" onclick="bk(2)">← Voltar</button><button class="btn-next" id="n2" disabled onclick="nxt(2)">Próximo →</button></div>
+  </div>
+
+  <!-- Q3 -->
+  <div id="q3" class="card">
+    <div class="q-num">3</div>
+    <div class="q-title">Qual o prazo previsto para início do fornecimento?</div>
+    <div class="q-sub">Quando você precisa que a central esteja operando?</div>
+    <div class="opts">
+      <button class="opt" data-q="3" data-v="a" data-s="0"  onclick="pick(this)"><span class="opt-icon">⚠️</span><div class="opt-body"><div class="opt-label">Menos de 30 dias</div><div class="opt-desc">Prazo abaixo do mínimo para implantação</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="3" data-v="b" data-s="20" onclick="pick(this)"><span class="opt-icon">⚡</span><div class="opt-body"><div class="opt-label">Entre 30 e 60 dias</div><div class="opt-desc">Prazo justo — mobilização imediata</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="3" data-v="c" data-s="15" onclick="pick(this)"><span class="opt-icon">📅</span><div class="opt-body"><div class="opt-label">Entre 60 e 120 dias</div><div class="opt-desc">Prazo confortável para planejamento</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="3" data-v="d" data-s="5"  onclick="pick(this)"><span class="opt-icon">🔭</span><div class="opt-body"><div class="opt-label">Acima de 120 dias</div><div class="opt-desc">Projeto em fase de planejamento</div></div><div class="opt-check"></div></button>
+    </div>
+    <div class="q-note">⚠️ A implantação de uma central exclusiva exige pelo menos 30 dias de preparação.</div>
+    <div class="nav-btns"><button class="btn-back" onclick="bk(3)">← Voltar</button><button class="btn-next" id="n3" disabled onclick="nxt(3)">Próximo →</button></div>
+  </div>
+
+  <!-- Q4 -->
+  <div id="q4" class="card">
+    <div class="q-num">4</div>
+    <div class="q-title">Qual o tipo da obra?</div>
+    <div class="q-sub">O tipo influencia no dimensionamento e na solução ideal.</div>
+    <div class="opts">
+      <button class="opt" data-q="4" data-v="a" data-s="10" onclick="pick(this)"><span class="opt-icon">🏘️</span><div class="opt-body"><div class="opt-label">Residencial</div><div class="opt-desc">Condomínios, edifícios, habitações</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="4" data-v="b" data-s="15" onclick="pick(this)"><span class="opt-icon">🏭</span><div class="opt-body"><div class="opt-label">Industrial</div><div class="opt-desc">Fábricas, galpões, centros logísticos</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="4" data-v="c" data-s="20" onclick="pick(this)"><span class="opt-icon">🛣️</span><div class="opt-body"><div class="opt-label">Infraestrutura</div><div class="opt-desc">Rodovias, pontes, barragens, metrô</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="4" data-v="d" data-s="15" onclick="pick(this)"><span class="opt-icon">⬛</span><div class="opt-body"><div class="opt-label">Piso industrial / logístico</div><div class="opt-desc">Pisos de alto desempenho, armazéns</div></div><div class="opt-check"></div></button>
+    </div>
+    <div class="nav-btns"><button class="btn-back" onclick="bk(4)">← Voltar</button><button class="btn-next" id="n4" disabled onclick="nxt(4)">Próximo →</button></div>
+  </div>
+
+  <!-- Q5 -->
+  <div id="q5" class="card">
+    <div class="q-num">5</div>
+    <div class="q-title">Você é responsável pela decisão sobre o fornecimento de concreto?</div>
+    <div class="q-sub">Isso nos ajuda a direcionar o atendimento corretamente.</div>
+    <div class="opts">
+      <button class="opt" data-q="5" data-v="a" data-s="0"  onclick="pick(this)"><span class="opt-icon">👤</span><div class="opt-body"><div class="opt-label">Não</div><div class="opt-desc">Não participo diretamente desta decisão</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="5" data-v="b" data-s="10" onclick="pick(this)"><span class="opt-icon">🤝</span><div class="opt-body"><div class="opt-label">Influencio parcialmente</div><div class="opt-desc">Participo mas não decido sozinho</div></div><div class="opt-check"></div></button>
+      <button class="opt" data-q="5" data-v="c" data-s="20" onclick="pick(this)"><span class="opt-icon">✅</span><div class="opt-body"><div class="opt-label">Sim, sou o responsável</div><div class="opt-desc">Tenho autonomia na decisão de fornecimento</div></div><div class="opt-check"></div></button>
+    </div>
+    <div class="nav-btns"><button class="btn-back" onclick="bk(5)">← Voltar</button><button class="btn-next" id="n5" disabled onclick="nxt(5)">Próximo →</button></div>
+  </div>
+
+  <!-- Formulário -->
+  <div id="q6" class="card">
+    <div class="q-num" style="background:#e8f5e9;color:#2e7d32;font-size:14px">✓</div>
+    <div class="q-title">Preencha seus dados para receber o diagnóstico</div>
+    <div class="q-sub">Nossa equipe vai analisar suas respostas e entrar em contato informando se sua obra tem perfil para uma central exclusiva.</div>
+    <form id="contact-form" novalidate>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="fn" placeholder="Seu nome completo" required /></div>
+        <div class="form-group"><label class="form-label">Empresa *</label><input class="form-input" id="fe" placeholder="Nome da empresa" required /></div>
+        <div class="form-group"><label class="form-label">WhatsApp *</label><input class="form-input" id="ft" type="tel" placeholder="(81) 99999-9999" required /></div>
+        <div class="form-group"><label class="form-label">E-mail</label><input class="form-input" id="fem" type="email" placeholder="seu@email.com" /></div>
+        <div class="form-group"><label class="form-label">Cidade da obra *</label><input class="form-input" id="fc" placeholder="Ex: Recife - PE" required /></div>
+        <div class="form-group"><label class="form-label">Cargo</label><input class="form-input" id="fca" placeholder="Ex: Engenheiro, Diretor" /></div>
+      </div>
+      <div class="nav-btns" style="margin-top:20px;">
+        <button type="button" class="btn-back" onclick="bk(6)">← Voltar</button>
+        <button type="submit" class="btn-next">Enviar diagnóstico →</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading">
+    <div class="loader"></div>
+    <p style="font-weight:700;color:#0b487f;font-size:16px;">Analisando suas respostas...</p>
+    <p style="font-size:13px;color:#94a3b8;margin-top:6px;">Nossa equipe receberá seu diagnóstico em instantes</p>
+  </div>
+
+  <!-- Resultado -->
+  <div id="result">
+    <div id="res-header" class="res-header">
+      <div id="res-icon" class="res-icon"></div>
+      <div id="res-tag" class="res-tag"></div>
+      <div id="res-title" class="res-title"></div>
+      <div id="res-sub" class="res-sub"></div>
+    </div>
+    <div class="res-body">
+      <div class="aviso">
+        <div class="aviso-icon">📩</div>
+        <div class="aviso-text" id="aviso-text"></div>
+      </div>
+      <div class="res-resumo" id="res-resumo"></div>
+      <button class="btn-wpp" id="btn-wpp">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Prefere falar agora?
+      </button>
+      <p class="res-note">🔒 Seus dados estão protegidos. Não compartilhamos com terceiros.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- WhatsApp Flutuante -->
+<a href="https://api.whatsapp.com/send?phone=5581973291004&text=Ol%C3%A1%2C%20vim%20pelo%20site%20e%20quero%20falar%20com%20a%20equipe%20Villa%20sobre%20Central%20de%20Concreto." class="wa-float" target="_blank">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+  <span>Falar com a gente</span>
+</a>
+
+<footer style="background:#00304c;color:rgba(255,255,255,.55);text-align:center;padding:20px;font-size:12px;">
+  © 2026 Villa Empreendimentos · Soluções em Bombeamento de Concreto ·
+  <a href="https://villaempreendimentos.com.br" style="color:rgba(255,255,255,.75);" target="_blank">villaempreendimentos.com.br</a>
+</footer>
+
+<script>
+  const A = {};
+
+  function sc() { let s = 0; for (let i = 1; i <= 5; i++) if (A[i]) s += A[i].s; return s; }
+  function prof() { const s = sc(); return s >= 70 ? 'verde' : s >= 40 ? 'laranja' : 'azul'; }
+
+  function startQuiz() {
+    document.getElementById('hero').style.display = 'none';
+    document.getElementById('quiz-wrap').style.display = 'block';
+    document.getElementById('prog-wrap').classList.add('show');
+    show(1);
+  }
+
+  function show(n) {
+    [1,2,3,4,5,6].forEach(i => { const e = document.getElementById('q'+i); if (e) e.classList.remove('on'); });
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('result').style.display = 'none';
+    const el = document.getElementById('q'+n);
+    if (!el) return;
+    el.classList.add('on');
+    document.getElementById('prog-fill').style.width = Math.round((n-1)/6*100) + '%';
+    document.getElementById('prog-step').textContent = n <= 5 ? 'Pergunta ' + n + ' de 5' : 'Seus dados';
+    if (n <= 5 && A[n]) {
+      const b = el.querySelector(`.opt[data-v="${A[n].v}"]`);
+      if (b) { b.classList.add('sel'); const nb = document.getElementById('n'+n); if (nb) nb.disabled = false; }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function pick(btn) {
+    const q = parseInt(btn.dataset.q);
+    document.querySelectorAll(`.opt[data-q="${q}"]`).forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    A[q] = { v: btn.dataset.v, s: parseInt(btn.dataset.s), lbl: btn.querySelector('.opt-label').textContent };
+    const nb = document.getElementById('n'+q); if (nb) nb.disabled = false;
+  }
+
+  function nxt(n) { if (!A[n]) return; show(n+1); }
+  function bk(n) { if (n > 1) show(n-1); }
+
+  document.getElementById('contact-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const nome = document.getElementById('fn').value.trim();
+    const emp  = document.getElementById('fe').value.trim();
+    const tel  = document.getElementById('ft').value.trim();
+    const cid  = document.getElementById('fc').value.trim();
+    if (!nome || !emp || !tel || !cid) { alert('Preencha Nome, Empresa, WhatsApp e Cidade da obra.'); return; }
+
+    document.getElementById('q6').classList.remove('on');
+    document.getElementById('loading').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    const s = sc(), p = prof();
+    const tmap = { verde: 'QUENTE', laranja: 'MEDIA', azul: 'FRIA' };
+
+    try {
+      await fetch('https://villa-crm.vercel.app/api/contato', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome, empresa: emp, telefone: tel,
+          email: document.getElementById('fem').value.trim(),
+          cidade: cid,
+          cargo: document.getElementById('fca').value.trim(),
+          canal: 'LANDING_CENTRAL',
+          temperatura: tmap[p],
+          score: s,
+          volume_total:  A[1]?.lbl || '',
+          volume_mensal: A[2]?.lbl || '',
+          prazo:         A[3]?.lbl || '',
+          tipo_obra:     A[4]?.lbl || '',
+          decisor:       A[5]?.lbl || '',
+          mensagem: `Diagnóstico Central de Concreto\n• Volume total: ${A[1]?.lbl}\n• Volume mensal: ${A[2]?.lbl}\n• Prazo: ${A[3]?.lbl}\n• Tipo: ${A[4]?.lbl}\n• Decisor: ${A[5]?.lbl}\n• Score interno: ${s}/100 | Perfil: ${tmap[p]}`,
+          origem: 'landing-central-concreto',
+        }),
+        mode: 'no-cors',
+      });
+    } catch(err) { console.warn('Webhook:', err); }
+
+    await new Promise(r => setTimeout(r, 1500));
+    document.getElementById('loading').style.display = 'none';
+    showResult(p, nome);
+  });
+
+  function showResult(p, nome) {
+    const cfg = {
+      verde: {
+        cls: 'verde', icon: '✅', tag: 'Diagnóstico Recebido',
+        title: `${nome}, suas respostas indicam um perfil promissor!`,
+        sub: 'Nossa equipe vai analisar seu diagnóstico e entrar em contato em até 2 horas informando se sua obra tem perfil para uma central exclusiva.',
+        aviso: 'Você receberá uma avaliação completa por WhatsApp, confirmando se sua obra cabe ou não em uma central própria — e qual a solução mais indicada.',
+      },
+      laranja: {
+        cls: 'laranja', icon: '📋', tag: 'Diagnóstico Recebido',
+        title: `${nome}, recebemos seu diagnóstico!`,
+        sub: 'Nossa equipe técnica vai analisar suas respostas e entrar em contato informando se há viabilidade para uma central exclusiva na sua obra.',
+        aviso: 'Você receberá uma avaliação por WhatsApp, confirmando se sua obra cabe ou não em uma central própria — e qual a alternativa mais adequada ao seu caso.',
+      },
+      azul: {
+        cls: 'azul', icon: '📩', tag: 'Diagnóstico Recebido',
+        title: `${nome}, recebemos seu diagnóstico!`,
+        sub: 'Nossa equipe vai analisar suas respostas e entrar em contato com a avaliação e as soluções mais indicadas para o porte da sua obra.',
+        aviso: 'Você receberá um retorno por WhatsApp informando se uma central exclusiva cabe no seu projeto — ou qual equipamento é mais adequado para você.',
+      },
+    };
+    const c = cfg[p];
+    document.getElementById('res-header').className = 'res-header ' + c.cls;
+    document.getElementById('res-icon').textContent  = c.icon;
+    document.getElementById('res-tag').textContent   = c.tag;
+    document.getElementById('res-title').textContent = c.title;
+    document.getElementById('res-sub').textContent   = c.sub;
+    document.getElementById('aviso-text').textContent = c.aviso;
+
+    document.getElementById('res-resumo').innerHTML = [
+      { l: 'Volume total',  q: 1 },
+      { l: 'Volume mensal', q: 2 },
+      { l: 'Prazo',         q: 3 },
+      { l: 'Tipo de obra',  q: 4 },
+    ].map(i => `<div class="res-item"><div class="res-lbl">${i.l}</div><div class="res-val">${A[i.q]?.lbl||'—'}</div></div>`).join('');
+
+    const msg = `Olá! Enviei o diagnóstico de Central de Concreto no site da Villa.\n• Volume: ${A[1]?.lbl}\n• Mensal: ${A[2]?.lbl}\n• Prazo: ${A[3]?.lbl}\n• Tipo: ${A[4]?.lbl}\n\nAguardo o retorno da avaliação!`;
+    document.getElementById('btn-wpp').onclick = () => window.open('https://api.whatsapp.com/send?phone=5581985595931&text=' + encodeURIComponent(msg), '_blank');
+
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('prog-fill').style.width = '100%';
+    document.getElementById('prog-step').textContent = 'Diagnóstico enviado ✓';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>

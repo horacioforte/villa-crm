@@ -2,6 +2,7 @@ import type { NextAuthConfig } from "next-auth";
 
 const publicRoutes = [
   "/login",
+  "/diagnostico-central",
   "/api/webhook/site",
   "/api/webhook/whatsapp",
   "/api/email/cron",

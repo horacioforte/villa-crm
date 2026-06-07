@@ -50,6 +50,16 @@ function getCleanPhone(telefone: string) {
   return telefone.replace(/\D/g, "");
 }
 
+function normalizeWhatsappNumber(telefone: string) {
+  const digits = getCleanPhone(telefone);
+
+  if (!digits) {
+    return "";
+  }
+
+  return digits.startsWith("55") ? digits : `55${digits}`;
+}
+
 function getTaskDueDate() {
   const date = new Date();
   date.setHours(date.getHours() + 2);
@@ -93,7 +103,7 @@ async function enviarBoasVindasWhatsApp(data: ContatoInput) {
   const apiUrl = process.env.EVOLUTION_API_URL?.replace(/\/+$/, "");
   const apiKey = process.env.EVOLUTION_API_KEY;
   const instance = process.env.EVOLUTION_INSTANCE;
-  const telefone = getCleanPhone(data.telefone);
+  const telefone = normalizeWhatsappNumber(data.telefone);
 
   if (!apiUrl || !apiKey || !instance) {
     console.warn("[API_CONTATO] Variaveis da Evolution API nao configuradas.");
@@ -107,9 +117,15 @@ async function enviarBoasVindasWhatsApp(data: ContatoInput) {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
+  const url = `${apiUrl}/message/sendText/${instance}`;
+
+  console.info("[API_CONTATO] Enviando WhatsApp via Evolution", {
+    numeroFormatado: telefone,
+    url,
+  });
 
   try {
-    const response = await fetch(`${apiUrl}/message/sendText/${instance}`, {
+    const response = await fetch(url, {
       method: "POST",
       signal: controller.signal,
       headers: {
@@ -129,10 +145,22 @@ async function enviarBoasVindasWhatsApp(data: ContatoInput) {
         ].join("\n"),
       }),
     });
+    const responseBody = await response.text().catch((error) => {
+      console.error("[API_CONTATO] Erro ao ler body da Evolution:", error);
+      return "";
+    });
+
+    console.info("[API_CONTATO] Resposta Evolution", {
+      status: response.status,
+      ok: response.ok,
+      body: responseBody,
+    });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      console.error("[API_CONTATO] Erro Evolution:", errorText);
+      console.error("[API_CONTATO] Evolution retornou erro", {
+        status: response.status,
+        body: responseBody,
+      });
     }
   } catch (error) {
     console.error("[API_CONTATO] Falha/timeout Evolution:", error);
@@ -152,7 +180,7 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
-  const telefoneLimpo = getCleanPhone(data.telefone);
+  const telefoneLimpo = normalizeWhatsappNumber(data.telefone);
   const empresaNome = data.empresa.trim() || data.nome;
   const resumo = getResumoContato(data);
   const detalhes = getDetalhesContato(data);

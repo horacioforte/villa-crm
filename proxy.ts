@@ -8,7 +8,7 @@ const { auth } = NextAuth(authConfig);
 const publicRoutes = [
   "/login",
   "/contato",
-  "/diagnostico-central",
+  "/diagnostico-central-de-concreto",
   "/api/agent",
   "/api/webhook/site",
   "/api/webhook/whatsapp",

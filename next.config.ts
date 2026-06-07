@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: "/diagnostico-central",
+        source: "/diagnostico-central-de-concreto",
         destination: "/diagnostico-central.html",
       },
     ];

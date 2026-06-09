@@ -14,10 +14,10 @@ import {
   TipoOperacao,
   TipoPessoa,
   TipoServico,
-} from "@/app/generated/prisma/client";
+} from "@/app/generated/prisma/client"
 import { prisma } from "@/lib/prisma";
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 const tipoServicoSchema = z
   .enum([
@@ -733,6 +733,10 @@ export async function POST(request: Request) {
   try {
     const contexto = await getContextoConversa(telefone);
     let dados = await analisarMensagem({ nomeContato, texto, contexto });
+    // Delay humanizado: simula tempo de digitacao humana (10-20 segundos)
+    const delayMs = Math.floor(Math.random() * 10000) + 10000;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+
     await enviarWhatsapp({ telefone, texto: dados.resposta });
 
     if (dados.isLead && dados.qualificado) {

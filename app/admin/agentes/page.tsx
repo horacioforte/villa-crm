@@ -12,7 +12,21 @@ async function ensureAgenteConfigs() {
         where: {
           agente: config.agente,
         },
-        update: {},
+        // Atualiza os campos derivados do MARIA_MASTER_PROMPT_V1.0 sempre que o
+        // baseline em lib/agentes.ts mudar, mas preserva personalizações feitas
+        // diretamente no /admin/agentes via historicoErros (acumulativo).
+        update: {
+          nome: config.nome,
+          descricao: config.descricao,
+          personalidade: config.personalidade,
+          regrasQuente: config.regrasQuente,
+          regrasMedia: config.regrasMedia,
+          regrasFria: config.regrasFria,
+          ignorar: config.ignorar,
+          exemplosLead: config.exemplosLead,
+          exemplosNaoLead: config.exemplosNaoLead,
+          promptCompleto: gerarPromptCompleto(config),
+        },
         create: {
           ...config,
           promptCompleto: gerarPromptCompleto(config),

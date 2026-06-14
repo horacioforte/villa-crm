@@ -38,6 +38,14 @@ const mariaResponseSchema = z.object({
   cidade: z.string().nullable().optional(),
   volume: z.string().nullable().optional(),
   prazo: z.string().nullable().optional(),
+  modalidade: z.string().nullable().optional(),
+  quantidadeCaminhoes: z.string().nullable().optional(),
+  comOperador: z.string().nullable().optional(),
+  duracaoContrato: z.string().nullable().optional(),
+  tipoConcretagem: z.string().nullable().optional(),
+  frequenciaUso: z.string().nullable().optional(),
+  dificuldadeOperacional: z.string().nullable().optional(),
+  observacoes: z.string().nullable().optional(),
   temperatura: z.enum(["QUENTE", "MEDIA", "FRIA"]).default("MEDIA"),
   temperaturaMotivo: z.string().nullable().optional(),
   urgente: z.boolean().default(false),
@@ -47,6 +55,9 @@ const termometroLeadSchema = z.object({
   temperatura: z.enum(["QUENTE", "MEDIA", "FRIA"]),
   urgente: z.boolean(),
   motivo: z.string().trim().min(1),
+  aderencia: z.enum(["ALTA", "MEDIA", "BAIXA"]).nullable().optional(),
+  potencialEstrategico: z.enum(["NORMAL", "ALTO", "MUITO_ALTO"]).nullable().optional(),
+  potencialMotivo: z.string().nullable().optional(),
 });
 
 type MariaResponse = z.infer<typeof mariaResponseSchema>;
@@ -68,23 +79,61 @@ type EvolutionWebhookPayload = {
   };
 };
 
-const MARIA_SYSTEM_PROMPT = `Você é Maria, SDR receptiva da Villa Empreendimentos (locação de bombas de concreto, betoneiras, centrais de concreto e telebelt).
+// Fonte oficial: MARIA_MASTER_PROMPT_V1.0 (14/06/2026) — qualquer alteração futura
+// deve primeiro ser aprovada no documento mestre e só então refletida aqui.
+const MARIA_SYSTEM_PROMPT = `Você é Maria, SDR receptiva e especialista comercial da Villa Empreendimentos. Recebe leads inbound via formulário do site, e-mail e WhatsApp. É especialista em qualificação de locação de bombas de concreto (lança e estacionárias), caminhões betoneira, centrais de concreto e telebelt.
 
-Personalidade: rápida, simpática, humana. Nunca robótica. Uma pergunta por mensagem.
+Personalidade: rápida, precisa, simpática, organizada. Tom humano e caloroso — nunca robótica. Uma pergunta por mensagem.
 
-Fluxo de qualificação (máximo 4 perguntas):
-1. Tipo de serviço (bomba, betoneira, central ou telebelt?)
-2. Cidade da obra
-3. Volume estimado de concreto por mês
-4. Data prevista de início
+REGRA ESPECIAL SÃO PAULO: clientes de São Paulo são tratados com agilidade máxima — são clientes de varejo que precisam de resposta imediata.
 
-Quando tiver informações suficientes (mínimo tipo + cidade), encerre com:
+== REGRA ABSOLUTA DE PREÇOS ==
+Você NUNCA informa preços, valores por m³, valores de diária, mensalidade, descontos ou condições comerciais. Se o cliente perguntar preço, responda EXATAMENTE este texto (não parafraseie):
+"Os valores dependem das características técnicas e operacionais da obra. Nossa equipe comercial irá analisar sua necessidade e encaminhar uma proposta personalizada."
+- Nunca informar descontos.
+- Nunca negociar condições comerciais.
+- Nunca aprovar exceções de qualquer tipo.
+- Qualquer assunto de preço, desconto, negociação ou exceção é encaminhado para a equipe comercial (Morgana Albertim) — sem tentar resolver ou justificar.
+- Perguntas técnicas (modelo, capacidade, volume mínimo, modalidade de contrato) PODEM e DEVEM ser respondidas diretamente por você, com base nas regras abaixo.
+
+== PERGUNTAS DE QUALIFICAÇÃO POR EQUIPAMENTO ==
+Identifique primeiro o equipamento de interesse. Depois siga o roteiro específico (uma pergunta por mensagem, usando o contexto da conversa para não repetir perguntas já respondidas):
+
+1) BOMBA DE CONCRETO (lança ou estacionária — BOMBA_LANCA / BOMBA_ESTACIONARIA):
+   - Cidade da obra
+   - Prazo
+   - Volume previsto por mês
+   - Tipo de concretagem
+   - Frequência de uso
+   - Se a obra for em São Paulo: perguntar adicionalmente se a necessidade é por diária, semana ou mês (campo modalidade).
+
+2) CAMINHÃO BETONEIRA (BETONEIRA):
+   - NÃO existe diária para betoneira — somente contrato mensal. NÃO pergunte nem exija volume de concreto para qualificar este lead.
+   - Identificar: quantidade de caminhões, com ou sem operador, prazo do contrato (duração), cidade.
+
+3) CENTRAL DE CONCRETO (CENTRAL_IN_LOCO):
+   - Identificar: volume total, consumo médio mensal, prazo de implantação, tipo da obra.
+   - Referência interna (não informar ao cliente): volume total mínimo recomendado 15.000 m³, consumo médio mensal mínimo 1.500 m³/mês, prazo mínimo de implantação 30 dias.
+
+4) TELEBELT (TELEBELT):
+   - Cidade da obra
+   - Tipo da aplicação
+   - Volume previsto por mês
+   - Data prevista de início
+   - Frequência de utilização
+   - Qual a dificuldade operacional da obra (objetivo: entender qual problema operacional o cliente está tentando resolver). Exemplos de dificuldade operacional: longa distância, acesso restrito, piso industrial, galpão logístico, concretagem interna, local sem acesso para caminhão convencional, área de difícil bombeamento.
+   - Referência interna (não informar ao cliente): Telebelt TB130 — volume mínimo mensal de 3.000 m³, contrato mínimo equivalente a 9.000 m³ (3 meses).
+
+Quando tiver informações suficientes para o equipamento identificado (no mínimo: tipo de serviço + cidade, mais os campos específicos acima conforme o equipamento), encerre com:
 "Ótimo! Vou passar seu contato para nosso consultor. Ele retorna em até 2 horas."
 
-Regras:
+== MODELOS COMERCIAIS — SÃO PAULO x NACIONAL ==
+- São Paulo: bombas (lança/estacionária) podem ser diária, semanal ou mensal; betoneiras e centrais são somente contrato mensal.
+- Fora de SP (Nacional): tudo (bombas, betoneiras, centrais, telebelt) é somente contrato mensal, com mínimo de 3 meses.
+
+Regras gerais:
 - Uma pergunta por mensagem.
 - Tom caloroso e direto.
-- Se pedir preço, informe que depende do volume e localização.
 - Se urgente, diga que vai acionar o consultor agora.
 - Se mencionar apenas "bomba", use BOMBA_LANCA como tipoServico.
 - Use o contexto recente da conversa para completar dados. Se o cliente responder só a cidade, combine com o tipo de serviço perguntado/mencionado antes.
@@ -97,8 +146,16 @@ Responda APENAS com JSON válido, sem markdown:
   "qualificado": true/false,
   "tipoServico": "BOMBA_LANCA|BOMBA_ESTACIONARIA|BETONEIRA|CENTRAL_IN_LOCO|TELEBELT|null",
   "cidade": "cidade mencionada ou null",
-  "volume": "volume mencionado ou null",
-  "prazo": "prazo mencionado ou null",
+  "volume": "volume mencionado ou null (não usar para betoneira)",
+  "prazo": "prazo ou duração do contrato mencionado ou null",
+  "modalidade": "diária|semanal|mensal|contrato mensal|null",
+  "quantidadeCaminhoes": "quantidade de caminhões (betoneira) ou null",
+  "comOperador": "sim|não|não informado|null (betoneira)",
+  "duracaoContrato": "duração do contrato mencionada ou null",
+  "tipoConcretagem": "tipo de concretagem (bomba/telebelt) ou null",
+  "frequenciaUso": "frequência de uso/utilização ou null",
+  "dificuldadeOperacional": "dificuldade operacional informada (telebelt) ou null",
+  "observacoes": "outras informações relevantes da conversa (urgência, restrições) ou null",
   "temperatura": "QUENTE|MEDIA|FRIA",
   "urgente": true/false
 }`;
@@ -158,6 +215,67 @@ function getTaskDueDate(urgente: boolean) {
 
   date.setHours(date.getHours() + 2);
   return date;
+}
+
+function buildResumoOportunidade(
+  dados: MariaResponse,
+  classificacaoInterna?: {
+    aderencia?: string | null;
+    potencialEstrategico?: string | null;
+    potencialMotivo?: string | null;
+  },
+) {
+  const tipoServico = dados.tipoServico ?? null;
+  const cidade = cleanNullable(dados.cidade);
+  const volume = cleanNullable(dados.volume);
+  const prazo = cleanNullable(dados.prazo);
+  const modalidade = cleanNullable(dados.modalidade);
+  const quantidadeCaminhoes = cleanNullable(dados.quantidadeCaminhoes);
+  const comOperador = cleanNullable(dados.comOperador);
+  const duracaoContrato = cleanNullable(dados.duracaoContrato);
+  const tipoConcretagem = cleanNullable(dados.tipoConcretagem);
+  const frequenciaUso = cleanNullable(dados.frequenciaUso);
+  const dificuldadeOperacional = cleanNullable(dados.dificuldadeOperacional);
+  const observacoes = cleanNullable(dados.observacoes);
+
+  const quantidade =
+    tipoServico === "BETONEIRA" && quantidadeCaminhoes
+      ? `${quantidadeCaminhoes} caminhão(ões)`
+      : volume;
+
+  const linhasModalidade = [
+    modalidade ? `Modalidade: ${modalidade}` : null,
+    comOperador ? `Com operador: ${comOperador}` : null,
+    duracaoContrato ? `Duração do contrato: ${duracaoContrato}` : null,
+  ].filter(Boolean);
+
+  const linhasObservacoes = [
+    tipoConcretagem ? `Tipo de concretagem: ${tipoConcretagem}` : null,
+    frequenciaUso ? `Frequência de uso: ${frequenciaUso}` : null,
+    dificuldadeOperacional ? `Dificuldade operacional: ${dificuldadeOperacional}` : null,
+    observacoes ? `Observações: ${observacoes}` : null,
+  ].filter(Boolean);
+
+  const linhasInterno = [
+    classificacaoInterna?.aderencia ? `Aderência (interno): ${classificacaoInterna.aderencia}` : null,
+    classificacaoInterna?.potencialEstrategico
+      ? `Potencial estratégico (interno): ${classificacaoInterna.potencialEstrategico}${
+          classificacaoInterna.potencialMotivo ? ` — ${classificacaoInterna.potencialMotivo}` : ""
+        }`
+      : null,
+  ].filter(Boolean);
+
+  return {
+    resumo: [
+      `Equipamento: ${tipoServico ?? "não identificado"}`,
+      `Quantidade/Volume: ${quantidade ?? "não informado"}`,
+      `Cidade: ${cidade ?? "não informada"}`,
+      `Prazo: ${prazo ?? "não informado"}`,
+      ...linhasModalidade,
+      ...linhasObservacoes,
+    ],
+    interno: linhasInterno,
+  };
 }
 
 function getTipoServico(tipoServico: MariaResponse["tipoServico"]) {
@@ -257,22 +375,39 @@ async function classificarTermometroLead({
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
 
+  const cidade = cleanNullable(dados.cidade) ?? "não informada";
+  const isSP = /\bsp\b|s[ãa]o paulo/i.test(cidade);
+
   const prompt = `Você é Maria, SDR da Villa Empreendimentos.
 
-Classifique o termômetro deste lead de WhatsApp com base no contexto comercial completo.
+Classifique o termômetro, a aderência e o potencial estratégico deste lead de WhatsApp com base no contexto comercial completo. Esta classificação é INTERNA — o cliente nunca a vê.
 
-Critérios:
-- QUENTE: urgência declarada, pediu preço/orçamento, prazo menor que 30 dias, data definida, alto volume, ou intenção clara de contratar.
-- MEDIA: tem necessidade real com tipo de serviço e cidade, mas ainda faltam volume/prazo/urgência.
-- FRIA: curiosidade inicial, informação vaga, sem obra clara ou sem intenção comercial.
+== TEMPERATURA (critérios SP-aware) ==
+QUENTE se: cliente de São Paulo (qualquer porte/volume) OU fora de SP com volume acima de 10.000 m³ OU prazo definido com início em menos de 30 dias OU pediu preço/condições OU obra já com data confirmada OU mencionou urgência/obra parada OU pediu equipamento para hoje/esta semana.
+MEDIA se: fora de SP com interesse claro mas sem volume/prazo definido OU volume entre 500 e 10.000 m³ fora de SP OU pediu informações gerais sem urgência OU contato promissor mas com dados insuficientes.
+FRIA se: fora de SP com volume abaixo de 500 m³ OU sem dados de obra/cidade/volume OU contato genérico sem relação clara com equipamento OU apenas curiosidade.
+
+== ADERÊNCIA (uso interno; fórmula: contrato mínimo = volume mínimo mensal x 3) ==
+Tabela de volume mínimo mensal / contrato mínimo por equipamento: ABE SP 2000 = 1.200/3.600 m³; ABE SP 3000 = 1.400/4.200 m³; ABL 28 = 1.600/4.800 m³; ABL 32 = 1.800/5.400 m³; ABL 36 = 2.000/6.000 m³; ABL 38/40 = 2.200/6.600 m³; ABL 42/43 = 2.500/7.500 m³; ABL 56/58 = 3.500/10.500 m³; Telebelt TB130 = 3.000/9.000 m³.
+ALTA: volume previsto >= mínimo contratual do equipamento mais adequado. MEDIA: volume entre 70% e 100% do mínimo contratual. BAIXA: volume inferior a 70% do mínimo contratual. Se não houver dado de volume suficiente (ex.: betoneira), retorne null.
+
+== POTENCIAL ESTRATÉGICO ==
+NORMAL: cliente sem histórico com a Villa, obra única, pequeno/médio porte, sem recorrência esperada, apenas um equipamento.
+ALTO: construtora regional relevante, cliente já conhecido pela Villa, possibilidade de recorrência, mais de um equipamento na mesma obra, contrato de longo prazo, obra industrial/logística relevante, potencial de crescimento futuro.
+MUITO ALTO: grandes construtoras nacionais, consórcios, infraestrutura pesada, portos, aeroportos, ferrovias, metrôs, data centers, grandes indústrias, obras públicas estratégicas, ou clientes prioritários pela diretoria (ex.: Afonso França, Passarelli, Andrade Gutierrez, Queiroz Galvão). Se o nome do cliente/empresa constar de uma lista de clientes estratégicos da Villa, classifique automaticamente como MUITO ALTO.
 
 Dados já identificados:
 - Nome: ${nomeContato}
 - Telefone: ${telefone}
 - Tipo de serviço: ${dados.tipoServico ?? "não informado"}
-- Cidade: ${cleanNullable(dados.cidade) ?? "não informada"}
+- Cidade: ${cidade}${isSP ? " (São Paulo)" : ""}
 - Volume: ${cleanNullable(dados.volume) ?? "não informado"}
 - Prazo: ${cleanNullable(dados.prazo) ?? "não informado"}
+- Modalidade: ${cleanNullable(dados.modalidade) ?? "não informada"}
+- Quantidade de caminhões: ${cleanNullable(dados.quantidadeCaminhoes) ?? "não informada"}
+- Com operador: ${cleanNullable(dados.comOperador) ?? "não informado"}
+- Duração do contrato: ${cleanNullable(dados.duracaoContrato) ?? "não informada"}
+- Dificuldade operacional: ${cleanNullable(dados.dificuldadeOperacional) ?? "não informada"}
 - Mensagem atual: ${texto}
 
 Contexto recente:
@@ -282,7 +417,10 @@ Responda APENAS com JSON válido, sem markdown:
 {
   "temperatura": "QUENTE|MEDIA|FRIA",
   "urgente": true/false,
-  "motivo": "motivo objetivo em uma frase curta"
+  "motivo": "motivo objetivo em uma frase curta",
+  "aderencia": "ALTA|MEDIA|BAIXA|null",
+  "potencialEstrategico": "NORMAL|ALTO|MUITO_ALTO",
+  "potencialMotivo": "motivo objetivo em uma frase curta"
 }`;
 
   try {
@@ -396,9 +534,7 @@ async function registrarInteracaoParcial({
   texto: string;
 }) {
   const cidade = cleanNullable(dados.cidade);
-  const volume = cleanNullable(dados.volume);
-  const prazo = cleanNullable(dados.prazo);
-  const tipoServico = getTipoServico(dados.tipoServico);
+  const resumo = buildResumoOportunidade(dados);
 
   await prisma.$transaction(async (tx) => {
     let pessoa = await tx.pessoa.findFirst({
@@ -459,10 +595,8 @@ async function registrarInteracaoParcial({
         detalhes: [
           `Mensagem: ${texto}`,
           `Resposta Maria: ${dados.resposta}`,
-          tipoServico ? `Tipo: ${tipoServico}` : null,
-          cidade ? `Cidade: ${cidade}` : null,
-          volume ? `Volume: ${volume}` : null,
-          prazo ? `Prazo: ${prazo}` : null,
+          "--- Resumo da oportunidade (em qualificação) ---",
+          ...resumo.resumo,
         ]
           .filter(Boolean)
           .join("\n"),
@@ -519,16 +653,21 @@ async function registrarLeadQualificado({
   nomeContato,
   telefone,
   texto,
+  classificacaoInterna,
 }: {
   dados: MariaResponse;
   nomeContato: string;
   telefone: string;
   texto: string;
+  classificacaoInterna?: {
+    aderencia?: string | null;
+    potencialEstrategico?: string | null;
+    potencialMotivo?: string | null;
+  };
 }) {
   const tipoServico = getTipoServico(dados.tipoServico);
   const cidade = cleanNullable(dados.cidade);
-  const volume = cleanNullable(dados.volume);
-  const prazo = cleanNullable(dados.prazo);
+  const resumo = buildResumoOportunidade(dados, classificacaoInterna);
   const temperatura = dados.temperatura as TemperaturaOportunidade;
   const temperaturaMotivo =
     cleanNullable(dados.temperaturaMotivo) ??
@@ -608,10 +747,10 @@ async function registrarLeadQualificado({
 
     const descricao = [
       `Lead recebido via WhatsApp.`,
-      `Cidade: ${cidade}`,
-      volume ? `Volume: ${volume}` : null,
-      prazo ? `Prazo: ${prazo}` : null,
+      "--- Resumo da oportunidade ---",
+      ...resumo.resumo,
       `Telefone: ${telefone}`,
+      ...(resumo.interno.length ? ["--- Classificação interna (não exibir ao cliente) ---", ...resumo.interno] : []),
     ]
       .filter(Boolean)
       .join("\n");
@@ -650,9 +789,9 @@ async function registrarLeadQualificado({
         detalhes: [
           `Mensagem: ${texto}`,
           `Resposta Maria: ${dados.resposta}`,
-          `Cidade: ${cidade}`,
-          volume ? `Volume: ${volume}` : null,
-          prazo ? `Prazo: ${prazo}` : null,
+          "--- Resumo da oportunidade ---",
+          ...resumo.resumo,
+          ...(resumo.interno.length ? ["--- Classificação interna (não exibir ao cliente) ---", ...resumo.interno] : []),
         ]
           .filter(Boolean)
           .join("\n"),
@@ -739,6 +878,12 @@ export async function POST(request: Request) {
 
     await enviarWhatsapp({ telefone, texto: dados.resposta });
 
+    let classificacaoInterna: {
+      aderencia?: string | null;
+      potencialEstrategico?: string | null;
+      potencialMotivo?: string | null;
+    } = {};
+
     if (dados.isLead && dados.qualificado) {
       const termometro = await classificarTermometroLead({
         dados,
@@ -753,10 +898,15 @@ export async function POST(request: Request) {
         temperaturaMotivo: termometro.motivo,
         urgente: termometro.urgente,
       };
+      classificacaoInterna = {
+        aderencia: termometro.aderencia,
+        potencialEstrategico: termometro.potencialEstrategico,
+        potencialMotivo: termometro.potencialMotivo,
+      };
     }
 
     const lead = dados.isLead && dados.qualificado
-      ? await registrarLeadQualificado({ dados, nomeContato, telefone, texto })
+      ? await registrarLeadQualificado({ dados, nomeContato, telefone, texto, classificacaoInterna })
       : { oportunidadeId: null, criada: false };
 
     if (dados.isLead && !dados.qualificado) {

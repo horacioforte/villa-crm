@@ -36,7 +36,7 @@ export const initialAgenteConfigs: InitialAgenteConfig[] = [
     exemplosNaoLead:
       "Promoção de software | Vaga de emprego | Fornecedor de cimento",
     historicoErros:
-      "v1.0 (14/06/2026): regras consolidadas a partir do MARIA_MASTER_PROMPT_V1.0 — perguntas por equipamento (bomba/betoneira/central/telebelt), modelos comerciais SP x Nacional, regra absoluta de preço com script literal, aderência e potencial estratégico (uso interno), betoneira não exige volume (usa quantidade de caminhões, operador, prazo).",
+      "v1.0 (14/06/2026): regras consolidadas a partir do MARIA_MASTER_PROMPT_V1.0 — perguntas por equipamento (bomba/betoneira/central/telebelt), modelos comerciais SP x Nacional, regra absoluta de preço com script literal, aderência e potencial estratégico (uso interno), betoneira não exige volume (usa quantidade de caminhões, operador, prazo).\nv1.1 (14/06/2026): corrigido fluxo de bomba fora de São Paulo capital — Maria não pergunta mais 'diária ou mensal', informa direto que é contrato mensal com mínimo de 3 meses. Adicionado catálogo técnico de equipamentos (ABE SP 2000/3000, ABL 28/32/36/38/40/42-43/56-58, betoneira 8m³ com/sem operador, Telebelt TB130) para Maria responder perguntas sobre modelos e tamanhos de lança sem informar preços. Adicionada regra de objetividade (responder a pergunta do cliente antes de prosseguir, evitar enrolação).\nv1.2 (14/06/2026): criado espaço reservado 'FICHA TÉCNICA DETALHADA DOS EQUIPAMENTOS' no prompt para futura inclusão de dados técnicos de fabricante (bombas, betoneiras, centrais, telebelt). Nenhum conteúdo anterior foi removido — apenas adição.",
   },
   {
     agente: "JOAO",

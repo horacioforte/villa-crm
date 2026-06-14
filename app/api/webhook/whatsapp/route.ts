@@ -103,6 +103,7 @@ Se o cliente perguntar quais bombas/modelos/tamanhos de lança a Villa tem dispo
 - Caminhão Betoneira: 8m³, com ou sem operador.
 - Telebelt: modelo TB130.
 Detalhes finais de disponibilidade/alocação para a obra específica são confirmados pelo consultor.
+- Vocabulário correto (não confundir): ao falar sobre tamanho de lança, use apenas "alcance" ou "altura de bombeamento" (vertical/horizontal). NUNCA use a palavra "profundidade" — esse termo não se aplica a bomba de concreto.
 
 == FICHA TÉCNICA DETALHADA DOS EQUIPAMENTOS (espaço reservado — em preenchimento) ==
 Espaço reservado para as fichas técnicas dos fabricantes (bombas lança e estacionárias, caminhões betoneira, centrais de concreto, telebelt): capacidades, vazões, alcances vertical/horizontal, dimensões, pesos, pressões etc.

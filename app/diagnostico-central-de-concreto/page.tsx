@@ -236,47 +236,74 @@ export default function DiagnosticoCentralDeConcretoPage() {
 
   return (
     <main className="min-h-screen bg-[#f8fafc] font-sans text-slate-800">
-      <nav className="flex items-center justify-between bg-[#00304c] px-6 py-3.5">
+      <nav className="flex items-center justify-between border-b border-white/5 bg-[#00304c] px-6 py-3.5">
         <a
           href="https://villaempreendimentos.com.br"
           target="_blank"
           rel="noreferrer"
-          className="text-lg font-bold text-white"
+          className="text-lg font-bold text-white transition hover:opacity-80"
         >
           Villa <span className="text-[#7ab8f5]">Empreendimentos</span>
         </a>
-        <span className="text-sm text-white/70">(81) 3325-1144</span>
+        <a
+          href="tel:+558133251144"
+          className="flex items-center gap-2 text-sm font-medium text-white/70 transition hover:text-white"
+        >
+          <span className="flex size-7 items-center justify-center rounded-full bg-white/10">📞</span>
+          (81) 3325-1144
+        </a>
       </nav>
 
       {started ? (
-        <div className="sticky top-0 z-20 border-b border-slate-200 bg-white px-6 py-3">
+        <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-6 py-3 backdrop-blur">
           <div className="mb-2 flex items-center justify-between text-xs">
             <span className="font-semibold text-[#0b487f]">
               Diagnóstico — Central de Concreto
             </span>
-            <span className="text-slate-400">
+            <span className="font-medium text-slate-400">
               {submitted ? "Diagnóstico enviado ✓" : step <= 5 ? `Pergunta ${step} de 5` : "Seus dados"}
             </span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
             <div
-              className="h-full rounded-full bg-[#0b487f] transition-all"
+              className="h-full rounded-full bg-gradient-to-r from-[#0b487f] to-[#7ab8f5] transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
+          {!submitted ? (
+            <div className="mt-3 flex justify-between gap-1">
+              {[1, 2, 3, 4, 5, 6].map((dot) => (
+                <span
+                  key={dot}
+                  className={`h-1 flex-1 rounded-full transition-colors ${
+                    dot < step
+                      ? "bg-[#0b487f]"
+                      : dot === step
+                        ? "bg-[#7ab8f5]"
+                        : "bg-slate-200"
+                  }`}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
       {!started ? (
-        <section className="relative overflow-hidden bg-[#00304c] px-6 py-16 text-center text-white">
-          <div className="absolute inset-0 opacity-[0.03] [background-image:radial-gradient(#fff_1px,transparent_1px)] [background-size:40px_40px]" />
+        <section className="relative overflow-hidden bg-gradient-to-b from-[#00304c] to-[#0b487f] px-6 py-20 text-center text-white">
+          <div className="absolute inset-0 opacity-[0.04] [background-image:radial-gradient(#fff_1px,transparent_1px)] [background-size:40px_40px]" />
+          <div className="pointer-events-none absolute -right-32 -top-32 size-96 rounded-full bg-[#7ab8f5]/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-32 -left-32 size-96 rounded-full bg-[#f57c00]/10 blur-3xl" />
           <div className="relative mx-auto max-w-4xl">
-            <div className="mb-5 inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wider">
-              ✦ Diagnóstico gratuito · menos de 2 minutos
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/90 shadow-sm">
+              <span className="flex size-5 items-center justify-center rounded-full bg-[#f57c00] text-[10px]">✦</span>
+              Diagnóstico gratuito · menos de 2 minutos
             </div>
             <h1 className="text-4xl font-black leading-tight tracking-tight md:text-6xl">
               Será que sua obra não cabe uma{" "}
-              <span className="text-[#7ab8f5]">central de concreto própria?</span>
+              <span className="bg-gradient-to-r from-[#7ab8f5] to-[#a9d4ff] bg-clip-text text-transparent">
+                central de concreto própria?
+              </span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-white/80">
               Descubra se a implantação de uma central exclusiva pode reduzir custos,
@@ -288,14 +315,21 @@ export default function DiagnosticoCentralDeConcretoPage() {
                 setStarted(true);
                 setStep(1);
               }}
-              className="mt-10 rounded-full bg-[#f57c00] px-10 py-4 text-lg font-extrabold text-white shadow-[0_4px_20px_rgba(245,124,0,.45)] transition hover:-translate-y-0.5 hover:bg-[#e65100]"
+              className="group mt-10 inline-flex items-center gap-2 rounded-full bg-[#f57c00] px-10 py-4 text-lg font-extrabold text-white shadow-[0_8px_30px_rgba(245,124,0,.45)] transition hover:-translate-y-0.5 hover:bg-[#e65100] hover:shadow-[0_12px_36px_rgba(245,124,0,.55)]"
             >
-              ▶ Iniciar diagnóstico
+              Iniciar diagnóstico
+              <span className="transition group-hover:translate-x-1">→</span>
             </button>
-            <div className="mt-8 flex flex-wrap justify-center gap-6 text-sm text-white/65">
-              <span>✓ Atendimento em todo o Brasil</span>
-              <span>◷ Resposta em até 2 horas</span>
-              <span>☆ +20 anos de experiência</span>
+            <div className="mt-10 flex flex-wrap justify-center gap-3 text-sm text-white/80">
+              <span className="flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 ring-1 ring-white/10">
+                <span className="text-base">🇧🇷</span> Atendimento em todo o Brasil
+              </span>
+              <span className="flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 ring-1 ring-white/10">
+                <span className="text-base">⏱️</span> Resposta em até 2 horas
+              </span>
+              <span className="flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 ring-1 ring-white/10">
+                <span className="text-base">⭐</span> +20 anos de experiência
+              </span>
             </div>
           </div>
         </section>
@@ -304,8 +338,8 @@ export default function DiagnosticoCentralDeConcretoPage() {
       {started && !submitted && !isSubmitting ? (
         <section className="mx-auto max-w-2xl px-5 py-8">
           {currentQuestion ? (
-            <div className="rounded-xl bg-white p-7 shadow-[0_4px_24px_rgba(0,0,0,.08)]">
-              <span className="mb-3 inline-flex size-7 items-center justify-center rounded-full bg-[#e8f1fa] text-xs font-bold text-[#0b487f]">
+            <div className="rounded-2xl bg-white p-7 shadow-[0_8px_30px_rgba(11,72,127,.08)] ring-1 ring-slate-100">
+              <span className="mb-3 inline-flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-[#0b487f] to-[#1a6bb8] text-xs font-bold text-white shadow-sm">
                 {currentQuestion.id}
               </span>
               <h2 className="text-xl font-extrabold text-slate-800">
@@ -321,13 +355,19 @@ export default function DiagnosticoCentralDeConcretoPage() {
                       key={option.v}
                       type="button"
                       onClick={() => pick(currentQuestion.id, option)}
-                      className={`flex w-full items-center gap-3 rounded-xl border-2 p-4 text-left transition ${
+                      className={`flex w-full items-center gap-3 rounded-xl border-2 p-4 text-left transition-all duration-150 ${
                         selected
-                          ? "border-[#0b487f] bg-[#e8f1fa] shadow-[0_0_0_3px_rgba(11,72,127,.12)]"
-                          : "border-slate-200 bg-white hover:border-[#0b487f] hover:bg-[#e8f1fa]"
+                          ? "border-[#0b487f] bg-[#e8f1fa] shadow-[0_4px_16px_rgba(11,72,127,.12)]"
+                          : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-[#7ab8f5] hover:bg-[#f3f8fd] hover:shadow-sm"
                       }`}
                     >
-                      <span className="text-2xl">{option.icon}</span>
+                      <span
+                        className={`flex size-10 shrink-0 items-center justify-center rounded-full text-xl transition-colors ${
+                          selected ? "bg-[#0b487f]/10" : "bg-slate-100"
+                        }`}
+                      >
+                        {option.icon}
+                      </span>
                       <span className="flex-1">
                         <span className="block text-sm font-bold text-slate-800">
                           {option.label}
@@ -335,7 +375,7 @@ export default function DiagnosticoCentralDeConcretoPage() {
                         <span className="mt-0.5 block text-xs text-slate-500">{option.desc}</span>
                       </span>
                       <span
-                        className={`flex size-5 items-center justify-center rounded-full border-2 ${
+                        className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                           selected ? "border-[#0b487f] bg-[#0b487f]" : "border-slate-300"
                         }`}
                       >
@@ -346,8 +386,9 @@ export default function DiagnosticoCentralDeConcretoPage() {
                 })}
               </div>
               {currentQuestion.note ? (
-                <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-3 text-xs leading-5 text-orange-700">
-                  {currentQuestion.note}
+                <div className="mt-4 flex gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-xs leading-5 text-orange-700">
+                  <span>⚠️</span>
+                  <span>{currentQuestion.note.replace("⚠️ ", "")}</span>
                 </div>
               ) : null}
               <div className="mt-6 flex gap-3">
@@ -364,15 +405,15 @@ export default function DiagnosticoCentralDeConcretoPage() {
                   type="button"
                   onClick={next}
                   disabled={!answers[step]}
-                  className="flex-1 rounded-lg bg-[#0b487f] px-5 py-3 text-sm font-bold text-white transition hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-35"
+                  className="flex-1 rounded-lg bg-[#0b487f] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#093a66] hover:shadow-md disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-35 disabled:shadow-none"
                 >
                   Próximo →
                 </button>
               </div>
             </div>
           ) : (
-            <div className="rounded-xl bg-white p-7 shadow-[0_4px_24px_rgba(0,0,0,.08)]">
-              <span className="mb-3 inline-flex size-7 items-center justify-center rounded-full bg-green-50 text-sm font-bold text-green-700">
+            <div className="rounded-2xl bg-white p-7 shadow-[0_8px_30px_rgba(11,72,127,.08)] ring-1 ring-slate-100">
+              <span className="mb-3 inline-flex size-8 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-700">
                 ✓
               </span>
               <h2 className="text-xl font-extrabold text-slate-800">
@@ -402,7 +443,7 @@ export default function DiagnosticoCentralDeConcretoPage() {
                         }))
                       }
                       placeholder={placeholder}
-                      className="rounded-lg border-2 border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#0b487f]"
+                      className="rounded-lg border-2 border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#0b487f] focus:ring-4 focus:ring-[#0b487f]/10"
                     />
                   </label>
                 ))}
@@ -418,7 +459,7 @@ export default function DiagnosticoCentralDeConcretoPage() {
                 <button
                   type="button"
                   onClick={submit}
-                  className="flex-1 rounded-lg bg-[#0b487f] px-5 py-3 text-sm font-bold text-white transition hover:opacity-85"
+                  className="flex-1 rounded-lg bg-[#0b487f] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#093a66] hover:shadow-md"
                 >
                   Enviar diagnóstico →
                 </button>
@@ -429,8 +470,8 @@ export default function DiagnosticoCentralDeConcretoPage() {
       ) : null}
 
       {isSubmitting ? (
-        <section className="px-5 py-16 text-center">
-          <div className="mx-auto mb-4 size-11 animate-spin rounded-full border-4 border-slate-200 border-t-[#0b487f]" />
+        <section className="px-5 py-20 text-center">
+          <div className="mx-auto mb-4 size-12 animate-spin rounded-full border-4 border-slate-200 border-t-[#0b487f]" />
           <p className="font-bold text-[#0b487f]">Analisando suas respostas...</p>
           <p className="mt-1 text-sm text-slate-400">
             Nossa equipe receberá seu diagnóstico em instantes
@@ -440,8 +481,10 @@ export default function DiagnosticoCentralDeConcretoPage() {
 
       {submitted ? (
         <section className="mx-auto max-w-2xl px-5 py-8">
-          <div className={`rounded-xl p-8 text-center text-white ${result.className}`}>
-            <div className="mb-3 text-5xl">{result.icon}</div>
+          <div className={`rounded-2xl p-8 text-center text-white shadow-[0_8px_30px_rgba(0,0,0,.12)] ${result.className}`}>
+            <div className="mx-auto mb-3 flex size-16 items-center justify-center rounded-full bg-white/15 text-4xl">
+              {result.icon}
+            </div>
             <div className="mb-3 inline-block rounded-full bg-white/20 px-4 py-1 text-xs font-bold uppercase tracking-wider">
               Diagnóstico recebido
             </div>
@@ -450,7 +493,7 @@ export default function DiagnosticoCentralDeConcretoPage() {
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-sm leading-6 opacity-90">{result.subtitle}</p>
           </div>
-          <div className="mt-4 rounded-xl bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,.08)]">
+          <div className="mt-4 rounded-2xl bg-white p-6 shadow-[0_8px_30px_rgba(11,72,127,.08)] ring-1 ring-slate-100">
             <div className="mb-5 flex gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium leading-6 text-green-900">
               <span>📩</span>
               <span>{result.aviso}</span>
@@ -462,7 +505,7 @@ export default function DiagnosticoCentralDeConcretoPage() {
                 ["Prazo", answers[3]?.label],
                 ["Tipo de obra", answers[4]?.label],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-lg bg-slate-50 p-3">
+                <div key={label} className="rounded-lg bg-slate-50 p-3 ring-1 ring-slate-100">
                   <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
                     {label}
                   </div>
@@ -473,7 +516,7 @@ export default function DiagnosticoCentralDeConcretoPage() {
             <button
               type="button"
               onClick={openWhatsapp}
-              className="w-full rounded-xl bg-[#25d366] p-4 text-sm font-bold text-white transition hover:opacity-90"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25d366] p-4 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#1ebe5b] hover:shadow-md"
             >
               💬 Prefere falar agora?
             </button>
@@ -488,7 +531,7 @@ export default function DiagnosticoCentralDeConcretoPage() {
         href="https://api.whatsapp.com/send?phone=5581973291004&text=Ol%C3%A1%2C%20vim%20pelo%20site%20e%20quero%20falar%20com%20a%20equipe%20Villa%20sobre%20Central%20de%20Concreto."
         target="_blank"
         rel="noreferrer"
-        className="fixed bottom-6 right-6 z-50 rounded-full bg-[#25d366] px-5 py-4 text-sm font-bold text-white shadow-[0_4px_20px_rgba(37,211,102,.45)] transition hover:-translate-y-0.5"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-[#25d366] px-5 py-4 text-sm font-bold text-white shadow-[0_4px_20px_rgba(37,211,102,.45)] ring-4 ring-[#25d366]/20 transition hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(37,211,102,.55)]"
       >
         💬 <span className="hidden sm:inline">Falar com a gente</span>
       </a>

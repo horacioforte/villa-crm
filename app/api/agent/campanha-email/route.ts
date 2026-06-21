@@ -72,13 +72,14 @@ function gerarHtmlEmail(tipo: TipoCampanha, d: Destinatario, equipamento?: strin
       <p>Para empresas de pré-moldados, concreteiras e construtoras, pode ser uma oportunidade de ampliar
       a capacidade produtiva com um investimento muito inferior ao de um equipamento novo.</p>
 
-      <p>Temos opções de:</p>
+      <p>Temos disponíveis:</p>
       <ul style="margin:0 0 16px;padding-left:20px;color:#333333;font-size:15px;line-height:1.9;">
-        <li>✅ Caminhões betoneira</li>
-        <li>✅ Caminhões autobomba</li>
-        <li>✅ Equipamentos revisados e em operação</li>
-        <li>✅ Possibilidade de apoio técnico e orientação operacional</li>
+        <li>✅ Caminhão betoneira</li>
+        <li>✅ Caminhão autobomba estacionária</li>
+        <li>✅ Caminhão bomba lança</li>
       </ul>
+
+      <p>Equipamentos revisados e alguns até em operação.</p>
 
       <p>Caso tenha interesse em receber fotos, especificações técnicas e valores, basta responder
       este e-mail ou falar diretamente conosco pelo WhatsApp.</p>

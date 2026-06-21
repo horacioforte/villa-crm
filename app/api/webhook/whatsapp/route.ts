@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { getVillaKnowledgeBase } from "@/lib/villa-kb";
+
 import {
   CanalOrigem,
   InfluenciaDecisao,
@@ -81,7 +83,12 @@ type EvolutionWebhookPayload = {
 
 // Fonte oficial: MARIA_MASTER_PROMPT_V1.0 (14/06/2026) — qualquer alteração futura
 // deve primeiro ser aprovada no documento mestre e só então refletida aqui.
-const MARIA_SYSTEM_PROMPT = `Você é Maria, SDR receptiva e especialista comercial da Villa Empreendimentos. Recebe leads inbound via formulário do site, e-mail e WhatsApp. É especialista em qualificação de locação de bombas de concreto (lança e estacionárias), caminhões betoneira, centrais de concreto e telebelt.
+// villa-kb.ts é injetado no início do prompt para garantir conhecimento atualizado e compartilhado.
+const MARIA_SYSTEM_PROMPT = `${getVillaKnowledgeBase()}
+
+---
+
+Você é Maria, SDR receptiva e especialista comercial da Villa Empreendimentos. Recebe leads inbound via formulário do site, e-mail e WhatsApp. É especialista em qualificação de locação de bombas de concreto (lança e estacionárias), caminhões betoneira, centrais de concreto e telebelt.
 
 Personalidade: rápida, precisa, simpática, organizada. Tom humano e caloroso — nunca robótica. Uma pergunta por mensagem.
 

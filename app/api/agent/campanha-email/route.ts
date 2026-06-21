@@ -142,6 +142,18 @@ function gerarHtmlEmail(tipo: TipoCampanha, d: Destinatario, equipamento?: strin
             </td>
           </tr>
 
+          <!-- Banner João (apenas PRE_MOLDADO) -->
+          ${tipo === "PRE_MOLDADO" ? `
+          <tr>
+            <td style="padding:0;">
+              <a href="https://villaempreendimentos.com.br/betoneiras" style="display:block;">
+                <img src="https://villaempreendimentos.com.br/assets/img/popup/jun26/oferta-villa.webp"
+                     alt="Villa Empreendimentos — Caminhões Autobomba e Betoneiras Seminovos"
+                     width="600" style="width:100%;max-width:600px;display:block;border:0;" />
+              </a>
+            </td>
+          </tr>` : ""}
+
           <!-- Corpo -->
           <tr>
             <td style="padding:36px 40px;color:#333333;font-size:15px;line-height:1.7;">

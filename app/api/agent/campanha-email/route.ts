@@ -214,13 +214,13 @@ async function enviarEmailBrevo(
       },
       body: JSON.stringify({
         sender: {
-          name: "João — Villa Empreendimentos",
-          email: "joao.comercial@villaempreendimentos.com.br",
+          name: "João Silva — Villa Empreendimentos",
+          email: "maria.comercial@villaempreendimentos.com.br",
         },
         to: [{ email: destinatario.email, name: destinatario.nome }],
         replyTo: {
           email: "joao.comercial@villaempreendimentos.com.br",
-          name: "João — Villa Empreendimentos",
+          name: "João Silva — Villa Empreendimentos",
         },
         subject,
         htmlContent,

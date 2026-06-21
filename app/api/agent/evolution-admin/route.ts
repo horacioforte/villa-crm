@@ -25,10 +25,30 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "create") {
-    const res = await fetch(`${apiUrl}/instance/create`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: apiKey },
-      body: JSON.stringify({ instanceName: instance, qrcode: true }),
+    // Tenta com apikey header; se vier 401, tenta com Authorization: Bearer
+    const tryCreate = async (headers: Record<string, string>) => {
+      const res = await fetch(`${apiUrl}/instance/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify({
+          instanceName: instance,
+          qrcode: true,
+          integration: "WHATSAPP-BAILEYS",
+        }),
+      });
+      return { res, data: await res.json() };
+    };
+
+    let { res, data } = await tryCreate({ apikey: apiKey });
+    if (res.status === 401) {
+      ({ res, data } = await tryCreate({ Authorization: `Bearer ${apiKey}` }));
+    }
+    return NextResponse.json(data, { status: res.status });
+  }
+
+  if (action === "list") {
+    const res = await fetch(`${apiUrl}/instance/fetchInstances`, {
+      headers: { apikey: apiKey },
     });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });

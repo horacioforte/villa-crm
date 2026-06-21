@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+
+export const maxDuration = 30;
 import { z } from "zod";
 
 import {
@@ -99,74 +101,78 @@ function getDetalhesContato(data: ContatoInput) {
     .join("\n");
 }
 
-async function enviarBoasVindasWhatsApp(data: ContatoInput) {
+async function enviarMensagemEvolution(telefone: string, text: string) {
   const apiUrl = process.env.EVOLUTION_API_URL?.replace(/\/+$/, "");
   const apiKey = process.env.EVOLUTION_API_KEY;
   const instance = process.env.EVOLUTION_INSTANCE;
-  const telefone = normalizeWhatsappNumber(data.telefone);
 
-  if (!apiUrl || !apiKey || !instance) {
-    console.warn("[API_CONTATO] Variaveis da Evolution API nao configuradas.");
-    return;
-  }
-
-  if (!telefone) {
-    console.warn("[API_CONTATO] Telefone invalido para envio WhatsApp.");
-    return;
-  }
+  if (!apiUrl || !apiKey || !instance || !telefone) return;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
-  const url = `${apiUrl}/message/sendText/${instance}`;
-
-  console.info("[API_CONTATO] Enviando WhatsApp via Evolution", {
-    numeroFormatado: telefone,
-    url,
-  });
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(`${apiUrl}/message/sendText/${instance}`, {
       method: "POST",
       signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        apikey: apiKey,
-      },
-      body: JSON.stringify({
-        number: telefone,
-        text: [
-          `Olá, ${data.nome}! 👋 Aqui é a Maria da Villa Empreendimentos.`,
-          "",
-          "Recebi seu diagnóstico de Central de Concreto agora mesmo e já estou analisando suas respostas.",
-          "",
-          "Em até 2 horas te envio a avaliação completa informando se sua obra tem perfil para uma central exclusiva. 🏗️",
-          "",
-          "Qualquer dúvida é só falar aqui!",
-        ].join("\n"),
-      }),
-    });
-    const responseBody = await response.text().catch((error) => {
-      console.error("[API_CONTATO] Erro ao ler body da Evolution:", error);
-      return "";
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify({ number: telefone, text }),
     });
 
-    console.info("[API_CONTATO] Resposta Evolution", {
-      status: response.status,
-      ok: response.ok,
-      body: responseBody,
-    });
-
+    const body = await response.text().catch(() => "");
     if (!response.ok) {
-      console.error("[API_CONTATO] Evolution retornou erro", {
-        status: response.status,
-        body: responseBody,
-      });
+      console.error("[API_CONTATO] Evolution erro", { status: response.status, body });
+    } else {
+      console.info("[API_CONTATO] Evolution ok", { status: response.status });
     }
   } catch (error) {
     console.error("[API_CONTATO] Falha/timeout Evolution:", error);
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function enviarBoasVindasWhatsApp(data: ContatoInput) {
+  const telefone = normalizeWhatsappNumber(data.telefone);
+
+  if (!telefone) {
+    console.warn("[API_CONTATO] Telefone invalido para envio WhatsApp.");
+    return;
+  }
+
+  console.info("[API_CONTATO] Enviando fluxo WhatsApp", { telefone });
+
+  // Mensagem 1 — boas-vindas e confirmação do diagnóstico
+  await enviarMensagemEvolution(
+    telefone,
+    [
+      `Olá, ${data.nome}! 👋 Aqui é a Maria da Villa Empreendimentos.`,
+      "",
+      "Recebi seu diagnóstico de Central de Concreto agora mesmo e já estou analisando suas respostas.",
+      "",
+      "Em até 2 horas te envio a avaliação completa informando se sua obra tem perfil para uma central exclusiva. 🏗️",
+      "",
+      "Qualquer dúvida é só falar aqui!",
+    ].join("\n"),
+  );
+
+  // Aguarda alguns segundos para a segunda mensagem chegar em ordem
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
+  // Mensagem 2 — apresentação da Villa + qualificação de outros equipamentos
+  await enviarMensagemEvolution(
+    telefone,
+    [
+      "A Villa Empreendimentos está no mercado desde 2007, saindo de Recife e hoje atendendo obras em todo o Brasil — com filiais em São Paulo e Belo Horizonte. 🏢",
+      "",
+      "Além de central de concreto, trabalhamos com:",
+      "• Bomba lança (28 a 58m de alcance)",
+      "• Bomba estacionária",
+      "• Caminhão betoneira",
+      "",
+      "Me conta: além da central, você já usa ou vai precisar de algum desses equipamentos na sua obra?",
+    ].join("\n"),
+  );
 }
 
 export async function POST(request: Request) {

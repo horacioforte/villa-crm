@@ -155,7 +155,7 @@ function gerarHtmlEmail(tipo: TipoCampanha, d: Destinatario, equipamento?: strin
               <table cellpadding="0" cellspacing="0" style="border-top:2px solid #E8EEFB;padding-top:20px;width:100%;">
                 <tr>
                   <td>
-                    <p style="margin:0;font-size:15px;font-weight:bold;color:#1A2E5A;">João Silva</p>
+                    <p style="margin:0;font-size:15px;font-weight:bold;color:#1A2E5A;">João</p>
                     <p style="margin:2px 0 0;font-size:13px;color:#667085;">Hunter Comercial — Grupo Villa Empreendimentos</p>
                     <p style="margin:8px 0 0;font-size:13px;color:#667085;">
                       📧 joao.comercial@villaempreendimentos.com.br<br>
@@ -214,13 +214,13 @@ async function enviarEmailBrevo(
       },
       body: JSON.stringify({
         sender: {
-          name: "João Silva — Villa Empreendimentos",
+          name: "João — Villa Empreendimentos",
           email: "maria.comercial@villaempreendimentos.com.br",
         },
         to: [{ email: destinatario.email, name: destinatario.nome }],
         replyTo: {
           email: "joao.comercial@villaempreendimentos.com.br",
-          name: "João Silva — Villa Empreendimentos",
+          name: "João — Villa Empreendimentos",
         },
         subject,
         htmlContent,

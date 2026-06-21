@@ -44,7 +44,7 @@ type TipoCampanha = "PRE_MOLDADO" | "OBRA" | "GENERICO";
 
 function gerarSubject(tipo: TipoCampanha, d: Destinatario, equipamento?: string): string {
   if (tipo === "PRE_MOLDADO") {
-    return `Equipamentos para sua fábrica de pré-moldado — Villa Empreendimentos`;
+    return `Caminhões betoneira e autobomba seminovos disponíveis`;
   }
   if (tipo === "OBRA") {
     return `Solução em bombeamento de concreto para ${d.empresa} — Villa Empreendimentos`;
@@ -61,22 +61,27 @@ function gerarHtmlEmail(tipo: TipoCampanha, d: Destinatario, equipamento?: strin
 
   const corpos: Record<TipoCampanha, string> = {
     PRE_MOLDADO: `
-      <p>Olá, ${saudacao}!</p>
+      <p>Olá, tudo bem?</p>
 
-      <p>Meu nome é João e faço parte do time comercial da <strong>Villa Empreendimentos</strong>.</p>
+      <p>Meu nome é João e faço parte do <strong>Grupo Villa Empreendimentos</strong>, uma das maiores
+      empresas especializadas em equipamentos para concreto do Brasil.</p>
 
-      <p>Identificamos que a <strong>${d.empresa}</strong>${cidade} atua com fabricação de pré-moldados de concreto —
-      exatamente o nosso segmento de especialização.</p>
+      <p>Estamos renovando parte da nossa frota e disponibilizando <strong>caminhões betoneira e
+      caminhões autobomba seminovos</strong>, revisados e prontos para operação.</p>
 
-      <p>A Villa está renovando sua frota e temos equipamentos usados disponíveis para venda, incluindo
-      <strong>caminhões betoneira e bombas de concreto</strong> em excelente estado de conservação, com
-      histórico de manutenção e procedência garantida.</p>
+      <p>Para empresas de pré-moldados, concreteiras e construtoras, pode ser uma oportunidade de ampliar
+      a capacidade produtiva com um investimento muito inferior ao de um equipamento novo.</p>
 
-      <p>Muitas fábricas de pré-moldado que atendemos encontraram nesses equipamentos uma forma de
-      <strong>ampliar a capacidade produtiva com investimento menor</strong> do que em um equipamento novo.</p>
+      <p>Temos opções de:</p>
+      <ul style="margin:0 0 16px;padding-left:20px;color:#333333;font-size:15px;line-height:1.9;">
+        <li>✅ Caminhões betoneira</li>
+        <li>✅ Caminhões autobomba</li>
+        <li>✅ Equipamentos revisados e em operação</li>
+        <li>✅ Possibilidade de apoio técnico e orientação operacional</li>
+      </ul>
 
-      <p>Posso enviar as especificações técnicas e condições dos equipamentos disponíveis agora?
-      Basta responder este e-mail ou me chamar diretamente.</p>
+      <p>Caso tenha interesse em receber fotos, especificações técnicas e valores, basta responder
+      este e-mail ou falar diretamente conosco pelo WhatsApp.</p>
     `,
 
     OBRA: `
@@ -150,8 +155,8 @@ function gerarHtmlEmail(tipo: TipoCampanha, d: Destinatario, equipamento?: strin
               <table cellpadding="0" cellspacing="0" style="border-top:2px solid #E8EEFB;padding-top:20px;width:100%;">
                 <tr>
                   <td>
-                    <p style="margin:0;font-size:15px;font-weight:bold;color:#1A2E5A;">João</p>
-                    <p style="margin:2px 0 0;font-size:13px;color:#667085;">Executivo Comercial — Villa Empreendimentos</p>
+                    <p style="margin:0;font-size:15px;font-weight:bold;color:#1A2E5A;">João Silva</p>
+                    <p style="margin:2px 0 0;font-size:13px;color:#667085;">Hunter Comercial — Grupo Villa Empreendimentos</p>
                     <p style="margin:8px 0 0;font-size:13px;color:#667085;">
                       📧 joao.comercial@villaempreendimentos.com.br<br>
                       📞 (81) 3325-1144<br>

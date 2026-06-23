@@ -66,6 +66,7 @@ type MariaResponse = z.infer<typeof mariaResponseSchema>;
 
 type EvolutionWebhookPayload = {
   event?: string;
+  instance?: string; // nome da instância que recebeu o evento (ex: "maria-villa", "joao-villa")
   data?: {
     key?: {
       fromMe?: boolean;
@@ -317,6 +318,85 @@ function getTipoServico(tipoServico: MariaResponse["tipoServico"]) {
   };
 
   return tipos[tipoServico];
+}
+
+// ─── Prompt do João (outbound / prospecção ativa) ─────────────────────────────
+// Fonte oficial: JOAO_MASTER_PROMPT_V1.0 (23/06/2026)
+// João é o agente de prospecção ativa da Villa. Responde a quem retorna contato
+// após receber uma abordagem outbound. Nunca toca no cérebro da Maria.
+const JOAO_SYSTEM_PROMPT = `${getVillaKnowledgeBase()}
+
+---
+
+Você é João, especialista comercial outbound da Villa Empreendimentos. Você entrou em contato primeiro com este cliente. Agora ele está respondendo a você.
+
+Personalidade: direto, objetivo, consultivo. Tom profissional e cordial — sem exageros. Uma pergunta por mensagem.
+
+Seu objetivo: qualificar o interesse do cliente e agendar uma conversa com a equipe comercial ou encaminhar para Maria (SDR receptiva).
+
+== REGRA ABSOLUTA DE PREÇOS ==
+Nunca informe preços, valores, descontos ou condições comerciais. Se perguntarem, diga:
+"Os valores são personalizados para cada projeto. Nossa equipe comercial vai analisar sua necessidade e enviar uma proposta."
+
+== COMPORTAMENTO ==
+- Se o cliente demonstrar interesse real: capture dados (tipo de obra, cidade, volume, prazo) e informe que um especialista vai entrar em contato.
+- Se o cliente disser que não tem interesse agora: agradeça, pergunte se pode contatar futuramente e encerre com cordialidade.
+- Se o cliente perguntar algo técnico que você não sabe: diga que vai verificar com a equipe e retorna.
+- Nunca prometa datas, prazos ou disponibilidade de equipamentos.
+- Máximo 3 trocas de mensagem antes de propor falar com o comercial.
+
+Responda APENAS com um JSON no seguinte formato (sem markdown):
+{
+  "resposta": "texto da resposta para o cliente",
+  "interesse": true/false,
+  "dadosCapturados": {
+    "tipoObra": "string ou null",
+    "cidade": "string ou null",
+    "volume": "string ou null"
+  }
+}`;
+
+async function analisarMensagemJoao({
+  nomeContato,
+  texto,
+  contexto,
+}: {
+  nomeContato: string;
+  texto: string;
+  contexto: string;
+}): Promise<{ resposta: string; interesse: boolean }> {
+  const Anthropic = (await import("@anthropic-ai/sdk")).default;
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 512,
+      system: JOAO_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Contexto da conversa:\n${contexto || "Primeiro contato."}\n\nNome do cliente: ${nomeContato}\nMensagem recebida: ${texto}`,
+        },
+      ],
+    });
+
+    const raw = message.content[0]?.type === "text" ? message.content[0].text : "{}";
+    const clean = raw.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    return {
+      resposta: parsed.resposta ?? "Obrigado pelo retorno! Como posso ajudar?",
+      interesse: parsed.interesse ?? false,
+    };
+  } catch (err) {
+    console.error("[joao] Erro ao analisar mensagem:", err);
+    return { resposta: "Obrigado pelo retorno! Em breve nossa equipe entrará em contato.", interesse: false };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function analisarMensagem({
@@ -635,13 +715,17 @@ async function registrarInteracaoParcial({
 async function enviarWhatsapp({
   telefone,
   texto,
+  instanceName,
+  instanceApiKey,
 }: {
   telefone: string;
   texto: string;
+  instanceName?: string;
+  instanceApiKey?: string;
 }) {
   const apiUrl = process.env.EVOLUTION_API_URL?.replace(/\/+$/, "");
-  const apiKey = process.env.EVOLUTION_API_KEY;
-  const instance = process.env.EVOLUTION_INSTANCE;
+  const apiKey = instanceApiKey ?? process.env.EVOLUTION_API_KEY;
+  const instance = instanceName ?? process.env.EVOLUTION_INSTANCE;
 
   if (!apiUrl || !apiKey || !instance) {
     throw new Error("Variaveis da Evolution API nao configuradas.");
@@ -894,6 +978,29 @@ export async function POST(request: Request) {
 
   const nomeContato = body.data?.pushName?.trim() || "Cliente";
 
+  // Detecta qual instância recebeu a mensagem
+  const instanciaRecebida = body.instance ?? process.env.EVOLUTION_INSTANCE ?? "maria-villa";
+  const ehJoao = instanciaRecebida.startsWith("joao");
+
+  // ── Rota: João (outbound) ────────────────────────────────────────────────
+  if (ehJoao) {
+    try {
+      const contexto = await getContextoConversa(telefone);
+      const joaoResposta = await analisarMensagemJoao({ nomeContato, texto, contexto });
+      await enviarWhatsapp({
+        telefone,
+        texto: joaoResposta.resposta,
+        instanceName: instanciaRecebida,
+        instanceApiKey: process.env.JOAO_EVOLUTION_API_KEY,
+      });
+      return NextResponse.json({ ok: true, agente: "joao", interesse: joaoResposta.interesse });
+    } catch (error) {
+      console.error("[WEBHOOK_WHATSAPP][JOAO] Erro:", error);
+      return NextResponse.json({ ok: false, message: "Erro ao processar mensagem do João." }, { status: 500 });
+    }
+  }
+
+  // ── Rota: Maria (inbound — lógica completa) ──────────────────────────────
   try {
     const contexto = await getContextoConversa(telefone);
     let dados = await analisarMensagem({ nomeContato, texto, contexto });

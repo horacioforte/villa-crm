@@ -7,9 +7,13 @@ import { getCurrentUser } from "@/lib/auth/session";
 
 function getEvolutionToken(instanceName: string): string {
   if (instanceName.startsWith("joao")) {
-    return (
-      process.env.JOAO_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY ?? ""
-    );
+    return process.env.JOAO_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY ?? "";
+  }
+  if (instanceName.startsWith("morgana")) {
+    return process.env.MORGANA_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY ?? "";
+  }
+  if (instanceName.startsWith("taciane")) {
+    return process.env.TACIANE_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY ?? "";
   }
   return process.env.EVOLUTION_API_KEY ?? "";
 }

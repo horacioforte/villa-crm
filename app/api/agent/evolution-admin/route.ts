@@ -21,6 +21,10 @@ export async function POST(req: NextRequest) {
   // Cada instância tem seu próprio token na Evolution API
   const apiKey = instance?.startsWith("joao")
     ? (process.env.JOAO_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY)
+    : instance?.startsWith("morgana")
+    ? (process.env.MORGANA_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY)
+    : instance?.startsWith("taciane")
+    ? (process.env.TACIANE_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY)
     : process.env.EVOLUTION_API_KEY;
 
   if (!apiUrl || !apiKey) {

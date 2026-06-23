@@ -8,7 +8,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: any
 ) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
@@ -18,7 +18,8 @@ export async function POST(
     return NextResponse.json({ error: "paraUsuarioId é obrigatório." }, { status: 400 });
   }
 
-  const conversa = await prisma.conversa.findUnique({ where: { id: params.id } });
+  const { id } = await context.params;
+  const conversa = await prisma.conversa.findUnique({ where: { id } });
   if (!conversa) {
     return NextResponse.json({ error: "Conversa não encontrada." }, { status: 404 });
   }

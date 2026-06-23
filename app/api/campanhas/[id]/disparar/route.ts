@@ -10,16 +10,14 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { enviarWhatsappJoao } from "@/lib/agentes/joao/crm";
 
-// Vercel: aumenta o timeout para 5 min (plano Pro) para disparos grandes
-export const maxDuration = 300;
-
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: any
 ) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });

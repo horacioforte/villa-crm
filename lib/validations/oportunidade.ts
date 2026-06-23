@@ -96,6 +96,7 @@ export const temperaturaOportunidadeValues = ["FRIA", "MEDIA", "QUENTE"] as cons
 
 export const statusOportunidadeValues = [
   "NOVA",
+  "PRE_QUALIFICADA",
   "EM_ATENDIMENTO",
   "PROPOSTA_ENVIADA",
   "NEGOCIACAO",

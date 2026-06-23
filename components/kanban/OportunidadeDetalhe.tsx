@@ -160,6 +160,7 @@ const STATUS_CONFIG: Record<
   { label: string; className: string }
 > = {
   NOVA: { label: "Nova", className: "bg-[#E8EEFB] text-[#1A2E5A]" },
+  PRE_QUALIFICADA: { label: "Pré-qualificada", className: "bg-purple-100 text-purple-700" },
   EM_ATENDIMENTO: {
     label: "Em Atendimento",
     className: "bg-blue-100 text-blue-700",

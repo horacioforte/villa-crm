@@ -142,9 +142,10 @@ const NONE_VALUE = "__none__";
 
 const statusLabels: Record<StatusOportunidade, string> = {
   NOVA: "Nova",
+  PRE_QUALIFICADA: "Pré-qualificada",
   EM_ATENDIMENTO: "Em Atendimento",
   PROPOSTA_ENVIADA: "Proposta Enviada",
-  NEGOCIACAO: "Negociacao",
+  NEGOCIACAO: "Negociação",
   GANHA: "Ganha",
   PERDIDA: "Perdida",
 };

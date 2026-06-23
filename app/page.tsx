@@ -86,6 +86,7 @@ const opportunityStatusConfig: Record<
   { label: string; className: string }
 > = {
   NOVA: { label: "Nova", className: "bg-blue-100 text-blue-700" },
+  PRE_QUALIFICADA: { label: "Pré-qualificada", className: "bg-purple-100 text-purple-700" },
   EM_ATENDIMENTO: {
     label: "Em atendimento",
     className: "bg-blue-100 text-blue-700",

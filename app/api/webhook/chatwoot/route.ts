@@ -68,6 +68,11 @@ async function handleMensagem(body: Record<string, unknown>) {
 
   if (!conversa) return;
 
+  // Tenta vincular automaticamente ao CRM pelo telefone (em background, não bloqueia)
+  vincularContatoCRM(conversa.id, conversa.telefone).catch((e) =>
+    console.error("[webhook/chatwoot] Erro ao vincular contato CRM:", e)
+  );
+
   // Evita duplicatas pelo ID do WhatsApp
   const waMessageId = message.id ? String(message.id) : undefined;
   if (waMessageId) {
@@ -176,4 +181,61 @@ function resolverInstance(inboxName: string): string {
   if (inboxName.toLowerCase().includes("morgana")) return "morgana-villa";
   if (inboxName.toLowerCase().includes("taciane")) return "taciane-villa";
   return "maria-villa"; // padrão
+}
+
+// ─── Vínculo automático com contatos do CRM ────────────────────────────────
+
+// Normaliza número: mantém apenas dígitos, remove DDI 55, compara últimos 11
+function normalizarFone(fone: string | null | undefined): string | null {
+  if (!fone) return null;
+  const digits = fone.replace(/\D/g, "");
+  const sem55 = digits.startsWith("55") && digits.length >= 12 ? digits.slice(2) : digits;
+  return sem55.slice(-11);
+}
+
+async function vincularContatoCRM(conversaId: string, telefone: string | null | undefined) {
+  if (!telefone) return;
+  const foneNorm = normalizarFone(telefone);
+  if (!foneNorm) return;
+
+  const conversa = await prisma.conversa.findUnique({
+    where: { id: conversaId },
+    select: { pessoaId: true, empresaId: true },
+  });
+  if (!conversa || conversa.pessoaId) return; // já vinculado
+
+  // 1. Busca Pessoa por whatsapp ou telefone
+  const pessoas = await prisma.pessoa.findMany({
+    where: { ativa: true, OR: [{ whatsapp: { not: null } }, { telefone: { not: null } }] },
+    select: { id: true, empresaId: true, whatsapp: true, telefone: true },
+    take: 500,
+  });
+
+  const pessoaEncontrada = pessoas.find((p) => {
+    return normalizarFone(p.whatsapp) === foneNorm || normalizarFone(p.telefone) === foneNorm;
+  });
+
+  if (pessoaEncontrada) {
+    await prisma.conversa.update({
+      where: { id: conversaId },
+      data: { pessoaId: pessoaEncontrada.id, empresaId: pessoaEncontrada.empresaId ?? undefined },
+    });
+    return;
+  }
+
+  // 2. Busca Empresa por telefone
+  if (conversa.empresaId) return;
+  const empresas = await prisma.empresa.findMany({
+    where: { ativa: true, telefone: { not: null } },
+    select: { id: true, telefone: true },
+    take: 500,
+  });
+
+  const empresaEncontrada = empresas.find((e) => normalizarFone(e.telefone) === foneNorm);
+  if (empresaEncontrada) {
+    await prisma.conversa.update({
+      where: { id: conversaId },
+      data: { empresaId: empresaEncontrada.id },
+    });
+  }
 }

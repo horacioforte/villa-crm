@@ -12,11 +12,15 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status"); // ABERTA | PENDENTE | CONCLUIDA
   const instance = searchParams.get("instance"); // maria-villa | joao-villa | ...
   const busca = searchParams.get("busca");
+  const responsavelId = searchParams.get("responsavelId"); // UUID do usuário atendente
+  const semResponsavel = searchParams.get("semResponsavel") === "1"; // conversas sem atendente
 
   const conversas = await prisma.conversa.findMany({
     where: {
       ...(status ? { status: status as "ABERTA" | "PENDENTE" | "CONCLUIDA" | "SPAM" } : {}),
       ...(instance ? { instanceName: instance } : {}),
+      ...(responsavelId ? { atendidoPorId: responsavelId } : {}),
+      ...(semResponsavel ? { atendidoPorId: null } : {}),
       ...(busca
         ? {
             OR: [

@@ -237,9 +237,12 @@ model Usuario {
   tarefasCriadas               Tarefa[]                   @relation("TarefaCreatedBy")
   tarefasAtualizadas           Tarefa[]                   @relation("TarefaUpdatedBy")
   feedbacks                    Feedback[]
-  conversasAtendidas           Conversa[]         @relation("ConversaAtendente")
-  mensagensEnviadas            Mensagem[]         @relation("MensagemAutor")
-  templatesRespostaCriados     TemplateResposta[] @relation("TemplateRespostaCriador")
+  conversasAtendidas           Conversa[]                @relation("ConversaAtendente")
+  mensagensEnviadas            Mensagem[]                @relation("MensagemAutor")
+  templatesRespostaCriados     TemplateResposta[]        @relation("TemplateRespostaCriador")
+  transferenciasOrigem         ConversaTransferencia[]   @relation("TransferenciaOrigem")
+  transferenciasDestino        ConversaTransferencia[]   @relation("TransferenciaDestino")
+  transferenciasExecutadas     ConversaTransferencia[]   @relation("TransferenciaExecutor")
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -926,7 +929,8 @@ model Conversa {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  mensagens Mensagem[]
+  mensagens     Mensagem[]
+  transferencias ConversaTransferencia[]
 
   @@index([status])
   @@index([instanceName])
@@ -960,6 +964,34 @@ model Mensagem {
   @@index([conversaId, createdAt])
   @@index([autorUsuarioId])
   @@index([waMessageId])
+}
+
+// Histórico de transferências de conversa entre atendentes
+model ConversaTransferencia {
+  id           String   @id @default(cuid())
+
+  conversaId   String
+  conversa     Conversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  // De quem saiu
+  deUsuarioId  String?
+  deUsuario    Usuario? @relation("TransferenciaOrigem", fields: [deUsuarioId], references: [id], onDelete: SetNull)
+
+  // Para quem foi
+  paraUsuarioId String?
+  paraUsuario   Usuario? @relation("TransferenciaDestino", fields: [paraUsuarioId], references: [id], onDelete: SetNull)
+
+  // Quem fez a transferência (pode ser diferente do "de")
+  feitoPorId   String?
+  feitoPor     Usuario? @relation("TransferenciaExecutor", fields: [feitoPorId], references: [id], onDelete: SetNull)
+
+  motivo       String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([conversaId])
+  @@index([deUsuarioId])
+  @@index([paraUsuarioId])
+  @@index([feitoPorId])
 }
 
 model TemplateResposta {

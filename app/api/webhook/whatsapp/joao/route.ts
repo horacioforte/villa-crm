@@ -46,25 +46,28 @@ export async function POST(request: Request) {
 
   try {
     const contexto = await getContextoJoao(telefone);
-    const { resposta, interesse } = await analisarMensagemJoao({ nomeContato, texto, contexto });
+    const { resposta, interesse, confidenceScore, gatilho } = await analisarMensagemJoao({ nomeContato, texto, contexto });
 
     // Envia a resposta via WhatsApp
     await enviarWhatsappJoao({ telefone, texto: resposta });
 
-    // Registra prospect + interações no CRM (NUNCA cria oportunidade automaticamente)
-    const { prospectId } = await processarRespostaJoao({
+    // Registra prospect + interações no CRM
+    // Se confidenceScore >= 70, cria oportunidade outbound automaticamente
+    const { prospectId, oportunidadeId } = await processarRespostaJoao({
       telefone,
       nomeContato,
       textoCiente: texto,
       textoJoao: resposta,
       interesse,
+      confidenceScore,
+      gatilho,
     }).catch((err) => {
       // Falha no CRM não bloqueia a resposta ao cliente
       console.error("[joao/webhook] Erro ao registrar prospect:", err);
-      return { prospectId: null };
+      return { prospectId: null, oportunidadeId: null, interesse: false, confidenceScore: 0 };
     });
 
-    return NextResponse.json({ ok: true, agente: "joao", interesse, prospectId });
+    return NextResponse.json({ ok: true, agente: "joao", interesse, confidenceScore, gatilho, prospectId, oportunidadeId });
   } catch (error) {
     console.error("[joao/webhook] Erro:", error);
     return NextResponse.json({ ok: false, message: "Erro interno." }, { status: 500 });

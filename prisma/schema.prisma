@@ -77,10 +77,12 @@ enum CanalOrigem {
   OLX
   EVENTO
   OUTROS
+  JOAO_OUTBOUND  // oportunidade gerada pelo agente João via prospecção ativa
 }
 
 enum StatusOportunidade {
   NOVA
+  PRE_QUALIFICADA  // criada automaticamente pelo João — aguarda revisão do comercial
   EM_ATENDIMENTO
   PROPOSTA_ENVIADA
   NEGOCIACAO

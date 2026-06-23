@@ -1,9 +1,10 @@
 // ARQUIVO: lib/agentes/joao/crm.ts
 // REGRA: nunca remover. Apenas acrescentar.
 // Ações no CRM do João (outbound).
-// REGRA FUNDAMENTAL: João NUNCA cria oportunidade automaticamente.
-// Disparo → Prospect + Interação. Oportunidade só nasce com sinal real de interesse
-// e confirmação manual pelo comercial (POST /api/prospects/[id]/qualificar).
+// REGRA ATUALIZADA (23/06/2026): João cria oportunidade outbound automaticamente
+// quando confidence_score >= 70. Oportunidade criada com origem "João", tipo "Outbound",
+// status "Pré-qualificada por IA". Critério mais exigente que inbound (Maria cria na
+// primeira intenção; João exige sinal real de negócio).
 
 import { prisma } from "@/lib/prisma";
 
@@ -145,10 +146,99 @@ export async function registrarInteracaoJoao({
 }
 
 /**
+ * Cria uma oportunidade outbound para um prospect do João.
+ * Chamada automaticamente quando confidence_score >= 70.
+ * - Se o prospect já tem empresa vinculada no CRM: cria oportunidade com status PRE_QUALIFICADA
+ * - Se não tem empresa: marca prospect como QUALIFICADO para revisão manual do comercial
+ */
+export async function criarOportunidadeOutbound({
+  prospectId,
+  telefone,
+  nomeContato,
+  gatilho,
+  confidenceScore,
+}: {
+  prospectId: string;
+  telefone: string;
+  nomeContato: string;
+  gatilho: string;
+  confidenceScore: number;
+}): Promise<string | null> {
+  try {
+    // Tenta vincular à pessoa e empresa já existentes no CRM pelo telefone
+    const pessoa = await prisma.pessoa.findFirst({
+      where: { OR: [{ whatsapp: telefone }, { telefone }] },
+      select: { id: true, empresaId: true, nome: true },
+    });
+
+    const empresaId = pessoa?.empresaId ?? null;
+
+    if (!empresaId) {
+      // Sem empresa no CRM: só avança status para QUALIFICADO, comercial cria manualmente
+      await prisma.prospect.update({
+        where: { id: prospectId },
+        data: { status: "QUALIFICADO", updatedAt: new Date() },
+      });
+      await prisma.prospectInteracao.create({
+        data: {
+          prospectId,
+          tipo: "QUALIFICADO_MANUAL",
+          canal: "WHATSAPP",
+          conteudo: `[João] Score ${confidenceScore} — gatilho: ${gatilho}. Prospect qualificado, aguardando comercial criar oportunidade (empresa não encontrada no CRM).`,
+          instancia: "joao-villa",
+          criadoPorIA: true,
+        },
+      });
+      return null;
+    }
+
+    // Com empresa: cria oportunidade com status PRE_QUALIFICADA e canalOrigem JOAO_OUTBOUND
+    const oportunidade = await prisma.oportunidade.create({
+      data: {
+        titulo: `[João] ${nomeContato} — ${gatilho}`,
+        status: "PRE_QUALIFICADA",
+        canalOrigem: "JOAO_OUTBOUND",
+        descricao: `Oportunidade gerada automaticamente pelo João via prospecção ativa.\nGatilho: ${gatilho}\nScore de confiança: ${confidenceScore}/100\nTelefone: ${telefone}`,
+        pessoaId: pessoa?.id ?? null,
+        empresaId,
+      },
+      select: { id: true },
+    });
+
+    // Vincula o prospect à oportunidade e atualiza status
+    await prisma.prospect.update({
+      where: { id: prospectId },
+      data: {
+        status: "OPORTUNIDADE_CRIADA",
+        oportunidadeId: oportunidade.id,
+        updatedAt: new Date(),
+      },
+    });
+
+    // Registra interação
+    await prisma.prospectInteracao.create({
+      data: {
+        prospectId,
+        tipo: "INTERESSE_REGISTRADO",
+        canal: "WHATSAPP",
+        conteudo: `[João] Oportunidade outbound criada automaticamente. Gatilho: ${gatilho} | Score: ${confidenceScore}/100 | Oportunidade: ${oportunidade.id}`,
+        instancia: "joao-villa",
+        criadoPorIA: true,
+      },
+    });
+
+    return oportunidade.id;
+  } catch (err) {
+    console.error("[joao/crm] Erro ao criar oportunidade outbound:", err);
+    return null;
+  }
+}
+
+/**
  * Processa a chegada de uma resposta do cliente para o João.
  * - Garante que existe um prospect para esse telefone
  * - Registra a interação WHATSAPP_RESPONDIDO
- * - Se houver sinal de interesse, muda para INTERESSADO (mas NÃO cria oportunidade)
+ * - Se confidence_score >= 70, cria oportunidade outbound automaticamente
  */
 export async function processarRespostaJoao({
   telefone,
@@ -156,15 +246,24 @@ export async function processarRespostaJoao({
   textoCiente,
   textoJoao,
   interesse,
+  confidenceScore = 0,
+  gatilho = "nenhum",
 }: {
   telefone: string;
   nomeContato: string;
   textoCiente: string;
   textoJoao: string;
   interesse: boolean;
+  confidenceScore?: number;
+  gatilho?: string;
 }) {
   // Garante que existe um prospect (pode ter recebido resposta sem cadastro prévio)
   const prospectId = await encontrarOuCriarProspect({ telefone, nomeContato });
+
+  // Define novo status baseado no confidence_score
+  let novoStatus: "RESPONDEU" | "INTERESSADO" | "QUALIFICADO" | "OPORTUNIDADE_CRIADA" = "RESPONDEU";
+  if (confidenceScore >= 70) novoStatus = "QUALIFICADO";
+  else if (interesse) novoStatus = "INTERESSADO";
 
   // Registra a mensagem recebida do cliente
   await registrarInteracaoJoao({
@@ -172,7 +271,7 @@ export async function processarRespostaJoao({
     tipo: "WHATSAPP_RESPONDIDO",
     canal: "WHATSAPP",
     conteudo: `[Cliente] ${textoCiente}`,
-    novoStatus: interesse ? "INTERESSADO" : "RESPONDEU",
+    novoStatus,
   });
 
   // Registra a resposta do João
@@ -183,15 +282,25 @@ export async function processarRespostaJoao({
     conteudo: `[João] ${textoJoao}`,
   });
 
-  // Se há interesse, registra também a interação de interesse
-  if (interesse) {
+  // Se há sinal forte (score >= 70), cria oportunidade outbound automaticamente
+  let oportunidadeId: string | null = null;
+  if (confidenceScore >= 70) {
+    oportunidadeId = await criarOportunidadeOutbound({
+      prospectId,
+      telefone,
+      nomeContato,
+      gatilho,
+      confidenceScore,
+    });
+  } else if (interesse) {
+    // Score moderado: apenas registra interesse, comercial decide manualmente
     await registrarInteracaoJoao({
       prospectId,
       tipo: "INTERESSE_REGISTRADO",
       canal: "WHATSAPP",
-      conteudo: "Sinal de interesse detectado pela IA",
+      conteudo: `Sinal de interesse detectado pela IA (score: ${confidenceScore})`,
     });
   }
 
-  return { prospectId, interesse };
+  return { prospectId, interesse, confidenceScore, oportunidadeId };
 }

@@ -12,7 +12,7 @@ export async function analisarMensagemJoao({
   nomeContato: string;
   texto: string;
   contexto: string;
-}): Promise<{ resposta: string; interesse: boolean }> {
+}): Promise<{ resposta: string; interesse: boolean; confidenceScore: number; gatilho: string }> {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -38,12 +38,16 @@ export async function analisarMensagemJoao({
     return {
       resposta: parsed.resposta ?? "Obrigado pelo retorno! Como posso ajudar?",
       interesse: parsed.interesse ?? false,
+      confidenceScore: typeof parsed.confidence_score === "number" ? parsed.confidence_score : 0,
+      gatilho: parsed.gatilho ?? "nenhum",
     };
   } catch (err) {
     console.error("[joao/handler] Erro ao analisar mensagem:", err);
     return {
       resposta: "Obrigado pelo retorno! Em breve nossa equipe entrará em contato.",
       interesse: false,
+      confidenceScore: 0,
+      gatilho: "nenhum",
     };
   } finally {
     clearTimeout(timeout);

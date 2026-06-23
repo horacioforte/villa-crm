@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
-  const { action, instance } = await req.json().catch(() => ({}));
+  const reqBody = await req.json().catch(() => ({}));
+  const { action, instance, webhookUrl } = reqBody;
   const apiUrl = process.env.EVOLUTION_API_URL?.replace(/\/+$/, "");
   // Cada instância tem seu próprio token na Evolution API
   const apiKey = instance?.startsWith("joao")
@@ -89,5 +90,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data, { status: res.status });
   }
 
-  return NextResponse.json({ error: "Action inválida. Use: create, connect, status" }, { status: 400 });
+  if (action === "getWebhook") {
+    const res = await fetch(`${apiUrl}/webhook/find/${instance}`, {
+      headers: { apikey: apiKey },
+    });
+    const data = await res.json();
+    return NextResponse.json(data, { status: res.status });
+  }
+
+  if (action === "setWebhook") {
+    const baseUrl = ((webhookUrl as string | undefined) ?? process.env.NEXTAUTH_URL ?? "").replace(/\/+$/, "");
+    const suffix = instance?.startsWith("joao") ? "/api/webhook/whatsapp/joao" : "/api/webhook/whatsapp";
+    const url = `${baseUrl}${suffix}`;
+
+    const res = await fetch(`${apiUrl}/webhook/set/${instance}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify({
+        url,
+        webhook_by_events: false,
+        webhook_base64: false,
+        events: ["MESSAGES_UPSERT"],
+      }),
+    });
+    const data = await res.json();
+    return NextResponse.json({ ...data, webhookUrl: url, _debugStatus: res.status }, { status: res.status });
+  }
+
+  return NextResponse.json({ error: "Action inválida. Use: create, connect, status, getWebhook, setWebhook" }, { status: 400 });
 }

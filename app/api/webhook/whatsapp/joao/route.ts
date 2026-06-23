@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { analisarMensagemJoao } from "@/lib/agentes/joao/handler";
 import { getContextoJoao } from "@/lib/agentes/joao/contexto";
-import { enviarWhatsappJoao } from "@/lib/agentes/joao/crm";
+import { enviarWhatsappJoao, processarRespostaJoao } from "@/lib/agentes/joao/crm";
 
 // ─── Helpers de parsing do payload ───────────────────────────────────────────
 
@@ -47,8 +47,24 @@ export async function POST(request: Request) {
   try {
     const contexto = await getContextoJoao(telefone);
     const { resposta, interesse } = await analisarMensagemJoao({ nomeContato, texto, contexto });
+
+    // Envia a resposta via WhatsApp
     await enviarWhatsappJoao({ telefone, texto: resposta });
-    return NextResponse.json({ ok: true, agente: "joao", interesse });
+
+    // Registra prospect + interações no CRM (NUNCA cria oportunidade automaticamente)
+    const { prospectId } = await processarRespostaJoao({
+      telefone,
+      nomeContato,
+      textoCiente: texto,
+      textoJoao: resposta,
+      interesse,
+    }).catch((err) => {
+      // Falha no CRM não bloqueia a resposta ao cliente
+      console.error("[joao/webhook] Erro ao registrar prospect:", err);
+      return { prospectId: null };
+    });
+
+    return NextResponse.json({ ok: true, agente: "joao", interesse, prospectId });
   } catch (error) {
     console.error("[joao/webhook] Erro:", error);
     return NextResponse.json({ ok: false, message: "Erro interno." }, { status: 500 });

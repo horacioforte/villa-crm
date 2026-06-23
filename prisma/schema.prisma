@@ -243,6 +243,7 @@ model Usuario {
   transferenciasOrigem         ConversaTransferencia[]   @relation("TransferenciaOrigem")
   transferenciasDestino        ConversaTransferencia[]   @relation("TransferenciaDestino")
   transferenciasExecutadas     ConversaTransferencia[]   @relation("TransferenciaExecutor")
+  campanhasCreadas             Campanha[]                @relation("CampanhaCreatedBy")
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -302,6 +303,7 @@ model Empresa {
   historicos    HistoricoContato[]
   tarefas       Tarefa[]
   conversas     Conversa[]
+  prospects     Prospect[]        @relation("ProspectEmpresa")
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -341,6 +343,7 @@ model Pessoa {
   historicos       HistoricoContato[]
   tarefas          Tarefa[]
   conversas        Conversa[]
+  prospects        Prospect[]         @relation("ProspectPessoa")
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -438,6 +441,7 @@ model Oportunidade {
   propostasGrupo Proposta[]
   tarefas    Tarefa[]
   conversas  Conversa[]
+  prospects  Prospect[]         @relation("ProspectOportunidade")
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -864,6 +868,121 @@ model AgenteConfig {
   ativo           Boolean  @default(true)
   atualizadoEm    DateTime @updatedAt
   atualizadoPor   String?
+}
+
+// ─────────────────────────────────────────────
+// PROSPECÇÃO ATIVA (João outbound) — nunca remover, só acrescentar
+// Regra: disparo NÃO cria oportunidade. Só sinal real de interesse cria.
+// ─────────────────────────────────────────────
+
+enum StatusProspect {
+  PROSPECTADO       // na lista/radar, ainda não abordado
+  ABORDADO          // primeiro contato enviado (WhatsApp/e-mail disparado)
+  RESPONDEU         // qualquer resposta recebida
+  INTERESSADO       // sinal positivo claro de interesse
+  QUALIFICADO       // qualificado pelo comercial ou pelo agente
+  OPORTUNIDADE_CRIADA // oportunidade criada no CRM
+  DESCARTADO        // sem interesse ou fora do perfil
+}
+
+enum TipoInteracaoProspect {
+  WHATSAPP_ENVIADO
+  WHATSAPP_ENTREGUE
+  WHATSAPP_LIDO
+  WHATSAPP_RESPONDIDO
+  EMAIL_ENVIADO
+  EMAIL_ENTREGUE
+  EMAIL_ABERTO
+  EMAIL_CLICADO
+  EMAIL_RESPONDIDO
+  LIGACAO_REALIZADA
+  INTERESSE_REGISTRADO  // sinal positivo detectado pela IA ou marcado manualmente
+  QUALIFICADO_MANUAL    // comercial marcou como qualificado
+  DESCARTADO
+}
+
+model Campanha {
+  id               String   @id @default(cuid())
+  nome             String
+  descricao        String?  @db.Text
+  mensagemInicial  String?  @db.Text  // texto enviado na primeira abordagem ativa do João
+  agente           String   @default("joao-villa")  // "joao-villa" | "maria-villa" etc.
+  tipo             String   @default("WHATSAPP")     // "WHATSAPP" | "EMAIL" | "MISTO"
+  status           String   @default("ATIVA")        // "RASCUNHO" | "ATIVA" | "PAUSADA" | "CONCLUIDA"
+
+  prospects   Prospect[]
+
+  createdById String?
+  createdBy   Usuario? @relation("CampanhaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agente])
+  @@index([status])
+  @@index([createdById])
+}
+
+model Prospect {
+  id            String         @id @default(cuid())
+  status        StatusProspect @default(PROSPECTADO)
+  agente        String         @default("joao-villa")
+
+  // Origem do prospect
+  origem        String?        // "radar_obras" | "cnae" | "econodata" | "planilha" | "campanha_usados" | "manual"
+  origemDetalhe String?        // ex: "CNAE 41204" ou "Econodata - SP - Construtoras"
+
+  // Dados de contato brutos (antes de ter empresa/pessoa no CRM)
+  nomeContato   String?
+  telefone      String?
+  email         String?
+
+  // Vínculo com CRM (opcional)
+  empresaId     String?
+  empresa       Empresa?     @relation("ProspectEmpresa", fields: [empresaId], references: [id], onDelete: SetNull)
+
+  pessoaId      String?
+  pessoa        Pessoa?      @relation("ProspectPessoa", fields: [pessoaId], references: [id], onDelete: SetNull)
+
+  // Campanha (opcional)
+  campanhaId    String?
+  campanha      Campanha?    @relation(fields: [campanhaId], references: [id], onDelete: SetNull)
+
+  // Quando converteu em oportunidade
+  oportunidadeId String?
+  oportunidade   Oportunidade? @relation("ProspectOportunidade", fields: [oportunidadeId], references: [id], onDelete: SetNull)
+
+  interacoes    ProspectInteracao[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([agente])
+  @@index([empresaId])
+  @@index([pessoaId])
+  @@index([campanhaId])
+  @@index([telefone])
+}
+
+model ProspectInteracao {
+  id          String                @id @default(cuid())
+  tipo        TipoInteracaoProspect
+  canal       String                // "WHATSAPP" | "EMAIL" | "LIGACAO"
+  conteudo    String?               @db.Text
+  instancia   String?               // "joao-villa"
+  waMessageId String?
+  criadoPorIA Boolean               @default(true)
+  observacao  String?               @db.Text
+
+  prospectId  String
+  prospect    Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([prospectId])
+  @@index([tipo])
+  @@index([createdAt])
 }
 
 // ─────────────────────────────────────────────

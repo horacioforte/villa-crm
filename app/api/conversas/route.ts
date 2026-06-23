@@ -14,6 +14,9 @@ export async function GET(req: NextRequest) {
   const busca = searchParams.get("busca");
   const responsavelId = searchParams.get("responsavelId"); // UUID do usuário atendente
   const semResponsavel = searchParams.get("semResponsavel") === "1"; // conversas sem atendente
+  const empresaId = searchParams.get("empresaId");
+  const pessoaId = searchParams.get("pessoaId");
+  const oportunidadeId = searchParams.get("oportunidadeId");
 
   const conversas = await prisma.conversa.findMany({
     where: {
@@ -21,6 +24,9 @@ export async function GET(req: NextRequest) {
       ...(instance ? { instanceName: instance } : {}),
       ...(responsavelId ? { atendidoPorId: responsavelId } : {}),
       ...(semResponsavel ? { atendidoPorId: null } : {}),
+      ...(empresaId ? { empresaId } : {}),
+      ...(pessoaId ? { pessoaId } : {}),
+      ...(oportunidadeId ? { oportunidadeId } : {}),
       ...(busca
         ? {
             OR: [
@@ -46,6 +52,8 @@ export async function GET(req: NextRequest) {
         },
       },
       atendidoPor: { select: { nome: true } },
+      pessoa: { select: { nome: true } },
+      empresa: { select: { razaoSocial: true, nomeFantasia: true } },
     },
   });
 

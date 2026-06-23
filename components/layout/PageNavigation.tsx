@@ -33,6 +33,7 @@ const menuItems = [
   { label: "Feedback", href: "/feedback", icon: MessageSquarePlus },
   { label: "Equipamentos", href: "/equipamentos", icon: Truck },
   { label: "Usuarios", href: "/usuarios", icon: UserCog },
+  { label: "Campanhas", href: "/campanhas", icon: Bot },
   { label: "Agentes", href: "/admin/agentes", icon: Bot, adminOnly: true },
 ];
 

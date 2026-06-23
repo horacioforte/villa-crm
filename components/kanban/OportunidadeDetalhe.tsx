@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ConversasTab } from "@/components/conversas/ConversasTab";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -11,6 +12,7 @@ import {
   FileText,
   Hammer,
   Loader2,
+  MessageSquare,
   Package,
   Pencil,
   Phone,
@@ -767,6 +769,22 @@ export function OportunidadeDetalhe({
                   </section>
                 </>
               ) : null}
+
+              <Separator />
+              <section className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl bg-[#E8EEFB] p-2 text-[#1E4FAB]">
+                    <MessageSquare className="size-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[#1A2E5A]">Conversas WhatsApp</h3>
+                    <p className="mt-1 text-sm text-[#667085]">
+                      Histórico de mensagens vinculadas a esta oportunidade.
+                    </p>
+                  </div>
+                </div>
+                <ConversasTab oportunidadeId={id} />
+              </section>
             </div>
           ) : (
             <div className="flex flex-1 items-center justify-center text-[#667085]">

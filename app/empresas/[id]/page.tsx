@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowLeft, Building2, Loader2 } from "lucide-react";
+import { ArrowLeft, Building2, Loader2, MessageSquare, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { ZodError } from "zod";
 
 import { PageNavigation } from "@/components/layout/PageNavigation";
+import { ConversasTab } from "@/components/conversas/ConversasTab";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -100,6 +101,7 @@ export default function EmpresaDetalhePage() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [aba, setAba] = useState<"dados" | "conversas">("dados");
 
   useEffect(() => {
     async function loadEmpresa() {
@@ -219,8 +221,36 @@ export default function EmpresaDetalhePage() {
             </div>
           </CardHeader>
 
+          {/* Navegação de abas */}
+          <div className="flex border-b border-[#D7DEEA] px-8">
+            <button
+              onClick={() => setAba("dados")}
+              className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                aba === "dados"
+                  ? "border-[#1E4FAB] text-[#1E4FAB]"
+                  : "border-transparent text-[#667085] hover:text-[#1A2E5A]"
+              }`}
+            >
+              <SlidersHorizontal className="size-4" />
+              Dados
+            </button>
+            <button
+              onClick={() => setAba("conversas")}
+              className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                aba === "conversas"
+                  ? "border-[#1E4FAB] text-[#1E4FAB]"
+                  : "border-transparent text-[#667085] hover:text-[#1A2E5A]"
+              }`}
+            >
+              <MessageSquare className="size-4" />
+              Conversas
+            </button>
+          </div>
+
           <CardContent className="p-8">
-            {isLoading ? (
+            {aba === "conversas" ? (
+              <ConversasTab empresaId={params.id} />
+            ) : isLoading ? (
               <div className="flex items-center justify-center py-12 text-[#667085]">
                 <Loader2 className="mr-2 size-5 animate-spin" />
                 Carregando cadastro...
@@ -353,6 +383,7 @@ export default function EmpresaDetalhePage() {
             )}
           </CardContent>
         </Card>
+
       </div>
     </main>
   );

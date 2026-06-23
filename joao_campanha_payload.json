@@ -1,0 +1,485 @@
+{
+  "tipo": "PRE_MOLDADO",
+  "destinatarios": [
+    {
+      "nome": "Alveolare Brasil",
+      "email": "contato@alveolare.com.br",
+      "empresa": "Alveolare Brasil",
+      "cidade": "Ibiúna",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Alves & Moraes Pré Fabricados",
+      "email": "alvesemoraes@alvesemoraes.com.br",
+      "empresa": "Alves & Moraes Pré Fabricados",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Antares Estruturas Pré-Fabricadas",
+      "email": "comercial@antares.ind.br",
+      "empresa": "Antares Estruturas Pré-Fabricadas",
+      "cidade": "Guaramirim",
+      "estado": "SC",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Bemarco Industrial",
+      "email": "comercial@bemarco.com.br",
+      "empresa": "Bemarco Industrial",
+      "cidade": "Itupeva",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "BPM Pré Moldados",
+      "email": "bpm@bpm.com.br",
+      "empresa": "BPM Pré Moldados",
+      "cidade": "Criciúma",
+      "estado": "SC",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Cassol Pré-Fabricados (SC)",
+      "email": "cassolsc@cassol.ind.br",
+      "empresa": "Cassol Pré-Fabricados (SC)",
+      "cidade": "Celso Ramos",
+      "estado": "SC",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Cassol Pré-Fabricados (SP)",
+      "email": "cassolsp@cassol.ind.br",
+      "empresa": "Cassol Pré-Fabricados (SP)",
+      "cidade": "Monte Mor",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Cassol Pré-Fabricados (RJ)",
+      "email": "cassolrj@cassol.ind.br",
+      "empresa": "Cassol Pré-Fabricados (RJ)",
+      "cidade": "Seropédica",
+      "estado": "RJ",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Cassol Pré-Fabricados (PR)",
+      "email": "comercial@cassol.ind.br",
+      "empresa": "Cassol Pré-Fabricados (PR)",
+      "cidade": "Araucária",
+      "estado": "PR",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Cerenge Engenharia",
+      "email": "henrique@cerenge.com.br",
+      "empresa": "Cerenge Engenharia",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Civil Pré-Fabricados",
+      "email": "premoldados@civil.com.br",
+      "empresa": "Civil Pré-Fabricados",
+      "cidade": "Simões Filho",
+      "estado": "BA",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Concrelaje",
+      "email": "concrelaje@concrelaje.com.br",
+      "empresa": "Concrelaje",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "CPI Engenharia (RJ)",
+      "email": "cpi@cpi.eng.br",
+      "empresa": "CPI Engenharia (RJ)",
+      "cidade": "Duque de Caxias",
+      "estado": "RJ",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "CPI Engenharia / Ibecon (SP - Jandira)",
+      "email": "cpi@cpi.eng.br",
+      "empresa": "CPI Engenharia / Ibecon (SP - Jandira)",
+      "cidade": "Jandira",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "CPI Engenharia / Ibecon (SP - Santana)",
+      "email": "cpi@cpi.eng.br",
+      "empresa": "CPI Engenharia / Ibecon (SP - Santana)",
+      "cidade": "Santana do Parnaíba",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Dibloco Pré Fabricados",
+      "email": "contato@diblocoprefabricados.com.br",
+      "empresa": "Dibloco Pré Fabricados",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Engedelta Pre-Fabricados",
+      "email": "comercial@engedelta.com.br",
+      "empresa": "Engedelta Pre-Fabricados",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Engemolde Engenharia",
+      "email": "engemolde@engemolde.com.br",
+      "empresa": "Engemolde Engenharia",
+      "cidade": "Maricá",
+      "estado": "RJ",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Fênix Estruturas Pré Fabricadas",
+      "email": "comercial@fenixprefabricados.com.br",
+      "empresa": "Fênix Estruturas Pré Fabricadas",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Format Construção Industrializada",
+      "email": "format@formatpremoldados.com.br",
+      "empresa": "Format Construção Industrializada",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Grupo PP Painéis",
+      "email": "Livia@lajes.com.br",
+      "empresa": "Grupo PP Painéis",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Guth Indústria em Prefabricados",
+      "email": "guthengenharia@outlook.com",
+      "empresa": "Guth Indústria em Prefabricados",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Incopre Indústria e Comércio S/A",
+      "email": "vendas@incopre.com.br",
+      "empresa": "Incopre Indústria e Comércio S/A",
+      "cidade": "Belo Horizonte",
+      "estado": "MG",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Indústria de Pré-Fabricados de Nadaí",
+      "email": "contato@denadaipremoldados.com.br",
+      "empresa": "Indústria de Pré-Fabricados de Nadaí",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Lajes Patagonia",
+      "email": "marketing@lajespatagonia.com",
+      "empresa": "Lajes Patagonia",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Legran Construções de Pré-Fabricados",
+      "email": "legran@legran.com.br",
+      "empresa": "Legran Construções de Pré-Fabricados",
+      "cidade": "Uberlândia",
+      "estado": "MG",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Leonardi Construção Industrializada",
+      "email": "atendimento@leonardi.com.br",
+      "empresa": "Leonardi Construção Industrializada",
+      "cidade": "Atibaia",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Manturi Concretos / Pré-Fabricados",
+      "email": "contato@manturi.com.br",
+      "empresa": "Manturi Concretos / Pré-Fabricados",
+      "cidade": "Ituporanga",
+      "estado": "SC",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "MARKA Ind. e Com. de Pré-Fabricados",
+      "email": "falecom@marka.ind.br",
+      "empresa": "MARKA Ind. e Com. de Pré-Fabricados",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Marna Pré-Fabricados",
+      "email": "marna@marna.com.br",
+      "empresa": "Marna Pré-Fabricados",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Marques Engenharia e Construções",
+      "email": "obras@marquesconstrucoes.net",
+      "empresa": "Marques Engenharia e Construções",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Matpar Pré Fabricados",
+      "email": "vendas@matpardourados.com.br",
+      "empresa": "Matpar Pré Fabricados",
+      "cidade": "Dourados",
+      "estado": "MS",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Mold Estruturas",
+      "email": "comercial@mold.com.br",
+      "empresa": "Mold Estruturas",
+      "cidade": "Aparecida de Goiânia",
+      "estado": "GO",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Molder Estruturas",
+      "email": "molder@molder.com.br",
+      "empresa": "Molder Estruturas",
+      "cidade": "Garibaldi",
+      "estado": "RS",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Mtech Pré Moldados",
+      "email": "vendas@mtechpremoldados.com.br",
+      "empresa": "Mtech Pré Moldados",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "PDI Pernambuco Industrial",
+      "email": "comercial@pdi.ind.br",
+      "empresa": "PDI Pernambuco Industrial",
+      "cidade": "Cabo de Santo Agostinho",
+      "estado": "PE",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Pentax Construções Industriais",
+      "email": "comercial@pentax.com.br",
+      "empresa": "Pentax Construções Industriais",
+      "cidade": "Nova Odessa",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "PRE-Brasil Construções Pré Fabricadas",
+      "email": "recepcao@ibpre.com.br",
+      "empresa": "PRE-Brasil Construções Pré Fabricadas",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Pré-Infra Pré-Moldados e Infraestruturas",
+      "email": "contato@preinfra.com.br",
+      "empresa": "Pré-Infra Pré-Moldados e Infraestruturas",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Pré-Vale Pré-Fabricados",
+      "email": "prevale@prevale.com.br",
+      "empresa": "Pré-Vale Pré-Fabricados",
+      "cidade": "Ibirama",
+      "estado": "SC",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Precon Sistemas Construtivos",
+      "email": "comercial@preconprefabricados.com.br",
+      "empresa": "Precon Sistemas Construtivos",
+      "cidade": "Pedro Leopoldo",
+      "estado": "MG",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Prefaz Pré-Fabricados de Concreto",
+      "email": "adriana.comercial@prefaz.com.br",
+      "empresa": "Prefaz Pré-Fabricados de Concreto",
+      "cidade": "Belo Horizonte",
+      "estado": "MG",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Prémil - Pré-Fabricados em Concreto",
+      "email": "Jaqueline@premil.ind.br",
+      "empresa": "Prémil - Pré-Fabricados em Concreto",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Premodisa Sorocaba Sistemas Pré Moldados",
+      "email": "vendas@premodisa.com.br",
+      "empresa": "Premodisa Sorocaba Sistemas Pré Moldados",
+      "cidade": "Sorocaba",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Premoldados Zortea",
+      "email": "comercial@premoldadoszortea.com.br",
+      "empresa": "Premoldados Zortea",
+      "cidade": "Campo Grande",
+      "estado": "MS",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Proaço",
+      "email": "proaco@proaco.in.br",
+      "empresa": "Proaço",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Projepar Estruturas Pré-Fabricadas",
+      "email": "diretoriaprojepar@projepar.com.br",
+      "empresa": "Projepar Estruturas Pré-Fabricadas",
+      "cidade": "São José dos Pinhais",
+      "estado": "PR",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Protendit Construções",
+      "email": "protendit@protendit.com.br",
+      "empresa": "Protendit Construções",
+      "cidade": "São José do Rio Preto",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Puma Lajes Alveolares",
+      "email": "vendas.lajealveolar@puma.com.br",
+      "empresa": "Puma Lajes Alveolares",
+      "cidade": "Atibaia",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Rotesma Indústria de Pré-Fabricados",
+      "email": "comercial@rotesma.com.br",
+      "empresa": "Rotesma Indústria de Pré-Fabricados",
+      "cidade": "Marialva",
+      "estado": "PR",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Saviski",
+      "email": "Saviski@saviski.com.br",
+      "empresa": "Saviski",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Sendi Pré-Fabricados",
+      "email": "comercial@sendi.com.br",
+      "empresa": "Sendi Pré-Fabricados",
+      "cidade": "Bauru",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Serpa Pré-Fabricados",
+      "email": "contato@serpa.com.br",
+      "empresa": "Serpa Pré-Fabricados",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Sotef - Soc. Técnica de Engenharia e Fund.",
+      "email": "administracao@sotef.com.br",
+      "empresa": "Sotef - Soc. Técnica de Engenharia e Fund.",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Stamp Pré-Fabricados Arquitetônicos",
+      "email": "stamp@stamppfa.com.br",
+      "empresa": "Stamp Pré-Fabricados Arquitetônicos",
+      "cidade": null,
+      "estado": null,
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Sudeste Pré-Fabricados",
+      "email": "sudeste@sudeste.ind.br",
+      "empresa": "Sudeste Pré-Fabricados",
+      "cidade": "Nova Odessa",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "T&A Construção Pré-Fabricada (CE)",
+      "email": "tea.ce@tea.com.br",
+      "empresa": "T&A Construção Pré-Fabricada (CE)",
+      "cidade": "Maracanaú",
+      "estado": "CE",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "T&A Construção Pré-Fabricada (BA)",
+      "email": "tea.ba@tea.com.br",
+      "empresa": "T&A Construção Pré-Fabricada (BA)",
+      "cidade": "Simões Filho",
+      "estado": "BA",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "T&A Construção Pré-Fabricada (PE)",
+      "email": "tea.pe@tea.com.br",
+      "empresa": "T&A Construção Pré-Fabricada (PE)",
+      "cidade": "Igarassu",
+      "estado": "PE",
+      "segmento": "Fábrica de pré-moldado"
+    },
+    {
+      "nome": "Tranenge Construções",
+      "email": "sede@tranenge.com.br",
+      "empresa": "Tranenge Construções",
+      "cidade": "Rio Claro",
+      "estado": "SP",
+      "segmento": "Fábrica de pré-moldado"
+    }
+  ]
+}

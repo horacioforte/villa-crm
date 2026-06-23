@@ -89,9 +89,11 @@ export default function FeedbackPage() {
     }
   }, []);
 
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     loadFeedbacks();
   }, [loadFeedbacks]);
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   const autores = useMemo(() => {
     const map = new Map<string, string>();

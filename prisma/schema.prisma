@@ -237,6 +237,9 @@ model Usuario {
   tarefasCriadas               Tarefa[]                   @relation("TarefaCreatedBy")
   tarefasAtualizadas           Tarefa[]                   @relation("TarefaUpdatedBy")
   feedbacks                    Feedback[]
+  conversasAtendidas           Conversa[]         @relation("ConversaAtendente")
+  mensagensEnviadas            Mensagem[]         @relation("MensagemAutor")
+  templatesRespostaCriados     TemplateResposta[] @relation("TemplateRespostaCriador")
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -295,6 +298,7 @@ model Empresa {
   oportunidades Oportunidade[]
   historicos    HistoricoContato[]
   tarefas       Tarefa[]
+  conversas     Conversa[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -333,6 +337,7 @@ model Pessoa {
   oportunidades    Oportunidade[]
   historicos       HistoricoContato[]
   tarefas          Tarefa[]
+  conversas        Conversa[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -429,6 +434,7 @@ model Oportunidade {
   propostas  PropostaComercial[]
   propostasGrupo Proposta[]
   tarefas    Tarefa[]
+  conversas  Conversa[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -855,6 +861,122 @@ model AgenteConfig {
   ativo           Boolean  @default(true)
   atualizadoEm    DateTime @updatedAt
   atualizadoPor   String?
+}
+
+// ─────────────────────────────────────────────
+// CENTRAL DE ATENDIMENTO — nunca remover, só acrescentar
+// ─────────────────────────────────────────────
+
+enum CanalAtendimento {
+  WHATSAPP
+  EMAIL
+  TELEFONE
+  CHAT
+}
+
+enum StatusConversa {
+  ABERTA
+  PENDENTE
+  CONCLUIDA
+  SPAM
+}
+
+enum DirecaoMensagem {
+  ENTRADA
+  SAIDA
+}
+
+enum AutorMensagem {
+  IA
+  HUMANO
+  SISTEMA
+}
+
+enum StatusMensagem {
+  ENVIADA
+  ENTREGUE
+  LIDA
+  ERRO
+}
+
+model Conversa {
+  id             String           @id @default(cuid())
+  canal          CanalAtendimento @default(WHATSAPP)
+  status         StatusConversa   @default(ABERTA)
+  instanceName   String           // maria-villa, joao-villa, morgana-villa, taciane-villa
+  chatwootId     Int?
+  telefone       String?          // número do contato no WhatsApp
+  nomeContato    String?
+
+  // Vínculo opcional com CRM
+  empresaId      String?
+  empresa        Empresa? @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+
+  pessoaId       String?
+  pessoa         Pessoa? @relation(fields: [pessoaId], references: [id], onDelete: SetNull)
+
+  oportunidadeId String?
+  oportunidade   Oportunidade? @relation(fields: [oportunidadeId], references: [id], onDelete: SetNull)
+
+  // Atendente responsável (humano)
+  atendidoPorId  String?
+  atendidoPor    Usuario? @relation("ConversaAtendente", fields: [atendidoPorId], references: [id], onDelete: SetNull)
+
+  ultimaMensagemEm DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  mensagens Mensagem[]
+
+  @@index([status])
+  @@index([instanceName])
+  @@index([empresaId])
+  @@index([pessoaId])
+  @@index([oportunidadeId])
+  @@index([atendidoPorId])
+  @@index([ultimaMensagemEm])
+}
+
+model Mensagem {
+  id           String          @id @default(cuid())
+  conteudo     String          @db.Text
+  direcao      DirecaoMensagem
+  autor        AutorMensagem   @default(IA)
+  status       StatusMensagem  @default(ENVIADA)
+  waMessageId  String?         // ID retornado pela Evolution API
+  mimeType     String?         // para arquivos/áudio
+  mediaUrl     String?
+
+  conversaId   String
+  conversa     Conversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  // Quem enviou (se humano)
+  autorUsuarioId String?
+  autorUsuario   Usuario? @relation("MensagemAutor", fields: [autorUsuarioId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([conversaId])
+  @@index([conversaId, createdAt])
+  @@index([autorUsuarioId])
+  @@index([waMessageId])
+}
+
+model TemplateResposta {
+  id          String   @id @default(cuid())
+  nome        String
+  conteudo    String   @db.Text
+  categoria   String?
+  ativo       Boolean  @default(true)
+
+  criadoPorId String?
+  criadoPor   Usuario? @relation("TemplateRespostaCriador", fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([criadoPorId])
+  @@index([ativo])
 }
 
 model AuditLog {

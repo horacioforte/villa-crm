@@ -1,0 +1,288 @@
+[
+  {
+    "_meta": { "score": 95, "temperatura": "QUENTE", "pilar": 1 },
+    "empresa": {
+      "razaoSocial": "GLP Brasil / Ribeiro Caram Construtora",
+      "cnpj": "",
+      "segmento": "Construtora / Logística",
+      "cidade": "Guarulhos",
+      "estado": "SP",
+      "observacoes": "Fonte: Metro Quadrado / Convisão. GLP Guarulhos III — 252 mil m² de galpões logísticos em construção. Construtora executora: Ribeiro Caram. Obra em fase inicial de fundações. Pilar: 1. Score: 95/100."
+    },
+    "obra": {
+      "nome": "GLP Guarulhos III — Condomínio Logístico",
+      "descricao": "Terceiro parque logístico da GLP em Guarulhos. 252.000 m² de área bruta locável em 3 galpões. Investimento R$ 2,1 bilhões até 2026. Construtora Ribeiro Caram executando fundações. Entrega prevista 2026.",
+      "cidade": "Guarulhos",
+      "estado": "SP",
+      "volumeEstimado": 35000
+    },
+    "oportunidade": {
+      "titulo": "Radar João — [Pilar 1] GLP Guarulhos III / SP",
+      "descricao": "Obra de grande porte em execução ativa. 252 mil m² de galpões exige volumes elevados de concreto bombeado para lajes e pilares. Construtora Ribeiro Caram no canteiro. Contato: GLP Brasil (comercial) + Ribeiro Caram (obra). Equipamento: Bomba Lança 36-42m. Score: 95/100.",
+      "tipoServico": "BOMBA_LANCA",
+      "potencialOportunidade": 900000,
+      "temperatura": "QUENTE"
+    },
+    "origemRadar": "Radar João — 4 Pilares — Brasil completo — semana de 21/06/2026"
+  },
+  {
+    "_meta": { "score": 92, "temperatura": "QUENTE", "pilar": 1 },
+    "empresa": {
+      "razaoSocial": "RT-One Data Centers",
+      "cnpj": "",
+      "segmento": "Data Center / Tecnologia",
+      "cidade": "Uberlândia",
+      "estado": "MG",
+      "observacoes": "Fonte: Olhar Digital (fev/2026). Data center com investimento inicial de R$ 6 bilhões. Obras previstas para iniciar maio/junho 2026 na MGC-497. Pilar: 1. Score: 92/100."
+    },
+    "obra": {
+      "nome": "Data Center RT-One — Uberlândia",
+      "descricao": "Primeiro grande data center do Sudeste construído pela RT-One. R$ 6 bilhões de investimento inicial. Início de obras mai/jun 2026, rodovia MGC-497. Gera ~2.000 empregos permanentes. Estrutura de concreto de grande porte.",
+      "cidade": "Uberlândia",
+      "estado": "MG",
+      "volumeEstimado": 15000
+    },
+    "oportunidade": {
+      "titulo": "Radar João — [Pilar 1] Data Center RT-One / MG",
+      "descricao": "Obra bilionária em início imediato. Estruturas de concreto para data center demandam alta precisão e volume. Filial BH da Villa atende. Equipamento: Bomba Lança 36m para lajes técnicas e pilares. Score: 92/100.",
+      "tipoServico": "BOMBA_LANCA",
+      "potencialOportunidade": 600000,
+      "temperatura": "QUENTE"
+    },
+    "origemRadar": "Radar João — 4 Pilares — Brasil completo — semana de 21/06/2026"
+  },
+  {
+    "_meta": { "score": 90, "temperatura": "QUENTE", "pilar": 1 },
+    "empresa": {
+      "razaoSocial": "Private Log / Urban Park Log — Serra (ES)",
+      "cnpj": "",
+      "segmento": "Construtora / Logística",
+      "cidade": "Serra",
+      "estado": "ES",
+      "observacoes": "Fonte: Mundo Logística / ABECE. Maior condomínio logístico do Brasil. R$ 2,5 bi de investimento total, 620 mil m² de ABL. Fase 1 (190k m²) com entrega prevista 2026. Pilar: 1. Score: 90/100."
+    },
+    "obra": {
+      "nome": "Private Log / Urban Park Log — Serra (ES)",
+      "descricao": "Maior condomínio logístico do Brasil em construção em Serra/ES. 620.000 m² de ABL total, R$ 2,5 bilhões de investimento. Fase 1: 190 mil m² com entrega prevista 2026. Urban Park Log: 105 mil m², R$ 300 milhões. Alto volume de concreto em lajes e fundações.",
+      "cidade": "Serra",
+      "estado": "ES",
+      "volumeEstimado": 50000
+    },
+    "oportunidade": {
+      "titulo": "Radar João — [Pilar 1] Private Log / Urban Park Log / ES",
+      "descricao": "Maior condomínio logístico do Brasil em obra. Volume de concreto excepcional para 620k m². Filial SP cobre ES. Equipamento: Bomba Lança 42-52m para lajes de grande vão. Score: 90/100.",
+      "tipoServico": "BOMBA_LANCA",
+      "potencialOportunidade": 1200000,
+      "temperatura": "QUENTE"
+    },
+    "origemRadar": "Radar João — 4 Pilares — Brasil completo — semana de 21/06/2026"
+  },
+  {
+    "_meta": { "score": 87, "temperatura": "QUENTE", "pilar": 1 },
+    "empresa": {
+      "razaoSocial": "Prologis Brasil",
+      "cnpj": "",
+      "segmento": "Construtora / Logística",
+      "cidade": "São Bernardo do Campo",
+      "estado": "SP",
+      "observacoes": "Fonte: Logweb / AutoData / Metro Quadrado (mai/2026). Prologis investirá R$ 1,5 bi em condomínio logístico na área da ex-fábrica Ford, ~200k m² de galpões. Área dividida com pátio do Metrô Linha 20 (solução de coexistência acordada). Pilar: 1. Score: 87/100."
+    },
+    "obra": {
+      "nome": "Prologis — Condomínio Logístico ex-Ford / São Bernardo do Campo",
+      "descricao": "R$ 1,5 bilhão em galpões logísticos na área da antiga fábrica Ford no ABC Paulista. ~200 mil m² de galpões. Coexistência com pátio do Metrô Linha 20-Rosa negociada em mai/2026. Obra deve iniciar em breve.",
+      "cidade": "São Bernardo do Campo",
+      "estado": "SP",
+      "volumeEstimado": 28000
+    },
+    "oportunidade": {
+      "titulo": "Radar João — [Pilar 1] Prologis ex-Ford São Bernardo / SP",
+      "descricao": "Obra bilionária no ABC Paulista, fase de aprovações quase concluída. Alto volume de concreto. Filial SP da Villa estrategicamente posicionada. Equipamento: Bomba Lança 36-42m. Score: 87/100.",
+      "tipoServico": "BOMBA_LANCA",
+      "potencialOportunidade": 700000,
+      "temperatura": "QUENTE"
+    },
+    "origemRadar": "Radar João — 4 Pilares — Brasil completo — semana de 21/06/2026"
+  },
+  {
+    "_meta": { "score": 85, "temperatura": "QUENTE", "pilar": 1 },
+    "empresa": {
+      "razaoSocial": "Grupo Marquise Infraestrutura",
+      "cnpj": "",
+      "segmento": "Construtora de Infraestrutura",
+      "cidade": "Fortaleza",
+      "estado": "CE",
+      "observacoes": "Fonte: Marquise Infraestrutura / Economic News Brasil. Responsável por 9 lotes da Transnordestina no CE. 3 centrais de concreto próprias, 220 m³/dia de concreto. Lotes 1-6 (Missão Velha a Quixeramobim) com entrega prevista 1S2026. Pilar: 1. Score: 85/100."
+    },
+    "obra": {
+      "nome": "Transnordestina — Lotes 1-9 Ceará (Grupo Marquise)",
+      "descricao": "Ferrovia Transnordestina no Ceará — maior ferrovia em construção no Brasil. Grupo Marquise responsável por 9 lotes. 3 centrais de concreto, 220 m³/dia. 67.000 m³ de concreto já aplicados. Lotes 1-6 com entrega 1S2026. Porto do Pecém em sequência.",
+      "cidade": "Fortaleza",
+      "estado": "CE",
+      "volumeEstimado": 80000
+    },
+    "oportunidade": {
+      "titulo": "Radar João — [Pilar 1] Transnordestina / Marquise / CE",
+      "descricao": "Maior ferrovia em construção no Brasil. Grupo Marquise com 3 centrais próprias mas pode demandar equipamentos adicionais para volumes de pico. Além da ferrovia, Marquise iniciou obras do novo píer do Porto do Pecém — oportunidade adicional. Equipamento: Bomba Estacionária + Lança. Score: 85/100.",
+      "tipoServico": "BOMBA_ESTACIONARIA",
+      "potencialOportunidade": 500000,
+      "temperatura": "QUENTE"
+    },
+    "origemRadar": "Radar João — 4 Pilares — Brasil completo — semana de 21/06/2026"
+  },
+  {
+    "_meta": { "score": 83, "temperatura": "QUENTE", "pilar": 1 },
+    "empresa": {
+      "razaoSocial": "GLP Brasil",
+      "cnpj": "",
+      "segmento": "Logística / Construtora",
+      "cidade": "Taboão da Serra",
+      "estado": "SP",
+      "observacoes": "Fonte: Metro Quadrado. GLP Taboão — 120 mil m² de ABL, 5 galpões, entrega 2026. Parte do pacote de R$ 2,1 bilhões da GLP no Brasil. Pilar: 1. Score: 83/100."
+    },
+    "obra": {
+      "nome": "GLP Taboão — Condomínio Logístico",
+      "descricao": "120 mil m² de ABL em 5 galpões, a 7 km da capital paulista. Entrega prevista 2026. Parte do ciclo de R$ 2,1 bilhões da GLP no Brasil.",
+      "cidade": "Taboão da Serra",
+      "estado": "SP",
+      "volumeEstimado": 18000
+    },
+    "oportunidade": {
+      "titulo": "Radar João — [Pilar 1] GLP Taboão / SP",
+      "descricao": "Obra em andamento próxima à capital. Mesma construtora do GRU III (Ribeiro Caram). Contato já aberto via GLP Guarulhos pode incluir Taboão. Equipamento: Bomba Lança 36m. Score: 83/100.",
+      "tipoServico": "BOMBA_LANCA",
+      "potencialOportunidade": 450000,
+      "temperatura": "QUENTE"
+    },
+    "origemRadar": "Radar João — 4 Pilares — Brasil completo — semana de 21/06/2026"
+  },
+  {
+    "_meta": { "score": 80, "temperatura": "QUENTE", "pilar": 1 },
+    "empresa": {
+      "razaoSocial": "Microsoft Brasil",
+      "cnpj": "",
+      "segmento": "Data Center / Tecnologia",
+      "cidade": "Limeira",
+      "estado": "SP",
+      "observacoes": "Fonte: Olhar Digital. Data center Microsoft em Limeira/SP, previsto para ficar operacional 2026-2027. ~1.000 empregos na construção. Pilar: 1. Score: 80/100."
+    },
+    "obra": {
+      "nome": "Data Center Microsoft — Limeira (SP)",
+      "descricao": "Data center da Microsoft em Limeira, interior de SP. Previsto para 2026-2027. Gera ~1.000 empregos na fase de construção. Estruturas de concreto técnico.",
+      "cidade": "Limeira",
+      "estado": "SP",
+      "volumeEstimado": 8000
+    },
+    "oportunidade": {
+      "titulo": "Radar João — [Pilar 1] Data Center Microsoft / Limeira / SP",
+      "descricao": "Data center de grande nome com obras previstas para 2026. Interior paulista bem atendido pela filial SP da Villa. Identificar construtora civil contratada pela Microsoft. Equipamento: Bomba Lança 32-36m. Score: 80/100.",
+      "tipoServico": "BOMBA_LANCA",
+      "potencialOportunidade": 400000,
+      "temperatura": "QUENTE"
+    },
+    "origemRadar": "Radar João — 4 Pilares — Brasil completo — semana de 21/06/2026"
+  },
+  {
+    "_meta": { "score": 78, "temperatura": "MEDIA", "pilar": 1 },
+    "empresa": {
+      "razaoSocial": "ACA — Alberto Couto Alves Ltda",
+      "cnpj": "",
+      "segmento": "Construtora de Infraestrutura",
+      "cidade": "Custódia",
+      "estado": "PE",
+      "observacoes": "Fonte: Movimento Econômico (mar/2026). ACA venceu licitação da Infra S.A. — R$ 312,8M para 73,3 km da Transnordestina em PE (trecho Custódia-Arcoverde). Pilar: 1. Score: 78/100."
+    },
+    "obra": {
+      "nome": "Transnordestina — Trecho Custódia-Arcoverde / Pernambuco (ACA)",
+      "descricao": "ACA venceu licitação de R$ 312,8 milhões para executar 73,3 km de ferrovia entre Custódia e Arcoverde (PE). Obra com concreto para dormentes, pontes e obras d'arte. Sede da Villa em Recife.",
+      "cidade": "Custódia",
+      "estado": "PE",
+      "volumeEstimado": 12000
+    },
+    "oportunidade": {
+      "titulo": "Radar João — [Pilar 1] Transnordestina ACA / Custódia-Arcoverde / PE",
+      "descricao": "Construtora regional PE com contrato de R$ 312M. Recife é sede da Villa. Acesso fácil ao decisor. Obra civil ferrovia demanda concreto bombeado para estruturas. Equipamento: Bomba Estacionária. Score: 78/100.",
+      "tipoServico": "BOMBA_ESTACIONARIA",
+      "potencialOportunidade": 300000,
+      "temperatura": "MEDIA"
+    },
+    "origemRadar": "Radar João — 4 Pilares — Brasil completo — semana de 21/06/2026"
+  },
+  {
+    "_meta": { "score": 75, "temperatura": "MEDIA", "pilar": 1 },
+    "empresa": {
+      "razaoSocial": "Scala Data Centers",
+      "cnpj": "",
+      "segmento": "Data Center / Tecnologia",
+      "cidade": "Rio Grande do Sul",
+      "estado": "RS",
+      "observacoes": "Fonte: Olhar Digital. Scala prepara complexo de data centers no RS prometendo ser o maior da América Latina. Pilar: 1. Score: 75/100."
+    },
+    "obra": {
+      "nome": "Complexo Scala Data Centers — Rio Grande do Sul",
+      "descricao": "Maior complexo de data centers da América Latina em preparação no RS. Grandes estruturas de concreto, pisos técnicos e fundações especiais.",
+      "cidade": "Porto Alegre",
+      "estado": "RS",
+      "volumeEstimado": 10000
+    },
+    "oportunidade": {
+      "titulo": "Radar João — [Pilar 1] Scala Data Centers / RS",
+      "descricao": "Maior complexo de data centers da América Latina em construção no Sul. Demanda significativa de concreto. Identificar construtora civil parceira. Equipamento: Bomba Lança 36m. Score: 75/100.",
+      "tipoServico": "BOMBA_LANCA",
+      "potencialOportunidade": 350000,
+      "temperatura": "MEDIA"
+    },
+    "origemRadar": "Radar João — 4 Pilares — Brasil completo — semana de 21/06/2026"
+  },
+  {
+    "_meta": { "score": 72, "temperatura": "MEDIA", "pilar": 1 },
+    "empresa": {
+      "razaoSocial": "Governo de Mato Grosso / Sinfra-MT",
+      "cnpj": "",
+      "segmento": "Órgão Público / Infraestrutura",
+      "cidade": "Cuiabá",
+      "estado": "MT",
+      "observacoes": "Fonte: Secom-MT. Licitações de R$ 220 milhões em pontes de concreto e rodovias estaduais. Inclui ponte sobre Rio Marapé em Lucas do Rio Verde (R$ 4,9M). Pilar: 1. Score: 72/100."
+    },
+    "obra": {
+      "nome": "Obras de Infraestrutura Sinfra-MT — Pontes e Rodovias",
+      "descricao": "R$ 220 milhões em licitações para 5 pontes de concreto e 120 km de asfaltamento no MT. Inclui ponte sobre Rio Marapé em Lucas do Rio Verde (R$ 4,9M, 77m). Obras de concreto estrutural.",
+      "cidade": "Cuiabá",
+      "estado": "MT",
+      "volumeEstimado": 8000
+    },
+    "oportunidade": {
+      "titulo": "Radar João — [Pilar 1] Sinfra-MT Pontes / MT",
+      "descricao": "Pacote de R$ 220M em infraestrutura pública MT. Pontes de concreto demandam bomba estacionária para lançamento em locais de difícil acesso. Contato via construtoras vencedoras. Score: 72/100.",
+      "tipoServico": "BOMBA_ESTACIONARIA",
+      "potencialOportunidade": 200000,
+      "temperatura": "MEDIA"
+    },
+    "origemRadar": "Radar João — 4 Pilares — Brasil completo — semana de 21/06/2026"
+  },
+  {
+    "_meta": { "score": 70, "temperatura": "MEDIA", "pilar": 2 },
+    "empresa": {
+      "razaoSocial": "Log Comercial — Condomínio Campo Grande II",
+      "cnpj": "",
+      "segmento": "Logística / Construtora",
+      "cidade": "Campo Grande",
+      "estado": "MS",
+      "observacoes": "Fonte: Mercado e Consumo (mar/2026). Log investe R$ 100 milhões em 40+ mil m² de ABL em Campo Grande. Entrega 1S2027. Obras devem estar iniciando em 2026. Pilar: 2. Score: 70/100."
+    },
+    "obra": {
+      "nome": "Log Campo Grande II — Condomínio Logístico",
+      "descricao": "R$ 100 milhões, 40 mil m² de ABL em Campo Grande/MS. Anunciado em mar/2026, entrega prevista 1S2027. Log avança no Centro-Oeste.",
+      "cidade": "Campo Grande",
+      "estado": "MS",
+      "volumeEstimado": 6000
+    },
+    "oportunidade": {
+      "titulo": "Radar João — [Pilar 2] Log Campo Grande II / MS",
+      "descricao": "Expansão da Log no Centro-Oeste. Obras devem iniciar 2026 para entrega em 2027. Contato com o gerente de obras da Log. Equipamento: Bomba Lança 28-36m. Score: 70/100.",
+      "tipoServico": "BOMBA_LANCA",
+      "potencialOportunidade": 150000,
+      "temperatura": "MEDIA"
+    },
+    "origemRadar": "Radar João — 4 Pilares — Brasil completo — semana de 21/06/2026"
+  }
+]

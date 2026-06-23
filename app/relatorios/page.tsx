@@ -407,9 +407,11 @@ function RelatorioOportunidades() {
     }
   }
 
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     buscar();
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   const totals = {
     potencial: data.reduce(
@@ -614,9 +616,11 @@ function RelatorioPropostas() {
     }
   }
 
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     buscar();
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   const total = data.reduce((sum, row) => sum + Number(row.valorTotal), 0);
 

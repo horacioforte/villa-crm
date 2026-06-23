@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   AlertTriangle,
   BadgeCheck,
+  Bot,
   Building2,
   CalendarDays,
   ChartNoAxesCombined,
@@ -939,6 +940,7 @@ export default async function Home() {
     { label: "Oportunidades", icon: ClipboardList, href: "/oportunidades" },
     { label: "Equipamentos", icon: Truck, href: "/equipamentos" },
     { label: "Usuarios", icon: UserCog, href: "/usuarios" },
+    { label: "Agentes", icon: Bot, href: "/admin/agentes", adminOnly: true },
     { label: "Agenda", icon: CalendarDays, href: "/tarefas" },
     { label: "Feedback", icon: MessageSquarePlus, href: "/feedback" },
   ];
@@ -1067,20 +1069,22 @@ export default async function Home() {
           <h1 className="mt-2 text-2xl font-bold tracking-tight">Villa CRM</h1>
         </Link>
         <nav className="flex flex-1 flex-col gap-2 px-4 py-6">
-          {menuItems.map((item) => (
-            <a
-              key={item.label}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                item.active
-                  ? "bg-white text-[#1A2E5A] shadow-lg shadow-black/10"
-                  : "text-white/75 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <item.icon className="size-5" />
-              {item.label}
-            </a>
-          ))}
+          {menuItems
+            .filter((item) => !item.adminOnly || currentUser.papel === "ADMIN")
+            .map((item) => (
+              <a
+                key={item.label}
+                href={item.href}
+                className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                  item.active
+                    ? "bg-white text-[#1A2E5A] shadow-lg shadow-black/10"
+                    : "text-white/75 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <item.icon className="size-5" />
+                {item.label}
+              </a>
+            ))}
         </nav>
         <div className="border-t border-white/10 p-4">
           <div className="mb-3 rounded-2xl bg-white/10 px-4 py-3">

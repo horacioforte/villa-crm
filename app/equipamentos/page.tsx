@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, type Resolver, useForm } from "react-hook-form";
+import { Controller, type Resolver, useForm, useWatch } from "react-hook-form";
 import { Loader2, Pencil, Plus, Truck } from "lucide-react";
 import { toast } from "sonner";
 
@@ -229,9 +229,11 @@ export default function EquipamentosPage() {
     resolver: zodResolver(equipamentoSchema) as unknown as Resolver<EquipamentoFormValues>,
     defaultValues,
   });
-  const valorM3Preview = parseOptionalNumber(form.watch("valorM3"));
+  const valorM3Preview = parseOptionalNumber(
+    useWatch({ control: form.control, name: "valorM3" }),
+  );
   const volumeMinimoM3Preview = parseOptionalNumber(
-    form.watch("volumeMinimoM3"),
+    useWatch({ control: form.control, name: "volumeMinimoM3" }),
   );
   const valorReferenciaLocacao =
     valorM3Preview && volumeMinimoM3Preview

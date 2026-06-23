@@ -184,11 +184,10 @@ export async function POST(
       );
     }
 
-    if (!oportunidade.empresa || !oportunidade.obra) {
+    if (!oportunidade.empresa) {
       return NextResponse.json(
         {
-          message:
-            "A oportunidade precisa ter empresa e obra vinculadas para gerar proposta.",
+          message: "A oportunidade precisa ter empresa vinculada para gerar proposta.",
         },
         { status: 400 },
       );

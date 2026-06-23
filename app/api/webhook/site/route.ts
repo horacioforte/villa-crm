@@ -118,6 +118,93 @@ async function enviarConfirmacaoBrevo(data: SiteWebhookInput) {
   }
 }
 
+async function enviarNotificacaoInternaBrevo(
+  data: SiteWebhookInput,
+  oportunidadeId: string,
+) {
+  const apiKey = process.env.BREVO_API_KEY;
+
+  if (!apiKey) {
+    console.warn("[WEBHOOK_SITE] BREVO_API_KEY não configurada.");
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  const emailInterno = "maria.comercial@villaempreendimentos.com.br";
+  const linhasEmail = [
+    "Novo contato recebido pelo formulário do site.",
+    "",
+    `Nome: ${data.nome}`,
+    `Telefone: ${data.telefone}`,
+    `Tipo: ${data.tipoNecessidade}`,
+    `Cidade: ${data.cidadeObra}`,
+    `Volume: ${data.volumeEstimado ?? ""}`,
+    `Email: ${data.email ?? ""}`,
+    `Empresa: ${data.empresa ?? ""}`,
+    "",
+    `Oportunidade criada no CRM com ID: ${oportunidadeId}`,
+  ];
+
+  try {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        accept: "application/json",
+        "api-key": apiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: "Villa Empreendimentos",
+          email: emailInterno,
+        },
+        to: [
+          {
+            email: emailInterno,
+            name: "Maria Comercial",
+          },
+        ],
+        replyTo: {
+          email: emailInterno,
+          name: "Villa Empreendimentos",
+        },
+        subject: `Novo lead do site — ${data.nome}`,
+        textContent: linhasEmail.join("\n"),
+        htmlContent: `
+          <p>Novo contato recebido pelo formulário do site.</p>
+          <p>
+            Nome: ${data.nome}<br />
+            Telefone: ${data.telefone}<br />
+            Tipo: ${data.tipoNecessidade}<br />
+            Cidade: ${data.cidadeObra}<br />
+            Volume: ${data.volumeEstimado ?? ""}<br />
+            Email: ${data.email ?? ""}<br />
+            Empresa: ${data.empresa ?? ""}
+          </p>
+          <p>Oportunidade criada no CRM com ID: ${oportunidadeId}</p>
+        `,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error("[WEBHOOK_SITE] Erro ao enviar notificação interna:", errorText);
+      return;
+    }
+
+    console.info("[WEBHOOK_SITE] Notificação interna enviada:", {
+      oportunidadeId,
+      destinatario: emailInterno,
+    });
+  } catch (error) {
+    console.error("[WEBHOOK_SITE] Falha/timeout na notificação interna:", error);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function criarPendenciasEmBackground({
   data,
   oportunidadeId,
@@ -285,6 +372,7 @@ export async function POST(request: Request) {
     });
 
     await enviarConfirmacaoBrevo(data);
+    await enviarNotificacaoInternaBrevo(data, result.oportunidadeId);
 
     return NextResponse.json(
       { success: true, oportunidadeId: result.oportunidadeId },

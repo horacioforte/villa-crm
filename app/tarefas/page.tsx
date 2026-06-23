@@ -100,12 +100,6 @@ function startOfToday() {
   return date;
 }
 
-function endOfToday() {
-  const date = startOfToday();
-  date.setHours(23, 59, 59, 999);
-  return date;
-}
-
 function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
@@ -319,10 +313,12 @@ export default function TarefasPage() {
       });
   }, []);
 
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     loadContadores();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canFiltrarResponsavel, responsavelId]);
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   const filtroOptions = useMemo(() => {
     const responsaveis = new Map<string, string>();

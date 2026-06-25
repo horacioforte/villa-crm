@@ -85,15 +85,14 @@ export async function POST(request: NextRequest) {
         const nomeContato =
           ((contact?.profile as Record<string, unknown>)?.name as string)?.trim() || "Cliente";
 
-        // Processa com a IA da Maria (em background para retornar 200 rápido)
-        processarMensagemMaria({ telefone, nomeContato, texto }).catch((err) => {
+        // Aguarda o processamento antes de retornar (Vercel mata execução ao retornar 200)
+        await processarMensagemMaria({ telefone, nomeContato, texto }).catch((err) => {
           console.error("[maria/meta-webhook] Erro ao processar mensagem:", err);
         });
       }
     }
   }
 
-  // Meta exige resposta 200 rápida
   return NextResponse.json({ ok: true });
 }
 

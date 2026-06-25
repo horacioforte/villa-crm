@@ -80,8 +80,9 @@ export async function enviarWhatsappMeta({
   telefone: string;
   texto: string;
 }) {
-  const phoneNumberId = process.env.MARIA_META_PHONE_NUMBER_ID;
-  const accessToken = process.env.MARIA_META_ACCESS_TOKEN;
+  // Remove caracteres não-ASCII (ex: quebra de linha invisível copiada junto com o token)
+  const phoneNumberId = process.env.MARIA_META_PHONE_NUMBER_ID?.replace(/[^\x20-\x7E]/g, "").trim();
+  const accessToken = process.env.MARIA_META_ACCESS_TOKEN?.replace(/[^\x20-\x7E]/g, "").trim();
 
   if (!phoneNumberId || !accessToken) {
     throw new Error("Variaveis da Meta API nao configuradas (MARIA_META_PHONE_NUMBER_ID, MARIA_META_ACCESS_TOKEN).");

@@ -8,24 +8,50 @@
 
 import { prisma } from "@/lib/prisma";
 
-// ─── Envio de WhatsApp ────────────────────────────────────────────────────────
+// ─── Envio de WhatsApp (Meta Cloud API) ──────────────────────────────────────
 
 export async function enviarWhatsappJoao({ telefone, texto }: { telefone: string; texto: string }) {
-  const apiUrl = process.env.EVOLUTION_API_URL?.replace(/\/+$/, "");
-  const apiKey = process.env.JOAO_EVOLUTION_API_KEY;
-  const instance = "joao-villa";
+  const phoneNumberId = process.env.META_JOAO_PHONE_NUMBER_ID;
+  const accessToken = process.env.META_JOAO_ACCESS_TOKEN;
 
-  if (!apiUrl || !apiKey) throw new Error("JOAO_EVOLUTION_API_KEY não configurada.");
+  if (!phoneNumberId || !accessToken) {
+    throw new Error("META_JOAO_PHONE_NUMBER_ID ou META_JOAO_ACCESS_TOKEN não configurados.");
+  }
+
+  // Garante formato internacional sem '+' (ex: 5581999990000)
+  const numero = telefone.replace(/\D/g, "");
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
+
   try {
-    await fetch(`${apiUrl}/message/sendText/${instance}`, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json", apikey: apiKey },
-      body: JSON.stringify({ number: telefone, text: texto }),
-    });
+    const response = await fetch(
+      `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: numero,
+          type: "text",
+          text: { body: texto },
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error("[joao/crm] Meta Cloud API sendText falhou", {
+        status: response.status,
+        body: errorText,
+        telefone: numero,
+      });
+      throw new Error(`Erro Meta API ${response.status}: ${errorText || response.statusText}`);
+    }
   } finally {
     clearTimeout(timeout);
   }

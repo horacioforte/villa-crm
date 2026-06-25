@@ -14,6 +14,24 @@ export const maxDuration = 90;
 
 // ─── Tipos do payload Evolution API ──────────────────────────────────────────
 
+type EvolutionWebhookMessage = {
+  key?: {
+    fromMe?: boolean;
+    remoteJid?: string;
+  };
+  message?: {
+    conversation?: string;
+    extendedTextMessage?: {
+      text?: string;
+    };
+  };
+  conversation?: string;
+  extendedTextMessage?: {
+    text?: string;
+  };
+  pushName?: string;
+};
+
 type EvolutionWebhookPayload = {
   event?: string;
   instance?: string; // nome da instância que recebeu o evento (ex: "maria-villa")
@@ -22,27 +40,34 @@ type EvolutionWebhookPayload = {
       fromMe?: boolean;
       remoteJid?: string;
     };
-    message?: {
-      conversation?: string;
-      extendedTextMessage?: {
-        text?: string;
-      };
-    };
+    message?: EvolutionWebhookMessage;
+    messages?: EvolutionWebhookMessage[];
     pushName?: string;
   };
 };
 
 // ─── Helpers de parsing do payload ───────────────────────────────────────────
 
-function getTextMessage(payload: EvolutionWebhookPayload) {
-  return (
-    payload.data?.message?.conversation ??
-    payload.data?.message?.extendedTextMessage?.text ??
-    ""
-  ).trim();
+function normalizeEvolutionMessage(payload: EvolutionWebhookPayload): EvolutionWebhookMessage | undefined {
+  const rawMessage = payload.data?.message ?? payload.data?.messages?.[0];
+  if (!rawMessage) return undefined;
+  if (rawMessage.message) {
+    return {
+      ...rawMessage.message,
+      key: rawMessage.key,
+      pushName: rawMessage.pushName,
+    };
+  }
+  return rawMessage;
 }
 
-function getWhatsappNumber(remoteJid?: string) {
+function getTextMessage(payload: EvolutionWebhookPayload) {
+  const message = normalizeEvolutionMessage(payload);
+  return (message?.conversation ?? message?.extendedTextMessage?.text ?? "").trim();
+}
+
+function getWhatsappNumber(payload: EvolutionWebhookPayload) {
+  const remoteJid = payload.data?.key?.remoteJid ?? normalizeEvolutionMessage(payload)?.key?.remoteJid;
   if (!remoteJid || remoteJid.endsWith("@g.us")) {
     return null;
   }
@@ -77,7 +102,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const telefone = getWhatsappNumber(body.data?.key?.remoteJid);
+  const telefone = getWhatsappNumber(body);
 
   if (!telefone) {
     return NextResponse.json({ ok: true });

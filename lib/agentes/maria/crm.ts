@@ -71,6 +71,56 @@ export async function enviarWhatsapp({
   }
 }
 
+// ─── Envio de WhatsApp via Meta Cloud API ────────────────────────────────────
+
+export async function enviarWhatsappMeta({
+  telefone,
+  texto,
+}: {
+  telefone: string;
+  texto: string;
+}) {
+  const phoneNumberId = process.env.MARIA_META_PHONE_NUMBER_ID;
+  const accessToken = process.env.MARIA_META_ACCESS_TOKEN;
+
+  if (!phoneNumberId || !accessToken) {
+    throw new Error("Variaveis da Meta API nao configuradas (MARIA_META_PHONE_NUMBER_ID, MARIA_META_ACCESS_TOKEN).");
+  }
+
+  // Normaliza o número: remove "+", garante formato internacional sem "+"
+  const numero = telefone.replace(/\D/g, "");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: numero,
+          type: "text",
+          text: { body: texto },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new Error(`Erro Meta API ${response.status}: ${errorText}`);
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // ─── Registro de interação parcial (lead em qualificação) ─────────────────────
 
 export async function registrarInteracaoParcial({

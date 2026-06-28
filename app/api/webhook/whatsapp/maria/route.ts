@@ -51,6 +51,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  // ─── Roteamento: detecta phone_number_id e delega ao agente correto ──────
+  // ACRESCENTADO: roteamento para João sem alterar o webhook URL no Meta.
+  const primeiraEntry = (body.entry as Record<string, unknown>[] | undefined)?.[0];
+  const primeiraChange = (primeiraEntry?.changes as Record<string, unknown>[] | undefined)?.[0];
+  const metadataValue = (primeiraChange?.value as Record<string, unknown> | undefined);
+  const metadataObj = metadataValue?.metadata as Record<string, string> | undefined;
+  const phoneNumberId = metadataObj?.phone_number_id;
+  const joaoPhoneId = process.env.META_JOAO_PHONE_NUMBER_ID;
+
+  if (phoneNumberId && joaoPhoneId && phoneNumberId === joaoPhoneId) {
+    // Mensagem é do número do João — delega para o handler do João
+    try {
+      const url = new URL(request.url);
+      const joaoUrl = `${url.origin}/api/webhook/whatsapp/joao`;
+      await fetch(joaoUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      console.error("[maria/meta-webhook] Erro ao delegar para João:", err);
+    }
+    return NextResponse.json({ ok: true });
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   const entries = (body.entry as Record<string, unknown>[] | undefined) ?? [];
 
   for (const entry of entries) {

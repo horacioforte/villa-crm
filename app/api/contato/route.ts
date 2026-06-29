@@ -174,6 +174,57 @@ async function enviarMensagemMeta(telefone: string, text: string) {
   }
 }
 
+async function enviarTemplateDiagnosticoCentral(telefone: string, nome: string) {
+  const phoneNumberId = process.env.MARIA_META_PHONE_NUMBER_ID?.replace(/[^\x20-\x7E]/g, "").trim();
+  const accessToken = process.env.MARIA_META_ACCESS_TOKEN?.replace(/[^\x20-\x7E]/g, "").trim();
+
+  if (!phoneNumberId || !accessToken || !telefone) return;
+
+  const numero = telefone.replace(/\D/g, "");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: numero,
+          type: "template",
+          template: {
+            name: "villa_diagnostico_central",
+            language: { code: "pt_BR" },
+            components: [
+              {
+                type: "body",
+                parameters: [{ type: "text", text: nome }],
+              },
+            ],
+          },
+        }),
+      },
+    );
+
+    const body = await response.text().catch(() => "");
+    if (!response.ok) {
+      console.error("[API_CONTATO] Template Meta erro", { status: response.status, body });
+    } else {
+      console.info("[API_CONTATO] Template Meta ok", { status: response.status });
+    }
+  } catch (error) {
+    console.error("[API_CONTATO] Falha/timeout template Meta:", error);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function enviarBoasVindasWhatsApp(data: ContatoInput) {
   const telefone = normalizeWhatsappNumber(data.telefone);
 
@@ -184,24 +235,13 @@ async function enviarBoasVindasWhatsApp(data: ContatoInput) {
 
   console.info("[API_CONTATO] Enviando fluxo WhatsApp", { telefone });
 
-  // Mensagem 1 — boas-vindas e confirmação do diagnóstico
-  await enviarMensagemMeta(
-    telefone,
-    [
-      `Olá, ${data.nome}! 👋 Aqui é a Maria da Villa Empreendimentos.`,
-      "",
-      "Recebi seu diagnóstico de Central de Concreto agora mesmo e já estou analisando suas respostas.",
-      "",
-      "Em até 2 horas te envio a avaliação completa informando se sua obra tem perfil para uma central exclusiva. 🏗️",
-      "",
-      "Qualquer dúvida é só falar aqui!",
-    ].join("\n"),
-  );
-
-  // Aguarda alguns segundos para a segunda mensagem chegar em ordem
-  await new Promise((resolve) => setTimeout(resolve, 5000));
+  // Mensagem 1 — template aprovado pela Meta (funciona para contatos novos e existentes)
+  await enviarTemplateDiagnosticoCentral(telefone, data.nome);
 
   // Mensagem 2 — apresentação da Villa + qualificação de outros equipamentos
+  // Nota: só chegará se o cliente já tiver iniciado conversa antes (janela 24h Meta)
+  // Para clientes novos, Maria enviará essa mensagem após o cliente responder ao template
+  await new Promise((resolve) => setTimeout(resolve, 5000));
   await enviarMensagemMeta(
     telefone,
     [

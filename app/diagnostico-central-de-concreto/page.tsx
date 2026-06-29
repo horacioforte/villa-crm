@@ -226,7 +226,7 @@ export default function DiagnosticoCentralDeConcretoPage() {
     ].join("\n");
 
     window.open(
-      `https://api.whatsapp.com/send?phone=5581985595931&text=${encodeURIComponent(msg)}`,
+      `https://api.whatsapp.com/send?phone=5581973291004&text=${encodeURIComponent(msg)}`,
       "_blank",
       "noopener,noreferrer",
     );

@@ -132,6 +132,48 @@ async function enviarMensagemEvolution(telefone: string, text: string) {
   }
 }
 
+async function enviarMensagemMeta(telefone: string, text: string) {
+  const phoneNumberId = process.env.MARIA_META_PHONE_NUMBER_ID?.replace(/[^\x20-\x7E]/g, "").trim();
+  const accessToken = process.env.MARIA_META_ACCESS_TOKEN?.replace(/[^\x20-\x7E]/g, "").trim();
+
+  if (!phoneNumberId || !accessToken || !telefone) return;
+
+  const numero = telefone.replace(/\D/g, "");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: numero,
+          type: "text",
+          text: { body: text },
+        }),
+      },
+    );
+
+    const body = await response.text().catch(() => "");
+    if (!response.ok) {
+      console.error("[API_CONTATO] Meta erro", { status: response.status, body });
+    } else {
+      console.info("[API_CONTATO] Meta ok", { status: response.status });
+    }
+  } catch (error) {
+    console.error("[API_CONTATO] Falha/timeout Meta:", error);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function enviarBoasVindasWhatsApp(data: ContatoInput) {
   const telefone = normalizeWhatsappNumber(data.telefone);
 
@@ -143,7 +185,7 @@ async function enviarBoasVindasWhatsApp(data: ContatoInput) {
   console.info("[API_CONTATO] Enviando fluxo WhatsApp", { telefone });
 
   // Mensagem 1 — boas-vindas e confirmação do diagnóstico
-  await enviarMensagemEvolution(
+  await enviarMensagemMeta(
     telefone,
     [
       `Olá, ${data.nome}! 👋 Aqui é a Maria da Villa Empreendimentos.`,
@@ -160,7 +202,7 @@ async function enviarBoasVindasWhatsApp(data: ContatoInput) {
   await new Promise((resolve) => setTimeout(resolve, 5000));
 
   // Mensagem 2 — apresentação da Villa + qualificação de outros equipamentos
-  await enviarMensagemEvolution(
+  await enviarMensagemMeta(
     telefone,
     [
       "A Villa Empreendimentos está no mercado desde 2007, saindo de Recife e hoje atendendo obras em todo o Brasil — com filiais em São Paulo e Belo Horizonte. 🏢",

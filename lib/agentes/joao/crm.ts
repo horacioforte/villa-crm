@@ -261,6 +261,69 @@ export async function criarOportunidadeOutbound({
 }
 
 /**
+ * Salva as mensagens da conversa na tabela Conversa/Mensagem
+ * para que o contexto do João funcione corretamente entre turnos.
+ * ACRESCENTADO: histórico de conversa para João via Cloud API Meta.
+ */
+export async function salvarMensagensJoao({
+  telefone,
+  nomeContato,
+  textoCliente,
+  textoJoao,
+}: {
+  telefone: string;
+  nomeContato: string;
+  textoCliente: string;
+  textoJoao: string;
+}) {
+  try {
+    // Encontra ou cria a conversa para esse telefone
+    let conversa = await prisma.conversa.findFirst({
+      where: { telefone, instanceName: "joao-villa" },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true },
+    });
+
+    if (!conversa) {
+      conversa = await prisma.conversa.create({
+        data: {
+          instanceName: "joao-villa",
+          telefone,
+          nomeContato,
+        },
+        select: { id: true },
+      });
+    } else {
+      // Atualiza timestamp e nome se mudou
+      await prisma.conversa.update({
+        where: { id: conversa.id },
+        data: { updatedAt: new Date(), nomeContato },
+      });
+    }
+
+    // Salva mensagem do cliente (ENTRADA) e resposta do João (SAIDA)
+    await prisma.mensagem.createMany({
+      data: [
+        {
+          conversaId: conversa.id,
+          conteudo: textoCliente,
+          direcao: "ENTRADA",
+          autor: "HUMANO",
+        },
+        {
+          conversaId: conversa.id,
+          conteudo: textoJoao,
+          direcao: "SAIDA",
+          autor: "IA",
+        },
+      ],
+    });
+  } catch (err) {
+    console.error("[joao/crm] Erro ao salvar mensagens na conversa:", err);
+  }
+}
+
+/**
  * Processa a chegada de uma resposta do cliente para o João.
  * - Garante que existe um prospect para esse telefone
  * - Registra a interação WHATSAPP_RESPONDIDO
@@ -327,6 +390,9 @@ export async function processarRespostaJoao({
       conteudo: `Sinal de interesse detectado pela IA (score: ${confidenceScore})`,
     });
   }
+
+  // Salva na tabela Conversa/Mensagem para o contexto funcionar
+  await salvarMensagensJoao({ telefone, nomeContato, textoCliente: textoCiente, textoJoao });
 
   return { prospectId, interesse, confidenceScore, oportunidadeId };
 }

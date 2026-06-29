@@ -226,7 +226,7 @@ export default function DiagnosticoCentralDeConcretoPage() {
     ].join("\n");
 
     window.open(
-      `https://api.whatsapp.com/send?phone=5581973291004&text=${encodeURIComponent(msg)}`,
+      `https://api.whatsapp.com/send?phone=5581989060896&text=${encodeURIComponent(msg)}`,
       "_blank",
       "noopener,noreferrer",
     );
@@ -528,7 +528,7 @@ export default function DiagnosticoCentralDeConcretoPage() {
       ) : null}
 
       <a
-        href="https://api.whatsapp.com/send?phone=5581973291004&text=Ol%C3%A1%2C%20vim%20pelo%20site%20e%20quero%20falar%20com%20a%20equipe%20Villa%20sobre%20Central%20de%20Concreto."
+        href="https://api.whatsapp.com/send?phone=5581989060896&text=Ol%C3%A1%2C%20vim%20pelo%20site%20e%20quero%20falar%20com%20a%20equipe%20Villa%20sobre%20Central%20de%20Concreto."
         target="_blank"
         rel="noreferrer"
         className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-[#25d366] px-5 py-4 text-sm font-bold text-white shadow-[0_4px_20px_rgba(37,211,102,.45)] ring-4 ring-[#25d366]/20 transition hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(37,211,102,.55)]"

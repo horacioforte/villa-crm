@@ -172,6 +172,7 @@ function gerarHtmlEmail(tipo: TipoCampanha, d: Destinatario, equipamento?: strin
                     <p style="margin:2px 0 0;font-size:13px;color:#667085;">Hunter Comercial — Grupo Villa Empreendimentos</p>
                     <p style="margin:8px 0 0;font-size:13px;color:#667085;">
                       📧 joao.comercial@villaempreendimentos.com.br<br>
+                      📱 <a href="https://wa.me/5581994750422" style="color:#1E4FAB;text-decoration:none;">(81) 9475-0422 (WhatsApp)</a><br>
                       📞 (81) 3325-1144<br>
                       🌐 <a href="https://villaempreendimentos.com.br" style="color:#1E4FAB;text-decoration:none;">villaempreendimentos.com.br</a>
                     </p>

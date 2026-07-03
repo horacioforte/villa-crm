@@ -17,19 +17,16 @@ import {
   buscarOrigemLeads,
   buscarEquipamentos,
   criarTarefa,
+  gerarRelatorio,
 } from "@/lib/agentes/crm-ia/dados";
 
-// ─── Definição das ferramentas disponíveis para o CRM IA ─────────────────────
+// ─── Ferramentas ──────────────────────────────────────────────────────────────
 
 const ferramentas = [
   {
     name: "resumo_geral",
     description: "Retorna um resumo geral do CRM: total de empresas, oportunidades abertas, propostas, tarefas pendentes e conversas.",
-    input_schema: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    input_schema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "buscar_oportunidades",
@@ -37,25 +34,10 @@ const ferramentas = [
     input_schema: {
       type: "object",
       properties: {
-        status: {
-          type: "string",
-          enum: ["NOVA", "PRE_QUALIFICADA", "EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIACAO", "GANHA", "PERDIDA"],
-          description: "Status da oportunidade",
-        },
-        canalOrigem: {
-          type: "string",
-          enum: ["INDICACAO", "CLIENTE_ATUAL", "GOOGLE", "LINKEDIN", "SITE", "VISITA_COMERCIAL", "OBRA_MAPEADA", "MARKETPLACE", "OLX", "EVENTO", "JOAO_OUTBOUND", "OUTROS"],
-          description: "Canal de origem da oportunidade",
-        },
-        tipoServico: {
-          type: "string",
-          enum: ["BOMBA_LANCA", "BOMBA_ESTACIONARIA", "TELEBELT", "BETONEIRA", "CENTRAL_IN_LOCO", "CONCRETO", "SERVICO_ESPECIAL"],
-          description: "Tipo de serviço",
-        },
-        limite: {
-          type: "number",
-          description: "Número máximo de resultados (padrão 20)",
-        },
+        status: { type: "string", enum: ["NOVA", "PRE_QUALIFICADA", "EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIACAO", "GANHA", "PERDIDA"] },
+        canalOrigem: { type: "string", enum: ["INDICACAO", "CLIENTE_ATUAL", "GOOGLE", "LINKEDIN", "SITE", "VISITA_COMERCIAL", "OBRA_MAPEADA", "MARKETPLACE", "OLX", "EVENTO", "JOAO_OUTBOUND", "OUTROS"] },
+        tipoServico: { type: "string", enum: ["BOMBA_LANCA", "BOMBA_ESTACIONARIA", "TELEBELT", "BETONEIRA", "CENTRAL_IN_LOCO", "CONCRETO", "SERVICO_ESPECIAL"] },
+        limite: { type: "number", description: "Número máximo de resultados (padrão 20)" },
       },
       required: [],
     },
@@ -63,11 +45,7 @@ const ferramentas = [
   {
     name: "buscar_pipeline",
     description: "Retorna a quantidade de oportunidades por status (pipeline/funil de vendas).",
-    input_schema: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    input_schema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "buscar_empresas",
@@ -77,7 +55,7 @@ const ferramentas = [
       properties: {
         estado: { type: "string", description: "UF do estado, ex: SP, PE, RJ" },
         segmento: { type: "string", description: "Segmento da empresa" },
-        limite: { type: "number", description: "Número máximo de resultados" },
+        limite: { type: "number" },
       },
       required: [],
     },
@@ -88,12 +66,8 @@ const ferramentas = [
     input_schema: {
       type: "object",
       properties: {
-        status: {
-          type: "string",
-          enum: ["PENDENTE", "EM_ANDAMENTO", "ATRASADA", "CONCLUIDA", "CANCELADA"],
-          description: "Status das tarefas",
-        },
-        limite: { type: "number", description: "Número máximo de resultados" },
+        status: { type: "string", enum: ["PENDENTE", "EM_ANDAMENTO", "ATRASADA", "CONCLUIDA", "CANCELADA"] },
+        limite: { type: "number" },
       },
       required: [],
     },
@@ -104,11 +78,7 @@ const ferramentas = [
     input_schema: {
       type: "object",
       properties: {
-        status: {
-          type: "string",
-          enum: ["RASCUNHO", "AGUARDANDO_APROVACAO", "ENVIADA", "APROVADA", "ACEITA", "REJEITADA", "VENCIDA", "CANCELADA"],
-          description: "Status da proposta",
-        },
+        status: { type: "string", enum: ["RASCUNHO", "AGUARDANDO_APROVACAO", "ENVIADA", "APROVADA", "ACEITA", "REJEITADA", "VENCIDA", "CANCELADA"] },
         limite: { type: "number" },
       },
       required: [],
@@ -117,11 +87,7 @@ const ferramentas = [
   {
     name: "buscar_origem_leads",
     description: "Retorna a quantidade de oportunidades agrupadas por canal de origem dos leads.",
-    input_schema: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    input_schema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "buscar_equipamentos",
@@ -129,16 +95,31 @@ const ferramentas = [
     input_schema: {
       type: "object",
       properties: {
-        status: {
-          type: "string",
-          enum: ["DISPONIVEL", "LOCADO", "MANUTENCAO", "VENDIDO", "INATIVO"],
-        },
-        tipo: {
-          type: "string",
-          enum: ["BOMBA_CONCRETO", "BETONEIRA", "OUTRO"],
-        },
+        status: { type: "string", enum: ["DISPONIVEL", "LOCADO", "MANUTENCAO", "VENDIDO", "INATIVO"] },
+        tipo: { type: "string", enum: ["BOMBA_CONCRETO", "BETONEIRA", "OUTRO"] },
       },
       required: [],
+    },
+  },
+  {
+    name: "gerar_relatorio",
+    description: "Gera dados para relatório visual. Suporta PDF com gráfico, planilha Excel (.xlsx) e apresentação PowerPoint (.pptx). Use SEMPRE que o usuário pedir gráfico, PDF, Excel, planilha, PowerPoint, apresentação ou exportação de dados.",
+    input_schema: {
+      type: "object",
+      properties: {
+        tipo: {
+          type: "string",
+          enum: ["oportunidades_por_status", "oportunidades_por_valor", "pipeline", "origem_leads", "propostas_por_status", "equipamentos_por_status"],
+          description: "Tipo de relatório. Use oportunidades_por_valor para gráfico oportunidades x valor.",
+        },
+        titulo: { type: "string", description: "Título customizado (opcional)" },
+        tipo_saida: {
+          type: "string",
+          enum: ["pdf", "excel", "powerpoint"],
+          description: "Formato: pdf (padrão), excel (.xlsx), powerpoint (.pptx)",
+        },
+      },
+      required: ["tipo"],
     },
   },
   {
@@ -147,62 +128,41 @@ const ferramentas = [
     input_schema: {
       type: "object",
       properties: {
-        titulo: { type: "string", description: "Título da tarefa" },
-        descricao: { type: "string", description: "Descrição detalhada" },
-        tipo: {
-          type: "string",
-          enum: ["LIGACAO", "WHATSAPP", "EMAIL", "VISITA", "REUNIAO", "REUNIAO_ONLINE", "PROPOSTA", "TAREFA_INTERNA", "OUTRO"],
-          description: "Tipo de atividade",
-        },
-        prioridade: {
-          type: "string",
-          enum: ["BAIXA", "MEDIA", "ALTA", "URGENTE"],
-        },
-        dataVencimento: {
-          type: "string",
-          description: "Data de vencimento no formato ISO 8601 (ex: 2026-07-10T09:00:00)",
-        },
-        empresaId: { type: "string", description: "ID da empresa no CRM" },
-        oportunidadeId: { type: "string", description: "ID da oportunidade" },
-        pessoaId: { type: "string", description: "ID do contato/pessoa" },
+        titulo: { type: "string" },
+        descricao: { type: "string" },
+        tipo: { type: "string", enum: ["LIGACAO", "WHATSAPP", "EMAIL", "VISITA", "REUNIAO", "REUNIAO_ONLINE", "PROPOSTA", "TAREFA_INTERNA", "OUTRO"] },
+        prioridade: { type: "string", enum: ["BAIXA", "MEDIA", "ALTA", "URGENTE"] },
+        dataVencimento: { type: "string", description: "ISO 8601, ex: 2026-07-10T09:00:00" },
+        empresaId: { type: "string" },
+        oportunidadeId: { type: "string" },
+        pessoaId: { type: "string" },
       },
       required: ["titulo", "tipo"],
     },
   },
 ];
 
-// ─── Executor de ferramentas ──────────────────────────────────────────────────
+// ─── Executor ─────────────────────────────────────────────────────────────────
 
 async function executarFerramenta(nome: string, input: Record<string, any>): Promise<any> {
   switch (nome) {
-    case "resumo_geral":
-      return await resumoGeral();
-    case "buscar_oportunidades":
-      return await buscarOportunidades(input);
-    case "buscar_pipeline":
-      return await buscarPipeline();
-    case "buscar_empresas":
-      return await buscarEmpresas(input);
-    case "buscar_tarefas":
-      return await buscarTarefas(input);
-    case "buscar_propostas":
-      return await buscarPropostas(input);
-    case "buscar_origem_leads":
-      return await buscarOrigemLeads();
-    case "buscar_equipamentos":
-      return await buscarEquipamentos(input);
-    case "criar_tarefa":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await criarTarefa(input as any);
-    default:
-      return { erro: `Ferramenta desconhecida: ${nome}` };
+    case "resumo_geral": return await resumoGeral();
+    case "buscar_oportunidades": return await buscarOportunidades(input);
+    case "buscar_pipeline": return await buscarPipeline();
+    case "buscar_empresas": return await buscarEmpresas(input);
+    case "buscar_tarefas": return await buscarTarefas(input);
+    case "buscar_propostas": return await buscarPropostas(input);
+    case "buscar_origem_leads": return await buscarOrigemLeads();
+    case "buscar_equipamentos": return await buscarEquipamentos(input);
+    case "gerar_relatorio": return await gerarRelatorio(input as any);
+    case "criar_tarefa": return await criarTarefa(input as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    default: return { erro: `Ferramenta desconhecida: ${nome}` };
   }
 }
 
-// ─── POST — processar mensagem ────────────────────────────────────────────────
+// ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  // Autenticação via session (Auth.js v5)
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
@@ -224,7 +184,6 @@ export async function POST(req: NextRequest) {
     const Anthropic = (await import("@anthropic-ai/sdk")).default;
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-    // Monta histórico + mensagem atual
     const messages: any[] = [
       ...historico.map((h) => ({ role: h.role, content: h.content })),
       { role: "user", content: mensagem },
@@ -232,8 +191,8 @@ export async function POST(req: NextRequest) {
 
     let resposta = "";
     let continuar = true;
+    let relatorioData: any = null;
 
-    // Agentic loop — Claude pode chamar múltiplas ferramentas
     while (continuar) {
       const response = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
@@ -244,12 +203,12 @@ export async function POST(req: NextRequest) {
       });
 
       if (response.stop_reason === "tool_use") {
-        // Processa todas as chamadas de ferramenta
         const toolUseBlocks = response.content.filter((b: any) => b.type === "tool_use");
         const toolResults: any[] = [];
 
         for (const block of toolUseBlocks as any[]) {
           const resultado = await executarFerramenta(block.name, block.input);
+          if (block.name === "gerar_relatorio") relatorioData = resultado;
           toolResults.push({
             type: "tool_result",
             tool_use_id: block.id,
@@ -257,11 +216,9 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Adiciona resposta do assistant e resultados ao histórico
         messages.push({ role: "assistant", content: response.content });
         messages.push({ role: "user", content: toolResults });
       } else {
-        // Resposta final em texto
         const textBlock = response.content.find((b) => b.type === "text");
         resposta = textBlock && "text" in textBlock
           ? (textBlock as { text: string }).text
@@ -270,7 +227,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ resposta });
+    return NextResponse.json({
+      resposta,
+      ...(relatorioData ? { relatorio: relatorioData } : {}),
+    });
   } catch (error) {
     console.error("[CRM IA] Erro:", error);
     return NextResponse.json(

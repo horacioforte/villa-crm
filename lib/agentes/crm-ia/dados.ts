@@ -291,3 +291,135 @@ export async function criarTarefa({
 
   return tarefa;
 }
+
+// ─── Gerar Relatório Visual (PDF, Excel, PowerPoint) ─────────────────────────
+
+const CORES_VILLA = [
+  "#1A2E5A", "#1E4FAB", "#2563EB", "#3B82F6", "#60A5FA",
+  "#F59E0B", "#EF4444", "#10B981", "#8B5CF6", "#EC4899",
+  "#14B8A6", "#93C5FD",
+];
+
+function gerarCores(n: number): string[] {
+  return Array.from({ length: n }, (_, i) => CORES_VILLA[i % CORES_VILLA.length]);
+}
+
+export interface DadosRelatorio {
+  titulo: string;
+  tipoGrafico: "bar" | "pie" | "doughnut";
+  labels: string[];
+  datasets: Array<{ label: string; data: number[]; backgroundColor?: string[] }>;
+  descricao?: string;
+  tipoSaida?: "pdf" | "excel" | "powerpoint";
+}
+
+export async function gerarRelatorio({
+  tipo,
+  titulo,
+  tipoSaida,
+}: {
+  tipo: string;
+  titulo?: string;
+  tipoSaida?: string;
+}): Promise<DadosRelatorio> {
+  switch (tipo) {
+    case "oportunidades_por_status":
+    case "pipeline": {
+      const grupos = await prisma.oportunidade.groupBy({
+        by: ["status"],
+        where: { ativa: true },
+        _count: { id: true },
+      });
+      const labels = grupos.map((g) => g.status);
+      const data = grupos.map((g) => g._count.id);
+      return {
+        titulo: titulo ?? "Pipeline de Vendas — Oportunidades por Status",
+        tipoGrafico: "bar",
+        labels,
+        datasets: [{ label: "Quantidade", data, backgroundColor: gerarCores(labels.length) }],
+        descricao: `Total: ${data.reduce((a, b) => a + b, 0)} oportunidades ativas`,
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "oportunidades_por_valor": {
+      const grupos = await prisma.oportunidade.groupBy({
+        by: ["status"],
+        where: { ativa: true },
+        _sum: { potencialOportunidade: true },
+      });
+      const labels = grupos.map((g) => g.status);
+      const data = grupos.map((g) =>
+        Math.round(parseFloat((g._sum.potencialOportunidade ?? 0).toString()) / 1000)
+      );
+      return {
+        titulo: titulo ?? "Oportunidades por Status — Valor Potencial (R$ mil)",
+        tipoGrafico: "bar",
+        labels,
+        datasets: [{ label: "Valor (R$ mil)", data, backgroundColor: gerarCores(labels.length) }],
+        descricao: `Valor total potencial: R$ ${data.reduce((a, b) => a + b, 0).toLocaleString("pt-BR")} mil`,
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "origem_leads": {
+      const grupos = await prisma.oportunidade.groupBy({
+        by: ["canalOrigem"],
+        where: { ativa: true },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+      });
+      const labels = grupos.map((g) => g.canalOrigem ?? "Não informado");
+      const data = grupos.map((g) => g._count.id);
+      return {
+        titulo: titulo ?? "Origem dos Leads",
+        tipoGrafico: "pie",
+        labels,
+        datasets: [{ label: "Leads", data, backgroundColor: gerarCores(labels.length) }],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "propostas_por_status": {
+      const grupos = await prisma.propostaComercial.groupBy({
+        by: ["status"],
+        _count: { id: true },
+      });
+      const labels = grupos.map((g) => g.status);
+      const data = grupos.map((g) => g._count.id);
+      return {
+        titulo: titulo ?? "Propostas por Status",
+        tipoGrafico: "doughnut",
+        labels,
+        datasets: [{ label: "Propostas", data, backgroundColor: gerarCores(labels.length) }],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "equipamentos_por_status": {
+      const grupos = await prisma.equipamento.groupBy({
+        by: ["status"],
+        _count: { id: true },
+      });
+      const labels = grupos.map((g) => g.status);
+      const data = grupos.map((g) => g._count.id);
+      return {
+        titulo: titulo ?? "Frota por Status",
+        tipoGrafico: "doughnut",
+        labels,
+        datasets: [{ label: "Equipamentos", data, backgroundColor: gerarCores(labels.length) }],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    default:
+      return {
+        titulo: titulo ?? "Relatório",
+        tipoGrafico: "bar",
+        labels: [],
+        datasets: [],
+        descricao: `Tipo "${tipo}" não suportado`,
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+  }
+}

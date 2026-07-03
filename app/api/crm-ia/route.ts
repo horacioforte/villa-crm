@@ -18,6 +18,13 @@ import {
   buscarEquipamentos,
   criarTarefa,
   gerarRelatorio,
+  buscarUsuarioPorEmail,
+  buscarPessoas,
+  buscarAtividades,
+  atualizarEtapaOportunidade,
+  alterarResponsavel,
+  agendarVisita,
+  criarLembrete,
 } from "@/lib/agentes/crm-ia/dados";
 
 // ─── Definição das ferramentas disponíveis para o CRM IA ─────────────────────
@@ -101,7 +108,7 @@ const ferramentas = [
   },
   {
     name: "buscar_propostas",
-    description: "Busca propostas comerciais com filtro opcional por status.",
+    description: "Busca propostas comerciais com campos ricos: valor, validade, dias parada, contato, responsável. Use para follow-up de propostas ou análise de pipeline de propostas.",
     input_schema: {
       type: "object",
       properties: {
@@ -110,9 +117,108 @@ const ferramentas = [
           enum: ["RASCUNHO", "AGUARDANDO_APROVACAO", "ENVIADA", "APROVADA", "ACEITA", "REJEITADA", "VENCIDA", "CANCELADA"],
           description: "Status da proposta",
         },
+        diasParadaMinima: {
+          type: "number",
+          description: "Retorna apenas propostas sem atualização há pelo menos N dias",
+        },
         limite: { type: "number" },
       },
       required: [],
+    },
+  },
+  {
+    name: "buscar_pessoas",
+    description: "Busca contatos/pessoas cadastradas no CRM com telefone, e-mail, cargo, empresa vinculada e último contato. Use quando o usuário perguntar sobre contatos, decisores, responsáveis de obra ou qualquer pessoa.",
+    input_schema: {
+      type: "object",
+      properties: {
+        nome: { type: "string", description: "Nome parcial da pessoa" },
+        empresaNome: { type: "string", description: "Nome parcial da empresa vinculada" },
+        cargo: { type: "string", description: "Cargo ou função" },
+        telefone: { type: "string", description: "Número de telefone ou WhatsApp" },
+        limite: { type: "number", description: "Número máximo de resultados" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "buscar_atividades",
+    description: "Histórico de atividades: ligações, WhatsApp, e-mails, visitas, reuniões e observações. Use para ver o histórico de relacionamento com um cliente ou oportunidade.",
+    input_schema: {
+      type: "object",
+      properties: {
+        empresaId: { type: "string", description: "ID da empresa no CRM" },
+        oportunidadeId: { type: "string", description: "ID da oportunidade" },
+        pessoaId: { type: "string", description: "ID do contato" },
+        tipo: {
+          type: "string",
+          enum: ["LIGACAO", "WHATSAPP", "EMAIL", "VISITA", "REUNIAO", "REUNIAO_ONLINE", "PROPOSTA", "OUTRO"],
+          description: "Filtrar por tipo de atividade",
+        },
+        diasAtras: { type: "number", description: "Buscar atividades dos últimos N dias (padrão: 30)" },
+        limite: { type: "number" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "atualizar_etapa_oportunidade",
+    description: "Avança ou recua o status de uma oportunidade no pipeline. Confirme com o usuário antes de usar.",
+    input_schema: {
+      type: "object",
+      properties: {
+        oportunidadeId: { type: "string", description: "ID da oportunidade no CRM" },
+        novoStatus: {
+          type: "string",
+          enum: ["NOVA", "PRE_QUALIFICADA", "EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIACAO", "GANHA", "PERDIDA"],
+          description: "Novo status da oportunidade",
+        },
+        motivo: { type: "string", description: "Motivo (obrigatório quando status = PERDIDA)" },
+      },
+      required: ["oportunidadeId", "novoStatus"],
+    },
+  },
+  {
+    name: "alterar_responsavel",
+    description: "Transfere uma oportunidade para outro vendedor/responsável. Confirme com o usuário antes de usar.",
+    input_schema: {
+      type: "object",
+      properties: {
+        oportunidadeId: { type: "string", description: "ID da oportunidade" },
+        responsavelId: { type: "string", description: "ID do novo responsável (usuário no CRM)" },
+      },
+      required: ["oportunidadeId", "responsavelId"],
+    },
+  },
+  {
+    name: "agendar_visita",
+    description: "Agenda uma visita comercial criando uma tarefa do tipo VISITA com alta prioridade. Confirme data e empresa antes de usar.",
+    input_schema: {
+      type: "object",
+      properties: {
+        titulo: { type: "string", description: "Título da visita" },
+        descricao: { type: "string", description: "Detalhes da visita" },
+        dataHora: { type: "string", description: "Data e hora no formato ISO 8601 (ex: 2026-07-10T14:00:00)" },
+        empresaId: { type: "string", description: "ID da empresa a visitar" },
+        oportunidadeId: { type: "string", description: "ID da oportunidade relacionada" },
+        pessoaId: { type: "string", description: "ID do contato a visitar" },
+      },
+      required: ["titulo", "dataHora"],
+    },
+  },
+  {
+    name: "criar_lembrete",
+    description: "Cria um lembrete para o usuário sobre qualquer assunto, com data e hora.",
+    input_schema: {
+      type: "object",
+      properties: {
+        titulo: { type: "string", description: "Título do lembrete" },
+        descricao: { type: "string", description: "Detalhes do lembrete" },
+        dataHora: { type: "string", description: "Data e hora no formato ISO 8601" },
+        empresaId: { type: "string", description: "ID da empresa relacionada (opcional)" },
+        oportunidadeId: { type: "string", description: "ID da oportunidade relacionada (opcional)" },
+      },
+      required: ["titulo", "dataHora"],
     },
   },
   {
@@ -209,20 +315,31 @@ const ferramentas = [
 
 // ─── Executor de ferramentas ──────────────────────────────────────────────────
 
-async function executarFerramenta(nome: string, input: Record<string, any>): Promise<any> {
+async function executarFerramenta(
+  nome: string,
+  input: Record<string, any>,
+  ctx: { usuarioId?: string; papel?: string } = {}
+): Promise<any> {
+  // Filtragem por permissão: COMERCIAL só vê sua carteira
+  const filtroCarteira = ctx.papel === "COMERCIAL" ? { responsavelId: ctx.usuarioId } : {};
+
   switch (nome) {
     case "resumo_geral":
       return await resumoGeral();
     case "buscar_oportunidades":
-      return await buscarOportunidades(input);
+      return await buscarOportunidades({ ...filtroCarteira, ...input });
     case "buscar_pipeline":
       return await buscarPipeline();
     case "buscar_empresas":
       return await buscarEmpresas(input);
     case "buscar_tarefas":
-      return await buscarTarefas(input);
+      return await buscarTarefas({ ...filtroCarteira, ...input });
     case "buscar_propostas":
       return await buscarPropostas(input);
+    case "buscar_pessoas":
+      return await buscarPessoas(input);
+    case "buscar_atividades":
+      return await buscarAtividades(input);
     case "buscar_origem_leads":
       return await buscarOrigemLeads();
     case "buscar_equipamentos":
@@ -230,8 +347,15 @@ async function executarFerramenta(nome: string, input: Record<string, any>): Pro
     case "gerar_relatorio":
       return await gerarRelatorio(input as any);
     case "criar_tarefa":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await criarTarefa(input as any);
+      return await criarTarefa({ ...input, responsavelId: input.responsavelId ?? ctx.usuarioId } as any);
+    case "atualizar_etapa_oportunidade":
+      return await atualizarEtapaOportunidade(input as any);
+    case "alterar_responsavel":
+      return await alterarResponsavel(input as any);
+    case "agendar_visita":
+      return await agendarVisita({ ...input, responsavelId: ctx.usuarioId } as any);
+    case "criar_lembrete":
+      return await criarLembrete(input as any);
     default:
       return { erro: `Ferramenta desconhecida: ${nome}` };
   }
@@ -245,6 +369,16 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
+
+  // Contexto do usuário para permissões
+  const usuarioDB = session.user.email
+    ? await buscarUsuarioPorEmail(session.user.email)
+    : null;
+  const ctx = {
+    usuarioId: usuarioDB?.id,
+    papel: usuarioDB?.papel ?? "COMERCIAL",
+    nomeUsuario: usuarioDB?.nome ?? session.user.name ?? "Usuário",
+  };
 
   let body: { mensagem: string; historico?: Array<{ role: string; content: string }> };
   try {
@@ -274,10 +408,22 @@ export async function POST(req: NextRequest) {
 
     // Agentic loop — Claude pode chamar múltiplas ferramentas
     while (continuar) {
+      const systemPromptComContexto = `${CRM_IA_SYSTEM_PROMPT}
+
+---
+CONTEXTO DO USUÁRIO ATUAL:
+Nome: ${ctx.nomeUsuario}
+Papel: ${ctx.papel}
+ID: ${ctx.usuarioId ?? "desconhecido"}
+${ctx.papel === "COMERCIAL" ? "ATENÇÃO: Este usuário é COMERCIAL — mostre apenas dados da carteira dele." : ""}
+${ctx.papel === "GERENTE" ? "Este usuário é GERENTE — pode ver todos os dados comerciais." : ""}
+${ctx.papel === "ADMIN" ? "Este usuário é ADMIN — acesso total a todos os dados." : ""}
+---`;
+
       const response = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 1024,
-        system: CRM_IA_SYSTEM_PROMPT,
+        system: systemPromptComContexto,
         tools: ferramentas as any,
         messages,
       });
@@ -288,7 +434,7 @@ export async function POST(req: NextRequest) {
         const toolResults: any[] = [];
 
         for (const block of toolUseBlocks as any[]) {
-          const resultado = await executarFerramenta(block.name, block.input);
+          const resultado = await executarFerramenta(block.name, block.input, ctx);
           // Captura dados de relatório para retornar ao frontend
           if (block.name === "gerar_relatorio") {
             relatorioData = resultado;

@@ -862,6 +862,60 @@ export async function gerarRelatorio({
       };
     }
 
+    case "lista_contatos": {
+      const pessoas = await prisma.pessoa.findMany({
+        where: { ativa: true },
+        include: {
+          empresa: { select: { razaoSocial: true, cidade: true, estado: true } },
+          historicos: {
+            orderBy: { dataContato: "desc" },
+            take: 1,
+            select: { dataContato: true, tipo: true },
+          },
+        },
+        orderBy: { nome: "asc" },
+        take: 100,
+      });
+      const colunas = ["Nome", "Cargo", "Empresa", "Telefone / WhatsApp", "E-mail", "Último Contato"];
+      const tabela = pessoas.map((p) => [
+        p.nome,
+        p.cargo ?? "—",
+        p.empresa?.razaoSocial ?? "—",
+        p.whatsapp ?? p.telefone ?? "—",
+        p.email ?? "—",
+        p.historicos[0]?.dataContato
+          ? new Date(p.historicos[0].dataContato).toLocaleDateString("pt-BR")
+          : "Sem registro",
+      ]);
+      // Gráfico de contatos por tipo de influência (apenas para o PDF)
+      const porTipo: Record<string, number> = {};
+      pessoas.forEach((p) => {
+        const t = p.tipo ?? "Não classificado";
+        porTipo[t] = (porTipo[t] ?? 0) + 1;
+      });
+      const labels = Object.keys(porTipo);
+      const data = Object.values(porTipo);
+      return {
+        titulo: titulo ?? "Lista de Contatos — Nome, Cargo e Telefone",
+        tipoGrafico: "doughnut",
+        labels,
+        datasets: [{ label: "Contatos", data, backgroundColor: gerarCores(labels.length) }],
+        descricao: `${pessoas.length} contatos cadastrados no CRM`,
+        colunas,
+        tabela,
+        conclusoes: [
+          `Total de ${pessoas.length} contatos ativos no CRM.`,
+          `${pessoas.filter((p) => p.whatsapp || p.telefone).length} possuem telefone/WhatsApp registrado.`,
+          `${pessoas.filter((p) => p.email).length} possuem e-mail cadastrado.`,
+        ],
+        recomendacoes: [
+          "Mantenha os telefones sempre atualizados para agilizar o contato.",
+          "Registre o histórico de cada interação para rastrear o relacionamento.",
+        ],
+        tipoSaida: (tipoSaida as any) ?? "excel",
+      };
+    }
+
     default:
       return {
         titulo: titulo ?? "Relatório",

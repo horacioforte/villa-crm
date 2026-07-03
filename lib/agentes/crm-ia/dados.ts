@@ -47,11 +47,13 @@ export async function buscarOportunidades({
   status,
   canalOrigem,
   tipoServico,
+  responsavelId,
   limite = 20,
 }: {
   status?: string;
   canalOrigem?: string;
   tipoServico?: string;
+  responsavelId?: string;
   limite?: number;
 } = {}) {
   const oportunidades = await prisma.oportunidade.findMany({
@@ -60,6 +62,7 @@ export async function buscarOportunidades({
       ...(status ? { status: status as any } : {}),
       ...(canalOrigem ? { canalOrigem: canalOrigem as any } : {}),
       ...(tipoServico ? { tipoServico: tipoServico as any } : {}),
+      ...(responsavelId ? { responsavelId } : {}),
     },
     include: {
       empresa: { select: { razaoSocial: true, cidade: true, estado: true } },
@@ -144,15 +147,23 @@ export async function buscarEmpresas({
 
 export async function buscarTarefas({
   status,
+  responsavelId,
   limite = 20,
 }: {
   status?: string;
+  responsavelId?: string;
   limite?: number;
 } = {}) {
+  const where: Record<string, any> = {};
+  if (status) {
+    where.status = status as any;
+  } else {
+    where.status = { in: ["PENDENTE", "EM_ANDAMENTO", "ATRASADA"] };
+  }
+  if (responsavelId) where.responsavelId = responsavelId;
+
   const tarefas = await prisma.tarefa.findMany({
-    where: {
-      ...(status ? { status: status as any } : { status: { in: ["PENDENTE", "EM_ANDAMENTO", "ATRASADA"] } }),
-    },
+    where,
     include: {
       empresa: { select: { razaoSocial: true } },
       oportunidade: { select: { titulo: true } },
@@ -179,23 +190,33 @@ export async function buscarTarefas({
 
 export async function buscarPropostas({
   status,
+  diasParadaMinima,
   limite = 20,
 }: {
   status?: string;
+  diasParadaMinima?: number;
   limite?: number;
 } = {}) {
+  const where: Record<string, any> = {};
+  if (status) where.status = status as any;
+  if (diasParadaMinima) {
+    const corte = new Date(Date.now() - diasParadaMinima * 24 * 60 * 60 * 1000);
+    where.updatedAt = { lt: corte };
+  }
+
+  const agora = Date.now();
   const propostas = await prisma.propostaComercial.findMany({
-    where: {
-      ...(status ? { status: status as any } : {}),
-    },
+    where,
     include: {
       oportunidade: {
         include: {
           empresa: { select: { razaoSocial: true, estado: true } },
+          pessoa: { select: { nome: true, telefone: true, whatsapp: true } },
+          responsavel: { select: { nome: true } },
         },
       },
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { updatedAt: "asc" },
     take: limite,
   });
 
@@ -204,9 +225,18 @@ export async function buscarPropostas({
     numero: p.numeroProposta,
     versao: p.versao,
     status: p.status,
+    valorTotal: p.valorTotal,
+    validade: p.validadeProposta,
+    validadeVencida: new Date(p.validadeProposta) < new Date(),
+    diasParada: Math.floor((agora - new Date(p.updatedAt).getTime()) / 86400000),
     empresa: p.oportunidade?.empresa?.razaoSocial,
     estado: p.oportunidade?.empresa?.estado,
+    contato: p.oportunidade?.pessoa?.nome,
+    contatoTelefone: p.oportunidade?.pessoa?.whatsapp ?? p.oportunidade?.pessoa?.telefone,
+    responsavel: p.oportunidade?.responsavel?.nome,
+    templateUtilizado: p.templateUtilizado,
     criadaEm: p.createdAt,
+    atualizadaEm: p.updatedAt,
   }));
 }
 
@@ -290,6 +320,233 @@ export async function criarTarefa({
   });
 
   return tarefa;
+}
+
+// ─── Buscar Usuário por Email (para permissões) ───────────────────────────────
+
+export async function buscarUsuarioPorEmail(email: string) {
+  return prisma.usuario.findUnique({
+    where: { email },
+    select: { id: true, papel: true, nome: true },
+  });
+}
+
+// ─── Pessoas (Contatos) ────────────────────────────────────────────────────────
+
+export async function buscarPessoas({
+  nome,
+  empresaNome,
+  cargo,
+  telefone,
+  limite = 20,
+}: {
+  nome?: string;
+  empresaNome?: string;
+  cargo?: string;
+  telefone?: string;
+  limite?: number;
+} = {}) {
+  const pessoas = await prisma.pessoa.findMany({
+    where: {
+      ativa: true,
+      ...(nome ? { nome: { contains: nome, mode: "insensitive" } } : {}),
+      ...(cargo ? { cargo: { contains: cargo, mode: "insensitive" } } : {}),
+      ...(telefone
+        ? { OR: [{ telefone: { contains: telefone } }, { whatsapp: { contains: telefone } }] }
+        : {}),
+      ...(empresaNome
+        ? { empresa: { razaoSocial: { contains: empresaNome, mode: "insensitive" } } }
+        : {}),
+    },
+    include: {
+      empresa: { select: { razaoSocial: true, cidade: true, estado: true } },
+      historicos: {
+        orderBy: { dataContato: "desc" },
+        take: 1,
+        select: { dataContato: true, tipo: true, resumo: true },
+      },
+    },
+    orderBy: { nome: "asc" },
+    take: limite,
+  });
+
+  return pessoas.map((p) => ({
+    id: p.id,
+    nome: p.nome,
+    cargo: p.cargo,
+    email: p.email,
+    telefone: p.telefone,
+    whatsapp: p.whatsapp,
+    tipo: p.tipo,
+    influencia: p.influenciaDecisao,
+    relacionamento: p.nivelRelacionamento,
+    empresa: p.empresa?.razaoSocial,
+    cidade: p.empresa?.cidade,
+    estado: p.empresa?.estado,
+    ultimoContato: p.historicos[0]?.dataContato ?? null,
+    ultimoContatoTipo: p.historicos[0]?.tipo ?? null,
+    ultimoContatoResumo: p.historicos[0]?.resumo ?? null,
+  }));
+}
+
+// ─── Atividades (Histórico de Contato) ───────────────────────────────────────
+
+export async function buscarAtividades({
+  empresaId,
+  oportunidadeId,
+  pessoaId,
+  tipo,
+  diasAtras = 30,
+  limite = 20,
+}: {
+  empresaId?: string;
+  oportunidadeId?: string;
+  pessoaId?: string;
+  tipo?: string;
+  diasAtras?: number;
+  limite?: number;
+} = {}) {
+  const dataInicio = new Date(Date.now() - diasAtras * 24 * 60 * 60 * 1000);
+
+  const historicos = await prisma.historicoContato.findMany({
+    where: {
+      dataContato: { gte: dataInicio },
+      ...(empresaId ? { empresaId } : {}),
+      ...(oportunidadeId ? { oportunidadeId } : {}),
+      ...(pessoaId ? { pessoaId } : {}),
+      ...(tipo ? { tipo: tipo as any } : {}),
+    },
+    include: {
+      empresa: { select: { razaoSocial: true } },
+      oportunidade: { select: { titulo: true } },
+      pessoa: { select: { nome: true } },
+      usuario: { select: { nome: true } },
+    },
+    orderBy: { dataContato: "desc" },
+    take: limite,
+  });
+
+  return historicos.map((h) => ({
+    id: h.id,
+    tipo: h.tipo,
+    resumo: h.resumo,
+    detalhes: h.detalhes,
+    data: h.dataContato,
+    proximoContato: h.proximoContato,
+    empresa: h.empresa?.razaoSocial,
+    oportunidade: h.oportunidade?.titulo,
+    pessoa: h.pessoa?.nome,
+    realizadoPor: h.usuario?.nome,
+  }));
+}
+
+// ─── Atualizar Etapa da Oportunidade ─────────────────────────────────────────
+
+export async function atualizarEtapaOportunidade({
+  oportunidadeId,
+  novoStatus,
+  motivo,
+}: {
+  oportunidadeId: string;
+  novoStatus: string;
+  motivo?: string;
+}) {
+  const atualizada = await prisma.oportunidade.update({
+    where: { id: oportunidadeId },
+    data: {
+      status: novoStatus as any,
+      ...(motivo && novoStatus === "PERDIDA" ? { motivoPerda: motivo } : {}),
+      ...(novoStatus === "GANHA" ? { fechadaEm: new Date() } : {}),
+    },
+    select: { id: true, titulo: true, status: true },
+  });
+  return atualizada;
+}
+
+// ─── Alterar Responsável ──────────────────────────────────────────────────────
+
+export async function alterarResponsavel({
+  oportunidadeId,
+  responsavelId,
+}: {
+  oportunidadeId: string;
+  responsavelId: string;
+}) {
+  const atualizada = await prisma.oportunidade.update({
+    where: { id: oportunidadeId },
+    data: { responsavelId },
+    include: { responsavel: { select: { nome: true } } },
+  });
+  return {
+    id: atualizada.id,
+    titulo: atualizada.titulo,
+    novoResponsavel: atualizada.responsavel?.nome,
+  };
+}
+
+// ─── Agendar Visita ───────────────────────────────────────────────────────────
+
+export async function agendarVisita({
+  titulo,
+  descricao,
+  dataHora,
+  empresaId,
+  oportunidadeId,
+  pessoaId,
+}: {
+  titulo: string;
+  descricao?: string;
+  dataHora: string;
+  empresaId?: string;
+  oportunidadeId?: string;
+  pessoaId?: string;
+}) {
+  const tarefa = await prisma.tarefa.create({
+    data: {
+      titulo,
+      descricao: descricao ?? null,
+      tipo: "VISITA",
+      prioridade: "ALTA",
+      status: "PENDENTE",
+      dataVencimento: new Date(dataHora),
+      empresaId: empresaId ?? null,
+      oportunidadeId: oportunidadeId ?? null,
+      pessoaId: pessoaId ?? null,
+    },
+    select: { id: true, titulo: true, dataVencimento: true },
+  });
+  return tarefa;
+}
+
+// ─── Criar Lembrete ───────────────────────────────────────────────────────────
+
+export async function criarLembrete({
+  titulo,
+  descricao,
+  dataHora,
+  empresaId,
+  oportunidadeId,
+}: {
+  titulo: string;
+  descricao?: string;
+  dataHora: string;
+  empresaId?: string;
+  oportunidadeId?: string;
+}) {
+  const lembrete = await prisma.tarefa.create({
+    data: {
+      titulo,
+      descricao: descricao ?? null,
+      tipo: "TAREFA_INTERNA",
+      prioridade: "MEDIA",
+      status: "PENDENTE",
+      dataVencimento: new Date(dataHora),
+      empresaId: empresaId ?? null,
+      oportunidadeId: oportunidadeId ?? null,
+    },
+    select: { id: true, titulo: true, dataVencimento: true },
+  });
+  return lembrete;
 }
 
 // ─── Gerar Relatório Visual ───────────────────────────────────────────────────

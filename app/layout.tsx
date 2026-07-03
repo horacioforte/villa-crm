@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Montserrat, Open_Sans } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
+import { CrmIaChat } from "@/components/crm-ia/CrmIaChat";
 
 import "./globals.css";
 
@@ -36,6 +37,7 @@ export default function RootLayout({
       <body className="min-h-full">
         {children}
         <Toaster richColors position="top-right" />
+        <CrmIaChat />
       </body>
     </html>
   );

@@ -30,18 +30,42 @@ type Mensagem = {
 };
 
 export function CrmIaChat() {
+  // Detecta se é o primeiro acesso do dia para o modo recepção
+  const hoje = new Date().toISOString().split("T")[0];
+  const [modoRecepcao, setModoRecepcao] = useState(false);
   const [aberto, setAberto] = useState(false);
   const [mensagens, setMensagens] = useState<Mensagem[]>([
     {
       role: "assistant",
       content:
-        "Olá! Sou o **CRM IA**, seu assistente inteligente.\n\nPosso analisar dados, gerar relatórios em PDF, planilhas Excel e apresentações PowerPoint. O que você precisa?",
+        "Olá! Sou o **CRM IA**, seu assistente inteligente.\n\nPosso analisar dados, consultar contatos, histórico de atividades, gerar relatórios e executar ações no CRM. O que você precisa?",
     },
   ]);
   const [input, setInput] = useState("");
   const [carregando, setCarregando] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const primeiraAberturaRef = useRef(false);
+
+  // Inicializa modo recepção (primeiro acesso do dia)
+  useEffect(() => {
+    const ultimoBriefing = localStorage.getItem("crm-ia-briefing-date");
+    if (ultimoBriefing !== hoje) {
+      setModoRecepcao(true);
+    }
+  }, [hoje]);
+
+  // Ao abrir pela primeira vez no dia: auto-envia briefing
+  useEffect(() => {
+    if (aberto && modoRecepcao && !primeiraAberturaRef.current) {
+      primeiraAberturaRef.current = true;
+      localStorage.setItem("crm-ia-briefing-date", hoje);
+      setModoRecepcao(false);
+      const timer = setTimeout(() => enviar("Briefing do dia"), 600);
+      return () => clearTimeout(timer);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aberto]);
 
   useEffect(() => {
     if (aberto) {
@@ -176,7 +200,7 @@ export function CrmIaChat() {
             <h2>Dados do Relatório</h2>
             <table>
               <thead><tr><th>Categoria</th>${rel.datasets.map((d) => `<th>${d.label}</th>`).join("")}</tr></thead>
-              <tbody>${rel.labels.map((label, i) => `<tr><td><strong>${label}</strong></td>${rel.datasets.map((d) => `<td>${(d.data[i] ?? 0).toLocaleString("pt-BR")}</td>`).join("")}</tr>`).join("")}
+              <tbody>${rel.labels.map((label, i) => `<tr><td><strong>${label}</strong></td>${rel.datasets.map((d) => `<td>$x(d.data[i] ?? 0).toLocaleString("pt-BR")}</td>`).join("")}</tr>`).join("")}
               <tr class="total-row"><td><strong>Total</strong></td>${rel.datasets.map((d) => `<td><strong>${d.data.reduce((a, b) => a + b, 0).toLocaleString("pt-BR")}</strong></td>`).join("")}</tr>
               </tbody>
             </table>
@@ -535,8 +559,12 @@ export function CrmIaChat() {
 
   const sugestoesRapidas = [
     "Briefing do dia",
+    "Propostas paradas",
+    "Buscar contatos",
     "Gerar PDF do pipeline",
+    "Atividades desta semana",
     "Gerar Excel de oportunidades",
+    "Clientes sem contato",
     "PowerPoint para reunião",
   ];
 
@@ -557,8 +585,8 @@ export function CrmIaChat() {
       {/* Painel do chat */}
       {aberto && (
         <div
-          className="fixed bottom-6 right-6 z-50 flex w-[390px] flex-col rounded-2xl border border-[#D7DEEA] bg-white shadow-2xl"
-          style={{ maxHeight: "min(600px, calc(100vh - 48px))" }}
+          className={`fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl border border-[#D7DEEA] bg-white shadow-2xl transition-all duration-300 ${modoRecepcao ? "w-[520px]" : "w-[390px]"}`}
+          style={{ maxHeight: "min(680px, calc(100vh - 48px))" }}
         >
           {/* Header */}
           <div className="flex items-center justify-between rounded-t-2xl bg-[#1A2E5A] px-4 py-3">
@@ -568,7 +596,7 @@ export function CrmIaChat() {
               </div>
               <div>
                 <p className="text-sm font-bold text-white">CRM IA</p>
-                <p className="text-[10px] text-blue-200">PDF · Excel · PowerPoint · Análise</p>
+                <p className="text-[10px] text-blue-200">Análise · PDF · Excel · PowerPoint · Ações</p>
               </div>
             </div>
             <button
@@ -611,7 +639,7 @@ export function CrmIaChat() {
                           onClick={() => abrirRelatorio(msg.relatorio!)}
                           className="flex items-center gap-1.5 rounded-lg bg-[#1A2E5A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1E4FAB] transition"
                         >
-                          <span>🍊</span>
+                          <span>📊</span>
                           <span>PDF com Gráfico</span>
                         </button>
                         <button
@@ -625,7 +653,7 @@ export function CrmIaChat() {
                           onClick={() => baixarPowerPoint(msg.relatorio!)}
                           className="flex items-center gap-1.5 rounded-lg bg-[#9A3412] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#C2410C] transition"
                         >
-                          <span>📑</span>
+                          <span>🔑</span>
                           <span>PowerPoint</span>
                         </button>
                       </div>

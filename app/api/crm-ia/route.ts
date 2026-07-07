@@ -250,7 +250,7 @@ const ferramentas = [
   },
   {
     name: "gerar_relatorio",
-    description: "Gera dados para relatório visual. Suporta PDF com gráfico, planilha Excel (.xlsx) e apresentação PowerPoint (.pptx). Use SEMPRE que o usuário pedir gráfico, PDF, Excel, planilha, PowerPoint, apresentação ou exportação de dados.",
+    description: "Gera dados para relatório visual. Suporta PDF com gráfico, planilha Excel (.xlsx) e apresentação PowerPoint (.pptx). Use SEMPRE quando o usuário pedir gráfico, PDF, Excel, planilha, PowerPoint, apresentação ou exportação de dados.",
     input_schema: {
       type: "object",
       properties: {
@@ -267,8 +267,9 @@ const ferramentas = [
             "propostas_paradas",
             "clientes_sem_contato",
             "resumo_executivo",
+            "lista_contatos",
           ],
-          description: "Tipo de relatório. Use 'resumo_executivo' para BI completo, 'propostas_paradas' para follow-up, 'clientes_sem_contato' para reengajamento, 'tarefas_pendentes' para gestão de atividades.",
+          description: "Tipo de relatório. Use 'lista_contatos' para exportar contatos/pessoas com nome, cargo, telefone, e-mail e empresa. Use 'resumo_executivo' para BI completo, 'propostas_paradas' para follow-up, 'clientes_sem_contato' para reengajamento, 'tarefas_pendentes' para gestão de atividades.",
         },
         titulo: {
           type: "string",

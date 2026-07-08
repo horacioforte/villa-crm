@@ -3,6 +3,7 @@
 // Funções de consulta ao banco de dados para o CRM IA.
 
 import { prisma } from "@/lib/prisma";
+import { auditLog } from "@/lib/audit";
 
 // ─── Resumo Geral ─────────────────────────────────────────────────────────────
 
@@ -446,11 +447,18 @@ export async function atualizarEtapaOportunidade({
   oportunidadeId,
   novoStatus,
   motivo,
+  usuarioId,
 }: {
   oportunidadeId: string;
   novoStatus: string;
   motivo?: string;
+  usuarioId?: string;
 }) {
+  const before = await prisma.oportunidade.findUnique({
+    where: { id: oportunidadeId },
+    select: { id: true, titulo: true, status: true, motivoPerda: true },
+  });
+
   const atualizada = await prisma.oportunidade.update({
     where: { id: oportunidadeId },
     data: {
@@ -458,8 +466,22 @@ export async function atualizarEtapaOportunidade({
       ...(motivo && novoStatus === "PERDIDA" ? { motivoPerda: motivo } : {}),
       ...(novoStatus === "GANHA" ? { fechadaEm: new Date() } : {}),
     },
-    select: { id: true, titulo: true, status: true },
+    select: { id: true, titulo: true, status: true, motivoPerda: true },
   });
+
+  await auditLog({
+    action:
+      before?.status !== atualizada.status
+        ? "OPORTUNIDADE_STATUS_CHANGED"
+        : "OPORTUNIDADE_UPDATED",
+    entity: "Oportunidade",
+    entityId: atualizada.id,
+    before,
+    after: atualizada,
+    userId: usuarioId ?? null,
+    metadata: { origem: "CRM_IA" },
+  });
+
   return atualizada;
 }
 
@@ -468,15 +490,38 @@ export async function atualizarEtapaOportunidade({
 export async function alterarResponsavel({
   oportunidadeId,
   responsavelId,
+  usuarioId,
 }: {
   oportunidadeId: string;
   responsavelId: string;
+  usuarioId?: string;
 }) {
+  const before = await prisma.oportunidade.findUnique({
+    where: { id: oportunidadeId },
+    select: { id: true, titulo: true, responsavelId: true, responsavel: { select: { nome: true } } },
+  });
+
   const atualizada = await prisma.oportunidade.update({
     where: { id: oportunidadeId },
     data: { responsavelId },
     include: { responsavel: { select: { nome: true } } },
   });
+
+  await auditLog({
+    action: "OPORTUNIDADE_RESPONSAVEL_ALTERADO",
+    entity: "Oportunidade",
+    entityId: atualizada.id,
+    before,
+    after: {
+      id: atualizada.id,
+      titulo: atualizada.titulo,
+      responsavelId: atualizada.responsavelId,
+      responsavel: atualizada.responsavel,
+    },
+    userId: usuarioId ?? null,
+    metadata: { origem: "CRM_IA" },
+  });
+
   return {
     id: atualizada.id,
     titulo: atualizada.titulo,

@@ -350,9 +350,9 @@ async function executarFerramenta(
     case "criar_tarefa":
       return await criarTarefa({ ...input, responsavelId: input.responsavelId ?? ctx.usuarioId } as any);
     case "atualizar_etapa_oportunidade":
-      return await atualizarEtapaOportunidade(input as any);
+      return await atualizarEtapaOportunidade({ ...input, usuarioId: ctx.usuarioId } as any);
     case "alterar_responsavel":
-      return await alterarResponsavel(input as any);
+      return await alterarResponsavel({ ...input, usuarioId: ctx.usuarioId } as any);
     case "agendar_visita":
       return await agendarVisita({ ...input, responsavelId: ctx.usuarioId } as any);
     case "criar_lembrete":

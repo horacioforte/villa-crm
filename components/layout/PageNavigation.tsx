@@ -11,6 +11,7 @@ import {
   ChartNoAxesCombined,
   ClipboardList,
   HardHat,
+  History,
   MessageCircle,
   MessageSquarePlus,
   Truck,
@@ -35,6 +36,12 @@ const menuItems = [
   { label: "Usuarios", href: "/usuarios", icon: UserCog },
   { label: "Campanhas", href: "/campanhas", icon: Bot },
   { label: "Agentes", href: "/admin/agentes", icon: Bot, adminOnly: true },
+  {
+    label: "Auditoria do Pipeline",
+    href: "/auditoria/pipeline",
+    icon: History,
+    visibleRoles: ["ADMIN", "GERENTE"],
+  },
 ];
 
 type PageNavigationProps = {
@@ -48,6 +55,7 @@ export function PageNavigation({
 }: PageNavigationProps) {
   const [tarefasAtrasadas, setTarefasAtrasadas] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [papel, setPapel] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadTarefasAtrasadas() {
@@ -72,6 +80,7 @@ export function PageNavigation({
 
       const session = await response.json();
       setIsAdmin(session?.user?.papel === "ADMIN");
+      setPapel(session?.user?.papel ?? null);
     }
 
     loadSession();
@@ -101,6 +110,10 @@ export function PageNavigation({
         <nav className="flex flex-wrap gap-2" aria-label="Menu principal">
           {menuItems
             .filter((item) => !item.adminOnly || isAdmin)
+            .filter(
+              (item) =>
+                !item.visibleRoles || (papel && item.visibleRoles.includes(papel)),
+            )
             .map((item) => {
               const isActive =
                 currentHref === item.href ||

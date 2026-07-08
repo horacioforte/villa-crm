@@ -201,9 +201,9 @@ export async function buscarPropostas({
 
   return propostas.map((p) => ({
     id: p.id,
-    numero: p.numero,
+    numero: p.numeroProposta,
+    versao: p.versao,
     status: p.status,
-    tipo: p.tipo,
     empresa: p.oportunidade?.empresa?.razaoSocial,
     estado: p.oportunidade?.empresa?.estado,
     criadaEm: p.createdAt,
@@ -281,7 +281,7 @@ export async function criarTarefa({
       tipo: tipo as any,
       prioridade: (prioridade as any) ?? "MEDIA",
       status: "PENDENTE",
-      dataVencimento: dataVencimento ? new Date(dataVencimento) : null,
+      dataVencimento: dataVencimento ? new Date(dataVencimento) : new Date(Date.now() + 86400000),
       empresaId: empresaId ?? null,
       oportunidadeId: oportunidadeId ?? null,
       pessoaId: pessoaId ?? null,

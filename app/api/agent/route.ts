@@ -69,6 +69,10 @@ export async function POST(req: NextRequest) {
       cidade?: string;
       estado?: string;
       observacoes?: string;
+      // Campos ampliados — Briefing Radar João (jul/2026)
+      clienteFinal?: string;
+      empresasExecutoras?: string;
+      contatosPublicos?: string;
     };
     obra: {
       nome: string;
@@ -76,6 +80,11 @@ export async function POST(req: NextRequest) {
       cidade?: string;
       estado?: string;
       volumeEstimado?: number;
+      // Campos ampliados — Briefing Radar João (jul/2026)
+      faseObra?: string;
+      fonteInformacao?: string;
+      linkNoticia?: string;
+      dataDescoberta?: string;
     };
     oportunidade: {
       titulo: string;
@@ -83,6 +92,11 @@ export async function POST(req: NextRequest) {
       tipoServico?: TipoServico;
       potencialOportunidade?: number;
       temperatura?: TemperaturaOportunidade;
+      // Campos ampliados — Briefing Radar João (jul/2026)
+      potencialUsoEquipamentos?: string;
+      equipamentosRecomendados?: string;
+      prioridade?: "alta" | "média" | "media" | "baixa";
+      proximaAcaoComercial?: string;
     };
     pessoa?: {
       nome: string;
@@ -134,9 +148,15 @@ export async function POST(req: NextRequest) {
           site: empresa.site ?? null,
           cidade: empresa.cidade ?? null,
           estado: empresa.estado ?? null,
-          observacoes: `Origem: ${origem}${
-            empresa.observacoes ? `\n${empresa.observacoes}` : ""
-          }`,
+          observacoes: [
+            `Origem: ${origem}`,
+            empresa.observacoes ?? null,
+            empresa.clienteFinal ? `Cliente final: ${empresa.clienteFinal}` : null,
+            empresa.empresasExecutoras ? `Executoras: ${empresa.empresasExecutoras}` : null,
+            empresa.contatosPublicos ? `Contatos públicos: ${empresa.contatosPublicos}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n"),
           ativa: true,
         },
       });
@@ -163,7 +183,15 @@ export async function POST(req: NextRequest) {
       obraRecord = await prisma.obra.create({
         data: {
           nome: obra.nome,
-          descricao: obra.descricao ?? null,
+          descricao: [
+            obra.descricao ?? null,
+            obra.faseObra ? `Fase: ${obra.faseObra}` : null,
+            obra.fonteInformacao ? `Fonte: ${obra.fonteInformacao}` : null,
+            obra.linkNoticia ? `Link: ${obra.linkNoticia}` : null,
+            obra.dataDescoberta ? `Descoberta em: ${obra.dataDescoberta}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n") || null,
           cidade: obra.cidade ?? null,
           estado: obra.estado ?? null,
           volumeEstimado: obra.volumeEstimado ? String(obra.volumeEstimado) : null,
@@ -225,7 +253,21 @@ export async function POST(req: NextRequest) {
     const oportunidadeRecord = await prisma.oportunidade.create({
       data: {
         titulo: oportunidade.titulo,
-        descricao: `${oportunidade.descricao ?? ""}\n\n📡 ${origem}`.trim(),
+        descricao: [
+            oportunidade.descricao ?? null,
+            oportunidade.potencialUsoEquipamentos
+              ? `Potencial de uso: ${oportunidade.potencialUsoEquipamentos}`
+              : null,
+            oportunidade.equipamentosRecomendados
+              ? `Equipamentos recomendados: ${oportunidade.equipamentosRecomendados}`
+              : null,
+            oportunidade.proximaAcaoComercial
+              ? `Próxima ação: ${oportunidade.proximaAcaoComercial}`
+              : null,
+            `📡 ${origem}`,
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
         tipo: TipoOperacao.LOCACAO,
         tipoServico: oportunidade.tipoServico ?? null,
         status: StatusOportunidade.NOVA,
@@ -255,19 +297,33 @@ export async function POST(req: NextRequest) {
     amanha.setDate(amanha.getDate() + 1);
     amanha.setHours(9, 0, 0, 0);
 
+    // Mapeia prioridade do briefing → PrioridadeTarefa (fallback: temperatura da oportunidade)
+    const prioridadeTarefa: PrioridadeTarefa = (() => {
+      const p = oportunidade.prioridade?.toLowerCase();
+      if (p === "alta") return PrioridadeTarefa.ALTA;
+      if (p === "baixa") return PrioridadeTarefa.BAIXA;
+      if (p === "média" || p === "media") return PrioridadeTarefa.MEDIA;
+      return oportunidade.temperatura === TemperaturaOportunidade.QUENTE
+        ? PrioridadeTarefa.ALTA
+        : PrioridadeTarefa.MEDIA;
+    })();
+
+    const tituloTarefa = oportunidade.proximaAcaoComercial
+      ? `${oportunidade.proximaAcaoComercial} — ${oportunidade.titulo}`
+      : `Primeiro contato — ${oportunidade.titulo}`;
+
+    const descricaoTarefa = pessoaRecord
+      ? `Decisor identificado: ${pessoaRecord.nome}${
+          pessoaRecord.cargo ? ` (${pessoaRecord.cargo})` : ""
+        }. Lead gerado pelo ${origem}.`
+      : `Decisor ainda não identificado. Pesquisar antes do contato. Lead gerado pelo ${origem}.`;
+
     await prisma.tarefa.create({
       data: {
-        titulo: `Primeiro contato — ${oportunidade.titulo}`,
-        descricao: pessoaRecord
-          ? `Decisor identificado: ${pessoaRecord.nome}${
-              pessoaRecord.cargo ? ` (${pessoaRecord.cargo})` : ""
-            }. Lead gerado pelo ${origem}.`
-          : `Decisor ainda não identificado. Pesquisar antes do contato. Lead gerado pelo ${origem}.`,
+        titulo: tituloTarefa,
+        descricao: descricaoTarefa,
         tipo: pessoaRecord?.whatsapp ? TipoAtividade.WHATSAPP : TipoAtividade.EMAIL,
-        prioridade:
-          oportunidade.temperatura === TemperaturaOportunidade.QUENTE
-            ? PrioridadeTarefa.ALTA
-            : PrioridadeTarefa.MEDIA,
+        prioridade: prioridadeTarefa,
         status: StatusTarefa.PENDENTE,
         dataVencimento: amanha,
         oportunidadeId: oportunidadeRecord.id,

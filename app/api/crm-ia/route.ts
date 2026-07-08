@@ -4,9 +4,8 @@
 // Autenticado via NextAuth session (usuário logado no CRM).
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/auth";
 import { CRM_IA_SYSTEM_PROMPT } from "@/lib/agentes/crm-ia/prompt";
 import {
   resumoGeral,
@@ -193,7 +192,8 @@ async function executarFerramenta(nome: string, input: Record<string, any>): Pro
     case "buscar_equipamentos":
       return await buscarEquipamentos(input);
     case "criar_tarefa":
-      return await criarTarefa(input);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return await criarTarefa(input as any);
     default:
       return { erro: `Ferramenta desconhecida: ${nome}` };
   }
@@ -202,8 +202,8 @@ async function executarFerramenta(nome: string, input: Record<string, any>): Pro
 // ─── POST — processar mensagem ────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  // Autenticação via session
-  const session = await getServerSession(authOptions);
+  // Autenticação via session (Auth.js v5)
+  const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
@@ -262,8 +262,10 @@ export async function POST(req: NextRequest) {
         messages.push({ role: "user", content: toolResults });
       } else {
         // Resposta final em texto
-        const textBlock = response.content.find((b: any) => b.type === "text");
-        resposta = textBlock?.text ?? "Desculpe, não consegui processar sua solicitação.";
+        const textBlock = response.content.find((b) => b.type === "text");
+        resposta = textBlock && "text" in textBlock
+          ? (textBlock as { text: string }).text
+          : "Desculpe, não consegui processar sua solicitação.";
         continuar = false;
       }
     }

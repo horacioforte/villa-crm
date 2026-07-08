@@ -3,8 +3,8 @@
 // Detalhe e atualização de um Dossiê Comercial.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+
+import { requireAuth } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
 
@@ -14,8 +14,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  const authResult = await requireAuth(_req);
+  if (authResult instanceof NextResponse) return authResult;
 
   const dossie = await prisma.dossieComercial.findUnique({
     where: { id: params.id },
@@ -41,8 +41,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  const authResult = await requireAuth(req);
+  if (authResult instanceof NextResponse) return authResult;
 
   const dossieAtual = await prisma.dossieComercial.findUnique({
     where: { id: params.id },
@@ -89,9 +89,9 @@ export async function PATCH(
       dossieId: params.id,
       tipo:     "CAMPO_ATUALIZADO",
       titulo:   "Dossiê atualizado via CRM",
-      conteudo: `Campos atualizados manualmente por ${session.user?.name ?? "usuário"}.`,
+      conteudo: `Campos atualizados manualmente por ${authResult.nome ?? "usuário"}.`,
       agente:   "manual",
-      usuarioId: (session.user as { id?: string })?.id ?? null,
+      usuarioId: authResult.id ?? null,
     },
   });
 

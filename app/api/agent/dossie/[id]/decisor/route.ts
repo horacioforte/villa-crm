@@ -45,7 +45,7 @@ export async function POST(
 
   // Evita duplicata pelo nome
   const jaExiste = dossie.decisores.find(
-    d => d.nome?.toLowerCase() === body.nome.toLowerCase()
+    (d: { nome: string | null }) => d.nome?.toLowerCase() === body.nome.toLowerCase()
   );
   if (jaExiste) {
     return NextResponse.json({ sucesso: false, mensagem: "Decisor com esse nome já existe no dossiê." });

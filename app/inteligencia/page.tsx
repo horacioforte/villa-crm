@@ -217,8 +217,8 @@ export default function CentralInteligenciaPage() {
   return (
     <div className="flex flex-col h-screen bg-slate-50">
       <PageNavigation
-        title="Central de Inteligência"
-        description="João Hunter IA — Dossiês Comerciais em investigação"
+        currentPage="Central de Inteligência"
+        currentHref="/inteligencia"
       />
 
       <div className="flex-1 overflow-auto p-4 space-y-4">

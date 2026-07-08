@@ -4,18 +4,16 @@
 // Autenticação via sessão NextAuth (uso interno do CRM).
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+
+import { requireAuth } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
 
 // ─── GET — listar dossiês com filtros ────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
-  }
+  const authResult = await requireAuth(req);
+  if (authResult instanceof NextResponse) return authResult;
 
   const { searchParams } = req.nextUrl;
   const status    = searchParams.get("status")   ?? undefined;
@@ -58,10 +56,8 @@ export async function GET(req: NextRequest) {
 // ─── POST — criar novo dossiê manualmente (via CRM, não pelo João) ────────────
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
-  }
+  const authResult = await requireAuth(req);
+  if (authResult instanceof NextResponse) return authResult;
 
   let body: {
     titulo: string;
@@ -130,9 +126,9 @@ export async function POST(req: NextRequest) {
       dossieId: dossie.id,
       tipo:     "CRIACAO",
       titulo:   "Dossiê criado manualmente",
-      conteudo: `Dossiê criado manualmente no CRM por ${session.user?.name ?? "usuário"}.`,
+      conteudo: `Dossiê criado manualmente no CRM por ${authResult.nome ?? "usuário"}.`,
       agente:   "manual",
-      usuarioId: (session.user as { id?: string })?.id ?? null,
+      usuarioId: authResult.id ?? null,
     },
   });
 

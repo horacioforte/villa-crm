@@ -3,8 +3,8 @@
 // Morgana pede mais pesquisa: atualiza status e cria tarefa para o João investigar.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+
+import { requireAuth } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { PrioridadeTarefa, StatusTarefa, TipoAtividade } from "@/app/generated/prisma/client";
 
@@ -12,10 +12,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  const authResult = await requireAuth(req);
+  if (authResult instanceof NextResponse) return authResult;
 
-  const usuario = session.user as { id?: string; name?: string };
+  const usuario = { id: authResult.id, name: authResult.nome };
 
   let body: { instrucao?: string } = {};
   try { body = await req.json(); } catch { /* ok */ }

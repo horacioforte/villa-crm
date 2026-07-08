@@ -8,7 +8,7 @@ import {
   useDroppable,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { CircleDollarSign, FileText, Loader2, Plus, Sparkles, Target } from "lucide-react";
+import { CircleDollarSign, FileText, Loader2, Plus, Search, Sparkles, Target } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { OportunidadeDetalhe } from "@/components/kanban/OportunidadeDetalhe";
 import { OportunidadeModal } from "@/components/kanban/OportunidadeModal";
@@ -179,6 +180,7 @@ export default function OportunidadesPage() {
     string | null
   >(null);
   const [filtroTipo, setFiltroTipo] = useState<TipoNegocioFiltro>("TODOS");
+  const [searchTerm, setSearchTerm] = useState("");
   const [perdaPendente, setPerdaPendente] = useState<{
     oportunidadeId: string;
     previous: Oportunidade[];
@@ -319,13 +321,30 @@ export default function OportunidadesPage() {
     setOportunidadeEditandoId(null);
   }
 
-  const oportunidadesFiltradas = useMemo(
-    () =>
-      oportunidades.filter((oportunidade) =>
-        filtroTipo === "TODOS" ? true : oportunidade.tipo === filtroTipo,
-      ),
-    [filtroTipo, oportunidades],
-  );
+  const oportunidadesFiltradas = useMemo(() => {
+    const porTipo = oportunidades.filter((oportunidade) =>
+      filtroTipo === "TODOS" ? true : oportunidade.tipo === filtroTipo,
+    );
+
+    const termo = searchTerm.trim().toLowerCase();
+    if (!termo) return porTipo;
+
+    return porTipo.filter((oportunidade) => {
+      const searchable = [
+        oportunidade.titulo,
+        oportunidade.empresa.razaoSocial,
+        oportunidade.empresa.nomeFantasia,
+        oportunidade.pessoa?.nome,
+        oportunidade.obra?.nome,
+        oportunidade.canalOrigem,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(termo);
+    });
+  }, [filtroTipo, oportunidades, searchTerm]);
   const totalPipeline = useMemo(
     () =>
       oportunidadesFiltradas.reduce((total, oportunidade) => {
@@ -452,6 +471,23 @@ export default function OportunidadesPage() {
               {item.label}
             </Button>
           ))}
+        </section>
+
+        <section className="mt-4 rounded-2xl border border-[#D7DEEA] bg-white px-4 py-2.5 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm font-semibold text-[#1A2E5A]">
+              Busca de oportunidades
+            </span>
+            <div className="relative w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#667085]" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por título, empresa, obra..."
+                className="h-9 rounded-2xl bg-[#F4F6FA] pl-9 text-sm"
+              />
+            </div>
+          </div>
         </section>
 
         {isLoading ? (

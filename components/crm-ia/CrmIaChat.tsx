@@ -55,17 +55,7 @@ export function CrmIaChat() {
     }
   }, [hoje]);
 
-  // Ao abrir pela primeira vez no dia: auto-envia briefing
-  useEffect(() => {
-    if (aberto && modoRecepcao && !primeiraAberturaRef.current) {
-      primeiraAberturaRef.current = true;
-      localStorage.setItem("crm-ia-briefing-date", hoje);
-      setModoRecepcao(false);
-      const timer = setTimeout(() => enviar("Briefing do dia"), 600);
-      return () => clearTimeout(timer);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aberto]);
+  // Auto-briefing removido — usuário abre o chat manualmente quando quiser
 
   useEffect(() => {
     if (aberto) {

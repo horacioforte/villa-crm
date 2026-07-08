@@ -247,6 +247,9 @@ model Usuario {
   transferenciasExecutadas     ConversaTransferencia[]   @relation("TransferenciaExecutor")
   campanhasCreadas             Campanha[]                @relation("CampanhaCreatedBy")
 
+  // Central de Inteligência — nunca remover
+  dossiesAssumidos             DossieComercial[]         @relation("DossieAssumidoPor")
+
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
 
@@ -307,6 +310,10 @@ model Empresa {
   conversas     Conversa[]
   prospects     Prospect[]        @relation("ProspectEmpresa")
 
+  // Central de Inteligência — nunca remover
+  dossies              DossieComercial[]  @relation("DossieEmpresa")
+  dossiesRelacionados  EmpresaDossie[]   @relation("EmpresaDossieEmpresa")
+
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
 
@@ -346,6 +353,9 @@ model Pessoa {
   tarefas          Tarefa[]
   conversas        Conversa[]
   prospects        Prospect[]         @relation("ProspectPessoa")
+
+  // Central de Inteligência — nunca remover
+  decisoresDossie  DecisorDossie[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -387,6 +397,9 @@ model Obra {
 
   oportunidades Oportunidade[]
   tarefas       Tarefa[]
+
+  // Central de Inteligência — nunca remover
+  dossies       DossieComercial[]  @relation("DossieObra")
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -444,6 +457,9 @@ model Oportunidade {
   tarefas    Tarefa[]
   conversas  Conversa[]
   prospects  Prospect[]         @relation("ProspectOportunidade")
+
+  // Central de Inteligência — nunca remover
+  dossies    DossieComercial[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -1150,5 +1166,233 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@index([userId])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CENTRAL DE INTELIGÊNCIA COMERCIAL — nunca remover, só acrescentar
+// João Hunter IA: investigador permanente de dossiês comerciais.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum OrigemDossie {
+  JOAO_RADAR       // radar semanal de obras/infraestrutura
+  JOAO_OUTBOUND    // prospecção ativa via WhatsApp
+  MANUAL           // inserção manual pela equipe
+}
+
+enum TipoDossie {
+  OBRA
+  EMPRESA
+  MOVIMENTO_ESTRATEGICO
+  LICENCIAMENTO
+  LEAD
+}
+
+enum StatusDossie {
+  INVESTIGANDO           // João pesquisando ativamente
+  AGUARDANDO_VALIDACAO   // João acredita que está maduro — aguarda Morgana
+  EM_ANALISE             // Morgana está analisando
+  PEDIR_MAIS_PESQUISA    // Morgana pediu aprofundamento
+  PRONTO_PARA_ASSUMIR    // Morgana aprovou
+  ASSUMIDO               // virou oportunidade no pipeline comercial
+  ARQUIVADO              // descartado ou inativo
+}
+
+enum TipoAtualizacaoDossie {
+  CRIACAO
+  CAMPO_ATUALIZADO
+  DECISOR_ENCONTRADO
+  EMPRESA_ENCONTRADA
+  NOTICIA_ENCONTRADA
+  MISSAO_CONCLUIDA
+  MISSAO_DEFINIDA
+  SOLICITACAO_PESQUISA    // Morgana pediu mais pesquisa
+  ANALISE_MORGANA
+  ASSUMIDO_PELO_COMERCIAL
+  MONITORAMENTO           // João continua monitorando após assunção
+}
+
+// ── DossieComercial ──────────────────────────────────────────────────────────
+
+model DossieComercial {
+  id     String @id @default(cuid())
+
+  // ── Identificação ──
+  titulo  String
+  resumo  String?  @db.Text
+  origem  OrigemDossie
+  tipo    TipoDossie    @default(OBRA)
+  status  StatusDossie  @default(INVESTIGANDO)
+  segmento String?
+
+  // ── Localização ──
+  cidade  String?
+  estado  String?
+
+  // ── Obra / Projeto ──
+  clienteFinal   String?
+  construtora    String?
+  epc            String?
+  epcm           String?
+  consorcio      String?
+  faseObra       String?
+  cronograma     String?  @db.Text
+  licenciamento  String?  @db.Text
+  valorEstimado  Decimal? @db.Decimal(15, 2)
+  volumeConcreto Decimal? @db.Decimal(12, 2)
+
+  // ── Inteligência Comercial ──
+  equipamentosSugeridos String?  @db.Text
+  campanhasSugerida     String?
+  proximaAcaoSugerida   String?
+  concorrentes          String?  @db.Text
+  fornecedores          String?  @db.Text
+  concreteiras          String?  @db.Text
+
+  // ── Fonte ──
+  fonteInformacao String?
+  linkFonte       String?
+
+  // ── Score e Completude ──
+  score       Int     @default(0)   // 0–100 — qualidade da oportunidade
+  completude  Int     @default(0)   // 0–100 — % de campos preenchidos
+  prioridade  String? // "ALTA" | "MEDIA" | "BAIXA"
+
+  // ── Missão João ──
+  missaoAtual String?  // ex: "Descobrir o telefone do Diretor de Obras"
+
+  // ── Contadores cacheados (atualizados a cada enriquecimento) ──
+  totalDecisores    Int @default(0)
+  totalEmpresas     Int @default(0)
+  totalNoticias     Int @default(0)
+  totalAtualizacoes Int @default(0)
+
+  // ── Vínculo CRM — opcionais ──
+  empresaId String?
+  empresa   Empresa? @relation("DossieEmpresa", fields: [empresaId], references: [id], onDelete: SetNull)
+
+  obraId String?
+  obra   Obra?   @relation("DossieObra", fields: [obraId], references: [id], onDelete: SetNull)
+
+  // Preenchido quando Morgana assume — aponta para a oportunidade criada no pipeline
+  oportunidadeId String?
+  oportunidade   Oportunidade? @relation(fields: [oportunidadeId], references: [id], onDelete: SetNull)
+
+  // ── Assunção ──
+  assumidoPorId String?
+  assumidoPor   Usuario?  @relation("DossieAssumidoPor", fields: [assumidoPorId], references: [id], onDelete: SetNull)
+  assumidaEm    DateTime?
+
+  // ── Motivo de descarte (quando ARQUIVADO) ──
+  motivoDescarte String? @db.Text
+
+  // ── Audit ──
+  criadoPorAgente  String   @default("joao-radar")
+  ultimaAtividade  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ── Relações ──
+  atualizacoes         AtualizacaoDossie[]
+  decisores            DecisorDossie[]
+  empresasRelacionadas EmpresaDossie[]
+
+  @@index([status])
+  @@index([estado])
+  @@index([segmento])
+  @@index([score])
+  @@index([completude])
+  @@index([origem])
+  @@index([empresaId])
+  @@index([obraId])
+  @@index([oportunidadeId])
+  @@index([createdAt])
+  @@index([ultimaAtividade])
+}
+
+// ── DecisorDossie — decisores encontrados pelo João ──────────────────────────
+
+model DecisorDossie {
+  id        String  @id @default(cuid())
+  nome      String
+  cargo     String?
+  empresa   String?  // empresa onde trabalha — pode não estar no CRM ainda
+  telefone  String?
+  email     String?
+  linkedin  String?
+  confianca Int     @default(50)  // 0–100 — confiança na informação
+  fonte     String?
+  ativo     Boolean @default(true)
+
+  dossieId String
+  dossie   DossieComercial @relation(fields: [dossieId], references: [id], onDelete: Cascade)
+
+  // Link com CRM se encontrado
+  pessoaId String?
+  pessoa   Pessoa? @relation(fields: [pessoaId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dossieId])
+  @@index([pessoaId])
+  @@index([nome])
+}
+
+// ── EmpresaDossie — empresas relacionadas encontradas pelo João ───────────────
+
+model EmpresaDossie {
+  id          String  @id @default(cuid())
+  razaoSocial String
+  // papel: CONSTRUTORA | EPC | EPCM | CONSORCIO | FORNECEDOR | CONCORRENTE | CONCRETEIRA | CLIENTE_FINAL
+  papel       String
+  cidade      String?
+  estado      String?
+  cnpj        String?
+  site        String?
+  fonte       String?
+  ativo       Boolean @default(true)
+
+  dossieId String
+  dossie   DossieComercial @relation(fields: [dossieId], references: [id], onDelete: Cascade)
+
+  // Link com CRM se já existir cadastro
+  empresaId String?
+  empresa   Empresa? @relation("EmpresaDossieEmpresa", fields: [empresaId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dossieId])
+  @@index([empresaId])
+  @@index([papel])
+}
+
+// ── AtualizacaoDossie — log de tudo que o João descobriu ─────────────────────
+
+model AtualizacaoDossie {
+  id       String                @id @default(cuid())
+  tipo     TipoAtualizacaoDossie
+  titulo   String
+  conteudo String                @db.Text
+  fonte    String?
+  link     String?
+  agente   String?               // "joao-radar" | "joao-outbound" | "morgana" | "comercial"
+
+  dossieId String
+  dossie   DossieComercial @relation(fields: [dossieId], references: [id], onDelete: Cascade)
+
+  // Também vinculada à oportunidade quando o dossiê já foi assumido
+  oportunidadeId String?
+
+  // Se foi ação humana (Morgana, comercial)
+  usuarioId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([dossieId])
+  @@index([tipo])
+  @@index([oportunidadeId])
   @@index([createdAt])
 }

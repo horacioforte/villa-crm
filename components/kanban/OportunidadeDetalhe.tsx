@@ -786,6 +786,10 @@ export function OportunidadeDetalhe({
                 </div>
                 <ConversasTab oportunidadeId={id} />
               </section>
+
+              {/* ── Inteligência da IA (João Hunter) ─────────────────────── */}
+              <IntelligenceSection oportunidadeId={id} />
+
             </div>
           ) : (
             <div className="flex flex-1 items-center justify-center text-[#667085]">
@@ -939,5 +943,159 @@ function ValueRow({
         {value}
       </p>
     </div>
+  );
+}
+
+// ─── Seção Inteligência da IA ─────────────────────────────────────────────────
+// REGRA: nunca remover. Apenas acrescentar.
+// Mostra o dossiê vinculado e as atualizações do João após a oportunidade ser assumida.
+
+type DossieResumo = {
+  id: string;
+  titulo: string;
+  completude: number;
+  score: number;
+  missaoAtual?: string | null;
+  totalAtualizacoes: number;
+};
+
+type AtualizacaoIA = {
+  id: string;
+  tipo: string;
+  titulo: string;
+  conteudo: string;
+  agente?: string | null;
+  fonte?: string | null;
+  link?: string | null;
+  createdAt: string;
+};
+
+function IntelligenceSection({ oportunidadeId }: { oportunidadeId: string }) {
+  const [dossie, setDossie] = useState<DossieResumo | null>(null);
+  const [atualizacoes, setAtualizacoes] = useState<AtualizacaoIA[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    async function carregar() {
+      try {
+        // Busca dossiê vinculado à oportunidade
+        const res = await fetch(`/api/inteligencia?limit=1&status=ASSUMIDO`);
+        const data = await res.json();
+        // Filtra pelo oportunidadeId (API retorna todos assumidos; filtra no cliente)
+        const d = (data.dossies ?? []).find(
+          (item: { oportunidadeId?: string }) => item.oportunidadeId === oportunidadeId
+        ) as DossieResumo | undefined;
+        if (d) {
+          setDossie(d);
+          // Busca as atualizações de monitoramento desta oportunidade
+          const resAtual = await fetch(`/api/inteligencia/${d.id}/timeline?limit=20`);
+          const dataAtual = await resAtual.json();
+          // Filtra apenas atualizações de monitoramento ou relevantes
+          const lista: AtualizacaoIA[] = (dataAtual.atualizacoes ?? []).filter(
+            (a: { tipo: string }) =>
+              ["MONITORAMENTO", "NOTICIA_ENCONTRADA", "DECISOR_ENCONTRADO", "EMPRESA_ENCONTRADA", "ASSUMIDO_PELO_COMERCIAL"].includes(a.tipo)
+          );
+          setAtualizacoes(lista);
+        }
+      } catch {
+        // silencioso — pode não ter dossiê vinculado
+      } finally {
+        setCarregando(false);
+      }
+    }
+    carregar();
+  }, [oportunidadeId]);
+
+  // Sem dossiê vinculado → não renderiza a seção
+  if (!carregando && !dossie) return null;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="rounded-2xl bg-[#E8EEFB] p-2 text-[#1E4FAB]">
+          <span className="text-sm">🧠</span>
+        </div>
+        <div>
+          <h3 className="font-bold text-[#1A2E5A]">Inteligência da IA</h3>
+          <p className="mt-0.5 text-sm text-[#667085]">
+            Dossiê João Hunter IA — monitoramento contínuo.
+          </p>
+        </div>
+      </div>
+
+      {carregando ? (
+        <div className="flex items-center gap-2 text-sm text-[#667085] py-2">
+          <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
+        </div>
+      ) : dossie ? (
+        <>
+          {/* Resumo do dossiê */}
+          <div className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-[#1A2E5A]">{dossie.titulo}</p>
+              <a
+                href={`/inteligencia/${dossie.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[#1E4FAB] hover:underline"
+              >
+                Ver dossiê →
+              </a>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-[#667085]">
+              <span>Completude: <strong className="text-[#1A2E5A]">{dossie.completude}%</strong></span>
+              <span>Score: <strong className="text-[#1A2E5A]">{dossie.score}/100</strong></span>
+              <span>Atualizações: <strong className="text-[#1A2E5A]">{dossie.totalAtualizacoes}</strong></span>
+            </div>
+            {/* barra de completude */}
+            <div className="h-1.5 bg-white rounded-full overflow-hidden border border-[#D7DEEA]">
+              <div
+                className={`h-full rounded-full ${dossie.completude >= 80 ? "bg-emerald-500" : dossie.completude >= 60 ? "bg-amber-500" : "bg-blue-500"}`}
+                style={{ width: `${dossie.completude}%` }}
+              />
+            </div>
+            {dossie.missaoAtual && (
+              <p className="text-xs text-[#667085]">
+                🎯 <span className="text-[#1A2E5A]">{dossie.missaoAtual}</span>
+              </p>
+            )}
+          </div>
+
+          {/* Atualizações do João */}
+          {atualizacoes.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-[#667085] uppercase tracking-wide">Atualizações recentes</p>
+              {atualizacoes.map(a => (
+                <div key={a.id} className="rounded-2xl border border-[#D7DEEA] bg-white p-3 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      a.tipo === "MONITORAMENTO" ? "bg-blue-100 text-blue-700" :
+                      a.tipo === "DECISOR_ENCONTRADO" ? "bg-purple-100 text-purple-700" :
+                      a.tipo === "NOTICIA_ENCONTRADA" ? "bg-cyan-100 text-cyan-700" :
+                      "bg-slate-100 text-slate-600"
+                    }`}>
+                      {a.tipo === "MONITORAMENTO" ? "📡 Monitor" :
+                       a.tipo === "DECISOR_ENCONTRADO" ? "👤 Decisor" :
+                       a.tipo === "NOTICIA_ENCONTRADA" ? "📰 Notícia" :
+                       a.tipo === "EMPRESA_ENCONTRADA" ? "🏢 Empresa" : a.tipo}
+                    </span>
+                    <span className="text-xs text-[#667085]">
+                      {new Date(a.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-[#1A2E5A]">{a.titulo}</p>
+                  <p className="text-xs text-[#667085] line-clamp-3">{a.conteudo}</p>
+                  {a.link && (
+                    <a href={a.link} target="_blank" rel="noopener noreferrer" className="text-xs text-[#1E4FAB] hover:underline">
+                      Ver fonte →
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : null}
+    </section>
   );
 }

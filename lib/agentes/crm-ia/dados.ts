@@ -47,11 +47,13 @@ export async function buscarOportunidades({
   status,
   canalOrigem,
   tipoServico,
+  responsavelId,
   limite = 20,
 }: {
   status?: string;
   canalOrigem?: string;
   tipoServico?: string;
+  responsavelId?: string;
   limite?: number;
 } = {}) {
   const oportunidades = await prisma.oportunidade.findMany({
@@ -60,6 +62,7 @@ export async function buscarOportunidades({
       ...(status ? { status: status as any } : {}),
       ...(canalOrigem ? { canalOrigem: canalOrigem as any } : {}),
       ...(tipoServico ? { tipoServico: tipoServico as any } : {}),
+      ...(responsavelId ? { responsavelId } : {}),
     },
     include: {
       empresa: { select: { razaoSocial: true, cidade: true, estado: true } },
@@ -144,15 +147,23 @@ export async function buscarEmpresas({
 
 export async function buscarTarefas({
   status,
+  responsavelId,
   limite = 20,
 }: {
   status?: string;
+  responsavelId?: string;
   limite?: number;
 } = {}) {
+  const where: Record<string, any> = {};
+  if (status) {
+    where.status = status as any;
+  } else {
+    where.status = { in: ["PENDENTE", "EM_ANDAMENTO", "ATRASADA"] };
+  }
+  if (responsavelId) where.responsavelId = responsavelId;
+
   const tarefas = await prisma.tarefa.findMany({
-    where: {
-      ...(status ? { status: status as any } : { status: { in: ["PENDENTE", "EM_ANDAMENTO", "ATRASADA"] } }),
-    },
+    where,
     include: {
       empresa: { select: { razaoSocial: true } },
       oportunidade: { select: { titulo: true } },
@@ -179,23 +190,33 @@ export async function buscarTarefas({
 
 export async function buscarPropostas({
   status,
+  diasParadaMinima,
   limite = 20,
 }: {
   status?: string;
+  diasParadaMinima?: number;
   limite?: number;
 } = {}) {
+  const where: Record<string, any> = {};
+  if (status) where.status = status as any;
+  if (diasParadaMinima) {
+    const corte = new Date(Date.now() - diasParadaMinima * 24 * 60 * 60 * 1000);
+    where.updatedAt = { lt: corte };
+  }
+
+  const agora = Date.now();
   const propostas = await prisma.propostaComercial.findMany({
-    where: {
-      ...(status ? { status: status as any } : {}),
-    },
+    where,
     include: {
       oportunidade: {
         include: {
           empresa: { select: { razaoSocial: true, estado: true } },
+          pessoa: { select: { nome: true, telefone: true, whatsapp: true } },
+          responsavel: { select: { nome: true } },
         },
       },
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { updatedAt: "asc" },
     take: limite,
   });
 
@@ -204,9 +225,18 @@ export async function buscarPropostas({
     numero: p.numeroProposta,
     versao: p.versao,
     status: p.status,
+    valorTotal: p.valorTotal,
+    validade: p.validadeProposta,
+    validadeVencida: new Date(p.validadeProposta) < new Date(),
+    diasParada: Math.floor((agora - new Date(p.updatedAt).getTime()) / 86400000),
     empresa: p.oportunidade?.empresa?.razaoSocial,
     estado: p.oportunidade?.empresa?.estado,
+    contato: p.oportunidade?.pessoa?.nome,
+    contatoTelefone: p.oportunidade?.pessoa?.whatsapp ?? p.oportunidade?.pessoa?.telefone,
+    responsavel: p.oportunidade?.responsavel?.nome,
+    templateUtilizado: p.templateUtilizado,
     criadaEm: p.createdAt,
+    atualizadaEm: p.updatedAt,
   }));
 }
 
@@ -290,4 +320,610 @@ export async function criarTarefa({
   });
 
   return tarefa;
+}
+
+// ─── Buscar Usuário por Email (para permissões) ───────────────────────────────
+
+export async function buscarUsuarioPorEmail(email: string) {
+  return prisma.usuario.findUnique({
+    where: { email },
+    select: { id: true, papel: true, nome: true },
+  });
+}
+
+// ─── Pessoas (Contatos) ────────────────────────────────────────────────────────
+
+export async function buscarPessoas({
+  nome,
+  empresaNome,
+  cargo,
+  telefone,
+  limite = 20,
+}: {
+  nome?: string;
+  empresaNome?: string;
+  cargo?: string;
+  telefone?: string;
+  limite?: number;
+} = {}) {
+  const pessoas = await prisma.pessoa.findMany({
+    where: {
+      ativa: true,
+      ...(nome ? { nome: { contains: nome, mode: "insensitive" } } : {}),
+      ...(cargo ? { cargo: { contains: cargo, mode: "insensitive" } } : {}),
+      ...(telefone
+        ? { OR: [{ telefone: { contains: telefone } }, { whatsapp: { contains: telefone } }] }
+        : {}),
+      ...(empresaNome
+        ? { empresa: { razaoSocial: { contains: empresaNome, mode: "insensitive" } } }
+        : {}),
+    },
+    include: {
+      empresa: { select: { razaoSocial: true, cidade: true, estado: true } },
+      historicos: {
+        orderBy: { dataContato: "desc" },
+        take: 1,
+        select: { dataContato: true, tipo: true, resumo: true },
+      },
+    },
+    orderBy: { nome: "asc" },
+    take: limite,
+  });
+
+  return pessoas.map((p) => ({
+    id: p.id,
+    nome: p.nome,
+    cargo: p.cargo,
+    email: p.email,
+    telefone: p.telefone,
+    whatsapp: p.whatsapp,
+    tipo: p.tipo,
+    influencia: p.influenciaDecisao,
+    relacionamento: p.nivelRelacionamento,
+    empresa: p.empresa?.razaoSocial,
+    cidade: p.empresa?.cidade,
+    estado: p.empresa?.estado,
+    ultimoContato: p.historicos[0]?.dataContato ?? null,
+    ultimoContatoTipo: p.historicos[0]?.tipo ?? null,
+    ultimoContatoResumo: p.historicos[0]?.resumo ?? null,
+  }));
+}
+
+// ─── Atividades (Histórico de Contato) ───────────────────────────────────────
+
+export async function buscarAtividades({
+  empresaId,
+  oportunidadeId,
+  pessoaId,
+  tipo,
+  diasAtras = 30,
+  limite = 20,
+}: {
+  empresaId?: string;
+  oportunidadeId?: string;
+  pessoaId?: string;
+  tipo?: string;
+  diasAtras?: number;
+  limite?: number;
+} = {}) {
+  const dataInicio = new Date(Date.now() - diasAtras * 24 * 60 * 60 * 1000);
+
+  const historicos = await prisma.historicoContato.findMany({
+    where: {
+      dataContato: { gte: dataInicio },
+      ...(empresaId ? { empresaId } : {}),
+      ...(oportunidadeId ? { oportunidadeId } : {}),
+      ...(pessoaId ? { pessoaId } : {}),
+      ...(tipo ? { tipo: tipo as any } : {}),
+    },
+    include: {
+      empresa: { select: { razaoSocial: true } },
+      oportunidade: { select: { titulo: true } },
+      pessoa: { select: { nome: true } },
+      usuario: { select: { nome: true } },
+    },
+    orderBy: { dataContato: "desc" },
+    take: limite,
+  });
+
+  return historicos.map((h) => ({
+    id: h.id,
+    tipo: h.tipo,
+    resumo: h.resumo,
+    detalhes: h.detalhes,
+    data: h.dataContato,
+    proximoContato: h.proximoContato,
+    empresa: h.empresa?.razaoSocial,
+    oportunidade: h.oportunidade?.titulo,
+    pessoa: h.pessoa?.nome,
+    realizadoPor: h.usuario?.nome,
+  }));
+}
+
+// ─── Atualizar Etapa da Oportunidade ─────────────────────────────────────────
+
+export async function atualizarEtapaOportunidade({
+  oportunidadeId,
+  novoStatus,
+  motivo,
+}: {
+  oportunidadeId: string;
+  novoStatus: string;
+  motivo?: string;
+}) {
+  const atualizada = await prisma.oportunidade.update({
+    where: { id: oportunidadeId },
+    data: {
+      status: novoStatus as any,
+      ...(motivo && novoStatus === "PERDIDA" ? { motivoPerda: motivo } : {}),
+      ...(novoStatus === "GANHA" ? { fechadaEm: new Date() } : {}),
+    },
+    select: { id: true, titulo: true, status: true },
+  });
+  return atualizada;
+}
+
+// ─── Alterar Responsável ──────────────────────────────────────────────────────
+
+export async function alterarResponsavel({
+  oportunidadeId,
+  responsavelId,
+}: {
+  oportunidadeId: string;
+  responsavelId: string;
+}) {
+  const atualizada = await prisma.oportunidade.update({
+    where: { id: oportunidadeId },
+    data: { responsavelId },
+    include: { responsavel: { select: { nome: true } } },
+  });
+  return {
+    id: atualizada.id,
+    titulo: atualizada.titulo,
+    novoResponsavel: atualizada.responsavel?.nome,
+  };
+}
+
+// ─── Agendar Visita ───────────────────────────────────────────────────────────
+
+export async function agendarVisita({
+  titulo,
+  descricao,
+  dataHora,
+  empresaId,
+  oportunidadeId,
+  pessoaId,
+}: {
+  titulo: string;
+  descricao?: string;
+  dataHora: string;
+  empresaId?: string;
+  oportunidadeId?: string;
+  pessoaId?: string;
+}) {
+  const tarefa = await prisma.tarefa.create({
+    data: {
+      titulo,
+      descricao: descricao ?? null,
+      tipo: "VISITA",
+      prioridade: "ALTA",
+      status: "PENDENTE",
+      dataVencimento: new Date(dataHora),
+      empresaId: empresaId ?? null,
+      oportunidadeId: oportunidadeId ?? null,
+      pessoaId: pessoaId ?? null,
+    },
+    select: { id: true, titulo: true, dataVencimento: true },
+  });
+  return tarefa;
+}
+
+// ─── Criar Lembrete ───────────────────────────────────────────────────────────
+
+export async function criarLembrete({
+  titulo,
+  descricao,
+  dataHora,
+  empresaId,
+  oportunidadeId,
+}: {
+  titulo: string;
+  descricao?: string;
+  dataHora: string;
+  empresaId?: string;
+  oportunidadeId?: string;
+}) {
+  const lembrete = await prisma.tarefa.create({
+    data: {
+      titulo,
+      descricao: descricao ?? null,
+      tipo: "TAREFA_INTERNA",
+      prioridade: "MEDIA",
+      status: "PENDENTE",
+      dataVencimento: new Date(dataHora),
+      empresaId: empresaId ?? null,
+      oportunidadeId: oportunidadeId ?? null,
+    },
+    select: { id: true, titulo: true, dataVencimento: true },
+  });
+  return lembrete;
+}
+
+// ─── Gerar Relatório Visual ───────────────────────────────────────────────────
+
+const CORES_VILLA = [
+  "#1A2E5A", "#1E4FAB", "#2563EB", "#3B82F6", "#60A5FA",
+  "#F59E0B", "#EF4444", "#10B981", "#8B5CF6", "#EC4899",
+  "#14B8A6", "#93C5FD",
+];
+
+function gerarCores(n: number): string[] {
+  return Array.from({ length: n }, (_, i) => CORES_VILLA[i % CORES_VILLA.length]);
+}
+
+export interface DadosRelatorio {
+  titulo: string;
+  tipoGrafico: "bar" | "pie" | "doughnut";
+  labels: string[];
+  datasets: Array<{ label: string; data: number[]; backgroundColor?: string[] }>;
+  descricao?: string;
+  tipoSaida?: "pdf" | "excel" | "powerpoint";
+  // Campos para relatórios ricos
+  tabela?: string[][];
+  colunas?: string[];
+  conclusoes?: string[];
+  recomendacoes?: string[];
+  periodo?: string;
+  filtros?: string;
+}
+
+export async function gerarRelatorio({
+  tipo,
+  titulo,
+  tipoSaida,
+}: {
+  tipo: string;
+  titulo?: string;
+  tipoSaida?: string;
+}): Promise<DadosRelatorio> {
+  switch (tipo) {
+    case "oportunidades_por_status":
+    case "pipeline": {
+      const grupos = await prisma.oportunidade.groupBy({
+        by: ["status"],
+        where: { ativa: true },
+        _count: { id: true },
+      });
+      const labels = grupos.map((g) => g.status);
+      const data = grupos.map((g) => g._count.id);
+      return {
+        titulo: titulo ?? "Pipeline de Vendas — Oportunidades por Status",
+        tipoGrafico: "bar",
+        labels,
+        datasets: [{ label: "Quantidade", data, backgroundColor: gerarCores(labels.length) }],
+        descricao: `Total: ${data.reduce((a, b) => a + b, 0)} oportunidades ativas`,
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "oportunidades_por_valor": {
+      const grupos = await prisma.oportunidade.groupBy({
+        by: ["status"],
+        where: { ativa: true },
+        _sum: { potencialOportunidade: true },
+      });
+      const labels = grupos.map((g) => g.status);
+      const data = grupos.map((g) =>
+        Math.round(parseFloat((g._sum.potencialOportunidade ?? 0).toString()) / 1000)
+      );
+      return {
+        titulo: titulo ?? "Oportunidades por Status — Valor Potencial (R$ mil)",
+        tipoGrafico: "bar",
+        labels,
+        datasets: [{ label: "Valor (R$ mil)", data, backgroundColor: gerarCores(labels.length) }],
+        descricao: `Valor total potencial: R$ ${data.reduce((a, b) => a + b, 0).toLocaleString("pt-BR")} mil`,
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "origem_leads": {
+      const grupos = await prisma.oportunidade.groupBy({
+        by: ["canalOrigem"],
+        where: { ativa: true },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+      });
+      const labels = grupos.map((g) => g.canalOrigem ?? "Não informado");
+      const data = grupos.map((g) => g._count.id);
+      return {
+        titulo: titulo ?? "Origem dos Leads",
+        tipoGrafico: "pie",
+        labels,
+        datasets: [{ label: "Leads", data, backgroundColor: gerarCores(labels.length) }],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "propostas_por_status": {
+      const grupos = await prisma.propostaComercial.groupBy({
+        by: ["status"],
+        _count: { id: true },
+      });
+      const labels = grupos.map((g) => g.status);
+      const data = grupos.map((g) => g._count.id);
+      return {
+        titulo: titulo ?? "Propostas por Status",
+        tipoGrafico: "doughnut",
+        labels,
+        datasets: [{ label: "Propostas", data, backgroundColor: gerarCores(labels.length) }],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "equipamentos_por_status": {
+      const grupos = await prisma.equipamento.groupBy({
+        by: ["status"],
+        _count: { id: true },
+      });
+      const labels = grupos.map((g) => g.status);
+      const data = grupos.map((g) => g._count.id);
+      return {
+        titulo: titulo ?? "Frota por Status",
+        tipoGrafico: "doughnut",
+        labels,
+        datasets: [{ label: "Equipamentos", data, backgroundColor: gerarCores(labels.length) }],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "tarefas_pendentes": {
+      const tarefas = await prisma.tarefa.findMany({
+        where: { status: { in: ["PENDENTE", "EM_ANDAMENTO", "ATRASADA"] } },
+        include: {
+          empresa: { select: { razaoSocial: true } },
+          oportunidade: { select: { titulo: true } },
+        },
+        orderBy: { dataVencimento: "asc" },
+        take: 30,
+      });
+      const porStatus = ["PENDENTE", "EM_ANDAMENTO", "ATRASADA"];
+      const labels = porStatus;
+      const data = porStatus.map((s) => tarefas.filter((t) => t.status === s).length);
+      const colunas = ["Tarefa", "Tipo", "Status", "Vencimento", "Empresa"];
+      const tabela = tarefas.map((t) => [
+        t.titulo,
+        t.tipo,
+        t.status,
+        t.dataVencimento ? new Date(t.dataVencimento).toLocaleDateString("pt-BR") : "—",
+        t.empresa?.razaoSocial ?? "—",
+      ]);
+      return {
+        titulo: titulo ?? "Tarefas Pendentes e em Andamento",
+        tipoGrafico: "bar",
+        labels,
+        datasets: [{ label: "Tarefas", data, backgroundColor: gerarCores(labels.length) }],
+        descricao: `Total: ${tarefas.length} tarefas abertas`,
+        colunas,
+        tabela,
+        conclusoes: [
+          `${data[2]} tarefas estão atrasadas e exigem atenção imediata.`,
+          `${data[0] + data[1]} tarefas estão dentro do prazo.`,
+        ],
+        recomendacoes: [
+          "Priorize as tarefas atrasadas antes de criar novas.",
+          "Atribua responsáveis claros para cada tarefa pendente.",
+        ],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "propostas_paradas": {
+      const propostas = await prisma.propostaComercial.findMany({
+        where: { status: { in: ["ENVIADA", "AGUARDANDO_APROVACAO"] } },
+        include: {
+          oportunidade: {
+            include: { empresa: { select: { razaoSocial: true, estado: true } } },
+          },
+        },
+        orderBy: { updatedAt: "asc" },
+        take: 30,
+      });
+      const labels = propostas.map((p) => p.oportunidade?.empresa?.razaoSocial ?? p.id.slice(0, 8));
+      const data = propostas.map(() => 1);
+      const colunas = ["Proposta", "Status", "Empresa", "Estado", "Última atualização"];
+      const tabela = propostas.map((p) => [
+        p.numeroProposta ?? "—",
+        p.status,
+        p.oportunidade?.empresa?.razaoSocial ?? "—",
+        p.oportunidade?.empresa?.estado ?? "—",
+        new Date(p.updatedAt).toLocaleDateString("pt-BR"),
+      ]);
+      return {
+        titulo: titulo ?? "Propostas Paradas — Aguardando Resposta",
+        tipoGrafico: "bar",
+        labels: ["Enviadas", "Aguardando Aprovação"],
+        datasets: [{
+          label: "Propostas",
+          data: [
+            propostas.filter((p) => p.status === "ENVIADA").length,
+            propostas.filter((p) => p.status === "AGUARDANDO_APROVACAO").length,
+          ],
+          backgroundColor: gerarCores(2),
+        }],
+        descricao: `${propostas.length} propostas aguardando resposta do cliente`,
+        colunas,
+        tabela,
+        conclusoes: [
+          `${propostas.length} propostas estão paradas sem resposta do cliente.`,
+          "Propostas sem follow-up após 7 dias têm 60% menos chance de fechamento.",
+        ],
+        recomendacoes: [
+          "Entre em contato com cada cliente listado acima hoje.",
+          "Estabeleça um prazo de validade claro para cada proposta.",
+          "Considere enviar um resumo executivo simplificado para reacender o interesse.",
+        ],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "clientes_sem_contato": {
+      const limite30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const empresas = await prisma.empresa.findMany({
+        where: {
+          ativa: true,
+          oportunidades: {
+            some: {
+              ativa: true,
+              status: { notIn: ["GANHA", "PERDIDA"] },
+              updatedAt: { lt: limite30Dias },
+            },
+          },
+        },
+        include: {
+          oportunidades: {
+            where: { ativa: true, status: { notIn: ["GANHA", "PERDIDA"] } },
+            orderBy: { updatedAt: "desc" },
+            take: 1,
+            select: { status: true, updatedAt: true, titulo: true },
+          },
+        },
+        take: 30,
+      });
+      const colunas = ["Empresa", "Última oportunidade", "Status", "Dias sem contato"];
+      const tabela = empresas.map((e) => {
+        const op = e.oportunidades[0];
+        const dias = op ? Math.floor((Date.now() - new Date(op.updatedAt).getTime()) / 86400000) : 0;
+        return [e.razaoSocial, op?.titulo ?? "—", op?.status ?? "—", `${dias} dias`];
+      });
+      return {
+        titulo: titulo ?? "Clientes Sem Contato Há +30 Dias",
+        tipoGrafico: "bar",
+        labels: empresas.map((e) => e.razaoSocial.slice(0, 20)),
+        datasets: [{
+          label: "Dias sem contato",
+          data: empresas.map((e) => {
+            const op = e.oportunidades[0];
+            return op ? Math.floor((Date.now() - new Date(op.updatedAt).getTime()) / 86400000) : 0;
+          }),
+          backgroundColor: gerarCores(empresas.length),
+        }],
+        descricao: `${empresas.length} clientes com oportunidades abertas há mais de 30 dias sem atualização`,
+        colunas,
+        tabela,
+        conclusoes: [
+          `${empresas.length} clientes com oportunidades ativas há mais de 30 dias sem atualização.`,
+          "Clientes não contatados por mais de 60 dias têm alta probabilidade de buscar concorrentes.",
+        ],
+        recomendacoes: [
+          "Priorize os clientes com maior tempo sem contato.",
+          "Crie uma tarefa de follow-up para cada empresa da lista.",
+          "Considere uma campanha de reengajamento para clientes inativos.",
+        ],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "resumo_executivo": {
+      const [pipeline, propostas, tarefas, equipamentos, origem] = await Promise.all([
+        prisma.oportunidade.groupBy({ by: ["status"], where: { ativa: true }, _count: { id: true } }),
+        prisma.propostaComercial.groupBy({ by: ["status"], _count: { id: true } }),
+        prisma.tarefa.count({ where: { status: { in: ["PENDENTE", "EM_ANDAMENTO", "ATRASADA"] } } }),
+        prisma.equipamento.groupBy({ by: ["status"], _count: { id: true } }),
+        prisma.oportunidade.groupBy({
+          by: ["canalOrigem"], where: { ativa: true }, _count: { id: true },
+          orderBy: { _count: { id: "desc" } }, take: 5,
+        }),
+      ]);
+      const totalOps = pipeline.reduce((a, g) => a + g._count.id, 0);
+      const totalPropostas = propostas.reduce((a, g) => a + g._count.id, 0);
+      const disponivéis = equipamentos.find((e) => e.status === "DISPONIVEL")?._count.id ?? 0;
+      const locados = equipamentos.find((e) => e.status === "LOCADO")?._count.id ?? 0;
+      const labels = pipeline.map((g) => g.status);
+      const data = pipeline.map((g) => g._count.id);
+      return {
+        titulo: titulo ?? "Resumo Executivo — Visão Geral do CRM",
+        tipoGrafico: "bar",
+        labels,
+        datasets: [{ label: "Oportunidades", data, backgroundColor: gerarCores(labels.length) }],
+        descricao: `${totalOps} oportunidades ativas · ${totalPropostas} propostas · ${tarefas} tarefas abertas`,
+        conclusoes: [
+          `Pipeline total: ${totalOps} oportunidades ativas em andamento.`,
+          `Propostas: ${totalPropostas} propostas no sistema.`,
+          `Frota: ${locados} equipamentos locados, ${disponivéis} disponíveis.`,
+          `Tarefas: ${tarefas} tarefas abertas exigem atenção.`,
+          `Canal líder: ${origem[0]?.canalOrigem ?? "—"} com ${origem[0]?._count.id ?? 0} leads.`,
+        ],
+        recomendacoes: [
+          "Revisar oportunidades paradas há mais de 15 dias no pipeline.",
+          "Acompanhar propostas enviadas sem resposta.",
+          "Garantir que todos os equipamentos disponíveis estejam ativamente ofertados.",
+        ],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "lista_contatos": {
+      const pessoas = await prisma.pessoa.findMany({
+        where: { ativa: true },
+        include: {
+          empresa: { select: { razaoSocial: true, cidade: true, estado: true } },
+          historicos: {
+            orderBy: { dataContato: "desc" },
+            take: 1,
+            select: { dataContato: true, tipo: true },
+          },
+        },
+        orderBy: { nome: "asc" },
+        take: 100,
+      });
+      const colunas = ["Nome", "Cargo", "Empresa", "Telefone / WhatsApp", "E-mail", "Último Contato"];
+      const tabela = pessoas.map((p) => [
+        p.nome,
+        p.cargo ?? "—",
+        p.empresa?.razaoSocial ?? "—",
+        p.whatsapp ?? p.telefone ?? "—",
+        p.email ?? "—",
+        p.historicos[0]?.dataContato
+          ? new Date(p.historicos[0].dataContato).toLocaleDateString("pt-BR")
+          : "Sem registro",
+      ]);
+      // Gráfico de contatos por tipo de influência (apenas para o PDF)
+      const porTipo: Record<string, number> = {};
+      pessoas.forEach((p) => {
+        const t = p.tipo ?? "Não classificado";
+        porTipo[t] = (porTipo[t] ?? 0) + 1;
+      });
+      const labels = Object.keys(porTipo);
+      const data = Object.values(porTipo);
+      return {
+        titulo: titulo ?? "Lista de Contatos — Nome, Cargo e Telefone",
+        tipoGrafico: "doughnut",
+        labels,
+        datasets: [{ label: "Contatos", data, backgroundColor: gerarCores(labels.length) }],
+        descricao: `${pessoas.length} contatos cadastrados no CRM`,
+        colunas,
+        tabela,
+        conclusoes: [
+          `Total de ${pessoas.length} contatos ativos no CRM.`,
+          `${pessoas.filter((p) => p.whatsapp || p.telefone).length} possuem telefone/WhatsApp registrado.`,
+          `${pessoas.filter((p) => p.email).length} possuem e-mail cadastrado.`,
+        ],
+        recomendacoes: [
+          "Mantenha os telefones sempre atualizados para agilizar o contato.",
+          "Registre o histórico de cada interação para rastrear o relacionamento.",
+        ],
+        tipoSaida: (tipoSaida as any) ?? "excel",
+      };
+    }
+
+    default:
+      return {
+        titulo: titulo ?? "Relatório",
+        tipoGrafico: "bar",
+        labels: [],
+        datasets: [],
+        descricao: `Tipo "${tipo}" não suportado`,
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+  }
 }

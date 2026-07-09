@@ -5,8 +5,14 @@
 // quando confidence_score >= 70. Oportunidade criada com origem "João", tipo "Outbound",
 // status "Pré-qualificada por IA". Critério mais exigente que inbound (Maria cria na
 // primeira intenção; João exige sinal real de negócio).
+// REGRA ATUALIZADA (08/07/2026 — NOVA REGRA CENTRAL DE INTELIGÊNCIA):
+// João não cria mais Oportunidade diretamente em nenhum fluxo.
+// Tudo vai para a Central de Inteligência como DossieComercial (origem: JOAO_OUTBOUND).
+// processarRespostaJoao agora chama criarDossieOutbound() em vez de criarOportunidadeOutbound().
+// criarOportunidadeOutbound() mantida como legado (regra: nunca remover).
 
 import { prisma } from "@/lib/prisma";
+import { recalcularDossie } from "@/lib/inteligencia/completude";
 
 // ─── Envio de WhatsApp (Meta Cloud API) ──────────────────────────────────────
 
@@ -261,6 +267,143 @@ export async function criarOportunidadeOutbound({
 }
 
 /**
+ * NOVA REGRA (08/07/2026) — Central de Inteligência.
+ * Cria um DossieComercial (origem: JOAO_OUTBOUND) para um prospect qualificado.
+ * Substitui criarOportunidadeOutbound() no fluxo ativo do João.
+ * Chamada automaticamente quando confidence_score >= 70 em processarRespostaJoao().
+ */
+export async function criarDossieOutbound({
+  prospectId,
+  telefone,
+  nomeContato,
+  gatilho,
+  confidenceScore,
+  resumoConversa,
+}: {
+  prospectId: string;
+  telefone: string;
+  nomeContato: string;
+  gatilho: string;
+  confidenceScore: number;
+  resumoConversa?: string;
+}): Promise<string | null> {
+  try {
+    // Tenta vincular à pessoa e empresa já existentes no CRM pelo telefone
+    const pessoa = await prisma.pessoa.findFirst({
+      where: { OR: [{ whatsapp: telefone }, { telefone }] },
+      select: { id: true, empresaId: true, nome: true, cargo: true, empresa: { select: { razaoSocial: true, segmento: true, cidade: true, estado: true } } },
+    });
+
+    const titulo = `[João Outbound] ${nomeContato} — ${gatilho}`;
+
+    // Verifica duplicata
+    const jaExiste = await prisma.dossieComercial.findFirst({
+      where: { titulo: { equals: titulo, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (jaExiste) {
+      await prisma.prospect.update({
+        where: { id: prospectId },
+        data: { status: "QUALIFICADO", updatedAt: new Date() },
+      });
+      return jaExiste.id;
+    }
+
+    const resumo = resumoConversa
+      ?? `Prospect ${nomeContato} qualificado pelo João via prospecção ativa. Gatilho: ${gatilho}. Score de confiança: ${confidenceScore}/100. Telefone: ${telefone}.`;
+
+    const dadosParaCalculo = {
+      titulo,
+      resumo,
+      segmento:     pessoa?.empresa?.segmento ?? null,
+      cidade:       pessoa?.empresa?.cidade   ?? null,
+      estado:       pessoa?.empresa?.estado   ?? null,
+      clienteFinal: pessoa?.empresa?.razaoSocial ?? null,
+      fonteInformacao: "João Outbound (WhatsApp)",
+    };
+
+    const { completude, missaoAtual } = recalcularDossie(dadosParaCalculo, pessoa ? [{ nome: pessoa.nome, telefone, email: null, linkedin: null }] : []);
+
+    const dossie = await prisma.dossieComercial.create({
+      data: {
+        titulo,
+        resumo,
+        origem:          "JOAO_OUTBOUND",
+        tipo:            "LEAD",
+        segmento:        pessoa?.empresa?.segmento ?? null,
+        cidade:          pessoa?.empresa?.cidade   ?? null,
+        estado:          pessoa?.empresa?.estado   ?? null,
+        clienteFinal:    pessoa?.empresa?.razaoSocial ?? null,
+        fonteInformacao: "João Outbound (WhatsApp)",
+        score:           confidenceScore,
+        prioridade:      confidenceScore >= 85 ? "URGENTE" : confidenceScore >= 70 ? "ALTA" : "MEDIA",
+        completude,
+        missaoAtual,
+        criadoPorAgente: "joao-outbound",
+        ultimaAtividade: new Date(),
+        empresaId:       pessoa?.empresaId ?? null,
+        totalDecisores:  pessoa ? 1 : 0,
+      },
+      select: { id: true },
+    });
+
+    // Log de criação
+    await prisma.atualizacaoDossie.create({
+      data: {
+        dossieId: dossie.id,
+        tipo:     "CRIACAO",
+        titulo:   "Dossiê criado pelo João Outbound",
+        conteudo: `Prospect qualificado via WhatsApp.\nGatilho: ${gatilho}\nScore: ${confidenceScore}/100\nTelefone: ${telefone}`,
+        agente:   "joao-outbound",
+        fonte:    "João Outbound (WhatsApp)",
+      },
+    });
+
+    // Cria decisor inicial se tiver pessoa vinculada
+    if (pessoa) {
+      await prisma.decisorDossie.create({
+        data: {
+          dossieId:  dossie.id,
+          nome:      pessoa.nome,
+          cargo:     pessoa.cargo ?? null,
+          telefone,
+          confianca: confidenceScore,
+          fonte:     "João Outbound (WhatsApp)",
+        },
+      });
+    }
+
+    // Atualiza prospect: qualificado, vinculado ao dossiê
+    await prisma.prospect.update({
+      where: { id: prospectId },
+      data: { status: "QUALIFICADO", updatedAt: new Date() },
+    });
+
+    await prisma.prospectInteracao.create({
+      data: {
+        prospectId,
+        tipo:       "INTERESSE_REGISTRADO",
+        canal:      "WHATSAPP",
+        conteudo:   `[João] Dossiê criado na Central de Inteligência. Gatilho: ${gatilho} | Score: ${confidenceScore}/100 | Dossiê: ${dossie.id}`,
+        instancia:  "joao-villa",
+        criadoPorIA: true,
+      },
+    });
+
+    return dossie.id;
+  } catch (err) {
+    console.error("[joao/crm] Erro ao criar dossiê outbound:", err);
+    return null;
+  }
+}
+
+/**
+ * @deprecated Mantida como legado (regra: nunca remover).
+ * João não cria mais Oportunidade diretamente — use criarDossieOutbound().
+ * Substituída em 08/07/2026 pela nova regra da Central de Inteligência.
+ */
+
+/**
  * Salva as mensagens da conversa na tabela Conversa/Mensagem
  * para que o contexto do João funcione corretamente entre turnos.
  * ACRESCENTADO: histórico de conversa para João via Cloud API Meta.
@@ -371,10 +514,10 @@ export async function processarRespostaJoao({
     conteudo: `[João] ${textoJoao}`,
   });
 
-  // Se há sinal forte (score >= 70), cria oportunidade outbound automaticamente
-  let oportunidadeId: string | null = null;
+  // NOVA REGRA (08/07/2026): se há sinal forte (score >= 70), cria dossiê na Central de Inteligência
+  let oportunidadeId: string | null = null; // mantido por compatibilidade de interface
   if (confidenceScore >= 70) {
-    oportunidadeId = await criarOportunidadeOutbound({
+    oportunidadeId = await criarDossieOutbound({
       prospectId,
       telefone,
       nomeContato,

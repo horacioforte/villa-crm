@@ -9,16 +9,18 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const authResult = await requireAuth(req);
   if (authResult instanceof NextResponse) return authResult;
+
+  const { id } = await params;
 
   const { searchParams } = req.nextUrl;
   const limit = Math.min(Number(searchParams.get("limit") ?? "100"), 200);
 
   const atualizacoes = await prisma.atualizacaoDossie.findMany({
-    where:   { dossieId: params.id },
+    where:   { dossieId: id },
     orderBy: { createdAt: "desc" },
     take:    limit,
   });

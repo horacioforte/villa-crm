@@ -12,13 +12,15 @@ import { recalcularDossie } from "@/lib/inteligencia/completude";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const authResult = await requireAuth(_req);
   if (authResult instanceof NextResponse) return authResult;
 
+  const { id } = await params;
+
   const dossie = await prisma.dossieComercial.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: {
       empresa:             { select: { id: true, razaoSocial: true, cidade: true, estado: true } },
       obra:                { select: { id: true, nome: true, cidade: true, estado: true } },
@@ -39,13 +41,15 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const authResult = await requireAuth(req);
   if (authResult instanceof NextResponse) return authResult;
 
+  const { id } = await params;
+
   const dossieAtual = await prisma.dossieComercial.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: { decisores: { select: { nome: true, telefone: true, email: true, linkedin: true } } },
   });
   if (!dossieAtual) return NextResponse.json({ error: "Dossiê não encontrado." }, { status: 404 });
@@ -80,13 +84,13 @@ export async function PATCH(
   data.ultimaAtividade = new Date();
 
   const dossieAtualizado = await prisma.dossieComercial.update({
-    where: { id: params.id },
+    where: { id: id },
     data,
   });
 
   await prisma.atualizacaoDossie.create({
     data: {
-      dossieId: params.id,
+      dossieId: id,
       tipo:     "CAMPO_ATUALIZADO",
       titulo:   "Dossiê atualizado via CRM",
       conteudo: `Campos atualizados manualmente por ${authResult.nome ?? "usuário"}.`,

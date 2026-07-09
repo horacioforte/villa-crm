@@ -22,10 +22,12 @@ import {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const authResult = await requireAuth(req);
   if (authResult instanceof NextResponse) return authResult;
+
+  const { id } = await params;
 
   const usuario = { id: authResult.id, name: authResult.nome };
 
@@ -33,7 +35,7 @@ export async function POST(
   try { body = await req.json(); } catch { /* body vazio é ok */ }
 
   const dossie = await prisma.dossieComercial.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: {
       decisores:            true,
       empresasRelacionadas: true,
@@ -233,7 +235,7 @@ export async function POST(
   await auditLog({
     action: "DOSSIE_ASSUMIDO",
     entity: "DossieComercial",
-    entityId: params.id,
+    entityId: id,
     after: { status: "ASSUMIDO", oportunidadeId: resultado.oportunidadeId },
     request: req,
   });
@@ -243,6 +245,6 @@ export async function POST(
     mensagem: "Dossiê assumido. Oportunidade criada no pipeline comercial.",
     ...resultado,
     urlOportunidade: `/oportunidades/${resultado.oportunidadeId}`,
-    urlDossie: `/inteligencia/${params.id}`,
+    urlDossie: `/inteligencia/${id}`,
   });
 }

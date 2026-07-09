@@ -15,14 +15,16 @@ function verificarApiKey(req: NextRequest): boolean {
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   if (!verificarApiKey(req)) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const dossieAtual = await prisma.dossieComercial.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: { decisores: { select: { nome: true, telefone: true, email: true, linkedin: true } } },
   });
   if (!dossieAtual) return NextResponse.json({ error: "Dossiê não encontrado." }, { status: 404 });
@@ -74,10 +76,10 @@ export async function PATCH(
   }
 
   await prisma.$transaction([
-    prisma.dossieComercial.update({ where: { id: params.id }, data }),
+    prisma.dossieComercial.update({ where: { id: id }, data }),
     prisma.atualizacaoDossie.create({
       data: {
-        dossieId: params.id,
+        dossieId: id,
         tipo:     "CAMPO_ATUALIZADO",
         titulo:   `Dossiê enriquecido — ${camposAlterados.join(", ")}`,
         conteudo: `João atualizou os campos: ${camposAlterados.join(", ")}.\nCompletude: ${completude}%. Próxima missão: ${missaoAtual}`,

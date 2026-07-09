@@ -14,11 +14,13 @@ function verificarApiKey(req: NextRequest): boolean {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   if (!verificarApiKey(req)) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
+
+  const { id } = await params;
 
   let body: {
     nome: string;
@@ -38,7 +40,7 @@ export async function POST(
   }
 
   const dossie = await prisma.dossieComercial.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: { decisores: { select: { nome: true, telefone: true, email: true, linkedin: true } } },
   });
   if (!dossie) return NextResponse.json({ error: "Dossiê não encontrado." }, { status: 404 });
@@ -53,7 +55,7 @@ export async function POST(
 
   const decisor = await prisma.decisorDossie.create({
     data: {
-      dossieId:  params.id,
+      dossieId:  id,
       nome:      body.nome,
       cargo:     body.cargo     ?? null,
       empresa:   body.empresa   ?? null,
@@ -74,7 +76,7 @@ export async function POST(
 
   await prisma.$transaction([
     prisma.dossieComercial.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         completude,
         missaoAtual,
@@ -85,7 +87,7 @@ export async function POST(
     }),
     prisma.atualizacaoDossie.create({
       data: {
-        dossieId: params.id,
+        dossieId: id,
         tipo:     "DECISOR_ENCONTRADO",
         titulo:   `Decisor encontrado: ${body.nome}`,
         conteudo: [

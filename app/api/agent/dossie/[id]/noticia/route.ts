@@ -14,11 +14,13 @@ function verificarApiKey(req: NextRequest): boolean {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   if (!verificarApiKey(req)) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
+
+  const { id } = await params;
 
   let body: {
     titulo: string;
@@ -35,7 +37,7 @@ export async function POST(
   }
 
   const dossie = await prisma.dossieComercial.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     select: { id: true, status: true, oportunidadeId: true },
   });
   if (!dossie) return NextResponse.json({ error: "Dossiê não encontrado." }, { status: 404 });
@@ -48,7 +50,7 @@ export async function POST(
   await prisma.$transaction([
     prisma.atualizacaoDossie.create({
       data: {
-        dossieId:      params.id,
+        dossieId:      id,
         tipo:          tipo as "NOTICIA_ENCONTRADA" | "MONITORAMENTO" | "CAMPO_ATUALIZADO",
         titulo:        body.titulo,
         conteudo:      body.conteudo,
@@ -60,7 +62,7 @@ export async function POST(
       },
     }),
     prisma.dossieComercial.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         totalNoticias:    { increment: 1 },
         totalAtualizacoes: { increment: 1 },

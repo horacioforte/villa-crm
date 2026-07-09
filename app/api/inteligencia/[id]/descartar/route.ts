@@ -8,10 +8,12 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const authResult = await requireAuth(req);
   if (authResult instanceof NextResponse) return authResult;
+
+  const { id } = await params;
 
   const usuario = { id: authResult.id, name: authResult.nome };
 
@@ -23,7 +25,7 @@ export async function POST(
   }
 
   const dossie = await prisma.dossieComercial.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     select: { id: true, status: true },
   });
   if (!dossie) return NextResponse.json({ error: "Dossiê não encontrado." }, { status: 404 });
@@ -33,7 +35,7 @@ export async function POST(
 
   await prisma.$transaction([
     prisma.dossieComercial.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         status:         "ARQUIVADO",
         motivoDescarte: body.motivo,
@@ -42,7 +44,7 @@ export async function POST(
     }),
     prisma.atualizacaoDossie.create({
       data: {
-        dossieId:  params.id,
+        dossieId:  id,
         tipo:      "ANALISE_MORGANA",
         titulo:    "Dossiê arquivado",
         conteudo:  `Arquivado por ${usuario?.name ?? "usuário"}. Motivo: ${body.motivo}`,

@@ -13,11 +13,13 @@ function verificarApiKey(req: NextRequest): boolean {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   if (!verificarApiKey(req)) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
+
+  const { id } = await params;
 
   let body: {
     razaoSocial: string;
@@ -41,7 +43,7 @@ export async function POST(
   }
 
   const dossie = await prisma.dossieComercial.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     select: { id: true, status: true },
   });
   if (!dossie) return NextResponse.json({ error: "Dossiê não encontrado." }, { status: 404 });
@@ -49,7 +51,7 @@ export async function POST(
   // Verifica duplicata
   const jaExiste = await prisma.empresaDossie.findFirst({
     where: {
-      dossieId:    params.id,
+      dossieId:    id,
       papel:       body.papel.toUpperCase(),
       razaoSocial: { equals: body.razaoSocial, mode: "insensitive" },
     },
@@ -71,7 +73,7 @@ export async function POST(
 
   const empresaDossie = await prisma.empresaDossie.create({
     data: {
-      dossieId:    params.id,
+      dossieId:    id,
       razaoSocial: body.razaoSocial,
       papel:       body.papel.toUpperCase(),
       cidade:      body.cidade ?? null,
@@ -85,7 +87,7 @@ export async function POST(
 
   await prisma.$transaction([
     prisma.dossieComercial.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         totalEmpresas:  { increment: 1 },
         ultimaAtividade: new Date(),
@@ -93,7 +95,7 @@ export async function POST(
     }),
     prisma.atualizacaoDossie.create({
       data: {
-        dossieId: params.id,
+        dossieId: id,
         tipo:     "EMPRESA_ENCONTRADA",
         titulo:   `${body.papel}: ${body.razaoSocial}`,
         conteudo: [

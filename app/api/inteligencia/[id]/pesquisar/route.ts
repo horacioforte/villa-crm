@@ -10,10 +10,12 @@ import { PrioridadeTarefa, StatusTarefa, TipoAtividade } from "@/app/generated/p
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const authResult = await requireAuth(req);
   if (authResult instanceof NextResponse) return authResult;
+
+  const { id } = await params;
 
   const usuario = { id: authResult.id, name: authResult.nome };
 
@@ -21,7 +23,7 @@ export async function POST(
   try { body = await req.json(); } catch { /* ok */ }
 
   const dossie = await prisma.dossieComercial.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     select: { id: true, titulo: true, status: true, missaoAtual: true },
   });
   if (!dossie) return NextResponse.json({ error: "Dossiê não encontrado." }, { status: 404 });
@@ -34,7 +36,7 @@ export async function POST(
 
   await prisma.$transaction([
     prisma.dossieComercial.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         status:         "PEDIR_MAIS_PESQUISA",
         ultimaAtividade: new Date(),
@@ -42,7 +44,7 @@ export async function POST(
     }),
     prisma.atualizacaoDossie.create({
       data: {
-        dossieId:  params.id,
+        dossieId:  id,
         tipo:      "SOLICITACAO_PESQUISA",
         titulo:    "Mais pesquisa solicitada",
         conteudo:  `${usuario?.name ?? "Morgana"} solicitou mais pesquisa: ${instrucao}`,
@@ -53,7 +55,7 @@ export async function POST(
     prisma.tarefa.create({
       data: {
         titulo:        `[João] Pesquisar: ${dossie.titulo}`,
-        descricao:     `Dossiê ${params.id}.\n\nMissão: ${instrucao}`,
+        descricao:     `Dossiê ${id}.\n\nMissão: ${instrucao}`,
         tipo:          TipoAtividade.TAREFA_INTERNA,
         prioridade:    PrioridadeTarefa.ALTA,
         status:        StatusTarefa.PENDENTE,

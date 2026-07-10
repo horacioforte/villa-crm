@@ -313,7 +313,7 @@ export default function DossieDetalhe() {
 
   // ── Loading / not found ──
   if (carregando) {
-    return <div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-slate-400" /></div>;
+    return <div className="flex items-center justify-center flex-1 h-full"><Loader2 className="h-8 w-8 animate-spin text-slate-400" /></div>;
   }
   if (!dossie) {
     return <div className="p-8 text-center text-slate-500">Dossiê não encontrado.</div>;
@@ -360,7 +360,7 @@ export default function DossieDetalhe() {
 
   // ── Render ──
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col flex-1 overflow-hidden bg-slate-50">
 
       {/* ── Cabeçalho ── */}
       <div className="bg-white border-b px-4 py-3 flex items-center gap-3 sticky top-0 z-10">

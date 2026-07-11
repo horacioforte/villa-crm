@@ -594,6 +594,67 @@ export async function criarLembrete({
   return lembrete;
 }
 
+// ─── Dossiês da Central de Inteligência ──────────────────────────────────────
+
+export async function buscarDossies({
+  status,
+  prioridade,
+  segmento,
+  cidade,
+  estado,
+  prontos = false,
+  limite = 20,
+}: {
+  status?: string;
+  prioridade?: string;
+  segmento?: string;
+  cidade?: string;
+  estado?: string;
+  prontos?: boolean;
+  limite?: number;
+} = {}) {
+  const where: Record<string, any> = {
+    status: { not: "ARQUIVADO" },
+  };
+
+  if (status) where.status = status as any;
+  else if (prontos) where.status = "PRONTO_PARA_ASSUMIR";
+  if (prioridade) where.prioridade = prioridade;
+  if (segmento) where.segmento = { contains: segmento, mode: "insensitive" };
+  if (cidade) where.cidade = { contains: cidade, mode: "insensitive" };
+  if (estado) where.estado = estado;
+
+  const dossies = await prisma.dossieComercial.findMany({
+    where,
+    include: {
+      empresa: { select: { razaoSocial: true } },
+    },
+    orderBy: [{ status: "asc" }, { score: "desc" }, { updatedAt: "desc" }],
+    take: limite,
+  });
+
+  return dossies.map((d) => ({
+    id: d.id,
+    titulo: d.titulo,
+    status: d.status,
+    score: d.score,
+    completude: d.completude,
+    prioridade: d.prioridade,
+    segmento: d.segmento,
+    cidade: d.cidade,
+    estado: d.estado,
+    clienteFinal: d.clienteFinal,
+    empresa: d.empresa?.razaoSocial ?? null,
+    missaoAtual: d.missaoAtual,
+    totalDecisores: d.totalDecisores,
+    totalEmpresas: d.totalEmpresas,
+    totalNoticias: d.totalNoticias,
+    totalAtualizacoes: d.totalAtualizacoes,
+    proximaAcao: d.proximaAcaoSugerida,
+    atualizadoEm: d.updatedAt,
+  }));
+}
+
 // ─── Gerar Relatório Visual ───────────────────────────────────────────────────
 
 const CORES_VILLA = [

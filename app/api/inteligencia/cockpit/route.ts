@@ -3,6 +3,8 @@
 // Endpoint agregado para o Cockpit Executivo da Central de Inteligência.
 // Retorna: dossiês ativos, KPIs em 2 grupos, feed de inteligência,
 // "o que mudou", oportunidades esquecidas e status do João.
+// V1.0 — campos totalDecisores/totalEmpresas/totalAtualizacoes mapeados do _count
+// V1.0 — feed inclui agente e conteúdo resumido; take 50
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/session";
@@ -28,6 +30,17 @@ export const FEED_META: Record<string, {
   SOLICITACAO_PESQUISA:    { categoria: "Pesquisa",  icone: "refresh",             impacto: "medio" },
 };
 
+// Rótulo legível por humanos para cada agente do sistema
+const AGENTE_LABEL: Record<string, string> = {
+  "joao-hunter":  "João Hunter IA",
+  "joao":         "João Hunter IA",
+  "morgana":      "Morgana",
+  "comercial":    "Equipe Comercial",
+  "manual":       "Equipe Comercial",
+  "sistema":      "Sistema",
+  "webhook":      "Sistema",
+};
+
 // ─── GET — dados completos do cockpit ────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -39,16 +52,25 @@ export async function GET(req: NextRequest) {
   const ontem     = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   // ── 1. Dossiês ativos (todas as colunas do kanban, exceto ARQUIVADO) ────────
-  const dossies = await prisma.dossieComercial.findMany({
+  const dossiesRaw = await prisma.dossieComercial.findMany({
     where: { status: { notIn: ["ARQUIVADO"] } },
     orderBy: [{ status: "asc" }, { score: "desc" }, { updatedAt: "desc" }],
-    take: 300,
+    take: 500,
     include: {
       empresa: { select: { id: true, razaoSocial: true } },
       obra:    { select: { id: true, nome: true } },
       _count:  { select: { decisores: true, empresasRelacionadas: true, atualizacoes: true } },
     },
   });
+
+  // Mapeia _count para campos de primeiro nível — corrige bug de totalDecisores undefined
+  const dossies = dossiesRaw.map(d => ({
+    ...d,
+    totalDecisores:    d._count?.decisores            ?? 0,
+    totalEmpresas:     d._count?.empresasRelacionadas ?? 0,
+    totalAtualizacoes: d._count?.atualizacoes         ?? 0,
+    totalNoticias:     0, // contagem detalhada disponível via feed; evita N+1 queries
+  }));
 
   // ── 2. KPIs — Inteligência (produção do João nas últimas 24h) ───────────────
   const [novosDossies, dossiesAtualizados, novosDecisores, novasEmpresas, descobertas] =
@@ -57,7 +79,13 @@ export async function GET(req: NextRequest) {
       prisma.dossieComercial.count({ where: { updatedAt: { gte: ontem }, createdAt: { lt: ontem } } }),
       prisma.decisorDossie.count({ where: { createdAt: { gte: ontem } } }),
       prisma.empresaDossie.count({ where: { createdAt: { gte: ontem } } }),
-      prisma.atualizacaoDossie.count({ where: { createdAt: { gte: ontem } } }),
+      // Só conta descobertas reais — exclui atualizações rotineiras de monitoramento
+      prisma.atualizacaoDossie.count({
+        where: {
+          createdAt: { gte: ontem },
+          tipo: { in: ["DECISOR_ENCONTRADO", "EMPRESA_ENCONTRADA", "NOTICIA_ENCONTRADA", "ANALISE_MORGANA", "MISSAO_CONCLUIDA"] },
+        },
+      }),
     ]);
 
   // ── 3. KPIs — Ação Comercial ────────────────────────────────────────────────
@@ -74,11 +102,11 @@ export async function GET(req: NextRequest) {
     return d.prioridade === "ALTA" && dias > 7;
   }).length;
 
-  // ── 4. Feed de Inteligência (últimas 30 atualizações dos dossiês ativos) ────
+  // ── 4. Feed de Inteligência (últimas 50 atualizações dos dossiês ativos) ────
   const atualizacoes = await prisma.atualizacaoDossie.findMany({
     where: { dossie: { status: { notIn: ["ARQUIVADO"] } } },
     orderBy: { createdAt: "desc" },
-    take: 30,
+    take: 50,
     include: { dossie: { select: { id: true, titulo: true } } },
   });
 
@@ -87,6 +115,8 @@ export async function GET(req: NextRequest) {
     tipo:         a.tipo,
     titulo:       a.titulo,
     conteudo:     a.conteudo,
+    agente:       a.agente ?? "sistema",
+    agenteLabel:  AGENTE_LABEL[a.agente ?? ""] ?? "Sistema",
     dossieId:     a.dossieId,
     dossieTitulo: a.dossie.titulo,
     createdAt:    a.createdAt.toISOString(),
@@ -157,19 +187,34 @@ export async function GET(req: NextRequest) {
     include: { dossie: { select: { id: true, titulo: true } } },
   });
 
+  // Contagem de descobertas nas últimas 24h para o painel do João
+  const descobertasJoao24h = await prisma.atualizacaoDossie.count({
+    where: {
+      createdAt: { gte: ontem },
+      tipo: { in: ["DECISOR_ENCONTRADO", "EMPRESA_ENCONTRADA", "NOTICIA_ENCONTRADA"] },
+    },
+  });
+
   const joao = {
-    totalDossies: dossies.length,
-    missaoAtual:  dossieAtivo?.missaoAtual ?? "Monitorando o mercado",
-    dossieAtual:  dossieAtivo
+    totalDossies:       dossies.length,
+    dossiesInvestigando: dossies.filter(d => d.status === "INVESTIGANDO").length,
+    missaoAtual:        dossieAtivo?.missaoAtual ?? "Monitorando o mercado",
+    dossieAtual:        dossieAtivo
       ? { id: dossieAtivo.id, titulo: dossieAtivo.titulo }
       : null,
+    // Proxy de progresso: completude do dossiê em investigação
+    progressoMissao:    dossieAtivo?.completude ?? null,
+    descobertas24h:     descobertasJoao24h,
     ultimaDescoberta: ultimaDescobertaRecord
       ? {
           descricao: ultimaDescobertaRecord.titulo,
           dossie:    ultimaDescobertaRecord.dossie.titulo,
+          dossieId:  ultimaDescobertaRecord.dossie.id,
           quando:    ultimaDescobertaRecord.createdAt.toISOString(),
         }
       : null,
+    // Próxima investigação: campo para expansão futura (scheduler do João)
+    proximaInvestigacao: null as string | null,
   };
 
   return NextResponse.json({

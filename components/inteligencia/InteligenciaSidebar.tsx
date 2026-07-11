@@ -3,6 +3,7 @@
 // ARQUIVO: components/inteligencia/InteligenciaSidebar.tsx
 // REGRA: nunca remover. Apenas acrescentar.
 // Sidebar escura exclusiva do Centro de Inteligência Comercial.
+// V1.0 — João como colaborador digital com status dinâmico, progresso e dossiê em investigação.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -66,8 +67,12 @@ function NavItem({ item, pathname, totalDossies }: { item: MenuItem; pathname: s
 
 type JoaoSidebarStatus = {
   totalDossies: number;
+  dossiesInvestigando: number;
   missaoAtual: string;
-  ultimaDescoberta?: { descricao: string; quando: string } | null;
+  dossieAtual?: { id: string; titulo: string } | null;
+  progressoMissao?: number | null;
+  descobertas24h: number;
+  ultimaDescoberta?: { descricao: string; dossie: string; dossieId: string; quando: string } | null;
 };
 
 type Props = { totalDossies?: number };
@@ -141,7 +146,7 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
         </div>
       </nav>
 
-      {/* João status — colaborador da equipe */}
+      {/* João status — colaborador digital da equipe */}
       <div className="p-3 border-t border-white/5" style={{ background: "rgba(0,0,0,0.2)" }}>
         {/* Header João */}
         <div className="flex items-center gap-2 mb-2.5">
@@ -151,12 +156,14 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
           >
             🤖
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-slate-300">João Hunter IA</p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 animate-pulse" />
-              <p className="text-[10px] text-emerald-500 font-medium">
-                {joao ? `${joao.totalDossies} dossiês` : "Ativo"}
+              <p className="text-[10px] text-emerald-500 font-medium truncate">
+                {joao
+                  ? `${joao.totalDossies} dossiês · ${joao.dossiesInvestigando ?? 0} investigando`
+                  : "Ativo"}
               </p>
             </div>
           </div>
@@ -164,6 +171,7 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
 
         {/* Detalhes do colaborador */}
         <div className="space-y-2">
+          {/* Missão atual */}
           <div>
             <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600 mb-0.5">
               Missão atual
@@ -173,6 +181,51 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
             </p>
           </div>
 
+          {/* Dossiê em investigação — link clicável */}
+          {joao?.dossieAtual && (
+            <div>
+              <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600 mb-0.5">
+                Investigando
+              </p>
+              <Link
+                href={`/inteligencia/${joao.dossieAtual.id}`}
+                className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors leading-snug line-clamp-1 block"
+                title={joao.dossieAtual.titulo}
+              >
+                → {joao.dossieAtual.titulo}
+              </Link>
+            </div>
+          )}
+
+          {/* Progresso da missão (barra) */}
+          {joao?.progressoMissao != null && (
+            <div>
+              <div className="flex items-center justify-between mb-0.5">
+                <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+                  Completude do dossiê
+                </p>
+                <span className="text-[9px] font-medium text-slate-500">{joao.progressoMissao}%</span>
+              </div>
+              <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-blue-500 transition-all"
+                  style={{ width: `${joao.progressoMissao}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Descobertas nas últimas 24h */}
+          {joao != null && joao.descobertas24h > 0 && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
+              <p className="text-[10px] text-amber-400">
+                {joao.descobertas24h} descoberta{joao.descobertas24h !== 1 ? "s" : ""} nas últimas 24h
+              </p>
+            </div>
+          )}
+
+          {/* Última descoberta */}
           {joao?.ultimaDescoberta && (
             <div>
               <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600 mb-0.5">
@@ -182,13 +235,25 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
                 {joao.ultimaDescoberta.descricao}
               </p>
               <p className="text-[9px] text-slate-600 mt-0.5">
-                {new Date(joao.ultimaDescoberta.quando).toLocaleTimeString("pt-BR", {
+                {new Date(joao.ultimaDescoberta.quando).toLocaleString("pt-BR", {
+                  day: "2-digit",
+                  month: "short",
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
               </p>
             </div>
           )}
+
+          {/* Próxima investigação */}
+          <div>
+            <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600 mb-0.5">
+              Próxima investigação
+            </p>
+            <p className="text-[10px] text-slate-600 italic">
+              Contínua — em monitoramento
+            </p>
+          </div>
         </div>
       </div>
     </aside>

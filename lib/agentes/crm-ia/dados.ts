@@ -655,6 +655,69 @@ export async function buscarDossies({
   }));
 }
 
+// ─── Criar Dossiê (solicitação manual da equipe) ─────────────────────────────
+
+export async function criarDossie({
+  titulo,
+  tipo = "OBRA",
+  segmento,
+  cidade,
+  estado,
+  clienteFinal,
+  resumo,
+  missaoInicial,
+  prioridade = "MEDIA",
+  usuarioId,
+}: {
+  titulo: string;
+  tipo?: string;
+  segmento?: string;
+  cidade?: string;
+  estado?: string;
+  clienteFinal?: string;
+  resumo?: string;
+  missaoInicial?: string;
+  prioridade?: string;
+  usuarioId?: string;
+}) {
+  const dossie = await prisma.dossieComercial.create({
+    data: {
+      titulo,
+      origem: "MANUAL",
+      tipo: (tipo as any) ?? "OBRA",
+      status: "INVESTIGANDO",
+      segmento: segmento ?? null,
+      cidade: cidade ?? null,
+      estado: estado ?? null,
+      clienteFinal: clienteFinal ?? null,
+      resumo: resumo ?? null,
+      missaoAtual: missaoInicial ?? "Investigação solicitada pela equipe comercial — levantar decisores, contatos e potencial da obra/empresa.",
+      prioridade: prioridade ?? "MEDIA",
+      score: 0,
+      completude: 0,
+    },
+    select: { id: true, titulo: true, status: true, missaoAtual: true },
+  });
+
+  await auditLog({
+    action: "DOSSIE_CRIADO",
+    entity: "DossieComercial",
+    entityId: dossie.id,
+    before: null,
+    after: dossie,
+    userId: usuarioId ?? null,
+    metadata: { origem: "CRM_IA_MANUAL" },
+  });
+
+  return {
+    id: dossie.id,
+    titulo: dossie.titulo,
+    status: dossie.status,
+    missaoAtual: dossie.missaoAtual,
+    urlDossie: `/inteligencia/${dossie.id}`,
+  };
+}
+
 // ─── Gerar Relatório Visual ───────────────────────────────────────────────────
 
 const CORES_VILLA = [

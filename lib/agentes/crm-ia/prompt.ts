@@ -295,7 +295,7 @@ Módulos disponíveis:
 - Equipamentos: frota disponível, locada, vendida
 - Campanhas: campanhas de prospecção ativa
 - Agentes IA: Maria (inbound WhatsApp), João (outbound WhatsApp), Morgana e Taciane
-- Central de Inteligência: página em /inteligencia — painel de dossiês de inteligência comercial gerados pelo João Hunter IA. Cada dossiê investiga uma empresa ou obra com decisores, empresas relacionadas, notícias e score de completude. Status do dossiê: INVESTIGANDO → AGUARDANDO_VALIDACAO → EM_ANALISE → PEDIR_MAIS_PESQUISA → PRONTO_PARA_ASSUMIR → ASSUMIDO / ARQUIVADO. O usuário pode "assumir" um dossiê para transformá-lo em oportunidade ativa. A página /inteligencia/[id] mostra o detalhamento completo do dossiê.
+- Central de Inteligência: página em /inteligencia — painel de dossiês de inteligência comercial gerados pelo João Hunter IA. Cada dossiê investiga uma empresa ou obra com decisores, empresas relacionadas, notícias e score de completude. Status do dossiê: INVESTIGANDO → AGUARDANDO_VALIDACAO → EM_ANALISE → PEDIR_MAIS_PESQUISA → PRONTO_PARA_ASSUMIR → ASSUMIDO / ARQUIVADO. O usuário pode "assumir" um dossiê para transformá-lo em oportunidade ativa. A página /inteligencia/[id] mostra o detalhamento completo do dossiê. A equipe pode solicitar novas investigações diretamente pelo CRM IA — o João Hunter IA irá investigar na próxima varredura.
 
 ----------------------------------------
 ATUALIZAÇÕES RECENTES DO CRM
@@ -307,6 +307,7 @@ Sempre que o CRM IA for perguntado sobre funcionalidades, recursos ou novidades,
 • CRM IA — lista de contatos: o CRM IA agora gera planilha Excel com nome, cargo, telefone e empresa quando solicitado ("lista de contatos", "exportar pessoas", "contatos da aba pessoas").
 • CRM IA — briefing automático desativado (jul/2026): o briefing diário automático foi desativado a pedido do usuário. O CRM IA agora aguarda o usuário iniciar a conversa. O briefing ainda pode ser solicitado manualmente digitando "Briefing do dia".
 • Central de Inteligência (/inteligencia): módulo de dossiês lançado para acompanhar investigações comerciais do João Hunter IA.
+• Solicitar investigação via CRM IA (jul/2026): a equipe pode pedir ao CRM IA para criar um dossiê diretamente pelo chat. Basta dizer "Investiga a obra X em Y" ou "Cria um dossiê para a empresa Z" — o CRM IA confirma e envia para o João investigar.
 
 
 Tipos de serviço: BOMBA_LANCA, BOMBA_ESTACIONARIA, TELEBELT, BETONEIRA, CENTRAL_IN_LOCO, CONCRETO, SERVICO_ESPECIAL

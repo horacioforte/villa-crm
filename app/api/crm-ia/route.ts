@@ -26,6 +26,7 @@ import {
   agendarVisita,
   criarLembrete,
   buscarDossies,
+  criarDossie,
 } from "@/lib/agentes/crm-ia/dados";
 
 // ─── Definição das ferramentas disponíveis para o CRM IA ─────────────────────
@@ -314,6 +315,25 @@ const ferramentas = [
     },
   },
   {
+    name: "criar_dossie",
+    description: "Cria um novo dossiê na Central de Inteligência para o João Hunter IA investigar. Use quando a equipe quiser solicitar investigação de uma obra, empresa ou lead específico. Confirme os dados com o usuário antes de criar.",
+    input_schema: {
+      type: "object",
+      properties: {
+        titulo: { type: "string", description: "Nome da obra, empresa ou lead. Ex: 'Refinaria RNEST — Petrobras Suape/PE'" },
+        tipo: { type: "string", enum: ["OBRA", "EMPRESA", "MOVIMENTO_ESTRATEGICO", "LICENCIAMENTO", "LEAD"] },
+        segmento: { type: "string", description: "Segmento. Ex: Petroquímica, Saneamento, Energia" },
+        cidade: { type: "string" },
+        estado: { type: "string", description: "UF. Ex: PE, SP, RS" },
+        clienteFinal: { type: "string", description: "Contratante da obra" },
+        resumo: { type: "string", description: "O que a equipe já sabe" },
+        missaoInicial: { type: "string", description: "O que o João deve descobrir primeiro" },
+        prioridade: { type: "string", enum: ["ALTA", "MEDIA", "BAIXA"] },
+      },
+      required: ["titulo"],
+    },
+  },
+  {
     name: "criar_tarefa",
     description: "Cria uma nova tarefa no CRM. Use apenas quando o usuário confirmar explicitamente.",
     input_schema: {
@@ -388,6 +408,8 @@ async function executarFerramenta(
       return await criarLembrete(input as any);
     case "buscar_dossies":
       return await buscarDossies(input as any);
+    case "criar_dossie":
+      return await criarDossie({ ...input, usuarioId: ctx.usuarioId } as any);
     default:
       return { erro: `Ferramenta desconhecida: ${nome}` };
   }

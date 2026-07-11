@@ -75,15 +75,15 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
         <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500 mb-2">
           Centro de Inteligência
         </p>
-        <div className="flex items-center gap-2">
+        <Link href="/oportunidades" className="flex items-center gap-2 group">
           <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 group-hover:opacity-80 transition-opacity"
             style={{ background: "#1A3A6B" }}
           >
             V
           </div>
-          <span className="text-sm font-semibold text-slate-200 leading-tight">Villa<br />Empreendimentos</span>
-        </div>
+          <span className="text-sm font-semibold text-slate-200 leading-tight group-hover:text-white transition-colors">Villa<br />Empreendimentos</span>
+        </Link>
       </div>
 
       {/* Nav */}

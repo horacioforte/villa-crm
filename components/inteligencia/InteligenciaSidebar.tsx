@@ -6,6 +6,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   BarChart2,
   Bot,
@@ -63,10 +64,26 @@ function NavItem({ item, pathname, totalDossies }: { item: MenuItem; pathname: s
   );
 }
 
+type JoaoSidebarStatus = {
+  totalDossies: number;
+  missaoAtual: string;
+  ultimaDescoberta?: { descricao: string; quando: string } | null;
+};
+
 type Props = { totalDossies?: number };
 
 export function InteligenciaSidebar({ totalDossies }: Props) {
   const pathname = usePathname();
+  const [joao, setJoao] = useState<JoaoSidebarStatus | null>(null);
+
+  useEffect(() => {
+    fetch("/api/inteligencia/cockpit")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.joao) setJoao(data.joao);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <aside className="w-52 flex-shrink-0 flex flex-col border-r border-white/5" style={{ background: "#0D1829" }}>
@@ -124,9 +141,10 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
         </div>
       </nav>
 
-      {/* João status */}
+      {/* João status — colaborador da equipe */}
       <div className="p-3 border-t border-white/5" style={{ background: "rgba(0,0,0,0.2)" }}>
-        <div className="flex items-center gap-2">
+        {/* Header João */}
+        <div className="flex items-center gap-2 mb-2.5">
           <div
             className="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #1e3a5f, #1d4ed8)" }}
@@ -136,12 +154,42 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
           <div className="min-w-0">
             <p className="text-xs font-medium text-slate-300">João Hunter IA</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
-              <p className="text-[10px] text-slate-500">Monitorando o mercado</p>
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 animate-pulse" />
+              <p className="text-[10px] text-emerald-500 font-medium">
+                {joao ? `${joao.totalDossies} dossiês` : "Ativo"}
+              </p>
             </div>
           </div>
         </div>
-        <p className="text-[10px] text-slate-600 mt-1.5 pl-9">Última varredura: segunda-feira</p>
+
+        {/* Detalhes do colaborador */}
+        <div className="space-y-2">
+          <div>
+            <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600 mb-0.5">
+              Missão atual
+            </p>
+            <p className="text-[10px] text-slate-400 leading-snug line-clamp-2">
+              {joao?.missaoAtual ?? "Monitorando o mercado"}
+            </p>
+          </div>
+
+          {joao?.ultimaDescoberta && (
+            <div>
+              <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600 mb-0.5">
+                Última descoberta
+              </p>
+              <p className="text-[10px] text-slate-400 leading-snug line-clamp-2">
+                {joao.ultimaDescoberta.descricao}
+              </p>
+              <p className="text-[9px] text-slate-600 mt-0.5">
+                {new Date(joao.ultimaDescoberta.quando).toLocaleTimeString("pt-BR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

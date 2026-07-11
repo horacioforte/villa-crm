@@ -25,6 +25,7 @@ import {
   alterarResponsavel,
   agendarVisita,
   criarLembrete,
+  buscarDossies,
 } from "@/lib/agentes/crm-ia/dados";
 
 // ─── Definição das ferramentas disponíveis para o CRM IA ─────────────────────
@@ -285,6 +286,34 @@ const ferramentas = [
     },
   },
   {
+    name: "buscar_dossies",
+    description: "Consulta os dossiês da Central de Inteligência Comercial gerados pelo João Hunter IA. Use quando o usuário perguntar sobre investigações, dossiês, obras mapeadas, empresas sendo investigadas, o que está pronto para assumir, ou qualquer dado da Central de Inteligência.",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["INVESTIGANDO", "AGUARDANDO_VALIDACAO", "EM_ANALISE", "PEDIR_MAIS_PESQUISA", "PRONTO_PARA_ASSUMIR", "ASSUMIDO", "ARQUIVADO"],
+          description: "Filtrar por status do dossiê",
+        },
+        prioridade: {
+          type: "string",
+          enum: ["ALTA", "MEDIA", "BAIXA"],
+          description: "Filtrar por prioridade",
+        },
+        segmento: { type: "string", description: "Filtrar por segmento (ex: Celulose, Saneamento, Energia)" },
+        cidade: { type: "string", description: "Filtrar por cidade" },
+        estado: { type: "string", description: "Filtrar por estado (UF, ex: SP, PE, RS)" },
+        prontos: {
+          type: "boolean",
+          description: "Se true, retorna apenas dossiês com status PRONTO_PARA_ASSUMIR",
+        },
+        limite: { type: "number", description: "Número máximo de resultados (padrão 20)" },
+      },
+      required: [],
+    },
+  },
+  {
     name: "criar_tarefa",
     description: "Cria uma nova tarefa no CRM. Use apenas quando o usuário confirmar explicitamente.",
     input_schema: {
@@ -357,6 +386,8 @@ async function executarFerramenta(
       return await agendarVisita({ ...input, responsavelId: ctx.usuarioId } as any);
     case "criar_lembrete":
       return await criarLembrete(input as any);
+    case "buscar_dossies":
+      return await buscarDossies(input as any);
     default:
       return { erro: `Ferramenta desconhecida: ${nome}` };
   }

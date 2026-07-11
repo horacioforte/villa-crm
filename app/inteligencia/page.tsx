@@ -2,33 +2,47 @@
 
 // ARQUIVO: app/inteligencia/page.tsx
 // REGRA: nunca remover. Apenas acrescentar.
-// Central de Inteligência Comercial — visão geral dos Dossiês do João Hunter IA.
+// Cockpit Executivo — Central de Inteligência Comercial.
+// Redesenhado para responder 4 perguntas em < 30 segundos:
+//   1. O que mudou desde minha última visita?
+//   2. Onde concentrar o tempo hoje?
+//   3. O que João descobriu de importante?
+//   4. Quais oportunidades estão ficando para trás?
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
+  ArrowLeft,
   Bell,
+  Bot,
   Brain,
+  Building2,
   ChevronDown,
+  Clock,
   Eye,
-  Filter,
+  Factory,
+  Flame,
+  FolderOpen,
+  FolderPlus,
+  History,
   Loader2,
+  Newspaper,
   RefreshCw,
   Search,
   ShieldCheck,
   Sparkles,
+  Star,
   Target,
   TrendingUp,
+  UserCheck,
+  UserPlus,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-
-// ─── Tipos ───────────────────────────────────────────────────────────────────
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type StatusDossie =
   | "INVESTIGANDO"
@@ -49,29 +63,109 @@ type Dossie = {
   cidade?: string | null;
   estado?: string | null;
   clienteFinal?: string | null;
+  construtora?: string | null;
+  epc?: string | null;
+  epcm?: string | null;
+  licenciamento?: string | null;
+  valorEstimado?: string | null;
   score: number;
   completude: number;
   missaoAtual?: string | null;
+  proximaAcaoSugerida?: string | null;
   prioridade?: string | null;
   totalDecisores: number;
   totalEmpresas: number;
   totalNoticias: number;
   totalAtualizacoes: number;
   updatedAt: string;
+  createdAt: string;
   empresa?: { id: string; razaoSocial: string } | null;
   _count?: { decisores: number; empresasRelacionadas: number; atualizacoes: number };
 };
 
-// ─── Configurações de status ──────────────────────────────────────────────────
+type FeedItem = {
+  id: string;
+  tipo: string;
+  titulo: string;
+  conteudo: string;
+  dossieId: string;
+  dossieTitulo: string;
+  createdAt: string;
+  categoria: string;
+  icone: string;
+  impacto: "alto" | "medio" | "baixo";
+};
 
-const STATUS_CONFIG: Record<StatusDossie, { label: string; cor: string; bg: string; icone: React.ReactNode }> = {
-  INVESTIGANDO:         { label: "Investigando",        cor: "text-blue-700",    bg: "bg-blue-50 border-blue-200",     icone: <Search className="h-3 w-3" /> },
-  AGUARDANDO_VALIDACAO: { label: "Aguard. Validação",   cor: "text-amber-700",   bg: "bg-amber-50 border-amber-200",   icone: <Eye className="h-3 w-3" /> },
-  EM_ANALISE:           { label: "Em Análise",          cor: "text-purple-700",  bg: "bg-purple-50 border-purple-200", icone: <Brain className="h-3 w-3" /> },
-  PEDIR_MAIS_PESQUISA:  { label: "Mais Pesquisa",       cor: "text-orange-700",  bg: "bg-orange-50 border-orange-200", icone: <RefreshCw className="h-3 w-3" /> },
-  PRONTO_PARA_ASSUMIR:  { label: "Pronto p/ Assumir",  cor: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200", icone: <ShieldCheck className="h-3 w-3" /> },
-  ASSUMIDO:             { label: "Assumido",            cor: "text-slate-500",   bg: "bg-slate-50 border-slate-200",   icone: <TrendingUp className="h-3 w-3" /> },
-  ARQUIVADO:            { label: "Arquivado",           cor: "text-slate-400",   bg: "bg-slate-50 border-slate-100",   icone: <ChevronDown className="h-3 w-3" /> },
+type Mudancas = {
+  dossies: number;
+  decisores: number;
+  empresas: number;
+  noticias: number;
+  prontos: number;
+  desde: string;
+};
+
+type Esquecida = {
+  id: string;
+  titulo: string;
+  cidade?: string | null;
+  estado?: string | null;
+  segmento?: string | null;
+  status: string;
+  score: number;
+  prioridade?: string | null;
+  motivo: string;
+  tipo: string;
+  dias: number;
+};
+
+type JoaoStatus = {
+  totalDossies: number;
+  missaoAtual: string;
+  dossieAtual?: { id: string; titulo: string } | null;
+  ultimaDescoberta?: { descricao: string; dossie: string; quando: string } | null;
+};
+
+type KpisInteligencia = {
+  novosDossies: number;
+  dossiesAtualizados: number;
+  novosDecisores: number;
+  novasEmpresas: number;
+  descobertas: number;
+};
+
+type KpisAcao = {
+  prontos: number;
+  aguardandoVal: number;
+  esquecidos: number;
+  quentes: number;
+  emRisco: number;
+};
+
+type CockpitData = {
+  dossies: Dossie[];
+  kpis: { inteligencia: KpisInteligencia; acao: KpisAcao };
+  feed: FeedItem[];
+  mudancas: Mudancas;
+  esquecidas: Esquecida[];
+  joao: JoaoStatus;
+};
+
+// ─── Configurações ────────────────────────────────────────────────────────────
+
+const STATUS_CFG: Record<StatusDossie, {
+  label: string;
+  textCor: string;
+  bgBorder: string;
+  icone: React.ReactNode;
+}> = {
+  INVESTIGANDO:         { label: "Investigando",       textCor: "text-blue-700",    bgBorder: "bg-blue-50 border-blue-200",     icone: <Search className="h-3 w-3" /> },
+  AGUARDANDO_VALIDACAO: { label: "Aguard. Validação",  textCor: "text-amber-700",   bgBorder: "bg-amber-50 border-amber-200",   icone: <Eye className="h-3 w-3" /> },
+  EM_ANALISE:           { label: "Em Análise",         textCor: "text-purple-700",  bgBorder: "bg-purple-50 border-purple-200", icone: <Brain className="h-3 w-3" /> },
+  PEDIR_MAIS_PESQUISA:  { label: "Mais Pesquisa",      textCor: "text-orange-700",  bgBorder: "bg-orange-50 border-orange-200", icone: <RefreshCw className="h-3 w-3" /> },
+  PRONTO_PARA_ASSUMIR:  { label: "Pronto p/ Assumir",  textCor: "text-emerald-700", bgBorder: "bg-emerald-50 border-emerald-200", icone: <ShieldCheck className="h-3 w-3" /> },
+  ASSUMIDO:             { label: "Assumido",           textCor: "text-slate-500",   bgBorder: "bg-slate-50 border-slate-200",   icone: <TrendingUp className="h-3 w-3" /> },
+  ARQUIVADO:            { label: "Arquivado",          textCor: "text-slate-400",   bgBorder: "bg-slate-50 border-slate-100",   icone: <ChevronDown className="h-3 w-3" /> },
 };
 
 const COLUNAS_KANBAN: StatusDossie[] = [
@@ -82,412 +176,778 @@ const COLUNAS_KANBAN: StatusDossie[] = [
   "PRONTO_PARA_ASSUMIR",
 ];
 
+const FEED_ICONE_MAP: Record<string, React.ReactNode> = {
+  "user-check":          <UserCheck className="h-3.5 w-3.5" />,
+  "building-factory-2":  <Factory className="h-3.5 w-3.5" />,
+  "news":                <Newspaper className="h-3.5 w-3.5" />,
+  "target":              <Target className="h-3.5 w-3.5" />,
+  "building":            <Building2 className="h-3.5 w-3.5" />,
+  "radar-2":             <Zap className="h-3.5 w-3.5" />,
+  "folder-plus":         <FolderPlus className="h-3.5 w-3.5" />,
+  "eye":                 <Eye className="h-3.5 w-3.5" />,
+  "shield-check":        <ShieldCheck className="h-3.5 w-3.5" />,
+  "refresh":             <RefreshCw className="h-3.5 w-3.5" />,
+  "info-circle":         <Bell className="h-3.5 w-3.5" />,
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatHora(isoStr: string): string {
+function diasDesde(isoStr: string): number {
+  return Math.floor((Date.now() - new Date(isoStr).getTime()) / 86_400_000);
+}
+
+function formatHorario(isoStr: string): string {
   try {
     return new Date(isoStr).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   } catch { return ""; }
 }
 
-function isHoje(isoStr: string): boolean {
+function formatData(isoStr: string): string {
   try {
-    const d = new Date(isoStr);
-    const hoje = new Date();
-    return d.getFullYear() === hoje.getFullYear() &&
-           d.getMonth() === hoje.getMonth() &&
-           d.getDate() === hoje.getDate();
-  } catch { return false; }
+    return new Date(isoStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  } catch { return ""; }
 }
 
-function corPonto(status: StatusDossie): string {
-  const mapa: Partial<Record<StatusDossie, string>> = {
-    PRONTO_PARA_ASSUMIR:  "bg-emerald-500",
-    AGUARDANDO_VALIDACAO: "bg-amber-500",
-    INVESTIGANDO:         "bg-blue-500",
-    EM_ANALISE:           "bg-purple-500",
-    PEDIR_MAIS_PESQUISA:  "bg-orange-500",
-  };
-  return mapa[status] ?? "bg-slate-400";
+function corScore(score: number): string {
+  if (score >= 85) return "bg-red-500 text-white";
+  if (score >= 70) return "bg-orange-500 text-white";
+  if (score >= 50) return "bg-amber-400 text-white";
+  return "bg-slate-300 text-slate-700";
 }
 
-// ─── Barra de completude ──────────────────────────────────────────────────────
+/** Maturidade Comercial = quanto faz sentido atuar agora (diferente de Completude = quanto João sabe) */
+function calcMaturidade(d: Dossie): number {
+  let score = 0;
+  if (d.epc || d.epcm) score += 30;                // EPC/EPCM identificada — já tem com quem falar
+  if (d.construtora)   score += 20;                // Construtora identificada
+  if (d.totalDecisores >= 2) score += 20;          // Múltiplos decisores mapeados
+  else if (d.totalDecisores >= 1) score += 10;     // Pelo menos 1 decisor
+  if (d.licenciamento) score += 15;               // Fase de licenciamento conhecida
+  if (d.valorEstimado) score += 15;               // Valor estimado confirmado
+  return Math.min(100, score);
+}
 
-function BarraCompletude({ valor }: { valor: number }) {
-  const cor =
-    valor >= 80 ? "bg-emerald-500" :
-    valor >= 60 ? "bg-amber-500" :
-    valor >= 40 ? "bg-blue-500" : "bg-slate-300";
+function corBarra(pct: number, tipo: "completude" | "maturidade"): string {
+  if (tipo === "maturidade") {
+    if (pct >= 70) return "bg-emerald-500";
+    if (pct >= 40) return "bg-amber-500";
+    return "bg-slate-300";
+  }
+  if (pct >= 70) return "bg-blue-500";
+  if (pct >= 40) return "bg-blue-400";
+  return "bg-slate-300";
+}
 
+/** Gera agenda de prioridade determinística a partir dos dados */
+function gerarPrioridade(dossies: Dossie[]): Array<{
+  n: number;
+  obra: string;
+  porque: string;
+  acao: string;
+  urgencia: "ALTA" | "MÉDIA";
+}> {
+  const resultados: Array<{ n: number; obra: string; porque: string; acao: string; urgencia: "ALTA" | "MÉDIA" }> = [];
+
+  // 1. Prontos para assumir — ação imediata
+  dossies
+    .filter(d => d.status === "PRONTO_PARA_ASSUMIR")
+    .forEach(d => {
+      resultados.push({
+        n: resultados.length + 1,
+        obra: d.titulo,
+        porque: `Dossiê aprovado pela Morgana com score ${d.score}/100. ${d.totalDecisores} decisores mapeados.${d.cidade ? ` Localização: ${d.cidade}/${d.estado}.` : ""}`,
+        acao: d.proximaAcaoSugerida ?? "Iniciar contato comercial — propor visita ou reunião com os decisores mapeados.",
+        urgencia: "ALTA",
+      });
+    });
+
+  // 2. Alta prioridade travada há mais de 7 dias
+  dossies
+    .filter(d => d.prioridade === "ALTA" && diasDesde(d.updatedAt) > 7 && d.status !== "PRONTO_PARA_ASSUMIR")
+    .sort((a, b) => diasDesde(b.updatedAt) - diasDesde(a.updatedAt))
+    .forEach(d => {
+      if (resultados.length >= 3) return;
+      const dias = diasDesde(d.updatedAt);
+      resultados.push({
+        n: resultados.length + 1,
+        obra: d.titulo,
+        porque: `Dossiê de alta prioridade sem atualização há ${dias} dias. João pode precisar de nova missão.${d.missaoAtual ? ` Missão atual: "${d.missaoAtual}".` : ""}`,
+        acao: "Solicitar nova missão ao João via CRM IA ('João, retome investigação da [obra] e busque [objetivo]').",
+        urgencia: dias > 14 ? "ALTA" : "MÉDIA",
+      });
+    });
+
+  // 3. Scores altos investigando — oportunidade em evolução
+  dossies
+    .filter(d => d.score >= 70 && d.status === "INVESTIGANDO" && !resultados.find(r => r.obra === d.titulo))
+    .sort((a, b) => b.score - a.score)
+    .forEach(d => {
+      if (resultados.length >= 3) return;
+      resultados.push({
+        n: resultados.length + 1,
+        obra: d.titulo,
+        porque: `Score ${d.score}/100 com ${d.totalDecisores} decisores e ${d.totalNoticias} notícias. ${d.missaoAtual ? `João trabalhando em: "${d.missaoAtual}".` : "João monitorando."} `,
+        acao: d.proximaAcaoSugerida ?? "Acompanhar evolução da investigação. Verificar se João precisa de novas instruções.",
+        urgencia: "MÉDIA",
+      });
+    });
+
+  return resultados.slice(0, 3);
+}
+
+// ─── Sub-componentes ─────────────────────────────────────────────────────────
+
+function BarraDupla({ completude, maturidade }: { completude: number; maturidade: number }) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${cor}`} style={{ width: `${valor}%` }} />
+    <div className="space-y-1 my-2">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] text-slate-400 w-14 text-right shrink-0">Complet.</span>
+        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className={cn("h-full rounded-full transition-all", corBarra(completude, "completude"))}
+            style={{ width: `${completude}%` }}
+          />
+        </div>
+        <span className="text-[10px] font-medium text-blue-600 w-7 text-right shrink-0">{completude}%</span>
       </div>
-      <span className="text-xs font-semibold text-slate-600 w-8 text-right">{valor}%</span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] text-slate-400 w-14 text-right shrink-0">Maturid.</span>
+        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className={cn("h-full rounded-full transition-all", corBarra(maturidade, "maturidade"))}
+            style={{ width: `${maturidade}%` }}
+          />
+        </div>
+        <span className={cn(
+          "text-[10px] font-medium w-7 text-right shrink-0",
+          maturidade >= 70 ? "text-emerald-600" : maturidade >= 40 ? "text-amber-600" : "text-slate-400"
+        )}>{maturidade}%</span>
+      </div>
     </div>
   );
 }
 
-// ─── Card do Dossiê ───────────────────────────────────────────────────────────
-
 function CardDossie({ dossie, onClick }: { dossie: Dossie; onClick: () => void }) {
-  const cfg = STATUS_CONFIG[dossie.status];
-  const diasDesdeUpdate = Math.floor(
-    (Date.now() - new Date(dossie.updatedAt).getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const cfg = STATUS_CFG[dossie.status];
+  const dias = diasDesde(dossie.updatedAt);
+  const maturidade = calcMaturidade(dossie);
+  const parado = dias > 7;
 
   return (
-    <Card
+    <div
       onClick={onClick}
-      className={`cursor-pointer border hover:shadow-md transition-all group ${cfg.bg}`}
+      className={cn(
+        "cursor-pointer border rounded-lg p-2.5 hover:shadow-md transition-all group space-y-1",
+        cfg.bgBorder,
+        parado && "border-red-200 ring-1 ring-red-100"
+      )}
     >
-      <CardContent className="p-3 space-y-2">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-semibold text-slate-800 leading-tight group-hover:text-blue-700 line-clamp-2">
-            {dossie.titulo}
-          </p>
-          <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${cfg.cor} ${cfg.bg}`}>
-            {dossie.score}
-          </span>
+      <div className="flex items-start justify-between gap-1.5">
+        <p className="text-xs font-semibold text-slate-800 leading-tight group-hover:text-blue-700 line-clamp-2">
+          {dossie.titulo}
+        </p>
+        <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0", corScore(dossie.score))}>
+          {dossie.score}
+        </span>
+      </div>
+
+      {(dossie.cidade || dossie.estado || dossie.segmento) && (
+        <p className="text-[10px] text-slate-500 truncate">
+          {[dossie.cidade, dossie.estado].filter(Boolean).join("/")}
+          {dossie.segmento ? ` · ${dossie.segmento}` : ""}
+        </p>
+      )}
+
+      <BarraDupla completude={dossie.completude} maturidade={maturidade} />
+
+      <div className="flex items-center justify-between text-[10px] text-slate-400">
+        <div className="flex gap-2">
+          {dossie.totalDecisores > 0 && <span>👤 {dossie.totalDecisores}</span>}
+          {dossie.totalNoticias   > 0 && <span>📰 {dossie.totalNoticias}</span>}
         </div>
+        <span className={cn(parado ? "text-red-500 font-semibold" : "")}>
+          {dias === 0 ? "hoje" : `${dias}d`}
+        </span>
+      </div>
 
-        {/* Empresa + Localização */}
-        <div className="space-y-0.5">
-          {(dossie.empresa?.razaoSocial || dossie.clienteFinal) && (
-            <p className="text-xs text-slate-600 truncate">
-              🏢 {dossie.empresa?.razaoSocial ?? dossie.clienteFinal}
-            </p>
-          )}
-          {(dossie.cidade || dossie.estado) && (
-            <p className="text-xs text-slate-500">
-              📍 {[dossie.cidade, dossie.estado].filter(Boolean).join(" / ")}
-            </p>
-          )}
-          {dossie.segmento && (
-            <p className="text-xs text-slate-400">{dossie.segmento}</p>
-          )}
+      {dossie.missaoAtual && (
+        <div className="bg-white/60 border border-dashed border-slate-200 rounded px-2 py-1 border-l-2 border-l-blue-400">
+          <p className="text-[10px] text-slate-600 line-clamp-2">{dossie.missaoAtual}</p>
         </div>
+      )}
 
-        {/* Completude */}
-        <BarraCompletude valor={dossie.completude} />
-
-        {/* Missão atual */}
-        {dossie.missaoAtual && (
-          <div className="bg-white/70 rounded px-2 py-1.5 border border-dashed border-slate-200">
-            <p className="text-xs text-slate-500 font-medium mb-0.5">🎯 Missão atual</p>
-            <p className="text-xs text-slate-700 line-clamp-2">{dossie.missaoAtual}</p>
-          </div>
-        )}
-
-        {/* Contadores + data */}
-        <div className="flex items-center justify-between text-xs text-slate-400 pt-0.5">
-          <div className="flex gap-2">
-            {dossie.totalDecisores > 0 && <span>👤 {dossie.totalDecisores}</span>}
-            {dossie.totalNoticias > 0   && <span>📰 {dossie.totalNoticias}</span>}
-            {dossie.totalAtualizacoes > 0 && <span>🔄 {dossie.totalAtualizacoes}</span>}
-          </div>
-          <span>{diasDesdeUpdate === 0 ? "hoje" : `${diasDesdeUpdate}d atrás`}</span>
+      {parado && (
+        <div className="bg-red-50 border border-red-100 rounded px-2 py-1">
+          <p className="text-[10px] text-red-600 font-medium">Sem atualização há {dias} dias</p>
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {dossie.status === "PRONTO_PARA_ASSUMIR" && (
+        <button className="w-full text-[10px] py-1 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium hover:bg-emerald-100 transition-colors">
+          Assumir dossiê →
+        </button>
+      )}
+    </div>
   );
 }
 
-// ─── Painel de novidades ──────────────────────────────────────────────────────
+function KpiChip({
+  icone, valor, label, cor,
+}: {
+  icone: React.ReactNode;
+  valor: number;
+  label: string;
+  cor: "blue" | "green" | "red" | "amber" | "slate";
+}) {
+  const estilos: Record<string, string> = {
+    blue:  "bg-blue-50  border-blue-100  text-blue-700",
+    green: "bg-emerald-50 border-emerald-100 text-emerald-700",
+    red:   "bg-red-50   border-red-100   text-red-700",
+    amber: "bg-amber-50 border-amber-100 text-amber-700",
+    slate: "bg-slate-50 border-slate-200 text-slate-600",
+  };
+  return (
+    <div className={cn("border rounded-lg p-2 text-center cursor-default", estilos[cor])}>
+      <div className="flex justify-center mb-1">{icone}</div>
+      <p className={cn("text-lg font-semibold leading-none mb-0.5")}>{valor}</p>
+      <p className="text-[9px] leading-tight">{label}</p>
+    </div>
+  );
+}
 
-function PainelNovidades({ dossies }: { dossies: Dossie[] }) {
-  const novidades = dossies
-    .filter(d => isHoje(d.updatedAt))
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .slice(0, 8);
-
-  const total = dossies.filter(d => d.status !== "ARQUIVADO").length;
-  const assumidos = dossies.filter(d => d.status === "ASSUMIDO").length;
-  const taxaMaturacao = total > 0 ? Math.round((assumidos / (total + assumidos)) * 100) : 0;
+function ItemFeed({ item, onClick }: { item: FeedItem; onClick: () => void }) {
+  const impactoCor = {
+    alto:  "bg-red-100 text-red-700",
+    medio: "bg-amber-100 text-amber-700",
+    baixo: "bg-slate-100 text-slate-500",
+  }[item.impacto];
 
   return (
-    <aside className="w-60 flex-shrink-0 border-l border-slate-200 flex flex-col overflow-hidden bg-white">
-      {/* Novidades */}
-      <div className="p-3 border-b border-slate-100">
-        <div className="flex items-center gap-1.5 mb-2.5">
-          <Sparkles className="h-3.5 w-3.5 text-blue-600" />
-          <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Novidades de hoje</p>
+    <div
+      className="py-2.5 border-b border-slate-100 cursor-pointer hover:bg-slate-50 px-1 -mx-1 rounded transition-colors last:border-none"
+      onClick={onClick}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] text-slate-400">{formatHorario(item.createdAt)}</span>
+        <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded-full", impactoCor)}>
+          {item.impacto === "alto" ? "Alto" : item.impacto === "medio" ? "Médio" : "Baixo"}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5 mb-1">
+        <span className="text-slate-400">{FEED_ICONE_MAP[item.icone] ?? <Bell className="h-3.5 w-3.5" />}</span>
+        <span className="text-[10px] font-semibold text-slate-700">{item.categoria}</span>
+      </div>
+      <p className="text-[10px] text-slate-600 line-clamp-2 leading-snug mb-1">{item.titulo}</p>
+      <p className="text-[10px] text-slate-400 truncate">{item.dossieTitulo}</p>
+    </div>
+  );
+}
+
+// ─── Painéis alternativos ─────────────────────────────────────────────────────
+
+function PainelMudou({ mudancas, onVoltar }: { mudancas: Mudancas; onVoltar: () => void }) {
+  const desde = mudancas.desde
+    ? new Date(mudancas.desde).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+    : "última visita";
+
+  const itens = [
+    { icone: <FolderPlus className="h-5 w-5" />, n: mudancas.dossies,   label: "Novos dossiês",          cor: "text-blue-600  bg-blue-50"   },
+    { icone: <UserCheck  className="h-5 w-5" />, n: mudancas.decisores, label: "Novos decisores",         cor: "text-emerald-600 bg-emerald-50" },
+    { icone: <Factory    className="h-5 w-5" />, n: mudancas.empresas,  label: "Novas empresas/EPCs",     cor: "text-blue-600  bg-blue-50"   },
+    { icone: <Newspaper  className="h-5 w-5" />, n: mudancas.noticias,  label: "Novas notícias",          cor: "text-slate-500 bg-slate-100"  },
+    { icone: <ShieldCheck className="h-5 w-5" />, n: mudancas.prontos,  label: "Dossiês prontos p/ assumir", cor: "text-emerald-600 bg-emerald-50" },
+  ];
+
+  return (
+    <div className="flex-1 overflow-auto p-5">
+      <div className="flex items-center gap-2 mb-5">
+        <History className="h-5 w-5 text-amber-600" />
+        <div>
+          <h2 className="text-sm font-semibold text-slate-800">O que mudou desde sua última visita</h2>
+          <p className="text-xs text-slate-400">{desde}</p>
         </div>
-        {novidades.length === 0 ? (
-          <p className="text-xs text-slate-400 py-2">Nenhuma atualização hoje.</p>
-        ) : (
-          <div className="space-y-2.5">
-            {novidades.map(d => (
-              <div key={d.id} className="flex items-start gap-2">
-                <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${corPonto(d.status)}`} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-slate-700 line-clamp-2 leading-snug">{d.titulo}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{formatHora(d.updatedAt)}</p>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+        {itens.map(it => (
+          <div key={it.label} className={cn("rounded-xl p-4 flex items-center gap-3", it.cor.split(" ")[1])}>
+            <span className={cn(it.cor.split(" ")[0])}>{it.icone}</span>
+            <div>
+              <p className={cn("text-2xl font-semibold leading-none", it.cor.split(" ")[0])}>
+                {it.n > 0 ? `+${it.n}` : "—"}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">{it.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={onVoltar}
+        className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Voltar ao cockpit
+      </button>
+    </div>
+  );
+}
+
+function PainelPrioridade({ dossies, onVoltar }: { dossies: Dossie[]; onVoltar: () => void }) {
+  const prioridades = gerarPrioridade(dossies);
+
+  return (
+    <div className="flex-1 overflow-auto p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <Target className="h-5 w-5 text-blue-600" />
+        <h2 className="text-sm font-semibold text-slate-800">Minha prioridade hoje</h2>
+      </div>
+      <p className="text-xs text-slate-400 mb-5">
+        João analisou {dossies.length} dossiês e recomenda concentrar esforços em:
+      </p>
+
+      {prioridades.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-10">Nenhum dossiê com ação prioritária identificada.</p>
+      ) : (
+        <div className="space-y-3">
+          {prioridades.map(p => (
+            <div key={p.n} className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-7 h-7 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700 text-xs font-semibold shrink-0">
+                  {p.n}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-slate-800">{p.obra}</p>
+                    <span className={cn(
+                      "text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                      p.urgencia === "ALTA"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-amber-100 text-amber-700"
+                    )}>
+                      {p.urgencia}
+                    </span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <div className="pl-10 space-y-2">
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  <span className="font-medium text-slate-700">Por quê: </span>{p.porque}
+                </p>
+                <p className="text-xs text-blue-600 font-medium">→ {p.acao}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* Resumo 30 dias */}
-      <div className="p-3 flex-1">
-        <div className="flex items-center gap-1.5 mb-2.5">
-          <TrendingUp className="h-3.5 w-3.5 text-slate-500" />
-          <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Resumo inteligência</p>
-        </div>
-        <div className="space-y-2.5">
-          <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-            <p className="text-xs text-slate-500">Taxa de maturação</p>
-            <p className="text-xs font-semibold text-emerald-600">{taxaMaturacao}%</p>
-          </div>
-          <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-            <p className="text-xs text-slate-500">Dossiês ativos</p>
-            <p className="text-xs font-semibold text-slate-800">{total}</p>
-          </div>
-          <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-            <p className="text-xs text-slate-500">Assumidos</p>
-            <p className="text-xs font-semibold text-slate-800">{assumidos}</p>
-          </div>
-          <div className="flex justify-between items-center py-1.5">
-            <p className="text-xs text-slate-500">Tempo médio maturação</p>
-            <p className="text-xs font-semibold text-slate-800">—</p>
-          </div>
-        </div>
-        <a href="/inteligencia" className="block mt-3 text-[10px] text-blue-600 hover:underline text-right">
-          Ver analytics completo →
-        </a>
+      <button
+        onClick={onVoltar}
+        className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-700 transition-colors mt-5"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Voltar ao cockpit
+      </button>
+    </div>
+  );
+}
+
+function PainelEsquecidas({ esquecidas, onVoltar, onDossie }: {
+  esquecidas: Esquecida[];
+  onVoltar: () => void;
+  onDossie: (id: string) => void;
+}) {
+  const TIPO_CFG = {
+    aguardando: { cor: "bg-purple-50 border-purple-200 text-purple-700", icone: <Eye className="h-4 w-4" /> },
+    risco:      { cor: "bg-red-50 border-red-200 text-red-700",           icone: <AlertTriangle className="h-4 w-4" /> },
+    parado:     { cor: "bg-amber-50 border-amber-200 text-amber-700",     icone: <Clock className="h-4 w-4" /> },
+  };
+
+  return (
+    <div className="flex-1 overflow-auto p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <AlertTriangle className="h-5 w-5 text-red-500" />
+        <h2 className="text-sm font-semibold text-slate-800">Oportunidades esquecidas</h2>
       </div>
-    </aside>
+      <p className="text-xs text-slate-400 mb-5">
+        {esquecidas.length} {esquecidas.length === 1 ? "dossiê em risco" : "dossiês em risco"} de perder a janela comercial
+      </p>
+
+      {esquecidas.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-10">Nenhuma oportunidade esquecida.</p>
+      ) : (
+        <div className="space-y-2.5">
+          {esquecidas.map(e => {
+            const cfg = TIPO_CFG[e.tipo as keyof typeof TIPO_CFG] ?? TIPO_CFG.parado;
+            return (
+              <div
+                key={e.id}
+                className={cn("border rounded-xl p-3.5 flex items-start gap-3 cursor-pointer hover:shadow-sm transition-all", cfg.cor)}
+                onClick={() => onDossie(e.id)}
+              >
+                <span className="mt-0.5 shrink-0">{cfg.icone}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-800 leading-tight">{e.titulo}</p>
+                    <span className="text-[10px] font-bold bg-white/60 px-1.5 py-0.5 rounded-full shrink-0">
+                      Score {e.score}
+                    </span>
+                  </div>
+                  {(e.cidade || e.segmento) && (
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {[e.cidade, e.estado].filter(Boolean).join("/")}
+                      {e.segmento ? ` · ${e.segmento}` : ""}
+                    </p>
+                  )}
+                  <p className="text-[11px] font-medium mt-1">{e.motivo}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <button
+        onClick={onVoltar}
+        className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-700 transition-colors mt-5"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Voltar ao cockpit
+      </button>
+    </div>
   );
 }
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
-export default function CentralInteligenciaPage() {
+type Painel = "cockpit" | "mudou" | "prioridade" | "esquecidas";
+
+export default function CockpitPage() {
   const router = useRouter();
-  const [dossies, setDossies] = useState<Dossie[]>([]);
+  const [dados, setDados] = useState<CockpitData | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState<string>("");
+  const [painel, setPainel] = useState<Painel>("cockpit");
+  const [filtroImpacto, setFiltroImpacto] = useState<string>("");
+  const [filtroCategoria, setFiltroCategoria] = useState<string>("");
   const [mostrarAssumidos, setMostrarAssumidos] = useState(false);
+  const lastVisitRef = useRef<string | null>(null);
 
   async function carregar() {
     setCarregando(true);
     try {
-      const params = new URLSearchParams({ limit: "200" });
-      if (filtroStatus) params.set("status", filtroStatus);
-      const res = await fetch(`/api/inteligencia?${params}`);
-      if (!res.ok) throw new Error("Erro ao carregar");
+      const params = new URLSearchParams();
+      if (lastVisitRef.current) params.set("lastVisit", lastVisitRef.current);
+      const res = await fetch(`/api/inteligencia/cockpit?${params}`);
+      if (!res.ok) throw new Error("Erro ao carregar cockpit");
       const data = await res.json();
-      setDossies(data.dossies ?? []);
+      setDados(data);
     } catch {
-      toast.error("Erro ao carregar dossiês");
+      toast.error("Erro ao carregar Central de Inteligência");
     } finally {
       setCarregando(false);
     }
   }
 
-  useEffect(() => { carregar(); }, [filtroStatus]);
+  useEffect(() => {
+    // Salva última visita no localStorage para calcular "o que mudou"
+    try {
+      lastVisitRef.current = localStorage.getItem("inteligencia_last_visit");
+      localStorage.setItem("inteligencia_last_visit", new Date().toISOString());
+    } catch { /* sem localStorage */ }
+    carregar();
+  }, []);
 
-  const dossiesFiltrados = dossies.filter(d => {
-    const texto = busca.toLowerCase();
-    if (!texto) return true;
+  const irPara = useCallback((id: string) => router.push(`/inteligencia/${id}`), [router]);
+
+  if (carregando) {
     return (
-      d.titulo.toLowerCase().includes(texto) ||
-      d.clienteFinal?.toLowerCase().includes(texto) ||
-      d.empresa?.razaoSocial?.toLowerCase().includes(texto) ||
-      d.cidade?.toLowerCase().includes(texto) ||
-      d.estado?.toLowerCase().includes(texto) ||
-      d.segmento?.toLowerCase().includes(texto)
+      <div className="flex flex-1 items-center justify-center">
+        <div className="text-center space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto" />
+          <p className="text-sm text-slate-400">Carregando cockpit…</p>
+        </div>
+      </div>
     );
+  }
+
+  if (!dados) return null;
+
+  const { dossies, kpis, feed, mudancas, esquecidas, joao } = dados;
+
+  // Filtros
+  const dossiesFiltrados = dossies.filter(d => {
+    if (!busca) return true;
+    const q = busca.toLowerCase();
+    // Pesquisa inteligente — suporte a linguagem natural básica
+    if (q.includes("pronto"))  return d.status === "PRONTO_PARA_ASSUMIR";
+    if (q.includes("alta"))    return d.prioridade === "ALTA";
+    const textSearch = (
+      d.titulo.toLowerCase() +
+      (d.clienteFinal ?? "").toLowerCase() +
+      (d.empresa?.razaoSocial ?? "").toLowerCase() +
+      (d.cidade ?? "").toLowerCase() +
+      (d.estado ?? "").toLowerCase() +
+      (d.segmento ?? "").toLowerCase() +
+      (d.epc ?? "").toLowerCase() +
+      (d.construtora ?? "").toLowerCase()
+    );
+    return textSearch.includes(q);
   });
 
-  // KPIs
-  const kpis = {
-    total:        dossies.filter(d => d.status !== "ARQUIVADO").length,
-    investigando: dossies.filter(d => d.status === "INVESTIGANDO").length,
-    prontos:      dossies.filter(d => d.status === "PRONTO_PARA_ASSUMIR").length,
-    novidades:    dossies.filter(d => isHoje(d.updatedAt)).length,
-  };
+  const feedFiltrado = feed.filter(f => {
+    if (filtroImpacto && f.impacto !== filtroImpacto) return false;
+    if (filtroCategoria && f.categoria !== filtroCategoria) return false;
+    return true;
+  });
+
+  const categoriasFeeds = [...new Set(feed.map(f => f.categoria))];
+  const totalMudancas = mudancas.dossies + mudancas.decisores + mudancas.empresas + mudancas.noticias + mudancas.prontos;
 
   return (
     <>
-      {/* ── Cabeçalho da Central ─────────────────────────────────────────── */}
-      <header className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between gap-4 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          {/* Ícone */}
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-            <Brain className="h-5 w-5 text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-base font-semibold text-slate-900 leading-tight tracking-tight">
-              Centro de Inteligência Comercial
-            </h1>
-            <p className="text-[11px] text-indigo-600 font-medium">
-              Departamento de Inteligência · Villa Empreendimentos
-            </p>
-            <p className="text-[11px] text-slate-500">
-              João monitora o mercado. A Inteligência qualifica. O Comercial executa.
-            </p>
-          </div>
+      {/* ── Cabeçalho / Topbar ───────────────────────────────────────────── */}
+      <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
+        <div>
+          <h1 className="text-sm font-semibold text-slate-900 leading-tight">
+            Centro de Inteligência Comercial
+          </h1>
+          <p className="text-[11px] text-slate-400">
+            João monitora o mercado · {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "short" })}
+          </p>
         </div>
 
-        {/* João card + actions */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50">
-            <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-sm flex-shrink-0">🤖</div>
-            <div>
-              <p className="text-xs font-medium text-slate-800">João Hunter IA</p>
-              <div className="flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <p className="text-[10px] text-emerald-700 font-medium">Online · Ativo</p>
-              </div>
-            </div>
-            <button className="text-[10px] text-indigo-600 font-medium pl-2 border-l border-indigo-200 flex items-center gap-0.5 hover:text-indigo-800 transition-colors">
-              Ver atividade →
-            </button>
-          </div>
-          <button className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors">
-            <Bell className="h-4 w-4 text-slate-500" />
-            {kpis.novidades > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                {Math.min(kpis.novidades, 9)}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setPainel(painel === "mudou" ? "cockpit" : "mudou")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+              painel === "mudou"
+                ? "bg-amber-100 border-amber-200 text-amber-800"
+                : "bg-amber-50 border-amber-100 text-amber-700 hover:bg-amber-100"
+            )}
+          >
+            <History className="h-3.5 w-3.5" />
+            O que mudou?
+            {totalMudancas > 0 && (
+              <span className="bg-amber-600 text-white text-[9px] font-bold px-1 py-0.5 rounded-full min-w-4 text-center">
+                {totalMudancas}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setPainel(painel === "esquecidas" ? "cockpit" : "esquecidas")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+              painel === "esquecidas"
+                ? "bg-red-100 border-red-200 text-red-800"
+                : "bg-red-50 border-red-100 text-red-700 hover:bg-red-100"
+            )}
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Esquecidas
+            {kpis.acao.esquecidos > 0 && (
+              <span className="bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded-full min-w-4 text-center">
+                {kpis.acao.esquecidos}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setPainel(painel === "prioridade" ? "cockpit" : "prioridade")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+              painel === "prioridade"
+                ? "bg-blue-100 border-blue-200 text-blue-800"
+                : "bg-blue-50 border-blue-100 text-blue-700 hover:bg-blue-100"
+            )}
+          >
+            <Target className="h-3.5 w-3.5" />
+            Prioridade hoje
+          </button>
+
+          <button onClick={carregar} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title="Atualizar">
+            <RefreshCw className="h-4 w-4 text-slate-400" />
           </button>
         </div>
       </header>
 
-      {/* ── Corpo principal ───────────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* Área central */}
-        <div className="flex-1 overflow-auto">
-          <div className="p-4 space-y-4">
-
-            {/* KPIs */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                { label: "Dossiês ativos",      valor: kpis.total,        icone: <Brain className="h-4 w-4 text-indigo-600" />,   bg: "bg-indigo-50 border-indigo-100" },
-                { label: "Investigando",         valor: kpis.investigando, icone: <Search className="h-4 w-4 text-amber-600" />,   bg: "bg-amber-50 border-amber-100" },
-                { label: "Prontos p/ assumir",   valor: kpis.prontos,      icone: <Zap className="h-4 w-4 text-emerald-600" />,    bg: "bg-emerald-50 border-emerald-100" },
-                { label: "Novidades hoje",       valor: kpis.novidades,    icone: <Sparkles className="h-4 w-4 text-blue-600" />,  bg: "bg-blue-50 border-blue-100" },
-              ].map(k => (
-                <Card key={k.label} className={`${k.bg} border shadow-none`}>
-                  <CardContent className="p-3 flex items-center gap-3">
-                    {k.icone}
-                    <div>
-                      <p className="text-xl font-bold text-slate-800">{k.valor}</p>
-                      <p className="text-xs text-slate-500">{k.label}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Filtros */}
-            <div className="flex flex-wrap gap-2 items-center">
-              <div className="relative flex-1 min-w-48">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Buscar dossiê, obra, empresa…"
-                  className="pl-8 bg-white"
-                  value={busca}
-                  onChange={e => setBusca(e.target.value)}
-                />
-              </div>
-              <select
-                className="border rounded-md px-3 py-2 text-sm bg-white text-slate-700"
-                value={filtroStatus}
-                onChange={e => setFiltroStatus(e.target.value)}
-              >
-                <option value="">Todos os segmentos</option>
-                {(Object.keys(STATUS_CONFIG) as StatusDossie[]).map(s => (
-                  <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-                ))}
-              </select>
-              <Button variant="outline" size="sm" onClick={carregar} disabled={carregando}>
-                <RefreshCw className={`h-4 w-4 mr-1 ${carregando ? "animate-spin" : ""}`} />
-                Atualizar
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setMostrarAssumidos(!mostrarAssumidos)}
-              >
-                <Filter className="h-4 w-4 mr-1" />
-                {mostrarAssumidos ? "Ocultar assumidos" : "Ver assumidos"}
-              </Button>
-            </div>
-
-            {/* Título da seção kanban */}
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-slate-700">Dossiês Comerciais por Status</p>
-              <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{dossiesFiltrados.filter(d => d.status !== "ASSUMIDO" && d.status !== "ARQUIVADO").length} ativos</span>
-            </div>
-
-            {/* Kanban */}
-            {carregando ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {COLUNAS_KANBAN.map(status => {
-                    const cfg = STATUS_CONFIG[status];
-                    const lista = dossiesFiltrados.filter(d => d.status === status);
-                    return (
-                      <div key={status} className="space-y-2">
-                        <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border ${cfg.bg}`}>
-                          <span className={cfg.cor}>{cfg.icone}</span>
-                          <span className={`text-xs font-semibold ${cfg.cor}`}>{cfg.label}</span>
-                          <span className={`ml-auto text-xs font-bold ${cfg.cor}`}>{lista.length}</span>
-                        </div>
-                        <div className="space-y-2 min-h-16">
-                          {lista.map(d => (
-                            <CardDossie
-                              key={d.id}
-                              dossie={d}
-                              onClick={() => router.push(`/inteligencia/${d.id}`)}
-                            />
-                          ))}
-                          {lista.length === 0 && (
-                            <div className="text-xs text-slate-400 text-center py-4">—</div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Dossiês assumidos */}
-                {mostrarAssumidos && (
-                  <div className="mt-4 space-y-2">
-                    <h3 className="text-sm font-semibold text-slate-500">Assumidos pelo comercial</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                      {dossiesFiltrados
-                        .filter(d => d.status === "ASSUMIDO")
-                        .map(d => (
-                          <CardDossie
-                            key={d.id}
-                            dossie={d}
-                            onClick={() => router.push(`/inteligencia/${d.id}`)}
-                          />
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+      {/* ── KPI Strip — 2 grupos ─────────────────────────────────────────── */}
+      <div className="bg-white border-b border-slate-200 px-4 py-2.5 space-y-2 shrink-0">
+        {/* Grupo 1: Inteligência */}
+        <div>
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
+            <Brain className="h-3 w-3" /> Inteligência — produção das últimas 24h
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            <KpiChip icone={<FolderPlus  className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novosDossies}      label="Novos dossiês"    cor="blue"  />
+            <KpiChip icone={<RefreshCw   className="h-3.5 w-3.5" />} valor={kpis.inteligencia.dossiesAtualizados} label="Atualizados"      cor="blue"  />
+            <KpiChip icone={<UserPlus    className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novosDecisores}     label="Novos decisores"  cor="blue"  />
+            <KpiChip icone={<Factory     className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novasEmpresas}      label="Novas empresas"   cor="blue"  />
+            <KpiChip icone={<Sparkles    className="h-3.5 w-3.5" />} valor={kpis.inteligencia.descobertas}        label="Descobertas"      cor="blue"  />
           </div>
         </div>
+        {/* Grupo 2: Ação Comercial */}
+        <div>
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
+            <Target className="h-3 w-3" /> Ação comercial — onde atuar
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            <KpiChip icone={<ShieldCheck   className="h-3.5 w-3.5" />} valor={kpis.acao.prontos}        label="Prontos p/ Morgana"       cor="green" />
+            <KpiChip icone={<Clock         className="h-3.5 w-3.5" />} valor={kpis.acao.esquecidos}     label="Esquecidos +15d"          cor="red"   />
+            <KpiChip icone={<Flame         className="h-3.5 w-3.5" />} valor={kpis.acao.quentes}        label="Quentes"                  cor="amber" />
+            <KpiChip icone={<AlertTriangle className="h-3.5 w-3.5" />} valor={kpis.acao.emRisco}        label="Em risco"                 cor="red"   />
+            <KpiChip icone={<Eye           className="h-3.5 w-3.5" />} valor={kpis.acao.aguardandoVal}  label="Aguard. validação"        cor="slate" />
+          </div>
+        </div>
+      </div>
 
-        {/* Painel lateral direito — Novidades + Resumo */}
-        <PainelNovidades dossies={dossies} />
+      {/* ── Corpo ───────────────────────────────────────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Painéis alternativos */}
+        {painel === "mudou" && (
+          <PainelMudou mudancas={mudancas} onVoltar={() => setPainel("cockpit")} />
+        )}
+        {painel === "prioridade" && (
+          <PainelPrioridade dossies={dossies} onVoltar={() => setPainel("cockpit")} />
+        )}
+        {painel === "esquecidas" && (
+          <PainelEsquecidas
+            esquecidas={esquecidas}
+            onVoltar={() => setPainel("cockpit")}
+            onDossie={irPara}
+          />
+        )}
+
+        {/* Painel principal: Kanban + Feed */}
+        {painel === "cockpit" && (
+          <>
+            {/* Kanban */}
+            <div className="flex-1 overflow-auto p-3 space-y-3">
+              {/* Pesquisa inteligente */}
+              <div className="flex gap-2 items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Ex: prontos · obras de mineração · Vale · sem EPC · iniciando em 90 dias..."
+                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    value={busca}
+                    onChange={e => setBusca(e.target.value)}
+                  />
+                </div>
+                <button className="flex items-center gap-1.5 px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition-colors text-slate-600 shrink-0">
+                  <Star className="h-3.5 w-3.5" />
+                  Favoritos
+                </button>
+                <button
+                  onClick={() => setMostrarAssumidos(v => !v)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition-colors text-slate-500 shrink-0"
+                >
+                  {mostrarAssumidos ? "Ocultar assumidos" : "Ver assumidos"}
+                </button>
+              </div>
+
+              {/* Colunas Kanban */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                {COLUNAS_KANBAN.map(status => {
+                  const cfg = STATUS_CFG[status];
+                  const lista = dossiesFiltrados.filter(d => d.status === status);
+                  return (
+                    <div key={status}>
+                      <div className={cn("flex items-center gap-1.5 px-2 py-1.5 rounded-lg border mb-2", cfg.bgBorder)}>
+                        <span className={cfg.textCor}>{cfg.icone}</span>
+                        <span className={cn("text-[10px] font-semibold flex-1", cfg.textCor)}>{cfg.label}</span>
+                        <span className={cn("text-[10px] font-bold", cfg.textCor)}>{lista.length}</span>
+                      </div>
+                      <div className="space-y-2 min-h-12">
+                        {lista.map(d => (
+                          <CardDossie key={d.id} dossie={d} onClick={() => irPara(d.id)} />
+                        ))}
+                        {lista.length === 0 && (
+                          <p className="text-[10px] text-slate-300 text-center py-3">—</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Assumidos */}
+              {mostrarAssumidos && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Assumidos</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                    {dossiesFiltrados
+                      .filter(d => d.status === "ASSUMIDO")
+                      .map(d => (
+                        <CardDossie key={d.id} dossie={d} onClick={() => irPara(d.id)} />
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Feed de Inteligência */}
+            <aside className="w-60 shrink-0 border-l border-slate-200 flex flex-col overflow-hidden bg-white">
+              <div className="p-3 border-b border-slate-100 space-y-2 shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                    <p className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Feed de inteligência</p>
+                  </div>
+                  <span className="text-[10px] text-slate-400">{feedFiltrado.length}</span>
+                </div>
+                {/* Filtros do feed */}
+                <div className="flex gap-1 flex-wrap">
+                  {["alto", "medio", "baixo"].map(imp => (
+                    <button
+                      key={imp}
+                      onClick={() => setFiltroImpacto(filtroImpacto === imp ? "" : imp)}
+                      className={cn(
+                        "text-[9px] px-1.5 py-0.5 rounded-full border transition-colors",
+                        filtroImpacto === imp
+                          ? imp === "alto" ? "bg-red-500 text-white border-red-500"
+                            : imp === "medio" ? "bg-amber-500 text-white border-amber-500"
+                            : "bg-slate-500 text-white border-slate-500"
+                          : "bg-white text-slate-400 border-slate-200 hover:border-slate-400"
+                      )}
+                    >
+                      {imp === "alto" ? "Alto" : imp === "medio" ? "Médio" : "Baixo"}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {categoriasFeeds.slice(0, 4).map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setFiltroCategoria(filtroCategoria === cat ? "" : cat)}
+                      className={cn(
+                        "text-[9px] px-1.5 py-0.5 rounded-full border transition-colors",
+                        filtroCategoria === cat
+                          ? "bg-blue-500 text-white border-blue-500"
+                          : "bg-white text-slate-400 border-slate-200 hover:border-slate-400"
+                      )}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto px-3 py-1">
+                {feedFiltrado.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 text-center py-8">
+                    Nenhuma atualização encontrada.
+                  </p>
+                ) : (
+                  feedFiltrado.map(f => (
+                    <ItemFeed key={f.id} item={f} onClick={() => irPara(f.dossieId)} />
+                  ))
+                )}
+              </div>
+            </aside>
+          </>
+        )}
       </div>
     </>
   );

@@ -70,18 +70,135 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "titulo é obrigatório." }, { status: 400 });
   }
 
-  // Verificar duplicata pelo título (case-insensitive)
-  const jaExiste = await prisma.dossieComercial.findFirst({
+  // ─── Verificação de duplicata com merge inteligente (2 camadas) ─────────────
+  // Se encontrar dossiê existente, não descarta — enriquece com dados novos.
+
+  // Camada 1: título idêntico (case-insensitive)
+  let dossieExistente = await prisma.dossieComercial.findFirst({
     where: { titulo: { equals: body.titulo.trim(), mode: "insensitive" } },
-    select: { id: true, titulo: true, status: true },
+    include: { decisores: { select: { nome: true, telefone: true, email: true, linkedin: true } } },
   });
-  if (jaExiste) {
+
+  // Camada 2: mesma empresa (clienteFinal) + mesma cidade
+  if (!dossieExistente && body.clienteFinal?.trim() && body.cidade?.trim()) {
+    dossieExistente = await prisma.dossieComercial.findFirst({
+      where: {
+        clienteFinal: { equals: body.clienteFinal.trim(), mode: "insensitive" },
+        cidade:       { equals: body.cidade.trim(),       mode: "insensitive" },
+        status:       { not: "ARQUIVADO" },
+      },
+      include: { decisores: { select: { nome: true, telefone: true, email: true, linkedin: true } } },
+    });
+  }
+
+  // ─── Merge inteligente — enriquece o existente com dados novos ───────────────
+  if (dossieExistente) {
+    const camposMergeaveis = [
+      "resumo", "segmento", "cidade", "estado",
+      "clienteFinal", "construtora", "epc", "epcm",
+      "faseObra", "fonteInformacao", "linkFonte",
+    ] as const;
+
+    const camposNovos: Record<string, unknown> = {};
+    const camposEnriquecidos: string[] = [];
+
+    for (const campo of camposMergeaveis) {
+      const valorExistente = (dossieExistente as Record<string, unknown>)[campo];
+      const valorNovo      = (body as Record<string, unknown>)[campo];
+      // Só preenche se o campo está vazio no existente e o novo tem valor
+      if (!valorExistente && valorNovo) {
+        camposNovos[campo] = valorNovo;
+        camposEnriquecidos.push(campo);
+      }
+    }
+
+    // valorEstimado: preenche se vazio, ou atualiza se o novo for maior
+    if (body.valorEstimado) {
+      const existente = dossieExistente.valorEstimado ? Number(dossieExistente.valorEstimado) : 0;
+      if (!existente || body.valorEstimado > existente) {
+        camposNovos.valorEstimado = String(body.valorEstimado);
+        camposEnriquecidos.push("valorEstimado");
+      }
+    }
+
+    // score: atualiza se o novo for maior
+    if (body.score && body.score > (dossieExistente.score ?? 0)) {
+      camposNovos.score = body.score;
+      camposEnriquecidos.push("score");
+    }
+
+    // Recalcula completude se há campos novos
+    if (camposEnriquecidos.length > 0) {
+      const dadosMesclados = { ...dossieExistente, ...camposNovos };
+      const { completude, missaoAtual } = recalcularDossie(dadosMesclados, dossieExistente.decisores);
+      camposNovos.completude      = completude;
+      camposNovos.missaoAtual     = missaoAtual;
+      camposNovos.ultimaAtividade = new Date();
+      if (completude >= 80 && dossieExistente.status === "INVESTIGANDO") {
+        camposNovos.status = "AGUARDANDO_VALIDACAO";
+      }
+
+      await prisma.$transaction([
+        prisma.dossieComercial.update({ where: { id: dossieExistente.id }, data: camposNovos }),
+        prisma.atualizacaoDossie.create({
+          data: {
+            dossieId: dossieExistente.id,
+            tipo:     "CAMPO_ATUALIZADO",
+            titulo:   `Enriquecido pelo radar — ${camposEnriquecidos.join(", ")}`,
+            conteudo: `Radar encontrou novos dados e atualizou automaticamente.\nCampos: ${camposEnriquecidos.join(", ")}\nFonte: ${body.fonteInformacao ?? "radar"}`,
+            agente:   "joao-radar",
+            fonte:    body.fonteInformacao ?? null,
+            link:     body.linkFonte       ?? null,
+          },
+        }),
+      ]);
+    }
+
+    // Adiciona decisor novo se vier no payload e ainda não existir
+    if (body.decisorNome?.trim()) {
+      const jaTemDecisor = dossieExistente.decisores.some(
+        d => d.nome?.toLowerCase() === body.decisorNome!.toLowerCase(),
+      );
+      if (!jaTemDecisor) {
+        await prisma.decisorDossie.create({
+          data: {
+            dossieId:  dossieExistente.id,
+            nome:      body.decisorNome.trim(),
+            cargo:     body.decisorCargo     ?? null,
+            telefone:  body.decisorTelefone  ?? null,
+            email:     body.decisorEmail     ?? null,
+            linkedin:  body.decisorLinkedin  ?? null,
+            confianca: 70,
+            fonte:     body.fonteInformacao  ?? null,
+          },
+        });
+        const decisoresAtualizados = [
+          ...dossieExistente.decisores,
+          { nome: body.decisorNome, telefone: body.decisorTelefone ?? null, email: body.decisorEmail ?? null, linkedin: body.decisorLinkedin ?? null },
+        ];
+        const { completude: c2, missaoAtual: m2 } = recalcularDossie(dossieExistente, decisoresAtualizados);
+        await prisma.dossieComercial.update({
+          where: { id: dossieExistente.id },
+          data: {
+            completude: c2, missaoAtual: m2,
+            totalDecisores: { increment: 1 },
+            ultimaAtividade: new Date(),
+          },
+        });
+        camposEnriquecidos.push(`decisor:${body.decisorNome}`);
+      }
+    }
+
     return NextResponse.json({
-      sucesso: false,
-      duplicata: true,
-      mensagem: "Dossiê com este título já existe.",
-      dossieId: jaExiste.id,
-      status: jaExiste.status,
+      sucesso:            true,
+      duplicata:          true,
+      merged:             true,
+      mensagem:           camposEnriquecidos.length > 0
+        ? `Dossiê existente enriquecido com: ${camposEnriquecidos.join(", ")}.`
+        : "Dossiê já existente — nenhum campo novo para enriquecer.",
+      dossieId:           dossieExistente.id,
+      status:             dossieExistente.status,
+      camposEnriquecidos,
     });
   }
 

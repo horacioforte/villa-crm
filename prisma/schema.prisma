@@ -857,7 +857,7 @@ model Feedback {
   status        StatusFeedback @default(RECEBIDO)
   respostaAdmin String?
 
-  autorId String
+  autorId Sdttring
   autor   Usuario @relation(fields: [autorId], references: [id])
 
   criadoEm     DateTime @default(now())
@@ -890,7 +890,7 @@ model AgenteConfig {
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // PROSPECÃ‡ÃƒO ATIVA (JoÃ£o outbound) â€” nunca remover, sÃ³ acrescentar
-// Regra: disparo NÃƒO cria oportunidade. SÃ³ sinal real de interesse cria.
+-// Regra: disparo NÃƒO cria oportunidade. SÃ³ sinal real de interesse cria.
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 enum StatusProspect {
@@ -1254,48 +1254,15 @@ model DossieComercial {
   linkFonte       String?
 
   // â”€â”€ Score e Completude â”€â”€
-  score       Int     @default(0)   // 0â€“100 â€” qualidade da oportunidade
-  completude  Int     @default(0)   // 0â€“100 â€” % de campos preenchidos
-  prioridade  String? // "ALTA" | "MEDIA" | "BAIXA"
+  score                Int     @default(0)   // 0â€“100 â€” qualidade da oportunidade
+  completude           Int     @default(0)   // 0â€“100 â€” % de campos preenchidos (quanto JoÃ£o conhece da obra)
+  maturidadeComercial  Int     @default(0)   // 0â€“100 â€” o quanto faz sentido a Villa agir comercialmente
+  prioridade           String? // "ALTA" | "MEDIA" | "BAIXA"
 
   // â”€â”€ MissÃ£o JoÃ£o â”€â”€
   missaoAtual String?  // ex: "Descobrir o telefone do Diretor de Obras"
 
-  // â”€â”€ Contadores cacheados (atualizados a cada enriquecimento) â”€â”€
-  totalDecisores    Int @default(0)
-  totalEmpresas     Int @default(0)
-  totalNoticias     Int @default(0)
-  totalAtualizacoes Int @default(0)
-
-  // â”€â”€ VÃ­nculo CRM â€” opcionais â”€â”€
-  empresaId String?
-  empresa   Empresa? @relation("DossieEmpresa", fields: [empresaId], references: [id], onDelete: SetNull)
-
-  obraId String?
-  obra   Obra?   @relation("DossieObra", fields: [obraId], references: [id], onDelete: SetNull)
-
-  // Preenchido quando Morgana assume â€” aponta para a oportunidade criada no pipeline
-  oportunidadeId String?
-  oportunidade   Oportunidade? @relation(fields: [oportunidadeId], references: [id], onDelete: SetNull)
-
-  // â”€â”€ AssunÃ§Ã£o â”€â”€
-  assumidoPorId String?
-  assumidoPor   Usuario?  @relation("DossieAssumidoPor", fields: [assumidoPorId], references: [id], onDelete: SetNull)
-  assumidaEm    DateTime?
-
-  // â”€â”€ Motivo de descarte (quando ARQUIVADO) â”€â”€
-  motivoDescarte String? @db.Text
-
-  // â”€â”€ Audit â”€â”€
-  criadoPorAgente  String   @default("joao-radar")
-  ultimaAtividade  DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // â”€â”€ RelaÃ§Ãµes â”€â”€
-  atualizacoes         AtualizacaoDossie[]
-  decisores            DecisorDossie[]
+  // â”€â”€ Contadores cacheados (atualizados a cada enriquecimento) ƒŠRŠR (€Ñ½Ñ…±•¥Í½É•Ì€€€%¹Ğ‘•™…Õ±Ğ À¤(€Ñ½Ñ…±µÁÉ•Í…Ì€€€€%¹Ğ‘•™…Õ±Ğ À¤(€Ñ½Ñ…±9½Ñ¥¥…Ì€€€€%¹Ğ‘•™…Õ±Ğ À¤(€Ñ½Ñ…±ÑÕ…±¥é…½•Ì%¹Ğ‘•™…Õ±Ğ À¤((€€¼¼ƒŠRŠR [µ¹Õ±¼I4ƒŠP•µÁÉ•Í…Ì½½‰É…Ì•¹½¹ÑÉ…‘…ÌƒŠRŠR (€•µÁÉ•Í…%MÑÉ¥¹œü(€•µÁÉ•Í„€€µÁÉ•Í„üÉ•±…Ñ¥½¸ ‰½ÍÍ¥•µÁÉ•Í„ˆ°™¥•±‘Ìèm•µÁÉ•Í…%‘t°É•™•É•¹•Ìèm¥‘t°½¹•±•Ñ”èM•Ñ9Õ±°¤((€½‰É…%MÑÉ¥¹œü(€½‰É„€€=‰É„ü€€É•±…Ñ¥½¸ ‰½ÍÍ¥•=‰É„ˆ°™¥•±‘Ìèm½‰É…%‘t°É•™•É•¹•Ìèm¥‘t°½¹•±•Ñ”èM•Ñ9Õ±°¤((€€¼¼AÉ••¹¡¥‘¼ÅÕ…¹‘¼5½É…¹„…ÍÍÕµ”ƒŠP…Á½¹Ñ„Á…É„„½Á½ÉÑÕ¹¥‘…‘”É¥…‘„¹¼Á¥Á•±¥¹”(€½Á½ÉÑÕ¹¥‘…‘•%MÑÉ¥¹œü(€½Á½ÉÑÕ¹¥‘…‘”€€=Á½ÉÑÕ¹¥‘…‘”üÉ•±…Ñ¥½¸¡™¥•±‘Ìèm½Á½ÉÑÕ¹¥‘…‘•%‘t°É•™•É•¹•Ìèm¥‘t°½¹•±•Ñ”èM•Ñ9Õ±°¤((€€¼¼ƒŠRŠR ÍÍÕ»Ÿ¼ƒŠRŠR (€…ÍÍÕµ¥‘½A½É%MÑÉ¥¹œü(€…ÍÍÕµ¥‘½A½È€€UÍÕ…É¥¼ü€É•±…Ñ¥½¸ ‰½ÍÍ¥•ÍÍÕµ¥‘½A½Èˆ°™¥•±‘Ìèm…ÍÍÕµ¥‘½A½É%‘t°É•™•É•¹•Ìèm¥‘t°½¹•±•Ñ”èM•Ñ9Õ±°¤(€…ÍÍÕµ¥‘…´€€€…Ñ•Q¥µ”ü((€€¼¼ƒŠRŠR 5½Ñ¥Ù¼‘”‘•Í…ÉÑ”€¡ÅÕ…¹‘¼IEU%Y<¤ƒŠRŠR (€µ½Ñ¥Ù½•Í…ÉÑ”MÑÉ¥¹œü‘ˆ¹Q•áĞ((€€¼¼ƒŠRŠR Õ‘¥ĞƒŠRŠR (€É¥…‘½A½É•¹Ñ”€MÑÉ¥¹œ€€‘•™…Õ±Ğ ‰©½…¼µÉ…‘…Èˆ¤(€Õ±Ñ¥µ…Ñ¥Ù¥‘…‘”€…Ñ•Q¥µ”ü((€É•…Ñ•‘Ğ…Ñ•Q¥µ”‘•™…Õ±Ğ¡¹½Ü ¤¤(€ÕÁ‘…Ñ•‘Ğ…Ñ•Q¥µ”ÕÁ‘…Ñ•‘Ğ((€€¼¼ƒŠRŠR I•±‡ŸÕ•ÌƒŠRŠR (€…ÑÕ…±¥é…½•Ì€€€€€€€€ÑÕ…±¥é……½½ÍÍ¥•mt(€‘•¥Í½É•Ì€€€€€€€€€€€€DecisorDossie[]
   empresasRelacionadas EmpresaDossie[]
 
   @@index([status])
@@ -1303,6 +1270,7 @@ model DossieComercial {
   @@index([segmento])
   @@index([score])
   @@index([completude])
+  @@index([maturidadeComercial])
   @@index([origem])
   @@index([empresaId])
   @@index([obraId])

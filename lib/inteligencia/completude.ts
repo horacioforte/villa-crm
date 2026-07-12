@@ -11,6 +11,7 @@ interface DossieParaCalculo {
   epcm?: string | null;
   faseObra?: string | null;
   cronograma?: string | null;
+  licenciamento?: string | null;
   valorEstimado?: unknown;
   volumeConcreto?: unknown;
   equipamentosSugeridos?: string | null;
@@ -113,7 +114,7 @@ export function definirMissaoAtual(
     return "Identificar o Diretor de Obras, Diretor de Engenharia ou Gerente de Suprimentos.";
   }
 
-  // Prioridade 4: telefone do decisor encontrado
+  // Prioridade 4: telefone do decisor
   if (comNome && !comTelefone) {
     return `Descobrir o telefone de ${comNome.nome ?? "decisor encontrado"}.`;
   }
@@ -123,14 +124,14 @@ export function definirMissaoAtual(
     return `Descobrir o e-mail de ${comNome.nome ?? "decisor encontrado"}.`;
   }
 
-  // Prioridade 6: valor estimado
+  // Prioridade 6: valor lestimado
   if (!dossie.valorEstimado) {
     return "Estimar o valor total do investimento ou do contrato de obras.";
   }
 
   // Prioridade 7: fase da obra
   if (!dossie.faseObra?.trim()) {
-    return "Identificar a fase atual da obra (licenciamento, licitação, execução…).";
+    return "Identificar a fase atual da obra (licenciamento, licitação, execuçã…).";
   }
 
   // Prioridade 8: cronograma
@@ -157,14 +158,46 @@ export function definirMissaoAtual(
   return "Aprofundar monitoramento: novas notícias, mudanças de cronograma e novos decisores.";
 }
 
+// ─── calcularMaturidadeComercial ──────────────────────────────────────────────
+// O quanto faz sentido a Villa agir comercialmente sobre este dossiê.
+// Diferente de completude (quanto João conhece), maturidade mede o potencial
+// de ação imediata: EPC identificado, sonstrutora mapeada, decisores contatáveis,
+// licenciamento avançado, valor estimado conhecido.
+
+export function calcularMaturidadeComercial(
+  dossie: DossieParaCalculo,
+  decisores: DecisorParaCalculo[],
+): number {
+  let score = 0;
+
+  // EPC ou EPCM identificado → +30 (maior peso: quem contrata os equipamentos)
+  if (dossie.epc?.trim() || dossie.epcm?.trim()) score += 30;
+
+  // Construtora mapeada → +20
+  if (dossie.construtora?.trim()) score += 20;
+
+  // Decisores encontrados → +20 (≩2) ou +10 (≩1)
+  if (decisores.length >= 2) score += 20;
+  else if (decisores.length >= 1) score += 10;
+
+  // Licenciamento registrado → +15 (obra com licença = ação iminente)
+  if (dossie.licenciamento?.trim()) score += 15;
+
+  // Valor estimado presente → +15 (sabemos o tamanho do mercado)
+  if (dossie.valorEstimado) score += 15;
+
+  return Math.min(100, score);
+}
+
 // ─── recalcularEAtualizar ────────────────────────────────────────────────────
 // Helper completo: recalcula e retorna os valores para salvar no banco.
 
 export function recalcularDossie(
   dossie: DossieParaCalculo,
   decisores: DecisorParaCalculo[],
-): { completude: number; missaoAtual: string } {
+): { completude: number; missaoAtual: string; maturidadeComercial: number } {
   const completude = calcularCompletude(dossie, decisores);
   const missaoAtual = definirMissaoAtual(dossie, decisores, completude);
-  return { completude, missaoAtual };
+  const maturidadeComercial = calcularMaturidadeComercial(dossie, decisores);
+  return { completude, missaoAtual, maturidadeComercial };
 }

@@ -72,7 +72,7 @@ export async function POST(
     ...dossie.decisores,
     { nome: decisor.nome, telefone: decisor.telefone, email: decisor.email, linkedin: decisor.linkedin },
   ];
-  const { completude, missaoAtual } = recalcularDossie(dossie, decisoresAtualizados);
+  const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dossie, decisoresAtualizados);
 
   await prisma.$transaction([
     prisma.dossieComercial.update({
@@ -80,6 +80,7 @@ export async function POST(
       data: {
         completude,
         missaoAtual,
+        maturidadeComercial,
         totalDecisores: { increment: 1 },
         ultimaAtividade: new Date(),
         ...(completude >= 80 && dossie.status === "INVESTIGANDO" ? { status: "AGUARDANDO_VALIDACAO" } : {}),
@@ -106,9 +107,10 @@ export async function POST(
   ]);
 
   return NextResponse.json({
-    sucesso:     true,
-    decisorId:   decisor.id,
+    sucesso:              true,
+    decisorId:            decisor.id,
     completude,
     missaoAtual,
+    maturidadeComercial,
   }, { status: 201 });
 }

@@ -63,12 +63,13 @@ export async function PATCH(
     return NextResponse.json({ sucesso: true, mensagem: "Nenhum campo novo para atualizar.", completude: dossieAtual.completude });
   }
 
-  // Recalcula completude
+  // Recalcula completude e maturidade
   const dadosMesclados = { ...dossieAtual, ...data };
-  const { completude, missaoAtual } = recalcularDossie(dadosMesclados, dossieAtual.decisores);
-  data.completude     = completude;
-  data.missaoAtual    = missaoAtual;
-  data.ultimaAtividade = new Date();
+  const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosMesclados, dossieAtual.decisores);
+  data.completude           = completude;
+  data.missaoAtual          = missaoAtual;
+  data.maturidadeComercial  = maturidadeComercial;
+  data.ultimaAtividade      = new Date();
 
   // Se completude >= 80, sugere validação
   if (completude >= 80 && dossieAtual.status === "INVESTIGANDO") {
@@ -91,10 +92,11 @@ export async function PATCH(
   ]);
 
   return NextResponse.json({
-    sucesso:      true,
+    sucesso:              true,
     completude,
     missaoAtual,
+    maturidadeComercial,
     camposAlterados,
-    statusNovo:   completude >= 80 ? "AGUARDANDO_VALIDACAO" : dossieAtual.status,
+    statusNovo:           completude >= 80 ? "AGUARDANDO_VALIDACAO" : dossieAtual.status,
   });
 }

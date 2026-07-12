@@ -69,6 +69,7 @@ type Dossie = {
   valorEstimado?: string | null;
   score: number;
   completude: number;
+  maturidadeComercial: number;
   missaoAtual?: string | null;
   proximaAcaoSugerida?: string | null;
   prioridade?: string | null;
@@ -224,18 +225,6 @@ function corScore(score: number): string {
   if (score >= 70) return "bg-orange-500 text-white";
   if (score >= 50) return "bg-amber-400 text-white";
   return "bg-slate-300 text-slate-700";
-}
-
-/** Maturidade Comercial = quanto faz sentido atuar agora (diferente de Completude = quanto João sabe) */
-function calcMaturidade(d: Dossie): number {
-  let score = 0;
-  if (d.epc || d.epcm) score += 30;                // EPC/EPCM identificada — já tem com quem falar
-  if (d.construtora)   score += 20;                // Construtora identificada
-  if (d.totalDecisores >= 2) score += 20;          // Múltiplos decisores mapeados
-  else if (d.totalDecisores >= 1) score += 10;     // Pelo menos 1 decisor
-  if (d.licenciamento) score += 15;               // Fase de licenciamento conhecida
-  if (d.valorEstimado) score += 15;               // Valor estimado confirmado
-  return Math.min(100, score);
 }
 
 function corBarra(pct: number, tipo: "completude" | "maturidade"): string {
@@ -484,7 +473,7 @@ function BarraDupla({ completude, maturidade }: { completude: number; maturidade
 function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: () => void; onAssumir?: () => void }) {
   const cfg = STATUS_CFG[dossie.status];
   const dias = diasDesde(dossie.updatedAt);
-  const maturidade = calcMaturidade(dossie);
+  const maturidade = dossie.maturidadeComercial ?? 0;
   const parado = dias > 7;
 
   return (

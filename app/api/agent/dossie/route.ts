@@ -130,10 +130,11 @@ export async function POST(req: NextRequest) {
     // Recalcula completude se há campos novos
     if (camposEnriquecidos.length > 0) {
       const dadosMesclados = { ...dossieExistente, ...camposNovos };
-      const { completude, missaoAtual } = recalcularDossie(dadosMesclados, dossieExistente.decisores);
-      camposNovos.completude      = completude;
-      camposNovos.missaoAtual     = missaoAtual;
-      camposNovos.ultimaAtividade = new Date();
+      const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosMesclados, dossieExistente.decisores);
+      camposNovos.completude           = completude;
+      camposNovos.missaoAtual          = missaoAtual;
+      camposNovos.maturidadeComercial  = maturidadeComercial;
+      camposNovos.ultimaAtividade      = new Date();
       if (completude >= 80 && dossieExistente.status === "INVESTIGANDO") {
         camposNovos.status = "AGUARDANDO_VALIDACAO";
       }
@@ -176,11 +177,12 @@ export async function POST(req: NextRequest) {
           ...dossieExistente.decisores,
           { nome: body.decisorNome, telefone: body.decisorTelefone ?? null, email: body.decisorEmail ?? null, linkedin: body.decisorLinkedin ?? null },
         ];
-        const { completude: c2, missaoAtual: m2 } = recalcularDossie(dossieExistente, decisoresAtualizados);
+        const { completude: c2, missaoAtual: m2, maturidadeComercial: mat2 } = recalcularDossie(dossieExistente, decisoresAtualizados);
         await prisma.dossieComercial.update({
           where: { id: dossieExistente.id },
           data: {
             completude: c2, missaoAtual: m2,
+            maturidadeComercial: mat2,
             totalDecisores: { increment: 1 },
             ultimaAtividade: new Date(),
           },
@@ -271,32 +273,33 @@ export async function POST(req: NextRequest) {
     ? [{ nome: body.decisorNome, telefone: body.decisorTelefone ?? null, email: body.decisorEmail ?? null, linkedin: body.decisorLinkedin ?? null }]
     : [];
 
-  const { completude, missaoAtual } = recalcularDossie(dadosParaCalculo, decisoresIniciais);
+  const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosParaCalculo, decisoresIniciais);
 
   // Criar DossieComercial
   const dossie = await prisma.dossieComercial.create({
     data: {
-      titulo:          body.titulo.trim(),
-      resumo:          body.resumo          ?? null,
-      origem:          "JOAO_RADAR",
-      tipo:            (body.tipo as "OBRA" | "EMPRESA" | "MOVIMENTO_ESTRATEGICO" | "LICENCIAMENTO" | "LEAD") ?? "OBRA",
-      segmento:        body.segmento        ?? null,
-      cidade:          body.cidade          ?? null,
-      estado:          body.estado          ?? null,
-      clienteFinal:    body.clienteFinal    ?? null,
-      construtora:     body.construtora     ?? null,
-      epc:             body.epc             ?? null,
-      epcm:            body.epcm            ?? null,
-      faseObra:        body.faseObra        ?? null,
-      valorEstimado:   body.valorEstimado   ? String(body.valorEstimado) : null,
-      fonteInformacao: body.fonteInformacao ?? null,
-      linkFonte:       body.linkFonte       ?? null,
-      score:           body.score           ?? 50,
-      prioridade:      body.prioridade      ?? null,
+      titulo:               body.titulo.trim(),
+      resumo:               body.resumo          ?? null,
+      origem:               "JOAO_RADAR",
+      tipo:                 (body.tipo as "OBRA" | "EMPRESA" | "MOVIMENTO_ESTRATEGICO" | "LICENCIAMENTO" | "LEAD") ?? "OBRA",
+      segmento:             body.segmento        ?? null,
+      cidade:               body.cidade          ?? null,
+      estado:               body.estado          ?? null,
+      clienteFinal:         body.clienteFinal    ?? null,
+      construtora:          body.construtora     ?? null,
+      epc:                  body.epc             ?? null,
+      epcm:                 body.epcm            ?? null,
+      faseObra:             body.faseObra        ?? null,
+      valorEstimado:        body.valorEstimado   ? String(body.valorEstimado) : null,
+      fonteInformacao:      body.fonteInformacao ?? null,
+      linkFonte:            body.linkFonte       ?? null,
+      score:                body.score           ?? 50,
+      prioridade:           body.prioridade      ?? null,
       completude,
       missaoAtual,
-      criadoPorAgente: "joao-radar",
-      ultimaAtividade: new Date(),
+      maturidadeComercial,
+      criadoPorAgente:      "joao-radar",
+      ultimaAtividade:      new Date(),
       empresaId,
       obraId,
     },
@@ -339,7 +342,7 @@ export async function POST(req: NextRequest) {
 
     await prisma.dossieComercial.update({
       where: { id: dossie.id },
-      data:  { totalDecisores: 1, completude, missaoAtual },
+      data:  { totalDecisores: 1, completude, missaoAtual, maturidadeComercial },
     });
   }
 

@@ -32,7 +32,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  Star,
   Target,
   TrendingUp,
   UserCheck,
@@ -88,6 +87,8 @@ type FeedItem = {
   tipo: string;
   titulo: string;
   conteudo: string;
+  agente: string;
+  agenteLabel: string;
   dossieId: string;
   dossieTitulo: string;
   createdAt: string;
@@ -121,9 +122,13 @@ type Esquecida = {
 
 type JoaoStatus = {
   totalDossies: number;
+  dossiesInvestigando: number;
   missaoAtual: string;
   dossieAtual?: { id: string; titulo: string } | null;
-  ultimaDescoberta?: { descricao: string; dossie: string; quando: string } | null;
+  progressoMissao?: number | null;
+  descobertas24h: number;
+  ultimaDescoberta?: { descricao: string; dossie: string; dossieId: string; quando: string } | null;
+  proximaInvestigacao?: string | null;
 };
 
 type KpisInteligencia = {
@@ -204,7 +209,13 @@ function formatHorario(isoStr: string): string {
 
 function formatData(isoStr: string): string {
   try {
-    return new Date(isoStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    const d = new Date(isoStr);
+    const hoje = new Date();
+    const ehHoje = d.toDateString() === hoje.toDateString();
+    if (ehHoje) return `Hoje, ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+    const ontem = new Date(hoje); ontem.setDate(hoje.getDate() - 1);
+    if (d.toDateString() === ontem.toDateString()) return `Ontem, ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
   } catch { return ""; }
 }
 
@@ -236,6 +247,149 @@ function corBarra(pct: number, tipo: "completude" | "maturidade"): string {
   if (pct >= 70) return "bg-blue-500";
   if (pct >= 40) return "bg-blue-400";
   return "bg-slate-300";
+}
+
+// ─── Parser de pesquisa por intenção ─────────────────────────────────────────
+// Arquitetura preparada para substituição futura por IA (Haiku/Sonnet).
+// Cada intenção retorna um predicado (Dossie) => boolean.
+// Múltiplas intenções detectadas são combinadas com AND.
+
+const ESTADOS_BR: Record<string, string[]> = {
+  SP: ["são paulo", "sao paulo"],
+  MG: ["minas gerais"],
+  RJ: ["rio de janeiro"],
+  BA: ["bahia"],
+  PE: ["pernambuco"],
+  GO: ["goiás", "goias"],
+  PA: ["pará", "para"],
+  MT: ["mato grosso"],
+  ES: ["espírito santo", "espirito santo"],
+  RS: ["rio grande do sul"],
+  PR: ["paraná", "parana"],
+  SC: ["santa catarina"],
+  AM: ["amazonas"],
+  MS: ["mato grosso do sul"],
+  CE: ["ceará", "ceara"],
+  PI: ["piauí", "piaui"],
+  MA: ["maranhão", "maranhao"],
+  RO: ["rondônia", "rondonia"],
+  AC: ["acre"],
+  TO: ["tocantins"],
+};
+
+const SEGMENTOS_KW: Array<[string, string]> = [
+  ["mineraç", "miner"],
+  ["celulose", "celulose"],
+  ["petroquím", "petroquím"],
+  ["petro", "petro"],
+  ["siderurgi", "siderurg"],
+  ["industrial", "industrial"],
+  ["data center", "data center"],
+  ["energia", "energia"],
+  ["aço", "aço"],
+  ["papel", "papel"],
+  ["alimentos", "alimentos"],
+  ["fertili", "fertili"],
+  ["químic", "químic"],
+  ["farmacê", "farmacê"],
+  ["automotiv", "automotiv"],
+  ["logística", "logística"],
+  ["porto", "porto"],
+  ["aeroporto", "aeroporto"],
+];
+
+function parsearBusca(rawQuery: string): (d: Dossie) => boolean {
+  const q = rawQuery.toLowerCase().trim();
+  if (!q) return () => true;
+
+  const intents: Array<(d: Dossie) => boolean> = [];
+
+  // ── Status semântico ───────────────────────────────────────────────────────
+  if (/pront[oa]|assumir/.test(q))
+    intents.push(d => d.status === "PRONTO_PARA_ASSUMIR");
+  if (/investigand/.test(q))
+    intents.push(d => d.status === "INVESTIGANDO");
+  if (/aguardand|validaç/.test(q))
+    intents.push(d => d.status === "AGUARDANDO_VALIDACAO");
+  if (/anális|analise/.test(q))
+    intents.push(d => d.status === "EM_ANALISE");
+  if (/mais pesquis/.test(q))
+    intents.push(d => d.status === "PEDIR_MAIS_PESQUISA");
+
+  // ── Prioridade e score ─────────────────────────────────────────────────────
+  if (/\balta\b|urgente/.test(q))
+    intents.push(d => d.prioridade === "ALTA");
+  if (/quente/.test(q))
+    intents.push(d => d.score >= 75);
+  if (/fria|baixo.*score/.test(q))
+    intents.push(d => d.score < 40);
+
+  // ── Temporal ────────────────────────────────────────────────────────────────
+  if (/esquecid|parad[ao]/.test(q))
+    intents.push(d => diasDesde(d.updatedAt) > 15);
+  if (/recente|hoje|atual/.test(q))
+    intents.push(d => diasDesde(d.updatedAt) === 0);
+
+  // ── Campos ausentes ─────────────────────────────────────────────────────────
+  if (/sem epc/.test(q))
+    intents.push(d => !d.epc && !d.epcm);
+  if (/sem comprador|sem cliente final/.test(q))
+    intents.push(d => !d.clienteFinal);
+  if (/sem construtora/.test(q))
+    intents.push(d => !d.construtora);
+  if (/sem decisor/.test(q))
+    intents.push(d => d.totalDecisores === 0);
+  if (/com decisor/.test(q))
+    intents.push(d => d.totalDecisores > 0);
+  if (/sem valor/.test(q))
+    intents.push(d => !d.valorEstimado);
+
+  // ── Segmentos ────────────────────────────────────────────────────────────────
+  for (const [kw, match] of SEGMENTOS_KW) {
+    if (q.includes(kw)) {
+      intents.push(d => (d.segmento ?? "").toLowerCase().includes(match));
+    }
+  }
+
+  // ── Estados ──────────────────────────────────────────────────────────────────
+  for (const [uf, palavras] of Object.entries(ESTADOS_BR)) {
+    const ufLower = uf.toLowerCase();
+    if (q === ufLower || palavras.some(p => q.includes(p)) || q.endsWith(` ${ufLower}`)) {
+      intents.push(d => (d.estado ?? "").toUpperCase() === uf);
+      break; // Evita múltiplos estados no mesmo intent
+    }
+  }
+
+  // ── Valor estimado: "acima de 500 milhões" / "mais de 1 bilhão" ─────────────
+  const matchValor = q.match(
+    /(?:acima|mais|maior)\s+(?:de\s+)?r?\$?\s*(\d+(?:[.,]\d+)?)\s*(bilh[aã]o|bilhões|milh[aã]o|milh[oõ]es|mi|bi|k)?/i
+  );
+  if (matchValor) {
+    let v = parseFloat(matchValor[1].replace(",", "."));
+    const unid = (matchValor[2] ?? "").toLowerCase();
+    if (/bilh|bi/.test(unid))  v *= 1_000_000_000;
+    else if (/milh|mi/.test(unid)) v *= 1_000_000;
+    else if (/k/.test(unid))   v *= 1_000;
+    intents.push(d => {
+      const n = parseFloat((d.valorEstimado ?? "0").replace(/[^0-9.]/g, ""));
+      return !isNaN(n) && n >= v;
+    });
+  }
+
+  // ── Se há intenções semânticas, combina com AND ───────────────────────────
+  if (intents.length > 0) {
+    return (d: Dossie) => intents.every(fn => fn(d));
+  }
+
+  // ── Fallback: busca textual ampla em múltiplos campos ────────────────────
+  return (d: Dossie) => {
+    const text = [
+      d.titulo, d.clienteFinal, d.empresa?.razaoSocial, d.resumo,
+      d.cidade, d.estado, d.segmento, d.epc, d.epcm, d.construtora,
+      d.missaoAtual,
+    ].filter(Boolean).join(" ").toLowerCase();
+    return text.includes(q);
+  };
 }
 
 /** Gera agenda de prioridade determinística a partir dos dados */
@@ -327,7 +481,7 @@ function BarraDupla({ completude, maturidade }: { completude: number; maturidade
   );
 }
 
-function CardDossie({ dossie, onClick }: { dossie: Dossie; onClick: () => void }) {
+function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: () => void; onAssumir?: () => void }) {
   const cfg = STATUS_CFG[dossie.status];
   const dias = diasDesde(dossie.updatedAt);
   const maturidade = calcMaturidade(dossie);
@@ -351,7 +505,7 @@ function CardDossie({ dossie, onClick }: { dossie: Dossie; onClick: () => void }
         </span>
       </div>
 
-      {(dossie.cidade || dossie.estado || dossie.segmento) && (
+      y(dossie.cidade || dossie.estado || dossie.segmento) && (
         <p className="text-[10px] text-slate-500 truncate">
           {[dossie.cidade, dossie.estado].filter(Boolean).join("/")}
           {dossie.segmento ? ` · ${dossie.segmento}` : ""}
@@ -382,8 +536,11 @@ function CardDossie({ dossie, onClick }: { dossie: Dossie; onClick: () => void }
         </div>
       )}
 
-      {dossie.status === "PRONTO_PARA_ASSUMIR" && (
-        <button className="w-full text-[10px] py-1 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium hover:bg-emerald-100 transition-colors">
+      {dossie.status === "PRONTO_PARA_ASSUMIR" && onAssumir && (
+        <button
+          onClick={e => { e.stopPropagation(); onAssumir(); }}
+          className="w-full text-[10px] py-1.5 rounded bg-emerald-600 text-white font-semibold hover:bg-emerald-700 active:scale-95 transition-all"
+        >
           Assumir dossiê →
         </button>
       )}
@@ -428,7 +585,7 @@ function ItemFeed({ item, onClick }: { item: FeedItem; onClick: () => void }) {
       onClick={onClick}
     >
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] text-slate-400">{formatHorario(item.createdAt)}</span>
+        <span className="text-[10px] text-slate-400">{formatData(item.createdAt)}</span>
         <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded-full", impactoCor)}>
           {item.impacto === "alto" ? "Alto" : item.impacto === "medio" ? "Médio" : "Baixo"}
         </span>
@@ -436,6 +593,7 @@ function ItemFeed({ item, onClick }: { item: FeedItem; onClick: () => void }) {
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-slate-400">{FEED_ICONE_MAP[item.icone] ?? <Bell className="h-3.5 w-3.5" />}</span>
         <span className="text-[10px] font-semibold text-slate-700">{item.categoria}</span>
+        <span className="text-[9px] text-slate-400">· {item.agenteLabel}</span>
       </div>
       <p className="text-[10px] text-slate-600 line-clamp-2 leading-snug mb-1">{item.titulo}</p>
       <p className="text-[10px] text-slate-400 truncate">{item.dossieTitulo}</p>
@@ -501,7 +659,7 @@ function PainelPrioridade({ dossies, onVoltar }: { dossies: Dossie[]; onVoltar: 
         <h2 className="text-sm font-semibold text-slate-800">Minha prioridade hoje</h2>
       </div>
       <p className="text-xs text-slate-400 mb-5">
-        João analisou {dossies.length} dossiês e recomenda concentrar esforços em:
+        João analisou {dossies.length} dossbês e recomenda concentrar esforços em:
       </p>
 
       {prioridades.length === 0 ? (
@@ -631,6 +789,23 @@ export default function CockpitPage() {
   const [mostrarAssumidos, setMostrarAssumidos] = useState(false);
   const lastVisitRef = useRef<string | null>(null);
 
+  async function assumirDossie(id: string) {
+    try {
+      const res = await fetch(`/api/inteligencia/${id}/assumir`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Erro ao assumir dossiê");
+      toast.success("Dossiê assumido! Oportunidade criada no pipeline comercial.");
+      if (json.urlOportunidade) router.push(json.urlOportunidade);
+      else carregar();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao assumir dossiê");
+    }
+  }
+
   async function carregar() {
     setCarregando(true);
     try {
@@ -673,25 +848,9 @@ export default function CockpitPage() {
 
   const { dossies, kpis, feed, mudancas, esquecidas, joao } = dados;
 
-  // Filtros
-  const dossiesFiltrados = dossies.filter(d => {
-    if (!busca) return true;
-    const q = busca.toLowerCase();
-    // Pesquisa inteligente — suporte a linguagem natural básica
-    if (q.includes("pronto"))  return d.status === "PRONTO_PARA_ASSUMIR";
-    if (q.includes("alta"))    return d.prioridade === "ALTA";
-    const textSearch = (
-      d.titulo.toLowerCase() +
-      (d.clienteFinal ?? "").toLowerCase() +
-      (d.empresa?.razaoSocial ?? "").toLowerCase() +
-      (d.cidade ?? "").toLowerCase() +
-      (d.estado ?? "").toLowerCase() +
-      (d.segmento ?? "").toLowerCase() +
-      (d.epc ?? "").toLowerCase() +
-      (d.construtora ?? "").toLowerCase()
-    );
-    return textSearch.includes(q);
-  });
+  // Filtros — pesquisa inteligente por intenção
+  const predicadoBusca = parsearBusca(busca);
+  const dossiesFiltrados = dossies.filter(predicadoBusca);
 
   const feedFiltrado = feed.filter(f => {
     if (filtroImpacto && f.impacto !== filtroImpacto) return false;
@@ -830,19 +989,26 @@ export default function CockpitPage() {
                   <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Ex: prontos · obras de mineração · Vale · sem EPC · iniciando em 90 dias..."
+                    placeholder="Ex: prontos · mineração · sem EPC · alta prioridade · MG · acima de 500 milhões..."
                     className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
                     value={busca}
                     onChange={e => setBusca(e.target.value)}
                   />
+                  {busca && (
+                    <button
+                      onClick={() => setBusca("")}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                    >✕</button>
+                  )}
                 </div>
-                <button className="flex items-center gap-1.5 px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition-colors text-slate-600 shrink-0">
-                  <Star className="h-3.5 w-3.5" />
-                  Favoritos
-                </button>
                 <button
                   onClick={() => setMostrarAssumidos(v => !v)}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition-colors text-slate-500 shrink-0"
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 text-xs border rounded-lg transition-colors text-slate-500 shrink-0",
+                    mostrarAssumidos
+                      ? "bg-slate-100 border-slate-300 text-slate-700"
+                      : "bg-white border-slate-200 hover:bg-slate-50"
+                  )}
                 >
                   {mostrarAssumidos ? "Ocultar assumidos" : "Ver assumidos"}
                 </button>
@@ -862,7 +1028,12 @@ export default function CockpitPage() {
                       </div>
                       <div className="space-y-2 min-h-12">
                         {lista.map(d => (
-                          <CardDossie key={d.id} dossie={d} onClick={() => irPara(d.id)} />
+                          <CardDossie
+                            key={d.id}
+                            dossie={d}
+                            onClick={() => irPara(d.id)}
+                            onAssumir={d.status === "PRONTO_PARA_ASSUMIR" ? () => assumirDossie(d.id) : undefined}
+                          />
                         ))}
                         {lista.length === 0 && (
                           <p className="text-[10px] text-slate-300 text-center py-3">—</p>
@@ -918,7 +1089,7 @@ export default function CockpitPage() {
                   ))}
                 </div>
                 <div className="flex gap-1 flex-wrap">
-                  {categoriasFeeds.slice(0, 4).map(cat => (
+                  {categoriasFeeds.map(cat => (
                     <button
                       key={cat}
                       onClick={() => setFiltroCategoria(filtroCategoria === cat ? "" : cat)}

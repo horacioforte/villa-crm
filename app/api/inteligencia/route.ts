@@ -91,33 +91,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "titulo é obrigatório." }, { status: 400 });
   }
 
-  const { completude, missaoAtual } = recalcularDossie(body, []);
+  const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(body, []);
 
   const dossie = await prisma.dossieComercial.create({
     data: {
-      titulo:         body.titulo,
-      resumo:         body.resumo         ?? null,
-      origem:         (body.origem as "JOAO_RADAR" | "JOAO_OUTBOUND" | "MANUAL") ?? "MANUAL",
-      tipo:           (body.tipo as "OBRA" | "EMPRESA" | "MOVIMENTO_ESTRATEGICO" | "LICENCIAMENTO" | "LEAD") ?? "OBRA",
-      segmento:       body.segmento       ?? null,
-      cidade:         body.cidade         ?? null,
-      estado:         body.estado         ?? null,
-      clienteFinal:   body.clienteFinal   ?? null,
-      construtora:    body.construtora    ?? null,
-      epc:            body.epc            ?? null,
-      epcm:           body.epcm           ?? null,
-      faseObra:       body.faseObra       ?? null,
-      valorEstimado:  body.valorEstimado  ? String(body.valorEstimado) : null,
-      fonteInformacao: body.fonteInformacao ?? null,
-      linkFonte:      body.linkFonte      ?? null,
-      score:          body.score          ?? 0,
-      prioridade:     body.prioridade     ?? null,
+      titulo:              body.titulo,
+      resumo:              body.resumo         ?? null,
+      origem:              (body.origem as "JOAO_RADAR" | "JOAO_OUTBOUND" | "MANUAL") ?? "MANUAL",
+      tipo:                (body.tipo as "OBRA" | "EMPRESA" | "MOVIMENTO_ESTRATEGICO" | "LICENCIAMENTO" | "LEAD") ?? "OBRA",
+      segmento:            body.segmento       ?? null,
+      cidade:              body.cidade         ?? null,
+      estado:              body.estado         ?? null,
+      clienteFinal:        body.clienteFinal   ?? null,
+      construtora:         body.construtora    ?? null,
+      epc:                 body.epc            ?? null,
+      epcm:                body.epcm           ?? null,
+      faseObra:            body.faseObra       ?? null,
+      valorEstimado:       body.valorEstimado  ? String(body.valorEstimado) : null,
+      fonteInformacao:     body.fonteInformacao ?? null,
+      linkFonte:           body.linkFonte      ?? null,
+      score:               body.score          ?? 0,
+      prioridade:          body.prioridade     ?? null,
       completude,
       missaoAtual,
-      criadoPorAgente: "manual",
-      ultimaAtividade: new Date(),
-      empresaId:      body.empresaId      ?? null,
-      obraId:         body.obraId         ?? null,
+      maturidadeComercial,
+      criadoPorAgente:     "manual",
+      ultimaAtividade:     new Date(),
+      empresaId:           body.empresaId      ?? null,
+      obraId:              body.obraId         ?? null,
     },
   });
 

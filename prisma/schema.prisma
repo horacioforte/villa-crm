@@ -858,7 +858,7 @@ model Feedback {
   status        StatusFeedback @default(RECEBIDO)
   respostaAdmin String?
 
-  autorId Sdttring
+  autorId String
   autor   Usuario @relation(fields: [autorId], references: [id])
 
   criadoEm     DateTime @default(now())
@@ -1264,6 +1264,40 @@ model DossieComercial {
   missaoAtual String?  // ex: "Descobrir o telefone do Diretor de Obras"
 
   // ── Contadores cacheados (atualizados a cada enriquecimento) ──
+  totalDecisores    Int @default(0)
+  totalEmpresas     Int @default(0)
+  totalNoticias     Int @default(0)
+  totalAtualizacoes Int @default(0)
+
+  // ── Vínculo CRM — apcionais ──
+  empresaId String?
+  empresa   Empresa? @relation("DossieEmpresa", fields: [empresaId], references: [id], onDelete: SetNull)
+
+  obraId String?
+  obra   Obra?   @relation("DossieObra", fields: [obraId], references: [id], onDelete: SetNull)
+
+  // Preenchido quando Morgana assume — aponta para a oportunidade criada no pipeline
+  oportunidadeId String?
+  oportunidade   Oportunidade? @relation(fields: [oportunidadeId], references: [id], onDelete: SetNull)
+
+  // ── Assunção ──
+  assumidoPorId String?
+  assumidoPor   Usuario?  @relation("DossieAssumidoPor", fields: [assumidoPorId], references: [id], onDelete: SetNull)
+  assumidaEm    DateTime?
+
+  // ── Motivo de descarte (quando ARQUIVADO) ──
+  motivoDescarte String? @db.Text
+
+  // ── Audit ──
+  criadoPorAgente  String   @default("joao-radar")
+  ultimaAtividade  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ── Relações ──
+  atualizacoes         AtualizacaoDossie[]
+  decisores            DecisorDossie[]
   empresasRelacionadas EmpresaDossie[]
 
   @@index([status])
@@ -1363,5 +1397,5 @@ model AtualizacaoDossie {
   @@index([dossieId])
   @@index([tipo])
   @@index([oportunidadeId])
-  @@index([createdAt])
+ @@index([createdAt])
 }

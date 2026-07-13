@@ -146,10 +146,9 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
         </div>
       </nav>
 
-      {/* João status — colaborador digital da equipe */}
+      {/* João status — identificação simplificada (detalhes ocultados a pedido de Horacio 13/07/2026) */}
       <div className="p-3 border-t border-white/5" style={{ background: "rgba(0,0,0,0.2)" }}>
-        {/* Header João */}
-        <div className="flex items-center gap-2 mb-2.5">
+        <div className="flex items-center gap-2">
           <div
             className="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #1e3a5f, #1d4ed8)" }}
@@ -160,99 +159,8 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
             <p className="text-xs font-medium text-slate-300">João Hunter IA</p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 animate-pulse" />
-              <p className="text-[10px] text-emerald-500 font-medium truncate">
-                {joao
-                  ? `${joao.totalDossies} dossiês · ${joao.dossiesInvestigando ?? 0} investigando`
-                  : "Ativo"}
-              </p>
+              <p className="text-[10px] text-emerald-500 font-medium">Ativo</p>
             </div>
-          </div>
-        </div>
-
-        {/* Detalhes do colaborador */}
-        <div className="space-y-2">
-          {/* Missão atual */}
-          <div>
-            <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600 mb-0.5">
-              Missão atual
-            </p>
-            <p className="text-[10px] text-slate-400 leading-snug line-clamp-2">
-              {joao?.missaoAtual ?? "Monitorando o mercado"}
-            </p>
-          </div>
-
-          {/* Dossiê em investigação — link clicável */}
-          {joao?.dossieAtual && (
-            <div>
-              <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600 mb-0.5">
-                Investigando
-              </p>
-              <Link
-                href={`/inteligencia/${joao.dossieAtual.id}`}
-                className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors leading-snug line-clamp-1 block"
-                title={joao.dossieAtual.titulo}
-              >
-                → {joao.dossieAtual.titulo}
-              </Link>
-            </div>
-          )}
-
-          {/* Progresso da missão (barra) */}
-          {joao?.progressoMissao != null && (
-            <div>
-              <div className="flex items-center justify-between mb-0.5">
-                <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600">
-                  Completude do dossiê
-                </p>
-                <span className="text-[9px] font-medium text-slate-500">{joao.progressoMissao}%</span>
-              </div>
-              <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-blue-500 transition-all"
-                  style={{ width: `${joao.progressoMissao}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Descobertas nas últimas 24h */}
-          {joao != null && joao.descobertas24h > 0 && (
-            <div className="flex items-center gap-1.5">
-              <div className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
-              <p className="text-[10px] text-amber-400">
-                {joao.descobertas24h} descoberta{joao.descobertas24h !== 1 ? "s" : ""} nas últimas 24h
-              </p>
-            </div>
-          )}
-
-          {/* Última descoberta */}
-          {joao?.ultimaDescoberta && (
-            <div>
-              <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600 mb-0.5">
-                Última descoberta
-              </p>
-              <p className="text-[10px] text-slate-400 leading-snug line-clamp-2">
-                {joao.ultimaDescoberta.descricao}
-              </p>
-              <p className="text-[9px] text-slate-600 mt-0.5">
-                {new Date(joao.ultimaDescoberta.quando).toLocaleString("pt-BR", {
-                  day: "2-digit",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </p>
-            </div>
-          )}
-
-          {/* Próxima investigação */}
-          <div>
-            <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-600 mb-0.5">
-              Próxima investigação
-            </p>
-            <p className="text-[10px] text-slate-600 italic">
-              Contínua — em monitoramento
-            </p>
           </div>
         </div>
       </div>

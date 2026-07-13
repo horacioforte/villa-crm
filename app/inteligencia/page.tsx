@@ -294,7 +294,7 @@ function parsearBusca(rawQuery: string): (d: Dossie) => boolean {
 
   const intents: Array<(d: Dossie) => boolean> = [];
 
-  // ── Status sem¢ntico ───────────────────────────────────────────────────────
+  // ── Status semântico ───────────────────────────────────────────────────────
   if (/pront[oa]|assumir/.test(q))
     intents.push(d => d.status === "PRONTO_PARA_ASSUMIR");
   if (/investigand/.test(q))
@@ -1049,64 +1049,7 @@ export default function CockpitPage() {
               )}
             </div>
 
-            {/* Feed de Inteligência */}
-            <aside className="w-60 shrink-0 border-l border-slate-200 flex flex-col overflow-hidden bg-white">
-              <div className="p-3 border-b border-slate-100 space-y-2 shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-blue-600" />
-                    <p className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Feed de inteligência</p>
-                  </div>
-                  <span className="text-[10px] text-slate-400">{feedFiltrado.length}</span>
-                </div>
-                {/* Filtros do feed */}
-                <div className="flex gap-1 flex-wrap">
-                  {["alto", "medio", "baixo"].map(imp => (
-                    <button
-                      key={imp}
-                      onClick={() => setFiltroImpacto(filtroImpacto === imp ? "" : imp)}
-                      className={cn(
-                        "text-[9px] px-1.5 py-0.5 rounded-full border transition-colors",
-                        filtroImpacto === imp
-                          ? imp === "alto" ? "bg-red-500 text-white border-red-500"
-                            : imp === "medio" ? "bg-amber-500 text-white border-amber-500"
-                            : "bg-slate-500 text-white border-slate-500"
-                          : "bg-white text-slate-400 border-slate-200 hover:border-slate-400"
-                      )}
-                    >
-                      {imp === "alto" ? "Alto" : imp === "medio" ? "Médio" : "Baixo"}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-1 flex-wrap">
-                  {categoriasFeeds.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setFiltroCategoria(filtroCategoria === cat ? "" : cat)}
-                      className={cn(
-                        "text-[9px] px-1.5 py-0.5 rounded-full border transition-colors",
-                        filtroCategoria === cat
-                          ? "bg-blue-500 text-white border-blue-500"
-                          : "bg-white text-slate-400 border-slate-200 hover:border-slate-400"
-                      )}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto px-3 py-1">
-                {feedFiltrado.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 text-center py-8">
-                    Nenhuma atualização encontrada.
-                  </p>
-                ) : (
-                  feedFiltrado.map(f => (
-                    <ItemFeed key={f.id} item={f} onClick={() => irPara(f.dossieId)} />
-                  ))
-                )}
-              </div>
-            </aside>
+            {/* Feed de Inteligência — ocultado a pedido de Horacio (13/07/2026) */}
           </>
         )}
       </div>

@@ -891,7 +891,7 @@ model AgenteConfig {
 
 // ─────────────────────────────────────────────
 // PROSPECÇÃO ATIVA (João outbound) — nunca remover, só acrescentar
--// Regra: disparo NÃO cria oportunidade. Só sinal real de interesse cria.
+// Regra: disparo NÃO cria oportunidade. Só sinal real de interesse cria.
 // ─────────────────────────────────────────────
 
 enum StatusProspect {

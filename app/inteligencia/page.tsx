@@ -227,6 +227,7 @@ function corScore(score: number): string {
   return "bg-slate-300 text-slate-700";
 }
 
+
 function corBarra(pct: number, tipo: "completude" | "maturidade"): string {
   if (tipo === "maturidade") {
     if (pct >= 70) return "bg-emerald-500";
@@ -293,7 +294,7 @@ function parsearBusca(rawQuery: string): (d: Dossie) => boolean {
 
   const intents: Array<(d: Dossie) => boolean> = [];
 
-  // ── Status semântico ───────────────────────────────────────────────────────
+  // ── Status sem¢ntico ───────────────────────────────────────────────────────
   if (/pront[oa]|assumir/.test(q))
     intents.push(d => d.status === "PRONTO_PARA_ASSUMIR");
   if (/investigand/.test(q))
@@ -494,10 +495,10 @@ function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: (
         </span>
       </div>
 
-      y(dossie.cidade || dossie.estado || dossie.segmento) && (
+      {(dossie.cidade || dossie.estado || dossie.segmento) && (
         <p className="text-[10px] text-slate-500 truncate">
           {[dossie.cidade, dossie.estado].filter(Boolean).join("/")}
-          {dossie.segmento ? ` · ${dossie.segmento}` : ""}
+          {dossie.segmento ? " · " + dossie.segmento : ""}
         </p>
       )}
 
@@ -648,7 +649,7 @@ function PainelPrioridade({ dossies, onVoltar }: { dossies: Dossie[]; onVoltar: 
         <h2 className="text-sm font-semibold text-slate-800">Minha prioridade hoje</h2>
       </div>
       <p className="text-xs text-slate-400 mb-5">
-        João analisou {dossies.length} dossbês e recomenda concentrar esforços em:
+        João analisou {dossies.length} dossiês e recomenda concentrar esforços em:
       </p>
 
       {prioridades.length === 0 ? (
@@ -741,7 +742,7 @@ function PainelEsquecidas({ esquecidas, onVoltar, onDossie }: {
                   {(e.cidade || e.segmento) && (
                     <p className="text-[11px] text-slate-500 mt-0.5">
                       {[e.cidade, e.estado].filter(Boolean).join("/")}
-                      {e.segmento ? ` · ${e.segmento}` : ""}
+                      {e.segmento ? " · " + e.segmento : ""}
                     </p>
                   )}
                   <p className="text-[11px] font-medium mt-1">{e.motivo}</p>

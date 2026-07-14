@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/session";
+import { auditLog } from "@/lib/audit";
 
 type Dest = { nome: string; email: string; empresa: string; cidade?: string; estado?: string; cargo?: string; segmento?: string; observacoes?: string };
 
@@ -62,6 +63,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const agentUrl = `${process.env.NEXTAUTH_URL ?? ""}/api/agent/campanha-email`;
+    // registrar auditoria antes do disparo
+    try {
+      await auditLog({
+        action: "CAMPANHA_DISPARADA",
+        entity: "CampanhaEmail",
+        metadata: { tipo, total: destinatarios.length, equipamentoDestaque },
+        userId: (authResult as any).id,
+        request: req,
+      });
+    } catch (e) {
+      console.error('Falha ao registrar auditoria inicial', e);
+    }
     const r = await fetch(agentUrl, {
       method: "POST",
       headers: {
@@ -81,6 +94,20 @@ export async function POST(req: NextRequest) {
     }
 
     const resultados = Array.isArray(parsed.resultados) ? parsed.resultados : parsed.resultados || parsed.result || [];
+
+    // registrar auditoria com resumo do resultado
+    try {
+      const enviados = (resultados || []).filter((r: any) => r.status === 'enviado').length;
+      await auditLog({
+        action: "CAMPANHA_DISPARADA_RESUMO",
+        entity: "CampanhaEmail",
+        metadata: { total: destinatarios.length, enviados, erros: (resultados || []).length - enviados },
+        userId: (authResult as any).id,
+        request: req,
+      });
+    } catch (e) {
+      console.error('Falha ao registrar auditoria de resumo', e);
+    }
 
     const stream = new ReadableStream({
       start(controller) {

@@ -11,14 +11,18 @@ type ConfirmSendDialogProps = {
 };
 
 export default function ConfirmSendDialog({ aberto, count, sample, onFechar, onConfirm }: ConfirmSendDialogProps) {
+  const estimateSeconds = Math.ceil(count * 0.25);
+  const estimateText = estimateSeconds < 60 ? `${estimateSeconds} segundos` : `${Math.ceil(estimateSeconds / 60)} minutos`;
+
   return (
     <Dialog open={aberto} onOpenChange={(open) => !open && onFechar()}>
       <DialogContent className="rounded-3xl p-6 sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-[#1A2E5A]">Confirmar envio</DialogTitle>
           <DialogDescription>
-            Você está prestes a enviar uma campanha para <strong>{count}</strong> destinatários. Confirme para iniciar o disparo.  
-            Abaixo estão os primeiros destinatários (amostra).
+            Você está prestes a enviar uma campanha para <strong>{count}</strong> destinatários.
+            Tempo estimado: <strong>{estimateText}</strong> (aprox. 0.25s por destinatário).<br />
+            Confirme para iniciar o disparo. Abaixo estão os primeiros destinatários (amostra).
           </DialogDescription>
         </DialogHeader>
 

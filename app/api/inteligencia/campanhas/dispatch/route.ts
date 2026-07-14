@@ -57,25 +57,45 @@ export async function POST(req: NextRequest) {
 
   const { tipo, destinatarios, equipamentoDestaque } = payload as { tipo: string; destinatarios: Dest[]; equipamentoDestaque?: string };
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      for (const d of destinatarios) {
-        const subject = gerarSubject(tipo, d, equipamentoDestaque);
-        const html = gerarHtmlEmail(tipo, d, equipamentoDestaque);
+  const agentKey = process.env.AGENT_API_KEY;
+  if (!agentKey) return NextResponse.json({ error: "AGENT_API_KEY não configurada." }, { status: 500 });
 
-        // small delay to avoid aggressive bursts
-        await new Promise((r) => setTimeout(r, 250));
+  try {
+    const agentUrl = `${process.env.NEXTAUTH_URL ?? ""}/api/agent/campanha-email`;
+    const r = await fetch(agentUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${agentKey}`,
+      },
+      body: JSON.stringify({ tipo, destinatarios, equipamentoDestaque }),
+    });
 
-        const res = await enviarEmailBrevo(d, subject, html);
-        const payloadLine = JSON.stringify({ email: d.email, empresa: d.empresa, status: res.ok ? 'enviado' : 'erro', detalhe: res.ok ? undefined : res.body });
-        controller.enqueue(new TextEncoder().encode(payloadLine + "\n"));
-      }
+    const text = await r.text().catch(() => "");
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(text || "{}");
+    } catch (e) {
+      console.error('[campanhas/dispatch] resposta inválida do agent:', text);
+      return NextResponse.json({ error: 'Resposta inválida do serviço de envio.' }, { status: 502 });
+    }
 
-      // End marker
-      controller.enqueue(new TextEncoder().encode(JSON.stringify({ finished: true }) + "\n"));
-      controller.close();
-    },
-  });
+    const resultados = Array.isArray(parsed.resultados) ? parsed.resultados : parsed.resultados || parsed.result || [];
 
-  return new Response(stream, { headers: { "Content-Type": "application/x-ndjson; charset=utf-8" } });
+    const stream = new ReadableStream({
+      start(controller) {
+        for (const resItem of resultados) {
+          const line = JSON.stringify(resItem) + "\n";
+          controller.enqueue(new TextEncoder().encode(line));
+        }
+        controller.enqueue(new TextEncoder().encode(JSON.stringify({ finished: true }) + "\n"));
+        controller.close();
+      },
+    });
+
+    return new Response(stream, { headers: { "Content-Type": "application/x-ndjson; charset=utf-8" } });
+  } catch (err) {
+    console.error('[campanhas/dispatch] erro ao chamar agent:', err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
 }

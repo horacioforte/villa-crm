@@ -22,6 +22,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Top tabs for the Intelligence center (Roadmap step 1)
+const topTabs = [
+  { label: "Radar",    href: "/inteligencia",               icon: Radar },
+  { label: "LinkedIn", href: "/inteligencia/linkedin",     icon: Users },
+  { label: "Campanhas",href: "/inteligencia/campanhas",    icon: Target },
+];
+
 const menuPrincipal = [
   { label: "Visão Geral",          href: "/inteligencia",  icon: Brain,      exact: true },
   { label: "Dossiês Comerciais",   href: "/inteligencia",  icon: FolderOpen, exact: true, badge: true },
@@ -106,6 +113,27 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
           </div>
           <span className="text-sm font-semibold text-slate-200 leading-tight group-hover:text-white transition-colors">Villa<br />Empreendimentos</span>
         </Link>
+      </div>
+      {/* Top Tabs (Radar / LinkedIn / Campanhas) */}
+      <div className="px-3 pt-3">
+        <div className="flex items-center gap-2">
+          {topTabs.map(tab => {
+            const active = pathname === tab.href || pathname?.startsWith(tab.href + "/");
+            return (
+              <Link
+                key={tab.label}
+                href={tab.href}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1 rounded-lg text-sm",
+                  active ? "bg-blue-600 text-white font-semibold" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                )}
+              >
+                <tab.icon className="h-4 w-4" />
+                <span className="text-xs">{tab.label}</span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {/* Nav */}

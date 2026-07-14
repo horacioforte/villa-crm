@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import ConfirmSendDialog from "@/components/inteligencia/ConfirmSendDialog";
 
 type Dest = { nome: string; email: string; empresa: string; cidade?: string; estado?: string; cargo?: string; segmento?: string; observacoes?: string };
 
@@ -37,7 +38,10 @@ export default function CampanhasClient() {
     }
   }
 
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   async function streamSend() {
+    setConfirmOpen(false);
     if (destinatarios.length === 0) return alert("Adicione destinatários antes de enviar.");
     setSending(true);
     setStatusLines([]);
@@ -100,7 +104,7 @@ export default function CampanhasClient() {
         <div className="mt-2">
           <button className="px-3 py-1 bg-slate-200 rounded mr-2" onClick={parse}>Parsear lista</button>
           <button className="px-3 py-1 bg-sky-500 text-white rounded mr-2" onClick={fetchPreview}>Gerar preview</button>
-          <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={streamSend} disabled={sending}>{sending ? 'Enviando...' : 'Disparar campanha (stream)'}</button>
+          <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={() => setConfirmOpen(true)} disabled={sending}>{sending ? 'Enviando...' : 'Disparar campanha (stream)'}</button>
         </div>
       </div>
 
@@ -136,6 +140,7 @@ export default function CampanhasClient() {
           )}
         </div>
       </div>
+      <ConfirmSendDialog aberto={confirmOpen} count={destinatarios.length} sample={destinatarios.slice(0,3)} onFechar={() => setConfirmOpen(false)} onConfirm={streamSend} />
     </div>
   );
 }

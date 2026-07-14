@@ -229,7 +229,7 @@ async function enviarEmailBrevo(
       body: JSON.stringify({
         sender: {
           name: "João — Villa Empreendimentos",
-          email: "maria.comercial@villaempreendimentos.com.br",
+          email: "joao.comercial@villaempreendimentos.com.br",
         },
         to: [{ email: destinatario.email, name: destinatario.nome }],
         replyTo: {

@@ -3,6 +3,7 @@ import { Bot, Flame, PhoneCall, RefreshCw, Send, MessageCircle } from "lucide-re
 
 import { PageNavigation } from "@/components/layout/PageNavigation";
 import { OrigemLeadsDonut } from "@/components/maria/OrigemLeadsDonut";
+import { MetricCardExpandable } from "@/components/maria/MetricCardExpandable";
 import { Card } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
 import { can } from "@/lib/auth/permissions";
@@ -149,7 +150,7 @@ export default async function MariaPage() {
 
         {/* Métricas primárias */}
         <div className="mt-6 grid grid-cols-2 gap-3.5 md:grid-cols-4">
-          <MetricCard
+          <MetricCardExpandable
             icon={<Bot className="size-4" />}
             iconClass="bg-[#E8EEFB] text-[#1E4FAB]"
             label="Novos Leads Hoje"
@@ -159,56 +160,67 @@ export default async function MariaPage() {
                 ? { positivo: dados.metricas.novosLeadsHojeDelta >= 0, texto: `${Math.abs(dados.metricas.novosLeadsHojeDelta)}% vs. ontem` }
                 : null
             }
+            tipo="novos-leads-hoje"
           />
-          <MetricCard
+          <MetricCardExpandable
             icon={<MessageCircle className="size-4" />}
             iconClass="bg-[#E4F5EA] text-[#0C8A3E]"
             label="Conversas Ativas"
             value={String(dados.metricas.conversasAtivas)}
+            tipo="conversas-ativas"
           />
-          <MetricCard
+          <MetricCardExpandable
             icon={<Flame className="size-4" />}
             iconClass="bg-[#FCF1DA] text-[#B5790A]"
             label="Aguardando Resposta"
             value={String(dados.metricas.aguardandoResposta)}
+            tipo="aguardando-resposta"
           />
-          <MetricCard
+          <MetricCardExpandable
             icon={<Send className="size-4" />}
             iconClass="bg-[#EEEBFB] text-[#4A3AA7]"
             label="Leads Qualificados Hoje"
             value={String(dados.metricas.oportunidadesQualificadasHoje)}
+            tipo="qualificados-hoje"
           />
         </div>
 
         {/* Métricas secundárias */}
         <div className="mt-3.5 grid grid-cols-2 gap-3.5 md:grid-cols-4">
-          <MetricCard
+          <MetricCardExpandable
             compact
             icon={<RefreshCw className="size-3.5" />}
             iconClass="bg-[#E8EEFB] text-[#1E4FAB]"
             label="Follow-ups Pendentes"
             value={String(dados.metricas.followupsPendentes)}
+            tipo="followups-pendentes"
           />
-          <MetricCard
+          <MetricCardExpandable
             compact
             icon={<span className="text-[13px] font-bold">%</span>}
             iconClass="bg-[#E4F5EA] text-[#0C8A3E]"
             label="Taxa de Conversão"
             value={`${dados.metricas.taxaConversao}%`}
+            tipo="taxa-conversao"
+            disabled
           />
-          <MetricCard
+          <MetricCardExpandable
             compact
             icon={<span className="text-[13px] font-bold">⏱</span>}
             iconClass="bg-[#FCF1DA] text-[#B5790A]"
             label="Tempo até 1º Contato"
             value={`${dados.metricas.tempoMedioResposta} min`}
+            tipo="tempo-contato"
+            disabled
           />
-          <MetricCard
+          <MetricCardExpandable
             compact
             icon={<span className="text-[13px] font-bold">★</span>}
             iconClass="bg-[#EEEBFB] text-[#4A3AA7]"
             label="Temperatura Média"
             value={`${dados.metricas.temperaturaMedia}/100`}
+            tipo="temperatura"
+            disabled
           />
         </div>
 

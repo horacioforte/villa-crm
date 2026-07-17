@@ -603,6 +603,7 @@ export async function buscarDossies({
   cidade,
   estado,
   prontos = false,
+  fonteLinkedin = false,
   limite = 20,
 }: {
   status?: string;
@@ -611,6 +612,7 @@ export async function buscarDossies({
   cidade?: string;
   estado?: string;
   prontos?: boolean;
+  fonteLinkedin?: boolean;
   limite?: number;
 } = {}) {
   const where: Record<string, any> = {
@@ -623,6 +625,7 @@ export async function buscarDossies({
   if (segmento) where.segmento = { contains: segmento, mode: "insensitive" };
   if (cidade) where.cidade = { contains: cidade, mode: "insensitive" };
   if (estado) where.estado = estado;
+  if (fonteLinkedin) where.fonteInformacao = { startsWith: "LinkedIn", mode: "insensitive" };
 
   const dossies = await prisma.dossieComercial.findMany({
     where,
@@ -646,6 +649,8 @@ export async function buscarDossies({
     clienteFinal: d.clienteFinal,
     empresa: d.empresa?.razaoSocial ?? null,
     missaoAtual: d.missaoAtual,
+    fonteInformacao: d.fonteInformacao ?? null,
+    linkFonte: d.linkFonte ?? null,
     totalDecisores: d.totalDecisores,
     totalEmpresas: d.totalEmpresas,
     totalNoticias: d.totalNoticias,

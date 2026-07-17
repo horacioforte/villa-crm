@@ -310,6 +310,10 @@ const ferramentas = [
           type: "boolean",
           description: "Se true, retorna apenas os dossiês com status PRONTO_PARA_ASSUMIR",
         },
+        fonteLinkedin: {
+          type: "boolean",
+          description: "Se true, retorna APENAS dossiês descobertos via LinkedIn pelo João Hunter IA (aba LinkedIn da Central de Inteligência). Use quando o usuário perguntar sobre descobertas do LinkedIn, leads do LinkedIn, o que João encontrou no LinkedIn, movimentações de pessoal via LinkedIn, ou pedir a aba/módulo LinkedIn.",
+        },
         limite: { type: "number", description: "Número máximo de resultados (padrão 20)" },
       },
       required: [],

@@ -1085,6 +1085,55 @@ export async function gerarRelatorio({
       };
     }
 
+    case "dossies_inteligencia": {
+      const dossies = await prisma.dossieComercial.findMany({
+        where: { status: { not: "ARQUIVADO" } },
+        orderBy: [{ score: "desc" }, { updatedAt: "desc" }],
+        take: 50,
+      });
+      const porSegmento: Record<string, number> = {};
+      dossies.forEach((d) => {
+        const seg = d.segmento ?? "Outros";
+        porSegmento[seg] = (porSegmento[seg] ?? 0) + 1;
+      });
+      const segLabels = Object.keys(porSegmento).sort((a, b) => porSegmento[b] - porSegmento[a]);
+      const segData = segLabels.map((s) => porSegmento[s]);
+      const urgentes = dossies.filter((d) => d.prioridade === "URGENTE" || d.score >= 90);
+      const linkedin = dossies.filter((d) => (d.fonteInformacao ?? "").startsWith("LinkedIn"));
+      const colunas = ["Dossiê / Empresa", "Segmento", "Score", "Prioridade", "Status", "Completude", "Fonte"];
+      const tabela = dossies.slice(0, 30).map((d) => [
+        d.titulo ?? d.clienteFinal ?? "—",
+        d.segmento ?? "—",
+        String(d.score ?? 0),
+        d.prioridade ?? "—",
+        d.status,
+        `${d.completude ?? 0}%`,
+        (d.fonteInformacao ?? "").startsWith("LinkedIn") ? "LinkedIn" : "Web/Radar",
+      ]);
+      return {
+        titulo: titulo ?? "Relatório de Inteligência Comercial — João Hunter IA",
+        tipoGrafico: "bar",
+        labels: segLabels.slice(0, 10),
+        datasets: [{ label: "Dossiês por Segmento", data: segData.slice(0, 10), backgroundColor: gerarCores(10) }],
+        descricao: `${dossies.length} dossiês ativos · ${urgentes.length} com score ≥ 90 · ${linkedin.length} descobertos via LinkedIn`,
+        colunas,
+        tabela,
+        conclusoes: [
+          `João Hunter IA mapeou ${dossies.length} oportunidades ativas na Central de Inteligência.`,
+          `${urgentes.length} dossiês com score ≥ 90 merecem atenção prioritária do time comercial.`,
+          `${linkedin.length} oportunidades foram descobertas via LinkedIn (movimentação de pessoal, publicações de obras).`,
+          `Segmentos mais representados: ${segLabels.slice(0, 3).join(", ")}.`,
+          `Completude média: ${Math.round(dossies.reduce((a, d) => a + (d.completude ?? 0), 0) / (dossies.length || 1))}% — o loop de investigação continua enriquecendo os dossiês diariamente.`,
+        ],
+        recomendacoes: [
+          "Priorize os dossiês com score ≥ 90 e 'Assumir' os mais maduros para transformá-los em oportunidades ativas.",
+          "Dossiês com completude > 70% já têm decisores e contexto suficiente para abordagem comercial.",
+          "Para os descobertos via LinkedIn, use as sugestões de mensagem do relatório diário do João para o primeiro contato.",
+        ],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
     default:
       return {
         titulo: titulo ?? "Relatório",

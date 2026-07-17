@@ -270,8 +270,9 @@ const ferramentas = [
             "clientes_sem_contato",
             "resumo_executivo",
             "lista_contatos",
+            "dossies_inteligencia",
           ],
-          description: "Tipo de relatório. Use 'lista_contatos' para exportar contatos/pessoas com nome, cargo, telefone, e-mail e empresa. Use 'resumo_executivo' para BI completo, 'propostas_paradas' para follow-up, 'clientes_sem_contato' para reengajamento, 'tarefas_pendentes' para gestão de atividades.",
+          description: "Tipo de relatório. Use 'dossies_inteligencia' para relatório/PDF do que João Hunter IA descobriu (dossiês da Central de Inteligência) — use este tipo quando o usuário pedir 'relatório do João', 'PDF do que João fez', 'resumo da semana do João'. Use 'lista_contatos' para exportar contatos/pessoas. Use 'resumo_executivo' para BI completo, 'propostas_paradas' para follow-up, 'clientes_sem_contato' para reengajamento, 'tarefas_pendentes' para gestão de atividades.",
         },
         titulo: {
           type: "string",
@@ -288,7 +289,7 @@ const ferramentas = [
   },
   {
     name: "buscar_dossies",
-    description: "Consulta os dossiês da Central de Inteligência Comercial gerados pelo João Hunter IA. Use quando o usuário perguntar sobre investigações, dossiês, obras mapeadas, empresas sendo investigadas, o que está pronto para assumir, ou qualquer dado da Central de Inteligência.",
+    description: "Consulta os dossiês da Central de Inteligência Comercial gerados pelo João Hunter IA. Use OBRIGATORIAMENTE quando o usuário perguntar: 'o que o João fez', 'relatório do João', 'o que João encontrou esta semana', 'obras que João mapeou', 'leads do João', 'radar do João', 'LinkedIn do João', ou qualquer variação sobre atividade do agente João Hunter IA. João Hunter IA NÃO é um vendedor humano — suas atividades são os dossiês da Central de Inteligência, não histórico de contatos comerciais. Também use para investigações, obras mapeadas, empresas sendo investigadas, dossiês prontos para assumir.",
     input_schema: {
       type: "object",
       properties: {

@@ -129,25 +129,6 @@ export default async function MariaPage() {
           </div>
         </header>
 
-        {/* Estado da IA */}
-        <Card className="mt-6 flex flex-wrap items-center gap-6 rounded-[20px] border-[#D7DEEA] px-5 py-3.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#98A2B3]">Estado da IA</span>
-          <div>
-            <p className="text-xs text-[#667085]">Atendendo agora</p>
-            <p className="text-[15px] font-bold text-[#1A2E5A] tabular-nums">{dados.estadoIA.conversasAtivas} conversas</p>
-          </div>
-          <div className="h-[30px] w-px bg-[#D7DEEA]" />
-          <div>
-            <p className="text-xs text-[#667085]">Aguardando ação humana</p>
-            <p className="text-[15px] font-bold text-[#B5790A] tabular-nums">{dados.estadoIA.aguardandoHumano} conversas</p>
-          </div>
-          <div className="h-[30px] w-px bg-[#D7DEEA]" />
-          <div>
-            <p className="text-xs text-[#667085]">Taxa de qualificação</p>
-            <p className="text-[15px] font-bold text-[#1E4FAB] tabular-nums">{dados.estadoIA.taxaQualificacao}%</p>
-          </div>
-        </Card>
-
         {/* Métricas primárias */}
         <div className="mt-6 grid grid-cols-2 gap-3.5 md:grid-cols-4">
           <MetricCardExpandable

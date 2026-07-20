@@ -419,7 +419,7 @@ export default function OportunidadesPage() {
             </h1>
           </div>
 
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Button
               type="button"
               onClick={() => handleAbrirCriacao("NOVA")}
@@ -428,22 +428,14 @@ export default function OportunidadesPage() {
               <Plus className="size-4" />
               Nova Oportunidade
             </Button>
-            <Card className="shrink-0 rounded-2xl border-[#D7DEEA] bg-white">
-              <CardHeader className="px-4 py-2">
-                <CardDescription className="text-xs">Oportunidades</CardDescription>
-                <CardTitle className="text-base font-bold text-[#1A2E5A]">
-                  {oportunidadesFiltradas.length}
-                </CardTitle>
-              </CardHeader>
-            </Card>
-            <Card className="shrink-0 rounded-2xl border-[#D7DEEA] bg-white">
-              <CardHeader className="px-4 py-2">
-                <CardDescription className="text-xs">Pipeline total</CardDescription>
-                <CardTitle className="text-base font-bold text-[#1A2E5A]">
-                  {formatCurrency(totalPipeline)}
-                </CardTitle>
-              </CardHeader>
-            </Card>
+            <div className="shrink-0 rounded-2xl border border-[#D7DEEA] bg-white px-4 py-2">
+              <p className="whitespace-nowrap text-xs text-[#667085]">Oportunidades</p>
+              <p className="whitespace-nowrap text-base font-bold text-[#1A2E5A]">{oportunidadesFiltradas.length}</p>
+            </div>
+            <div className="shrink-0 rounded-2xl border border-[#D7DEEA] bg-white px-4 py-2">
+              <p className="whitespace-nowrap text-xs text-[#667085]">Pipeline total</p>
+              <p className="whitespace-nowrap text-base font-bold text-[#1A2E5A]">{formatCurrency(totalPipeline)}</p>
+            </div>
           </div>
         </header>
 

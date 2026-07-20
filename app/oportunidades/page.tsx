@@ -403,47 +403,43 @@ export default function OportunidadesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F4F6FA] px-5 py-8 text-[#172033] sm:px-8">
+    <main className="min-h-screen bg-[#F4F6FA] px-5 py-3 text-[#172033] sm:px-8">
       <div className="mx-auto max-w-[1600px]">
         <PageNavigation
           currentPage="Pipeline de oportunidades"
           currentHref="/oportunidades"
         />
-        <header className="flex flex-col gap-5 2xl:flex-row 2xl:items-end 2xl:justify-between">
+        <header className="flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:justify-between">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#1E4FAB]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#1E4FAB]">
               Villa CRM
             </p>
-            <h1 className="mt-2 text-3xl font-bold text-[#1A2E5A]">
+            <h1 className="text-lg font-bold text-[#1A2E5A]">
               Pipeline de oportunidades
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#667085]">
-              Arraste oportunidades entre etapas para acompanhar locacoes e
-              vendas de bombas de concreto e betoneiras.
-            </p>
           </div>
 
-          <div className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(220px,auto)_minmax(150px,1fr)_minmax(220px,1fr)] 2xl:w-auto">
+          <div className="flex w-full gap-2 2xl:w-auto">
             <Button
               type="button"
               onClick={() => handleAbrirCriacao("NOVA")}
-              className="h-full min-h-16 rounded-3xl bg-[#1E4FAB] px-5 text-white hover:bg-[#1A2E5A] sm:col-span-2 lg:col-span-1"
+              className="rounded-2xl bg-[#1E4FAB] px-4 py-2 text-sm text-white hover:bg-[#1A2E5A]"
             >
               <Plus className="size-4" />
               Nova Oportunidade
             </Button>
-            <Card className="min-w-0 rounded-3xl border-[#D7DEEA] bg-white px-2">
-              <CardHeader className="p-5">
-                <CardDescription>Oportunidades</CardDescription>
-                <CardTitle className="text-2xl font-bold text-[#1A2E5A]">
+            <Card className="min-w-0 rounded-2xl border-[#D7DEEA] bg-white">
+              <CardHeader className="px-4 py-2">
+                <CardDescription className="text-xs">Oportunidades</CardDescription>
+                <CardTitle className="text-base font-bold text-[#1A2E5A]">
                   {oportunidadesFiltradas.length}
                 </CardTitle>
               </CardHeader>
             </Card>
-            <Card className="min-w-0 rounded-3xl border-[#D7DEEA] bg-white px-2">
-              <CardHeader className="p-5">
-                <CardDescription>Pipeline total</CardDescription>
-                <CardTitle className="break-words text-2xl font-bold text-[#1A2E5A]">
+            <Card className="min-w-0 rounded-2xl border-[#D7DEEA] bg-white">
+              <CardHeader className="px-4 py-2">
+                <CardDescription className="text-xs">Pipeline total</CardDescription>
+                <CardTitle className="break-words text-base font-bold text-[#1A2E5A]">
                   {formatCurrency(totalPipeline)}
                 </CardTitle>
               </CardHeader>
@@ -451,7 +447,7 @@ export default function OportunidadesPage() {
           </div>
         </header>
 
-        <section className="mt-6 flex flex-wrap gap-2">
+        <section className="mt-3 flex flex-wrap gap-2">
           {[
             { label: "Todos", value: "TODOS" },
             { label: "Locacao", value: "LOCACAO" },

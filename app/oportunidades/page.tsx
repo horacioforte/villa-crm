@@ -419,16 +419,16 @@ export default function OportunidadesPage() {
             </h1>
           </div>
 
-          <div className="flex w-full gap-2 2xl:w-auto">
+          <div className="flex shrink-0 gap-2">
             <Button
               type="button"
               onClick={() => handleAbrirCriacao("NOVA")}
-              className="rounded-2xl bg-[#1E4FAB] px-4 py-2 text-sm text-white hover:bg-[#1A2E5A]"
+              className="shrink-0 rounded-2xl bg-[#1E4FAB] px-4 py-2 text-sm text-white hover:bg-[#1A2E5A]"
             >
               <Plus className="size-4" />
               Nova Oportunidade
             </Button>
-            <Card className="min-w-0 rounded-2xl border-[#D7DEEA] bg-white">
+            <Card className="shrink-0 rounded-2xl border-[#D7DEEA] bg-white">
               <CardHeader className="px-4 py-2">
                 <CardDescription className="text-xs">Oportunidades</CardDescription>
                 <CardTitle className="text-base font-bold text-[#1A2E5A]">
@@ -436,10 +436,10 @@ export default function OportunidadesPage() {
                 </CardTitle>
               </CardHeader>
             </Card>
-            <Card className="min-w-0 rounded-2xl border-[#D7DEEA] bg-white">
+            <Card className="shrink-0 rounded-2xl border-[#D7DEEA] bg-white">
               <CardHeader className="px-4 py-2">
                 <CardDescription className="text-xs">Pipeline total</CardDescription>
-                <CardTitle className="break-words text-base font-bold text-[#1A2E5A]">
+                <CardTitle className="text-base font-bold text-[#1A2E5A]">
                   {formatCurrency(totalPipeline)}
                 </CardTitle>
               </CardHeader>

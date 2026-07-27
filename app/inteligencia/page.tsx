@@ -539,12 +539,13 @@ function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: (
 }
 
 function KpiChip({
-  icone, valor, label, cor,
+  icone, valor, label, cor, onClick,
 }: {
   icone: React.ReactNode;
   valor: number;
   label: string;
   cor: "blue" | "green" | "red" | "amber" | "slate";
+  onClick?: () => void;
 }) {
   const estilos: Record<string, string> = {
     blue:  "bg-blue-50  border-blue-100  text-blue-700",
@@ -554,7 +555,14 @@ function KpiChip({
     slate: "bg-slate-50 border-slate-200 text-slate-600",
   };
   return (
-    <div className={cn("border rounded-lg p-2 text-center cursor-default", estilos[cor])}>
+    <div
+      onClick={onClick}
+      className={cn(
+        "border rounded-lg p-2 text-center transition-all",
+        estilos[cor],
+        onClick ? "cursor-pointer hover:shadow-sm hover:scale-[1.03] active:scale-100" : "cursor-default"
+      )}
+    >
       <div className="flex justify-center mb-1">{icone}</div>
       <p className={cn("text-lg font-semibold leading-none mb-0.5")}>{valor}</p>
       <p className="text-[9px] leading-tight">{label}</p>
@@ -764,9 +772,58 @@ function PainelEsquecidas({ esquecidas, onVoltar, onDossie }: {
   );
 }
 
+function PainelListagem({
+  titulo,
+  subtitulo,
+  dossies,
+  onVoltar,
+  onDossie,
+  onAssumir,
+}: {
+  titulo: string;
+  subtitulo: string;
+  dossies: Dossie[];
+  onVoltar: () => void;
+  onDossie: (id: string) => void;
+  onAssumir?: (id: string) => void;
+}) {
+  return (
+    <div className="flex-1 overflow-auto p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <button
+          onClick={onVoltar}
+          className="p-1 hover:bg-slate-100 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 text-slate-500" />
+        </button>
+        <h2 className="text-sm font-semibold text-slate-800">{titulo}</h2>
+        <span className="text-[10px] font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+          {dossies.length}
+        </span>
+      </div>
+      <p className="text-xs text-slate-400 mb-4 ml-7">{subtitulo}</p>
+
+      {dossies.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-10">Nenhum dossiê nesta categoria.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
+          {dossies.map(d => (
+            <CardDossie
+              key={d.id}
+              dossie={d}
+              onClick={() => onDossie(d.id)}
+              onAssumir={onAssumir && d.status === "PRONTO_PARA_ASSUMIR" ? () => onAssumir(d.id) : undefined}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 
-type Painel = "cockpit" | "mudou" | "prioridade" | "esquecidas";
+type Painel = "cockpit" | "mudou" | "prioridade" | "esquecidas" | "listagem";
 
 export default function CockpitPage() {
   const router = useRouter();
@@ -774,6 +831,11 @@ export default function CockpitPage() {
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
   const [painel, setPainel] = useState<Painel>("cockpit");
+  const [listagemCfg, setListagemCfg] = useState<{
+    titulo: string;
+    subtitulo: string;
+    pred: (d: Dossie) => boolean;
+  } | null>(null);
   const [filtroImpacto, setFiltroImpacto] = useState<string>("");
   const [filtroCategoria, setFiltroCategoria] = useState<string>("");
   const [mostrarAssumidos, setMostrarAssumidos] = useState(false);
@@ -822,6 +884,15 @@ export default function CockpitPage() {
   }, []);
 
   const irPara = useCallback((id: string) => router.push(`/inteligencia/${id}`), [router]);
+
+  // Helper: abre PainelListagem com predicado e rótulo
+  const abrirListagem = useCallback((titulo: string, subtitulo: string, pred: (d: Dossie) => boolean) => {
+    setListagemCfg({ titulo, subtitulo, pred });
+    setPainel("listagem");
+  }, []);
+
+  // Timestamp "24h atrás" calculado na renderização (client-side é suficiente)
+  const ontem24h = Date.now() - 24 * 60 * 60 * 1000;
 
   if (carregando) {
     return (
@@ -928,11 +999,41 @@ export default function CockpitPage() {
             <Brain className="h-3 w-3" /> Inteligência — produção das últimas 24h
           </p>
           <div className="grid grid-cols-5 gap-2">
-            <KpiChip icone={<FolderPlus  className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novosDossies}      label="Novos dossiês"    cor="blue"  />
-            <KpiChip icone={<RefreshCw   className="h-3.5 w-3.5" />} valor={kpis.inteligencia.dossiesAtualizados} label="Atualizados"      cor="blue"  />
-            <KpiChip icone={<UserPlus    className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novosDecisores}     label="Novos decisores"  cor="blue"  />
-            <KpiChip icone={<Factory     className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novasEmpresas}      label="Novas empresas"   cor="blue"  />
-            <KpiChip icone={<Sparkles    className="h-3.5 w-3.5" />} valor={kpis.inteligencia.descobertas}        label="Descobertas"      cor="blue"  />
+            <KpiChip icone={<FolderPlus  className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novosDossies}      label="Novos dossiês"    cor="blue"
+              onClick={() => abrirListagem(
+                "Novos dossiês — últimas 24h",
+                "Dossiês criados pelo João Hunter nas últimas 24 horas",
+                d => new Date(d.createdAt).getTime() >= ontem24h
+              )}
+            />
+            <KpiChip icone={<RefreshCw   className="h-3.5 w-3.5" />} valor={kpis.inteligencia.dossiesAtualizados} label="Atualizados"      cor="blue"
+              onClick={() => abrirListagem(
+                "Dossiês atualizados — últimas 24h",
+                "Dossiês que receberam novas informações nas últimas 24 horas (excluindo os recém-criados)",
+                d => new Date(d.updatedAt).getTime() >= ontem24h && new Date(d.createdAt).getTime() < ontem24h
+              )}
+            />
+            <KpiChip icone={<UserPlus    className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novosDecisores}     label="Novos decisores"  cor="blue"
+              onClick={() => abrirListagem(
+                "Dossiês com novos decisores — 24h",
+                "Dossiês atualizados nas últimas 24h que têm decisores mapeados",
+                d => new Date(d.updatedAt).getTime() >= ontem24h && d.totalDecisores > 0
+              )}
+            />
+            <KpiChip icone={<Factory     className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novasEmpresas}      label="Novas empresas"   cor="blue"
+              onClick={() => abrirListagem(
+                "Dossiês com novas empresas — 24h",
+                "Dossiês atualizados nas últimas 24h com empresas/EPCs relacionadas",
+                d => new Date(d.updatedAt).getTime() >= ontem24h && d.totalEmpresas > 0
+              )}
+            />
+            <KpiChip icone={<Sparkles    className="h-3.5 w-3.5" />} valor={kpis.inteligencia.descobertas}        label="Descobertas"      cor="blue"
+              onClick={() => abrirListagem(
+                "Descobertas recentes — 24h",
+                "Dossiês com atividade de descoberta nas últimas 24h (novos decisores, empresas ou notícias)",
+                d => new Date(d.updatedAt).getTime() >= ontem24h && (d.totalDecisores > 0 || d.totalEmpresas > 0)
+              )}
+            />
           </div>
         </div>
         {/* Grupo 2: Ação Comercial */}
@@ -941,11 +1042,41 @@ export default function CockpitPage() {
             <Target className="h-3 w-3" /> Ação comercial — onde atuar
           </p>
           <div className="grid grid-cols-5 gap-2">
-            <KpiChip icone={<ShieldCheck   className="h-3.5 w-3.5" />} valor={kpis.acao.prontos}        label="Prontos p/ Morgana"       cor="green" />
-            <KpiChip icone={<Clock         className="h-3.5 w-3.5" />} valor={kpis.acao.esquecidos}     label="Esquecidos +15d"          cor="red"   />
-            <KpiChip icone={<Flame         className="h-3.5 w-3.5" />} valor={kpis.acao.quentes}        label="Quentes"                  cor="amber" />
-            <KpiChip icone={<AlertTriangle className="h-3.5 w-3.5" />} valor={kpis.acao.emRisco}        label="Em risco"                 cor="red"   />
-            <KpiChip icone={<Eye           className="h-3.5 w-3.5" />} valor={kpis.acao.aguardandoVal}  label="Aguard. validação"        cor="slate" />
+            <KpiChip icone={<ShieldCheck   className="h-3.5 w-3.5" />} valor={kpis.acao.prontos}        label="Prontos p/ Morgana"       cor="green"
+              onClick={() => abrirListagem(
+                "Prontos para assumir",
+                "Dossiês aprovados e aguardando contato comercial da Morgana",
+                d => d.status === "PRONTO_PARA_ASSUMIR"
+              )}
+            />
+            <KpiChip icone={<Clock         className="h-3.5 w-3.5" />} valor={kpis.acao.esquecidos}     label="Esquecidos +15d"          cor="red"
+              onClick={() => abrirListagem(
+                "Esquecidos — sem atualização há +15 dias",
+                "Oportunidades em risco de perder a janela comercial",
+                d => (Date.now() - new Date(d.updatedAt).getTime()) / 86_400_000 > 15
+              )}
+            />
+            <KpiChip icone={<Flame         className="h-3.5 w-3.5" />} valor={kpis.acao.quentes}        label="Quentes"                  cor="amber"
+              onClick={() => abrirListagem(
+                "Dossiês quentes — score ≥ 75",
+                "Oportunidades de alto potencial identificadas pelo João Hunter",
+                d => d.score >= 75
+              )}
+            />
+            <KpiChip icone={<AlertTriangle className="h-3.5 w-3.5" />} valor={kpis.acao.emRisco}        label="Em risco"                 cor="red"
+              onClick={() => abrirListagem(
+                "Em risco — alta prioridade parada há +7 dias",
+                "Dossiês prioritários que não foram atualizados recentemente",
+                d => d.prioridade === "ALTA" && (Date.now() - new Date(d.updatedAt).getTime()) / 86_400_000 > 7
+              )}
+            />
+            <KpiChip icone={<Eye           className="h-3.5 w-3.5" />} valor={kpis.acao.aguardandoVal}  label="Aguard. validação"        cor="slate"
+              onClick={() => abrirListagem(
+                "Aguardando validação",
+                "Dossiês que precisam de revisão antes de ir para a Morgana",
+                d => d.status === "AGUARDANDO_VALIDACAO"
+              )}
+            />
           </div>
         </div>
       </div>
@@ -965,6 +1096,16 @@ export default function CockpitPage() {
             esquecidas={esquecidas}
             onVoltar={() => setPainel("cockpit")}
             onDossie={irPara}
+          />
+        )}
+        {painel === "listagem" && listagemCfg && (
+          <PainelListagem
+            titulo={listagemCfg.titulo}
+            subtitulo={listagemCfg.subtitulo}
+            dossies={dossies.filter(listagemCfg.pred)}
+            onVoltar={() => { setPainel("cockpit"); setListagemCfg(null); }}
+            onDossie={irPara}
+            onAssumir={assumirDossie}
           />
         )}
 

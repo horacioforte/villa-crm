@@ -176,7 +176,15 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => b.dias - a.dias)
     .slice(0, 10);
 
-  // ── 7. Status do João ────────────────────────────────────────────────────────
+  // ── 7. Contagem de "Minhas Solicitações" (dossiês criados pelo Horácio via CRM IA) ──
+  const solicitacoesCount = await prisma.dossieComercial.count({
+    where: {
+      fonteInformacao: { startsWith: "Solicitado por Horácio", mode: "insensitive" },
+      status: { notIn: ["ARQUIVADO"] },
+    },
+  });
+
+  // ── 8. Status do João ────────────────────────────────────────────────────────
   const dossieAtivo = dossies.find(d => d.status === "INVESTIGANDO" && d.missaoAtual);
 
   const ultimaDescobertaRecord = await prisma.atualizacaoDossie.findFirst({
@@ -219,6 +227,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     dossies,
+    solicitacoesCount,
     kpis: {
       inteligencia: { novosDossies, dossiesAtualizados, novosDecisores, novasEmpresas, descobertas },
       acao:         { prontos, aguardandoVal, esquecidos: esquecidosCount, quentes, emRisco },

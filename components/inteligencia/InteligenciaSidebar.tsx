@@ -15,6 +15,7 @@ import {
   Building2,
   ChevronLeft,
   FolderOpen,
+  Inbox,
   Radar,
   Settings,
   Target,
@@ -82,17 +83,24 @@ type JoaoSidebarStatus = {
   ultimaDescoberta?: { descricao: string; dossie: string; dossieId: string; quando: string } | null;
 };
 
+type CockpitData = {
+  joao?: JoaoSidebarStatus;
+  solicitacoesCount?: number;
+};
+
 type Props = { totalDossies?: number };
 
 export function InteligenciaSidebar({ totalDossies }: Props) {
   const pathname = usePathname();
   const [joao, setJoao] = useState<JoaoSidebarStatus | null>(null);
+  const [solicitacoesCount, setSolicitacoesCount] = useState<number>(0);
 
   useEffect(() => {
     fetch("/api/inteligencia/cockpit")
       .then(r => r.ok ? r.json() : null)
-      .then(data => {
+      .then((data: CockpitData | null) => {
         if (data?.joao) setJoao(data.joao);
+        if (typeof data?.solicitacoesCount === "number") setSolicitacoesCount(data.solicitacoesCount);
       })
       .catch(() => {});
   }, []);
@@ -141,6 +149,27 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
         {menuPrincipal.map(item => (
           <NavItem key={item.label} item={item} pathname={pathname} totalDossies={totalDossies} />
         ))}
+
+        <p className="px-3 pt-4 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+          Minhas
+        </p>
+        <Link
+          href="/inteligencia/minhas-solicitacoes"
+          className={cn(
+            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
+            pathname === "/inteligencia/minhas-solicitacoes"
+              ? "bg-indigo-600/20 text-indigo-300 font-medium"
+              : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+          )}
+        >
+          <Inbox className="h-4 w-4 flex-shrink-0" />
+          <span className="flex-1">Minhas Solicitações</span>
+          {solicitacoesCount > 0 && (
+            <span className="bg-indigo-600/30 text-indigo-300 text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
+              {solicitacoesCount}
+            </span>
+          )}
+        </Link>
 
         <p className="px-3 pt-4 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">
           Dados

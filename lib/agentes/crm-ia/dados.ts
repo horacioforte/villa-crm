@@ -698,6 +698,7 @@ export async function criarDossie({
       resumo: resumo ?? null,
       missaoAtual: missaoInicial ?? "Investigação solicitada pela equipe comercial — levantar decisores, contatos e potencial da obra/empresa.",
       prioridade: prioridade ?? "MEDIA",
+      fonteInformacao: "Solicitado por Horácio",
       score: 0,
       completude: 0,
     },

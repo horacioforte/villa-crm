@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Clock, MapPin, Target, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NovasSolicitacoesButton } from "./NovasSolicitacoesButton";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -109,12 +110,15 @@ export default async function MinhasSolicitacoesPage({ searchParams }: { searchP
               Obras e empresas que você pediu ao João Hunter IA para investigar
             </p>
           </div>
-          <Link
-            href="/inteligencia"
-            className="text-xs text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1"
-          >
-            ← Voltar ao cockpit
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/inteligencia"
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              ← Voltar ao cockpit
+            </Link>
+            <NovasSolicitacoesButton />
+          </div>
         </div>
 
         {/* KPI chips */}

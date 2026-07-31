@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import {
   DndContext,
   type DragEndEvent,
@@ -180,18 +179,18 @@ export default function OportunidadesPage() {
   const [oportunidadeEditandoId, setOportunidadeEditandoId] = useState<
     string | null
   >(null);
-  const searchParams = useSearchParams();
   const [oportunidadeDetalheId, setOportunidadeDetalheId] = useState<
     string | null
   >(null);
 
   // Abre o detalhe automaticamente se a URL contém ?id=
   useEffect(() => {
-    const idParam = searchParams.get("id");
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get("id");
     if (idParam) {
       setOportunidadeDetalheId(idParam);
     }
-  }, [searchParams]);
+  }, []);
   const [filtroTipo, setFiltroTipo] = useState<TipoNegocioFiltro>("TODOS");
 
   // Sensor com distância mínima: clique curto abre o detalhe, arrastar 8px inicia o drag

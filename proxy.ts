@@ -12,10 +12,10 @@ const publicRoutes = [
   "/api/contato",
   "/api/agent",
   "/api/webhook/site",
-  "/api/webhook/chatwoot",
   "/api/webhook/whatsapp",
   "/api/webhook/whatsapp/joao",
   "/api/webhook/whatsapp/maria",
+  "/api/webhook/whatsapp/meta",
   "/api/email/cron",
   "/api/email/processar",
 ];

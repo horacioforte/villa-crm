@@ -183,7 +183,15 @@ export default function OportunidadesPage() {
   const searchParams = useSearchParams();
   const [oportunidadeDetalheId, setOportunidadeDetalheId] = useState<
     string | null
-  >(searchParams.get("id"));
+  >(null);
+
+  // Abre o detalhe automaticamente se a URL contém ?id=
+  useEffect(() => {
+    const idParam = searchParams.get("id");
+    if (idParam) {
+      setOportunidadeDetalheId(idParam);
+    }
+  }, [searchParams]);
   const [filtroTipo, setFiltroTipo] = useState<TipoNegocioFiltro>("TODOS");
 
   // Sensor com distância mínima: clique curto abre o detalhe, arrastar 8px inicia o drag

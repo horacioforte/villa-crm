@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { ElementType, ReactNode } from "react";
 import {
   AlertTriangle,
@@ -400,6 +400,7 @@ function DetailPanel({
         {data.listas.oportunidadesSemProximaAcao.map((item) => (
           <DetailRow
             key={item.id}
+            href={`/oportunidades?id=${item.id}`}
             title={item.titulo}
             subtitle={`${item.cliente}${item.obra ? ` · ${item.obra}` : ""}`}
             right={item.responsavel}
@@ -459,9 +460,10 @@ function DetailPanel({
     return (
       <DetailCard title="Dias sem interação">
         {data.listas.diasSemInteracao.slice(0, 30).map((item) => (
-          <div
+          <a
             key={item.id}
-            className="flex flex-col gap-2 border-b border-[#D7DEEA] py-3 last:border-0 md:flex-row md:items-center md:justify-between"
+            href={`/oportunidades?id=${item.id}`}
+            className="flex flex-col gap-2 border-b border-[#D7DEEA] py-3 last:border-0 hover:bg-[#F4F6FA] md:flex-row md:items-center md:justify-between"
           >
             <div>
               <p className="font-semibold text-[#1A2E5A]">{item.cliente}</p>
@@ -474,7 +476,7 @@ function DetailPanel({
               <StatusBadge color={item.cor} />
               <span className="font-bold text-[#1A2E5A]">{item.dias} dia(s)</span>
             </div>
-          </div>
+          </a>
         ))}
       </DetailCard>
     );
@@ -502,6 +504,7 @@ function DetailPanel({
         {data.listas.oportunidadesSemResponsavel.map((item) => (
           <DetailRow
             key={item.id}
+            href={`/oportunidades?id=${item.id}`}
             title={item.titulo}
             subtitle={`${item.cliente}${item.obra ? ` · ${item.obra}` : ""}`}
             right="Sem vendedor"
@@ -557,13 +560,15 @@ function DetailRow({
   subtitle,
   right,
   alert,
+  href,
 }: {
   title: string;
   subtitle: string;
   right: string;
   alert: string;
+  href?: string;
 }) {
-  return (
+  const inner = (
     <div className="flex flex-col gap-2 border-b border-[#D7DEEA] py-3 last:border-0 md:flex-row md:items-center md:justify-between">
       <div>
         <p className="font-semibold text-[#1A2E5A]">{title}</p>
@@ -573,6 +578,19 @@ function DetailRow({
       <span className="font-bold text-[#1A2E5A]">{right}</span>
     </div>
   );
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        className="block cursor-pointer rounded-xl transition hover:bg-[#F4F6FA]"
+      >
+        {inner}
+      </a>
+    );
+  }
+
+  return inner;
 }
 
 export default function SaudeComercialPage() {
@@ -581,6 +599,14 @@ export default function SaudeComercialPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("saude");
   const [selectedSection, setSelectedSection] =
     useState<DetailSection>("sem-proxima-acao");
+  const detailRef = useRef<HTMLDivElement>(null);
+
+  function selectSection(section: DetailSection) {
+    setSelectedSection(section);
+    setTimeout(() => {
+      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
   const [filters, setFilters] = useState({
     vendedorId: "todos",
     gerenteId: "todos",
@@ -766,7 +792,7 @@ export default function SaudeComercialPage() {
               icon={ShieldAlert}
               tone="red"
               active={selectedSection === "sem-proxima-acao"}
-              onClick={() => setSelectedSection("sem-proxima-acao")}
+              onClick={() => selectSection("sem-proxima-acao")}
             />
             <MetricCard
               title="Tarefas vencidas"
@@ -775,7 +801,7 @@ export default function SaudeComercialPage() {
               icon={AlertTriangle}
               tone="red"
               active={selectedSection === "tarefas-vencidas"}
-              onClick={() => setSelectedSection("tarefas-vencidas")}
+              onClick={() => selectSection("tarefas-vencidas")}
             />
             <MetricCard
               title="Propostas sem retorno"
@@ -784,7 +810,7 @@ export default function SaudeComercialPage() {
               icon={Clock3}
               tone="yellow"
               active={selectedSection === "propostas-retorno"}
-              onClick={() => setSelectedSection("propostas-retorno")}
+              onClick={() => selectSection("propostas-retorno")}
             />
             <MetricCard
               title="Mais de 10 dias sem contato"
@@ -793,7 +819,7 @@ export default function SaudeComercialPage() {
               icon={BarChart3}
               tone="red"
               active={selectedSection === "dias-sem-interacao"}
-              onClick={() => setSelectedSection("dias-sem-interacao")}
+              onClick={() => selectSection("dias-sem-interacao")}
             />
             <MetricCard
               title="Conclusão de tarefas"
@@ -802,7 +828,7 @@ export default function SaudeComercialPage() {
               icon={CheckCircle2}
               tone="green"
               active={selectedSection === "taxa-tarefas"}
-              onClick={() => setSelectedSection("taxa-tarefas")}
+              onClick={() => selectSection("taxa-tarefas")}
             />
             <MetricCard
               title="Sem responsável"
@@ -811,7 +837,7 @@ export default function SaudeComercialPage() {
               icon={UserX}
               tone="red"
               active={selectedSection === "sem-responsavel"}
-              onClick={() => setSelectedSection("sem-responsavel")}
+              onClick={() => selectSection("sem-responsavel")}
             />
             <MetricCard
               title="Cumprimento da cadência"
@@ -820,11 +846,13 @@ export default function SaudeComercialPage() {
               icon={Target}
               tone={data.indicadores.cumprimentoCadencia >= 85 ? "green" : "yellow"}
               active={selectedSection === "cadencia"}
-              onClick={() => setSelectedSection("cadencia")}
+              onClick={() => selectSection("cadencia")}
             />
           </div>
 
-          <DetailPanel section={selectedSection} data={data} />
+          <div ref={detailRef}>
+            <DetailPanel section={selectedSection} data={data} />
+          </div>
 
           <HistoricalComparison data={data} />
 

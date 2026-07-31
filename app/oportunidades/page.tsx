@@ -4,8 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   type DragEndEvent,
+  PointerSensor,
   useDraggable,
   useDroppable,
+  useSensor,
+  useSensors,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { CircleDollarSign, FileText, Loader2, Plus, Search, Sparkles, Target } from "lucide-react";
@@ -180,6 +183,11 @@ export default function OportunidadesPage() {
     string | null
   >(null);
   const [filtroTipo, setFiltroTipo] = useState<TipoNegocioFiltro>("TODOS");
+
+  // Sensor com distância mínima: clique curto abre o detalhe, arrastar 8px inicia o drag
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [perdaPendente, setPerdaPendente] = useState<{
     oportunidadeId: string;
@@ -497,7 +505,7 @@ export default function OportunidadesPage() {
             </CardContent>
           </Card>
         ) : (
-          <DndContext onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
             <section className="mt-10 grid gap-4 overflow-x-auto pb-4 xl:grid-cols-6">
               {columns.map((column) => (
                 <KanbanColumn

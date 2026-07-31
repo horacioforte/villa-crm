@@ -59,13 +59,12 @@ import {
 import { ConcluirTarefaDialog } from "@/components/tarefas/ConcluirTarefaDialog";
 import { Separator } from "@/components/ui/separator";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { temProximaAcao } from "@/lib/utils";
 import {
   statusOportunidadeValues,
@@ -327,7 +326,7 @@ export function OportunidadeDetalhe({
 
   return (
     <>
-      <Sheet
+      <Dialog
         open
         onOpenChange={(open) => {
           if (!open) {
@@ -335,21 +334,18 @@ export function OportunidadeDetalhe({
           }
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-[520px] max-w-[calc(100vw-1rem)]"
-        >
-          <SheetHeader className="border-b border-[#D7DEEA] p-6">
-            <SheetTitle className="pr-8 text-2xl font-bold text-[#1A2E5A]">
+        <DialogContent className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b border-[#D7DEEA] px-6 py-5">
+            <DialogTitle className="text-2xl font-bold text-[#1A2E5A]">
               Detalhe da oportunidade
-            </SheetTitle>
-            <SheetDescription>
+            </DialogTitle>
+            <DialogDescription>
               Informacoes comerciais e relacionamentos vinculados.
-            </SheetDescription>
-          </SheetHeader>
+            </DialogDescription>
+          </DialogHeader>
 
           {isLoading ? (
-            <div className="flex flex-1 items-center justify-center text-[#667085]">
+            <div className="flex flex-1 items-center justify-center p-12 text-[#667085]">
               <Loader2 className="mr-2 size-5 animate-spin" />
               Carregando oportunidade...
             </div>
@@ -797,7 +793,7 @@ export function OportunidadeDetalhe({
             </div>
           )}
 
-          <SheetFooter className="border-t border-[#D7DEEA] p-6">
+          <div className="flex shrink-0 justify-end gap-3 border-t border-[#D7DEEA] px-6 py-4">
             <Button
               type="button"
               disabled={!oportunidade || isDeleting}
@@ -817,9 +813,9 @@ export function OportunidadeDetalhe({
               <Trash2 className="size-4" />
               Excluir
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {propostaModalOpen ? (
         <PropostaModal

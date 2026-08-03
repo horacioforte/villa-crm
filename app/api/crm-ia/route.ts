@@ -267,6 +267,7 @@ const ferramentas = [
             "oportunidades_por_status",
             "oportunidades_por_valor",
             "oportunidades_quentes",
+            "oportunidades_por_etapa",
             "pipeline",
             "origem_leads",
             "propostas_por_status",
@@ -278,7 +279,12 @@ const ferramentas = [
             "lista_contatos",
             "dossies_inteligencia",
           ],
-          description: "Tipo de relatório. Use 'oportunidades_quentes' quando o usuário pedir oportunidades mais quentes, hot leads, prioridade de fechamento, quais clientes perseguir — retorna tabela rica com cliente, oportunidade, etapa, valor potencial, responsável e contato. Use 'dossies_inteligencia' para relatório/PDF do que João Hunter IA descobriu. Use 'lista_contatos' para exportar contatos/pessoas. Use 'resumo_executivo' para BI completo, 'propostas_paradas' para follow-up, 'clientes_sem_contato' para reengajamento, 'tarefas_pendentes' para gestão de atividades.",
+          description: "Tipo de relatório. Use 'oportunidades_por_etapa' quando o usuário pedir lista de oportunidades de uma etapa específica do pipeline (ex: 'oportunidades com proposta enviada', 'lista de negociação', 'quem está em atendimento') — combine com filtro_status. Use 'oportunidades_quentes' para hot leads / prioridade de fechamento. Use 'dossies_inteligencia' para relatório do João Hunter IA. Use 'lista_contatos' para exportar contatos. Use 'resumo_executivo' para BI completo, 'propostas_paradas' para follow-up, 'clientes_sem_contato' para reengajamento.",
+        },
+        filtro_status: {
+          type: "string",
+          enum: ["NOVA", "PRE_QUALIFICADA", "EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIACAO", "GANHA", "PERDIDA"],
+          description: "Filtra por etapa do pipeline — use junto com tipo 'oportunidades_por_etapa'. Ex: PROPOSTA_ENVIADA para listar todas as oportunidades com proposta enviada.",
         },
         titulo: {
           type: "string",
@@ -410,6 +416,7 @@ async function executarFerramenta(
         tipo: input.tipo,
         titulo: input.titulo,
         tipoSaida: input.tipo_saida ?? input.tipoSaida,
+        filtroStatus: input.filtro_status ?? input.filtroStatus,
       });
     case "criar_tarefa":
       return await criarTarefa({ ...input, responsavelId: input.responsavelId ?? ctx.usuarioId } as any);

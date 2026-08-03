@@ -759,10 +759,12 @@ export async function gerarRelatorio({
   tipo,
   titulo,
   tipoSaida,
+  filtroStatus,
 }: {
   tipo: string;
   titulo?: string;
   tipoSaida?: string;
+  filtroStatus?: string;
 }): Promise<DadosRelatorio> {
   switch (tipo) {
     case "oportunidades_por_status":
@@ -1091,6 +1093,95 @@ export async function gerarRelatorio({
           "Registre o histórico de cada interação para rastrear o relacionamento.",
         ],
         tipoSaida: (tipoSaida as any) ?? "excel",
+      };
+    }
+
+    case "oportunidades_por_etapa": {
+      const statusAlvo = (filtroStatus ?? "PROPOSTA_ENVIADA") as any;
+      const statusLabels: Record<string, string> = {
+        NOVA: "Nova",
+        PRE_QUALIFICADA: "Pré-qualificada",
+        EM_ATENDIMENTO: "Em Atendimento",
+        PROPOSTA_ENVIADA: "Proposta Enviada",
+        NEGOCIACAO: "Negociação",
+        GANHA: "Ganha",
+        PERDIDA: "Perdida",
+      };
+      const etapaLabel = statusLabels[statusAlvo] ?? statusAlvo;
+
+      const opsList = await prisma.oportunidade.findMany({
+        where: { ativa: true, status: statusAlvo },
+        include: {
+          empresa: { select: { razaoSocial: true, cidade: true, estado: true } },
+          pessoa: { select: { nome: true, telefone: true, whatsapp: true } },
+          responsavel: { select: { nome: true } },
+          propostas: {
+            orderBy: { updatedAt: "desc" },
+            take: 1,
+            select: { numeroProposta: true, valorTotal: true, validadeProposta: true, status: true, updatedAt: true },
+          },
+        },
+        orderBy: [{ potencialOportunidade: "desc" }, { updatedAt: "asc" }],
+      });
+
+      const totalPotencial = opsList.reduce(
+        (a, o) => a + parseFloat((o.potencialOportunidade ?? 0).toString()),
+        0,
+      );
+      const agora = Date.now();
+
+      const porTemperatura: Record<string, number> = { QUENTE: 0, MEDIA: 0, FRIA: 0, "Sem info": 0 };
+      opsList.forEach((o) => {
+        const t = o.temperatura ?? "Sem info";
+        porTemperatura[t] = (porTemperatura[t] ?? 0) + 1;
+      });
+      const tempLabels = Object.keys(porTemperatura).filter((k) => porTemperatura[k] > 0);
+      const tempData = tempLabels.map((k) => porTemperatura[k]);
+
+      const colunas = ["Empresa", "Oportunidade", "Temperatura", "Valor Potencial", "Dias na Etapa", "Responsável", "Contato", "WhatsApp"];
+      const tabela = opsList.map((o) => {
+        const diasNaEtapa = Math.floor((agora - new Date(o.updatedAt).getTime()) / 86400000);
+        return [
+          o.empresa?.razaoSocial ?? "—",
+          o.titulo,
+          o.temperatura ?? "—",
+          o.potencialOportunidade
+            ? `R$ ${Number(o.potencialOportunidade).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`
+            : "—",
+          `${diasNaEtapa} dias`,
+          o.responsavel?.nome ?? "—",
+          o.pessoa?.nome ?? "—",
+          o.pessoa?.whatsapp ?? o.pessoa?.telefone ?? "—",
+        ];
+      });
+
+      const paradas = opsList.filter((o) => {
+        const dias = Math.floor((agora - new Date(o.updatedAt).getTime()) / 86400000);
+        return dias > 7;
+      });
+
+      return {
+        titulo: titulo ?? `Oportunidades — Etapa: ${etapaLabel}`,
+        tipoGrafico: "bar",
+        labels: tempLabels,
+        datasets: [{ label: "Qtd por Temperatura", data: tempData, backgroundColor: ["#EF4444", "#F59E0B", "#3B82F6", "#9CA3AF"] }],
+        descricao: `${opsList.length} oportunidades na etapa ${etapaLabel} · Potencial: R$ ${Math.round(totalPotencial / 1000).toLocaleString("pt-BR")} mil`,
+        colunas,
+        tabela,
+        conclusoes: [
+          `${opsList.length} oportunidades estão na etapa "${etapaLabel}".`,
+          `Potencial total de fechamento: R$ ${Math.round(totalPotencial / 1000).toLocaleString("pt-BR")} mil.`,
+          `${paradas.length} oportunidades estão paradas há mais de 7 dias sem atualização.`,
+        ],
+        recomendacoes: [
+          `Entre em contato com todos os clientes da etapa "${etapaLabel}" nos próximos 2 dias.`,
+          "Priorize as oportunidades QUENTE — têm maior probabilidade de fechamento.",
+          "Para oportunidades paradas há mais de 15 dias, considere ligar diretamente ao decisor.",
+          "Registre o próximo passo de cada uma no CRM para manter o pipeline vivo.",
+        ],
+        filtros: `Etapa: ${etapaLabel}`,
+        periodo: new Date().toLocaleDateString("pt-BR"),
+        tipoSaida: (tipoSaida as any) ?? "pdf",
       };
     }
 

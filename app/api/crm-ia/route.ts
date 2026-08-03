@@ -406,7 +406,11 @@ async function executarFerramenta(
     case "buscar_equipamentos":
       return await buscarEquipamentos(input);
     case "gerar_relatorio":
-      return await gerarRelatorio(input as any);
+      return await gerarRelatorio({
+        tipo: input.tipo,
+        titulo: input.titulo,
+        tipoSaida: input.tipo_saida ?? input.tipoSaida,
+      });
     case "criar_tarefa":
       return await criarTarefa({ ...input, responsavelId: input.responsavelId ?? ctx.usuarioId } as any);
     case "atualizar_etapa_oportunidade":
@@ -487,7 +491,7 @@ ${ctx.papel === "ADMIN" ? "Este usuário é ADMIN — acesso total a todos os da
 
       const response = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
+        max_tokens: 4096,
         system: systemPromptComContexto,
         tools: ferramentas as any,
         messages,

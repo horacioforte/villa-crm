@@ -603,11 +603,11 @@ export function CrmIaChat() {
 
   const sugestoesRapidas = [
     "Briefing do dia",
+    "Oportunidades mais quentes em PDF",
     "Propostas paradas",
     "Buscar contatos",
     "Gerar PDF do pipeline",
     "Atividades desta semana",
-    "Gerar Excel de oportunidades",
     "Clientes sem contato",
     "PowerPoint para reunião",
   ];

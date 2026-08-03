@@ -74,6 +74,9 @@ export function CrmIaChat() {
     ];
     setMensagens(novasMensagens);
     setInput("");
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+    }
     setCarregando(true);
 
     try {
@@ -695,12 +698,16 @@ export function CrmIaChat() {
               <textarea
                 ref={inputRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder="Peça um relatório, análise, PDF, Excel..."
                 rows={1}
                 className="flex-1 resize-none bg-transparent text-sm text-[#1A2E5A] placeholder:text-[#98A2B3] outline-none"
-                style={{ maxHeight: "80px" }}
+                style={{ maxHeight: "200px", overflowY: "auto" }}
                 disabled={carregando}
               />
               <button

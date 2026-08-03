@@ -792,11 +792,13 @@ export async function gerarRelatorio({
   titulo,
   tipoSaida,
   filtroStatus,
+  oportunidadeId,
 }: {
   tipo: string;
   titulo?: string;
   tipoSaida?: string;
   filtroStatus?: string;
+  oportunidadeId?: string;
 }): Promise<DadosRelatorio> {
   switch (tipo) {
     case "oportunidades_por_status":
@@ -1326,6 +1328,108 @@ export async function gerarRelatorio({
           "Dossiês com completude > 70% já têm decisores e contexto suficiente para abordagem comercial.",
           "Para os descobertos via LinkedIn, use as sugestões de mensagem do relatório diário do João para o primeiro contato.",
         ],
+        tipoSaida: (tipoSaida as any) ?? "pdf",
+      };
+    }
+
+    case "historico_oportunidade": {
+      // Busca por ID direto ou pelo nome/título
+      const op = await prisma.oportunidade.findFirst({
+        where: oportunidadeId
+          ? { id: oportunidadeId }
+          : { ativa: true, titulo: { contains: filtroStatus ?? "", mode: "insensitive" } },
+        include: {
+          empresa: { select: { razaoSocial: true, cidade: true, estado: true } },
+          pessoa: { select: { nome: true, cargo: true, telefone: true, whatsapp: true, email: true } },
+          obra: { select: { nome: true } },
+          responsavel: { select: { nome: true } },
+          tarefas: {
+            include: { responsavel: { select: { nome: true } } },
+            orderBy: { dataVencimento: "desc" },
+          },
+          historicos: {
+            include: { usuario: { select: { nome: true } } },
+            orderBy: { dataContato: "desc" },
+          },
+        },
+      });
+
+      if (!op) {
+        return {
+          titulo: "Histórico não encontrado",
+          tipoGrafico: "bar",
+          labels: [],
+          datasets: [],
+          descricao: "Oportunidade não encontrada. Verifique o nome ou ID.",
+          tipoSaida: (tipoSaida as any) ?? "pdf",
+        };
+      }
+
+      // Monta linha do tempo unificada: tarefas + histórico de contatos
+      type Evento = { data: Date; tipo: string; descricao: string; resultado: string; responsavel: string };
+      const eventos: Evento[] = [];
+
+      for (const t of op.tarefas) {
+        eventos.push({
+          data: new Date(t.dataVencimento),
+          tipo: `Tarefa — ${t.tipo}`,
+          descricao: t.titulo,
+          resultado: t.resultado ?? t.resultadoCodigo ?? (t.status === "CONCLUIDA" ? "Concluída" : t.status),
+          responsavel: t.responsavel?.nome ?? "—",
+        });
+      }
+
+      for (const h of op.historicos) {
+        eventos.push({
+          data: new Date(h.dataContato),
+          tipo: `Contato — ${h.tipo}`,
+          descricao: h.resumo,
+          resultado: h.detalhes ?? "—",
+          responsavel: h.usuario?.nome ?? "—",
+        });
+      }
+
+      eventos.sort((a, b) => b.data.getTime() - a.data.getTime());
+
+      const concluidas = op.tarefas.filter((t) => t.status === "CONCLUIDA").length;
+      const pendentes = op.tarefas.filter((t) => ["PENDENTE", "EM_ANDAMENTO"].includes(t.status)).length;
+
+      const colunas = ["Data", "Tipo", "Descrição", "Resultado / Detalhe", "Responsável"];
+      const tabela = eventos.map((e) => [
+        e.data.toLocaleDateString("pt-BR"),
+        e.tipo,
+        e.descricao,
+        e.resultado,
+        e.responsavel,
+      ]);
+
+      return {
+        titulo: titulo ?? `Histórico Completo — ${op.titulo}`,
+        tipoGrafico: "bar",
+        labels: ["Tarefas concluídas", "Pendentes", "Contatos registrados"],
+        datasets: [{
+          label: "Atividades",
+          data: [concluidas, pendentes, op.historicos.length],
+          backgroundColor: ["#10B981", "#F59E0B", "#6366F1"],
+        }],
+        descricao: `Oportunidade: ${op.titulo} | Empresa: ${op.empresa?.razaoSocial ?? "—"} | Contato: ${op.pessoa?.nome ?? "—"} | Status: ${op.status} | Temperatura: ${op.temperatura ?? "—"} | Responsável: ${op.responsavel?.nome ?? "—"}`,
+        colunas,
+        tabela,
+        conclusoes: [
+          `${eventos.length} eventos registrados no total.`,
+          `${concluidas} tarefas concluídas e ${pendentes} ainda em aberto.`,
+          `${op.historicos.length} contatos manuais registrados no histórico.`,
+          op.tarefas.find((t) => ["PENDENTE", "EM_ANDAMENTO"].includes(t.status))
+            ? `Próxima ação: ${op.tarefas.find((t) => ["PENDENTE", "EM_ANDAMENTO"].includes(t.status))?.titulo}`
+            : "Nenhuma próxima ação definida — crie uma tarefa agora.",
+        ],
+        recomendacoes: [
+          "Use este histórico para retomar o contexto antes de ligar ou visitar o cliente.",
+          "Registre sempre o resultado de cada contato para manter o histórico completo.",
+          op.temperatura === "FRIA" ? "Oportunidade fria — considere uma abordagem diferenciada para reativar o interesse." : "",
+        ].filter(Boolean),
+        filtros: `ID: ${op.id}`,
+        periodo: new Date().toLocaleDateString("pt-BR"),
         tipoSaida: (tipoSaida as any) ?? "pdf",
       };
     }

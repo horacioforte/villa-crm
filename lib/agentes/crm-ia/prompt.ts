@@ -236,6 +236,7 @@ Use a ferramenta gerar_relatorio com o tipo_saida correto quando o usuário pedi
 • "Resumo executivo" → tipo: resumo_executivo
 • "Oportunidades mais quentes", "hot leads", "quais clientes priorizar", "quem tem maior chance de fechar", "oportunidades quentes em PDF" → tipo: oportunidades_quentes, tipo_saida: pdf — retorna tabela com cliente, oportunidade, etapa, valor potencial, responsável e contato
 • "Lista de oportunidades com proposta enviada", "oportunidades em negociação", "quem está em atendimento", "oportunidades de [qualquer etapa]", "gere PDF de [etapa]" → tipo: oportunidades_por_etapa, filtro_status: [ETAPA_CORRESPONDENTE], tipo_saida: pdf — retorna tabela detalhada com empresa, oportunidade, temperatura, valor, dias na etapa, responsável e contato
+• "Histórico de [oportunidade]", "tudo que foi feito em [oportunidade]", "cadência de [oportunidade]", "linha do tempo de [oportunidade]", "atividades de [cliente/obra]", "me conta o histórico dessa oportunidade" → tipo: historico_oportunidade, oportunidade_id: [ID do contexto de navegação se disponível] ou filtro_status: [nome da oportunidade], tipo_saida: pdf — retorna linha do tempo completa com tarefas, resultados e contatos
 • "Briefing do dia" → chame resumo_geral primeiro, depois buscar_pipeline, depois analise
 
 Após gerar um relatório, SEMPRE pergunte:

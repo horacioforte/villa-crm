@@ -261,7 +261,7 @@ const ferramentas = [
   },
   {
     name: "gerar_relatorio",
-    description: "Gera dados para relatório visual. Suporta PDF com gráfico, planilha Excel (.xlsx) e apresentação PowerPoint (.pptx). Use SEMPRE quando o usuário pedir gráfico, PDF, Excel, planilha, PowerPoint, apresentação ou exportação de dados.",
+    description: "Gera dados para relatório visual. Suporta PDF com gráfico, planilha Excel (.xlsx) e apresentação PowerPoint (.pptx). Use SEMPRE quando o usuário pedir gráfico, PDF, Excel, planilha, PowerPoint, apresentação ou exportação de dados. Use 'historico_oportunidade' quando o usuário pedir histórico, cadência, linha do tempo ou tudo que foi feito em uma oportunidade específica.",
     input_schema: {
       type: "object",
       properties: {
@@ -272,6 +272,7 @@ const ferramentas = [
             "oportunidades_por_valor",
             "oportunidades_quentes",
             "oportunidades_por_etapa",
+            "historico_oportunidade",
             "pipeline",
             "origem_leads",
             "propostas_por_status",
@@ -283,12 +284,15 @@ const ferramentas = [
             "lista_contatos",
             "dossies_inteligencia",
           ],
-          description: "Tipo de relatório. Use 'oportunidades_por_etapa' quando o usuário pedir lista de oportunidades de uma etapa específica do pipeline (ex: 'oportunidades com proposta enviada', 'lista de negociação', 'quem está em atendimento') — combine com filtro_status. Use 'oportunidades_quentes' para hot leads / prioridade de fechamento. Use 'dossies_inteligencia' para relatório do João Hunter IA. Use 'lista_contatos' para exportar contatos. Use 'resumo_executivo' para BI completo, 'propostas_paradas' para follow-up, 'clientes_sem_contato' para reengajamento.",
+          description: "Tipo de relatório. Use 'historico_oportunidade' quando o usuário pedir histórico completo, cadência, linha do tempo, tudo que foi feito, atividades ou contatos de uma oportunidade específica — combine com oportunidade_id ou filtro_status (nome da oportunidade). Use 'oportunidades_por_etapa' para listar oportunidades de uma etapa. Use 'oportunidades_quentes' para hot leads. Use 'dossies_inteligencia' para João Hunter IA. Use 'lista_contatos' para exportar contatos. Use 'resumo_executivo' para BI completo.",
+        },
+        oportunidade_id: {
+          type: "string",
+          description: "ID da oportunidade específica para o relatório 'historico_oportunidade'. Use quando o contexto de navegação indicar um ID.",
         },
         filtro_status: {
           type: "string",
-          enum: ["NOVA", "PRE_QUALIFICADA", "EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIACAO", "GANHA", "PERDIDA"],
-          description: "Filtra por etapa do pipeline — use junto com tipo 'oportunidades_por_etapa'. Ex: PROPOSTA_ENVIADA para listar todas as oportunidades com proposta enviada.",
+          description: "Para 'oportunidades_por_etapa': etapa do pipeline (NOVA, EM_ATENDIMENTO, PROPOSTA_ENVIADA, NEGOCIACAO, etc). Para 'historico_oportunidade': nome ou parte do nome da oportunidade quando não houver ID.",
         },
         titulo: {
           type: "string",
@@ -421,6 +425,7 @@ async function executarFerramenta(
         titulo: input.titulo,
         tipoSaida: input.tipo_saida ?? input.tipoSaida,
         filtroStatus: input.filtro_status ?? input.filtroStatus,
+        oportunidadeId: input.oportunidade_id ?? input.oportunidadeId,
       });
     case "criar_tarefa":
       return await criarTarefa({ ...input, responsavelId: input.responsavelId ?? ctx.usuarioId } as any);

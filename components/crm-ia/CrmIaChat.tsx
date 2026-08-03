@@ -5,7 +5,7 @@
 // Chat flutuante do CRM IA — aparece em todas as páginas do CRM.
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, Loader2, Send, ChevronDown } from "lucide-react";
+import { Bot, Loader2, Mic, MicOff, Send, ChevronDown } from "lucide-react";
 
 type DadosRelatorio = {
   titulo: string;
@@ -46,6 +46,57 @@ export function CrmIaChat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const primeiraAberturaRef = useRef(false);
+  const [gravando, setGravando] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  function toggleMicrofone() {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Seu navegador não suporta reconhecimento de voz. Use o Chrome.");
+      return;
+    }
+
+    if (gravando && recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognitionRef.current = recognition;
+
+    let transcricaoBase = input;
+
+    recognition.onstart = () => setGravando(true);
+
+    recognition.onresult = (event: any) => {
+      let interino = "";
+      let final = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          final += event.results[i][0].transcript;
+        } else {
+          interino += event.results[i][0].transcript;
+        }
+      }
+      const novoTexto = transcricaoBase + (final || interino);
+      setInput(novoTexto);
+      if (final) transcricaoBase = transcricaoBase + final;
+      // auto-resize
+      if (inputRef.current) {
+        inputRef.current.style.height = "auto";
+        inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
+      }
+    };
+
+    recognition.onerror = () => setGravando(false);
+    recognition.onend = () => setGravando(false);
+
+    recognition.start();
+  }
 
   // Inicializa modo recepção (primeiro acesso do dia)
   useEffect(() => {
@@ -710,6 +761,19 @@ export function CrmIaChat() {
                 style={{ maxHeight: "200px", overflowY: "auto" }}
                 disabled={carregando}
               />
+              <button
+                type="button"
+                onClick={toggleMicrofone}
+                disabled={carregando}
+                className={`flex size-7 flex-shrink-0 items-center justify-center rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                  gravando
+                    ? "animate-pulse bg-red-500 text-white"
+                    : "bg-[#E8EEFB] text-[#1E4FAB] hover:bg-[#D0DCFA]"
+                }`}
+                aria-label={gravando ? "Parar gravação" : "Gravar voz"}
+              >
+                {gravando ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+              </button>
               <button
                 onClick={() => enviar()}
                 disabled={!input.trim() || carregando}

@@ -244,7 +244,7 @@ export function CrmIaChat() {
             <h2>Dados do Relatório</h2>
             <table>
               <thead><tr><th>Categoria</th>${rel.datasets.map((d) => `<th>${d.label}</th>`).join("")}</tr></thead>
-              <tbody>${rel.labels.map((label, i) => `<tr><td><strong>${label}</strong></td>${rel.datasets.map((d) => `<td>$x(d.data[i] ?? 0).toLocaleString("pt-BR")}</td>`).join("")}</tr>`).join("")}
+              <tbody>${rel.labels.map((label, i) => `<tr><td><strong>${label}</strong></td>${rel.datasets.map((d) => `<td>${(d.data[i] ?? 0).toLocaleString("pt-BR")}</td>`).join("")}</tr>`).join("")}
               <tr class="total-row"><td><strong>Total</strong></td>${rel.datasets.map((d) => `<td><strong>${d.data.reduce((a, b) => a + b, 0).toLocaleString("pt-BR")}</strong></td>`).join("")}</tr>
               </tbody>
             </table>

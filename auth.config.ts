@@ -6,10 +6,13 @@ const publicRoutes = [
   "/api/contato",
   "/api/webhook/site",
   "/api/webhook/whatsapp",
+  "/api/webhook/whatsapp/joao",
+  "/api/webhook/whatsapp/maria",
+  "/api/webhook/whatsapp/meta",
   "/api/email/cron",
   "/api/email/processar",
 ];
-const publicRoutePrefixes = ["/api/webhook/whatsapp/contexto/"];
+const publicRoutePrefixes = ["/api/webhook/whatsapp/contexto/", "/api/agent/", "/api/cron/"];
 const authSecret =
   process.env.AUTH_SECRET ??
   process.env.NEXTAUTH_SECRET ??

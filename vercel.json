@@ -3,6 +3,10 @@
     {
       "path": "/api/saude-comercial/joao",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/joao-investigar",
+      "schedule": "0 13 * * 1-5"
     }
   ]
 }

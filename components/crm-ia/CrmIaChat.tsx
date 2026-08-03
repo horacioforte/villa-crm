@@ -153,6 +153,7 @@ export function CrmIaChat() {
         body: JSON.stringify({
           mensagem: texto,
           historico: novasMensagens.slice(-10),
+          paginaAtual: window.location.pathname + window.location.search,
         }),
       });
 

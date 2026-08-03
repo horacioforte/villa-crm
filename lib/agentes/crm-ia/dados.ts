@@ -45,6 +45,7 @@ export async function resumoGeral() {
 // ─── Oportunidades ────────────────────────────────────────────────────────────
 
 export async function buscarOportunidades({
+  id,
   status,
   canalOrigem,
   tipoServico,
@@ -52,6 +53,7 @@ export async function buscarOportunidades({
   responsavelId,
   limite = 20,
 }: {
+  id?: string;
   status?: string;
   canalOrigem?: string;
   tipoServico?: string;
@@ -62,6 +64,7 @@ export async function buscarOportunidades({
   const oportunidades = await prisma.oportunidade.findMany({
     where: {
       ativa: true,
+      ...(id ? { id } : {}),
       ...(status ? { status: status as any } : {}),
       ...(canalOrigem ? { canalOrigem: canalOrigem as any } : {}),
       ...(tipoServico ? { tipoServico: tipoServico as any } : {}),
@@ -72,12 +75,23 @@ export async function buscarOportunidades({
       empresa: { select: { razaoSocial: true, cidade: true, estado: true } },
       pessoa: { select: { nome: true, cargo: true } },
       obra: { select: { nome: true } },
+      // Inclui tarefas e histórico apenas quando buscando por ID específico (evita query pesada na listagem geral)
+      ...(id ? {
+        tarefas: {
+          select: { titulo: true, tipo: true, status: true, dataVencimento: true, resultado: true, resultadoCodigo: true, responsavel: { select: { nome: true } } },
+          orderBy: { dataVencimento: "desc" as const },
+        },
+        historicos: {
+          select: { tipo: true, resumo: true, detalhes: true, dataContato: true, usuario: { select: { nome: true } } },
+          orderBy: { dataContato: "desc" as const },
+        },
+      } : {}),
     },
     orderBy: { updatedAt: "desc" },
     take: limite,
   });
 
-  return oportunidades.map((o) => ({
+  return oportunidades.map((o: any) => ({
     id: o.id,
     titulo: o.titulo,
     status: o.status,
@@ -92,6 +106,24 @@ export async function buscarOportunidades({
     potencial: o.potencialOportunidade,
     criadaEm: o.createdAt,
     atualizadaEm: o.updatedAt,
+    ...(id ? {
+      tarefas: (o.tarefas ?? []).map((t: any) => ({
+        titulo: t.titulo,
+        tipo: t.tipo,
+        status: t.status,
+        data: t.dataVencimento,
+        resultado: t.resultado,
+        resultadoCodigo: t.resultadoCodigo,
+        responsavel: t.responsavel?.nome,
+      })),
+      historicosContato: (o.historicos ?? []).map((h: any) => ({
+        tipo: h.tipo,
+        resumo: h.resumo,
+        detalhes: h.detalhes,
+        data: h.dataContato,
+        usuario: h.usuario?.nome,
+      })),
+    } : {}),
   }));
 }
 

@@ -43,10 +43,14 @@ const ferramentas = [
   },
   {
     name: "buscar_oportunidades",
-    description: "Busca oportunidades no CRM com filtros opcionais por status, temperatura (QUENTE/MEDIA/FRIA), canal de origem e tipo de serviço. Use temperatura='QUENTE' quando o usuário perguntar por oportunidades quentes, mais quentes, prioridade de fechamento ou hot leads.",
+    description: "Busca oportunidades no CRM. Aceita id direto de uma oportunidade específica, ou filtros por status, temperatura (QUENTE/MEDIA/FRIA), canal de origem e tipo de serviço. Use temperatura='QUENTE' quando o usuário perguntar por oportunidades quentes. Use id quando o contexto de navegação indicar um ID específico e o usuário usar pronomes como 'essa oportunidade', 'ela', 'isso'.",
     input_schema: {
       type: "object",
       properties: {
+        id: {
+          type: "string",
+          description: "ID direto de uma oportunidade específica. Use quando o contexto de página indicar um ID e o usuário se referir a 'essa oportunidade' ou usar pronomes.",
+        },
         status: {
           type: "string",
           enum: ["NOVA", "PRE_QUALIFICADA", "EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIACAO", "GANHA", "PERDIDA"],
@@ -456,14 +460,14 @@ export async function POST(req: NextRequest) {
     nomeUsuario: usuarioDB?.nome ?? session.user.name ?? "Usuário",
   };
 
-  let body: { mensagem: string; historico?: Array<{ role: string; content: string }> };
+  let body: { mensagem: string; historico?: Array<{ role: string; content: string }>; paginaAtual?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Payload inválido." }, { status: 400 });
   }
 
-  const { mensagem, historico = [] } = body;
+  const { mensagem, historico = [], paginaAtual } = body;
   if (!mensagem?.trim()) {
     return NextResponse.json({ error: "Mensagem vazia." }, { status: 400 });
   }
@@ -484,6 +488,29 @@ export async function POST(req: NextRequest) {
 
     // Agentic loop — Claude pode chamar múltiplas ferramentas
     while (continuar) {
+      // Interpreta a página atual para fornecer contexto à IA
+      let contextoDeNavegacao = "";
+      if (paginaAtual) {
+        const [pathname, qs] = paginaAtual.split("?");
+        const params = new URLSearchParams(qs ?? "");
+        const id = params.get("id");
+
+        const mapa: Record<string, string> = {
+          "/oportunidades": "Pipeline de oportunidades (kanban)",
+          "/empresas": "Listagem de empresas",
+          "/contatos": "Listagem de contatos/pessoas",
+          "/tarefas": "Listagem de tarefas",
+          "/propostas": "Listagem de propostas",
+          "/inteligencia": "Central de Inteligência (dossiês do João Hunter IA)",
+          "/saude-comercial": "Saúde Comercial (indicadores e métricas)",
+          "/agenda": "Agenda de atividades",
+          "/dashboard": "Dashboard principal",
+        };
+
+        const nomePagina = mapa[pathname] ?? pathname;
+        contextoDeNavegacao = `\nPÁGINA ATUAL DO USUÁRIO: ${nomePagina}${id ? `\nID da entidade em foco: ${id} — se o usuário disser "essa oportunidade", "essa empresa", "esse contato" ou usar pronomes como "ela/ele/isso", refira-se a este ID sem pedir confirmação. Use a ferramenta adequada para buscar os dados deste ID.` : ""}`;
+      }
+
       const systemPromptComContexto = `${CRM_IA_SYSTEM_PROMPT}
 
 ---
@@ -493,7 +520,7 @@ Papel: ${ctx.papel}
 ID: ${ctx.usuarioId ?? "desconhecido"}
 ${ctx.papel === "COMERCIAL" ? "ATENÇÃO: Este usuário é COMERCIAL — mostre apenas dados da carteira dele." : ""}
 ${ctx.papel === "GERENTE" ? "Este usuário é GERENTE — pode ver todos os dados comerciais." : ""}
-${ctx.papel === "ADMIN" ? "Este usuário é ADMIN — acesso total a todos os dados." : ""}
+${ctx.papel === "ADMIN" ? "Este usuário é ADMIN — acesso total a todos os dados." : ""}${contextoDeNavegacao}
 ---`;
 
       const response = await client.messages.create({

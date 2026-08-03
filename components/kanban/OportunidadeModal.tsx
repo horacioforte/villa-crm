@@ -245,6 +245,7 @@ export function OportunidadeModal({
   const [novaEmpresaOpen, setNovaEmpresaOpen] = useState(false);
   const [novaObraOpen, setNovaObraOpen] = useState(false);
   const [novoContatoOpen, setNovoContatoOpen] = useState(false);
+  const [semContatoAlert, setSemContatoAlert] = useState(false);
   const [tarefaTipo, setTarefaTipo] = useState<TipoAtividade>("LIGACAO");
   const [tarefaProximaAcao, setTarefaProximaAcao] = useState("");
   const [tarefaData, setTarefaData] = useState(todayInput());
@@ -396,6 +397,9 @@ export function OportunidadeModal({
             descricao: oportunidade.descricao ?? "",
             motivoPerda: oportunidade.motivoPerda ?? "",
           });
+
+          // Alerta se contato não foi preenchido
+          setSemContatoAlert(!oportunidade.pessoaId);
         } else {
           form.reset(getDefaultValues(statusInicial, prefill));
           setPasso("dados");
@@ -985,8 +989,25 @@ export function OportunidadeModal({
               </Field>
             ) : null}
 
-            <Field label="Pessoa/contato">
+            <Field
+              label={
+                <span className="flex items-center gap-1.5">
+                  Pessoa/contato
+                  {semContatoAlert && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                      Preencha agora
+                    </span>
+                  )}
+                </span>
+              }
+              className={semContatoAlert ? "rounded-2xl ring-2 ring-amber-400 ring-offset-1" : ""}
+            >
               <div className="space-y-2">
+                {semContatoAlert && (
+                  <p className="text-xs text-amber-700">
+                    👤 Com quem você está falando? Preencha o contato para não perder o histórico.
+                  </p>
+                )}
                 <Controller
                   control={form.control}
                   name="pessoaId"
@@ -994,7 +1015,10 @@ export function OportunidadeModal({
                     <Combobox
                       options={pessoaItems}
                       value={field.value ?? NONE_VALUE}
-                      onChange={(value) => field.onChange(value || NONE_VALUE)}
+                      onChange={(value) => {
+                        field.onChange(value || NONE_VALUE);
+                        if (value && value !== NONE_VALUE) setSemContatoAlert(false);
+                      }}
                       placeholder="Selecione o contato"
                       searchPlaceholder="Buscar contato..."
                       emptyMessage="Nenhum contato encontrado."
@@ -1109,7 +1133,7 @@ function Field({
   className,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
   error?: string;
   className?: string;
   children: React.ReactNode;

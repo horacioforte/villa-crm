@@ -34,13 +34,22 @@ export function CrmIaChat() {
   const hoje = new Date().toISOString().split("T")[0];
   const [modoRecepcao, setModoRecepcao] = useState(false);
   const [aberto, setAberto] = useState(false);
-  const [mensagens, setMensagens] = useState<Mensagem[]>([
-    {
-      role: "assistant",
-      content:
-        "Olá! Sou o **CRM IA**, seu assistente inteligente.\n\nPosso analisar dados, consultar contatos, histórico de atividades, gerar relatórios e executar ações no CRM. O que você precisa?",
-    },
-  ]);
+  const mensagemBoasVindas: Mensagem = {
+    role: "assistant",
+    content:
+      "Olá! Sou o **CRM IA**, seu assistente inteligente.\n\nPosso analisar dados, consultar contatos, histórico de atividades, gerar relatórios e executar ações no CRM. O que você precisa?",
+  };
+
+  const [mensagens, setMensagens] = useState<Mensagem[]>(() => {
+    try {
+      const salvo = typeof window !== "undefined" ? localStorage.getItem("crm-ia-historico") : null;
+      if (salvo) {
+        const parsed = JSON.parse(salvo);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [mensagemBoasVindas];
+  });
   const [input, setInput] = useState("");
   const [carregando, setCarregando] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -107,6 +116,13 @@ export function CrmIaChat() {
   }, [hoje]);
 
   // Auto-briefing removido — usuário abre o chat manualmente quando quiser
+
+  // Persiste histórico no localStorage para sobreviver a atualizações de página
+  useEffect(() => {
+    try {
+      localStorage.setItem("crm-ia-historico", JSON.stringify(mensagens.slice(-40)));
+    } catch {}
+  }, [mensagens]);
 
   useEffect(() => {
     if (aberto) {
@@ -661,13 +677,25 @@ export function CrmIaChat() {
                 <p className="text-[10px] text-blue-200">Análise · PDF · Excel · PowerPoint · Ações</p>
               </div>
             </div>
-            <button
-              onClick={() => setAberto(false)}
-              className="rounded-lg p-1 text-white/70 hover:bg-white/10 hover:text-white transition"
-              aria-label="Fechar"
-            >
-              <ChevronDown className="size-5" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  setMensagens([mensagemBoasVindas]);
+                  localStorage.removeItem("crm-ia-historico");
+                }}
+                className="rounded-lg px-2 py-1 text-[10px] font-semibold text-white/60 hover:bg-white/10 hover:text-white transition"
+                title="Limpar conversa"
+              >
+                Limpar
+              </button>
+              <button
+                onClick={() => setAberto(false)}
+                className="rounded-lg p-1 text-white/70 hover:bg-white/10 hover:text-white transition"
+                aria-label="Fechar"
+              >
+                <ChevronDown className="size-5" />
+              </button>
+            </div>
           </div>
 
           {/* Mensagens */}

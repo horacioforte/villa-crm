@@ -189,6 +189,7 @@ export function TarefaModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modoAvancado, setModoAvancado] = useState(false);
   const [delegando, setDelegando] = useState(false);
+  const [temperatura, setTemperatura] = useState<string>("");
 
   const isEditing = Boolean(tarefa?.id);
   const hasContextoOportunidade = Boolean(contextoEfetivo.oportunidadeId);
@@ -221,6 +222,7 @@ export function TarefaModal({
       setForm(nextForm);
       setModoAvancado(Boolean(tarefa));
       setDelegando(Boolean(tarefa?.responsavelId));
+      setTemperatura("");
     });
   }, [aberto, contextoEfetivo, tarefa]);
 
@@ -462,6 +464,17 @@ export function TarefaModal({
         throw new Error(data?.message ?? "Falha ao salvar tarefa.");
       }
 
+      const oportunidadeIdEfetiva =
+        normalizeRelation(form.oportunidadeId) ?? contextoEfetivo.oportunidadeId ?? null;
+
+      if (temperatura && oportunidadeIdEfetiva) {
+        await fetch(`/api/oportunidades/${oportunidadeIdEfetiva}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ temperatura }),
+        });
+      }
+
       toast.success(isEditing ? "Tarefa atualizada." : "Tarefa criada.");
       onSalvar();
       onFechar();
@@ -535,6 +548,41 @@ export function TarefaModal({
               </div>
             </section>
           )}
+
+          {(contextoEfetivo.oportunidadeId || form.oportunidadeId !== NONE_VALUE) ? (
+            <div className="space-y-2">
+              <Label>Temperatura da oportunidade</Label>
+              <div className="flex flex-wrap gap-2">
+                {(["QUENTE", "MEDIA", "FRIA"] as const).map((t) => {
+                  const cfg = {
+                    QUENTE: { emoji: "🔴", label: "Quente", active: "border-red-500 bg-red-500 text-white", hover: "hover:border-red-400" },
+                    MEDIA:  { emoji: "🟡", label: "Média",  active: "border-amber-500 bg-amber-500 text-white", hover: "hover:border-amber-400" },
+                    FRIA:   { emoji: "🔵", label: "Fria",   active: "border-blue-500 bg-blue-500 text-white", hover: "hover:border-blue-400" },
+                  }[t];
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTemperatura(temperatura === t ? "" : t)}
+                      className={cn(
+                        "rounded-2xl border px-3 py-1.5 text-sm font-semibold transition-colors",
+                        temperatura === t
+                          ? cfg.active
+                          : `border-[#D7DEEA] bg-white text-[#1A2E5A] ${cfg.hover}`,
+                      )}
+                    >
+                      {cfg.emoji} {cfg.label}
+                    </button>
+                  );
+                })}
+                {temperatura && (
+                  <span className="self-center text-xs text-[#667085]">
+                    será salva na oportunidade
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label>Tipo</Label>

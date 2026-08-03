@@ -76,6 +76,7 @@ export function ConcluirTarefaDialog({
   const [tipoProxima, setTipoProxima] = useState<TipoAtividade>("LIGACAO");
   const [tituloProxima, setTituloProxima] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [temperatura, setTemperatura] = useState<string>("");
 
   const resultados = tarefa ? getResultados(tarefa.tipo) : [];
   const semCadencia = tarefa ? !temCadencia(tarefa.tipo) : true;
@@ -108,6 +109,7 @@ export function ConcluirTarefaDialog({
       setDataProxima("");
       setTipoProxima("LIGACAO");
       setTituloProxima("");
+      setTemperatura("");
     });
   }, [aberto, tarefa?.id]);
 
@@ -211,6 +213,14 @@ export function ConcluirTarefaDialog({
           const data = await criarResponse.json().catch(() => null);
           throw new Error(data?.message ?? "Falha ao criar proxima tarefa.");
         }
+      }
+
+      if (!encerrarOportunidade && temperatura && tarefa.oportunidadeId) {
+        await fetch(`/api/oportunidades/${tarefa.oportunidadeId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ temperatura }),
+        });
       }
 
       if (encerrarOportunidade && tarefa.oportunidadeId) {
@@ -317,6 +327,21 @@ export function ConcluirTarefaDialog({
                 O cliente pediu proposta. A proxima tarefa vai lembrar o vendedor de elaborar e enviar a proposta.
               </div>
             ) : null}
+            {tarefa?.oportunidadeId ? (
+              <div className="space-y-2">
+                <Label>Temperatura da oportunidade agora</Label>
+                <div className="flex flex-wrap gap-2">
+                  {(["QUENTE", "MEDIA", "FRIA"] as const).map((t) => {
+                    const cfg = { QUENTE: { emoji: "🔴", label: "Quente", active: "border-red-500 bg-red-500 text-white", hover: "hover:border-red-400" }, MEDIA: { emoji: "🟡", label: "Média", active: "border-amber-500 bg-amber-500 text-white", hover: "hover:border-amber-400" }, FRIA: { emoji: "🔵", label: "Fria", active: "border-blue-500 bg-blue-500 text-white", hover: "hover:border-blue-400" } }[t];
+                    return (
+                      <button key={t} type="button" onClick={() => setTemperatura(temperatura === t ? "" : t)} className={cn("rounded-2xl border px-3 py-2 text-sm font-semibold transition-colors", temperatura === t ? cfg.active : `border-[#D7DEEA] bg-white text-[#1A2E5A] ${cfg.hover}`)}>
+                        {cfg.emoji} {cfg.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Tipo</Label>
@@ -376,6 +401,21 @@ export function ConcluirTarefaDialog({
             <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
               Cliente pediu retorno. Informe a data combinada.
             </div>
+            {tarefa?.oportunidadeId ? (
+              <div className="space-y-2">
+                <Label>Temperatura da oportunidade agora</Label>
+                <div className="flex flex-wrap gap-2">
+                  {(["QUENTE", "MEDIA", "FRIA"] as const).map((t) => {
+                    const cfg = { QUENTE: { emoji: "🔴", label: "Quente", active: "border-red-500 bg-red-500 text-white", hover: "hover:border-red-400" }, MEDIA: { emoji: "🟡", label: "Média", active: "border-amber-500 bg-amber-500 text-white", hover: "hover:border-amber-400" }, FRIA: { emoji: "🔵", label: "Fria", active: "border-blue-500 bg-blue-500 text-white", hover: "hover:border-blue-400" } }[t];
+                    return (
+                      <button key={t} type="button" onClick={() => setTemperatura(temperatura === t ? "" : t)} className={cn("rounded-2xl border px-3 py-2 text-sm font-semibold transition-colors", temperatura === t ? cfg.active : `border-[#D7DEEA] bg-white text-[#1A2E5A] ${cfg.hover}`)}>
+                        {cfg.emoji} {cfg.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
             <div className="space-y-2">
               <Label htmlFor="dataRetorno">Data de retorno</Label>
               <Input

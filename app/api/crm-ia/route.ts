@@ -43,7 +43,7 @@ const ferramentas = [
   },
   {
     name: "buscar_oportunidades",
-    description: "Busca oportunidades no CRM com filtros opcionais por status, canal de origem e tipo de serviço.",
+    description: "Busca oportunidades no CRM com filtros opcionais por status, temperatura (QUENTE/MEDIA/FRIA), canal de origem e tipo de serviço. Use temperatura='QUENTE' quando o usuário perguntar por oportunidades quentes, mais quentes, prioridade de fechamento ou hot leads.",
     input_schema: {
       type: "object",
       properties: {
@@ -51,6 +51,11 @@ const ferramentas = [
           type: "string",
           enum: ["NOVA", "PRE_QUALIFICADA", "EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIACAO", "GANHA", "PERDIDA"],
           description: "Status da oportunidade",
+        },
+        temperatura: {
+          type: "string",
+          enum: ["QUENTE", "MEDIA", "FRIA"],
+          description: "Temperatura da oportunidade: QUENTE = alta prioridade, MEDIA = interesse claro, FRIA = baixa urgência",
         },
         canalOrigem: {
           type: "string",
@@ -261,6 +266,7 @@ const ferramentas = [
           enum: [
             "oportunidades_por_status",
             "oportunidades_por_valor",
+            "oportunidades_quentes",
             "pipeline",
             "origem_leads",
             "propostas_por_status",
@@ -272,7 +278,7 @@ const ferramentas = [
             "lista_contatos",
             "dossies_inteligencia",
           ],
-          description: "Tipo de relatório. Use 'dossies_inteligencia' para relatório/PDF do que João Hunter IA descobriu (dossiês da Central de Inteligência) — use este tipo quando o usuário pedir 'relatório do João', 'PDF do que João fez', 'resumo da semana do João'. Use 'lista_contatos' para exportar contatos/pessoas. Use 'resumo_executivo' para BI completo, 'propostas_paradas' para follow-up, 'clientes_sem_contato' para reengajamento, 'tarefas_pendentes' para gestão de atividades.",
+          description: "Tipo de relatório. Use 'oportunidades_quentes' quando o usuário pedir oportunidades mais quentes, hot leads, prioridade de fechamento, quais clientes perseguir — retorna tabela rica com cliente, oportunidade, etapa, valor potencial, responsável e contato. Use 'dossies_inteligencia' para relatório/PDF do que João Hunter IA descobriu. Use 'lista_contatos' para exportar contatos/pessoas. Use 'resumo_executivo' para BI completo, 'propostas_paradas' para follow-up, 'clientes_sem_contato' para reengajamento, 'tarefas_pendentes' para gestão de atividades.",
         },
         titulo: {
           type: "string",

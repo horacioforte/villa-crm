@@ -48,12 +48,14 @@ export async function buscarOportunidades({
   status,
   canalOrigem,
   tipoServico,
+  temperatura,
   responsavelId,
   limite = 20,
 }: {
   status?: string;
   canalOrigem?: string;
   tipoServico?: string;
+  temperatura?: string;
   responsavelId?: string;
   limite?: number;
 } = {}) {
@@ -63,6 +65,7 @@ export async function buscarOportunidades({
       ...(status ? { status: status as any } : {}),
       ...(canalOrigem ? { canalOrigem: canalOrigem as any } : {}),
       ...(tipoServico ? { tipoServico: tipoServico as any } : {}),
+      ...(temperatura ? { temperatura: temperatura as any } : {}),
       ...(responsavelId ? { responsavelId } : {}),
     },
     include: {
@@ -1088,6 +1091,70 @@ export async function gerarRelatorio({
           "Registre o histórico de cada interação para rastrear o relacionamento.",
         ],
         tipoSaida: (tipoSaida as any) ?? "excel",
+      };
+    }
+
+    case "oportunidades_quentes": {
+      const quentes = await prisma.oportunidade.findMany({
+        where: {
+          ativa: true,
+          temperatura: "QUENTE",
+          status: { notIn: ["GANHA", "PERDIDA"] },
+        },
+        include: {
+          empresa: { select: { razaoSocial: true, cidade: true, estado: true } },
+          pessoa: { select: { nome: true, telefone: true, whatsapp: true } },
+          responsavel: { select: { nome: true } },
+        },
+        orderBy: [{ potencialOportunidade: "desc" }, { updatedAt: "desc" }],
+        take: 50,
+      });
+      const totalPotencial = quentes.reduce(
+        (a, o) => a + parseFloat((o.potencialOportunidade ?? 0).toString()),
+        0,
+      );
+      const porStatus: Record<string, number> = {};
+      quentes.forEach((o) => {
+        const s = o.status ?? "Outros";
+        porStatus[s] = (porStatus[s] ?? 0) + 1;
+      });
+      const statusLabels = Object.keys(porStatus);
+      const statusData = statusLabels.map((s) => porStatus[s]);
+      const colunas = ["Cliente / Empresa", "Oportunidade", "Etapa", "Valor Potencial", "Responsável", "Contato", "WhatsApp / Telefone"];
+      const tabela = quentes.map((o) => [
+        o.empresa?.razaoSocial ?? "—",
+        o.titulo,
+        o.status,
+        o.potencialOportunidade
+          ? `R$ ${Number(o.potencialOportunidade).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`
+          : "—",
+        o.responsavel?.nome ?? "—",
+        o.pessoa?.nome ?? "—",
+        o.pessoa?.whatsapp ?? o.pessoa?.telefone ?? "—",
+      ]);
+      return {
+        titulo: titulo ?? "Oportunidades Mais Quentes — Prioridade de Fechamento",
+        tipoGrafico: "bar",
+        labels: statusLabels,
+        datasets: [{ label: "Oportunidades Quentes", data: statusData, backgroundColor: gerarCores(statusLabels.length) }],
+        descricao: `${quentes.length} oportunidades quentes ativas · Potencial total: R$ ${Math.round(totalPotencial / 1000).toLocaleString("pt-BR")} mil`,
+        colunas,
+        tabela,
+        conclusoes: [
+          `${quentes.length} oportunidades estão classificadas como QUENTE e merecem atenção imediata do time comercial.`,
+          `Potencial total de fechamento: R$ ${Math.round(totalPotencial / 1000).toLocaleString("pt-BR")} mil.`,
+          quentes.length > 0
+            ? `Oportunidade de maior valor: ${quentes[0].titulo} (${quentes[0].empresa?.razaoSocial ?? "—"}).`
+            : "Nenhuma oportunidade quente no momento.",
+        ],
+        recomendacoes: [
+          "Entre em contato com todas as oportunidades quentes dentro de 24 horas.",
+          "Priorize as que já têm proposta enviada — estão mais próximas do fechamento.",
+          "Para oportunidades sem proposta, agende uma visita ou reunião ainda esta semana.",
+          "Registre o próximo passo de cada oportunidade no CRM para manter o pipeline vivo.",
+        ],
+        periodo: new Date().toLocaleDateString("pt-BR"),
+        tipoSaida: (tipoSaida as any) ?? "pdf",
       };
     }
 

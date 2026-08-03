@@ -20,7 +20,7 @@ const publicRoutes = [
   "/api/email/processar",
 ];
 
-const publicRoutePrefixes = ["/api/webhook/whatsapp/contexto/", "/api/agent/"];
+const publicRoutePrefixes = ["/api/webhook/whatsapp/contexto/", "/api/agent/", "/api/cron/"];
 
 export default auth((request) => {
   const { pathname } = request.nextUrl;

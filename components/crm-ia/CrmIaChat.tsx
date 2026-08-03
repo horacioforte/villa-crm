@@ -230,14 +230,20 @@ export function CrmIaChat() {
       day: "2-digit", month: "long", year: "numeric",
     });
 
+    // Detecta se tabela é larga (>5 colunas) para ajustar layout
+    const numColunas = rel.colunas?.length ?? 0;
+    const tabelaLarga = numColunas > 5;
+
     // Tabela de dados HTML
     const tabelaHtml = rel.tabela && rel.colunas
       ? `<div class="card">
           <h2>Dados Detalhados</h2>
-          <table>
+          <div class="table-wrap">
+          <table class="${tabelaLarga ? "table-wide" : ""}">
             <thead><tr>${rel.colunas.map((c) => `<th>${c}</th>`).join("")}</tr></thead>
             <tbody>${rel.tabela.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody>
           </table>
+          </div>
         </div>`
       : rel.labels.length > 0
         ? `<div class="card">
@@ -275,7 +281,7 @@ export function CrmIaChat() {
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6fa;color:#1A2E5A;min-height:100vh}
-    .page{max-width:900px;margin:0 auto;padding:40px 32px}
+    .page{max-width:${tabelaLarga ? "1200px" : "900px"};margin:0 auto;padding:40px 32px}
     .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;padding-bottom:20px;border-bottom:3px solid #1A2E5A}
     .logo-wrap{display:flex;flex-direction:column}
     .logo{font-size:24px;font-weight:900;letter-spacing:-0.5px;color:#1A2E5A}
@@ -290,19 +296,31 @@ export function CrmIaChat() {
     .summary-row{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
     .summary-item{background:#F4F6FA;border-radius:8px;padding:10px 16px;font-size:12px;color:#374151}
     .summary-item strong{display:block;font-size:18px;color:#1A2E5A;margin-bottom:2px}
-    table{width:100%;border-collapse:collapse;font-size:13px}
+    .table-wrap{overflow-x:auto;width:100%}
+    table{width:100%;border-collapse:collapse;font-size:${tabelaLarga ? "11px" : "13px"}}
+    table.table-wide{min-width:900px}
     thead tr{background:#1A2E5A;color:white}
-    th{padding:10px 12px;text-align:left;font-weight:600}
-    td{padding:8px 12px;border-bottom:1px solid #E8EEFB;color:#374151}
+    th{padding:${tabelaLarga ? "8px 8px" : "10px 12px"};text-align:left;font-weight:600;white-space:nowrap}
+    td{padding:${tabelaLarga ? "7px 8px" : "8px 12px"};border-bottom:1px solid #E8EEFB;color:#374151;vertical-align:top}
     tr:last-child td{border-bottom:none}
-    tr:hover td{background:#F9FAFB}
+    tr:nth-child(even) td{background:#FAFBFF}
+    tr:hover td{background:#F0F4FF}
     .total-row td{font-weight:700;background:#EEF2FF;color:#1A2E5A;border-top:2px solid #C7D2FE}
     ul.insights, ol.recs{padding-left:20px;display:flex;flex-direction:column;gap:8px}
     li{font-size:14px;color:#374151;line-height:1.5}
     .btn{display:inline-flex;align-items:center;gap:8px;background:#1A2E5A;color:white;border:none;padding:12px 28px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:24px}
     .btn:hover{background:#1E4FAB}
     .footer{text-align:center;font-size:11px;color:#98A2B3;margin-top:24px;padding-top:16px;border-top:1px solid #E8EEFB}
-    @media print{body{background:white}.btn{display:none}.page{padding:20px}canvas{max-height:350px!important}}
+    @media print{
+      body{background:white}
+      .btn{display:none}
+      .page{padding:16px;max-width:100%}
+      canvas{max-height:300px!important}
+      ${tabelaLarga ? "@page{size:A4 landscape;margin:12mm}" : "@page{size:A4 portrait;margin:15mm}"}
+      .table-wrap{overflow:visible}
+      table{font-size:9px}
+      th,td{padding:5px 6px}
+    }
   </style>
 </head>
 <body>

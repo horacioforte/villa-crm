@@ -168,7 +168,7 @@ export async function investigarDossie(
       const response = await (client as any).beta.messages.create(
         {
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 1024,
+          max_tokens: 2048,
           betas: ["web-search-2025-03-05"],
           tools: [
             {
@@ -202,14 +202,33 @@ export async function investigarDossie(
         return resultado;
       }
 
-      // Parse do JSON
-      const jsonMatch = textoFinal.match(/\{[\s\S]*\}/);
+      // Parse do JSON — remove markdown fences se presentes
+      let textoJson = textoFinal.trim();
+      const mdMatch = textoJson.match(/```(?:json)?\s*([\s\S]*?)```/s);
+      if (mdMatch) textoJson = mdMatch[1].trim();
+
+      const jsonMatch = textoJson.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         resultado.resumoInvestigacao = "Resposta sem JSON válido.";
         return resultado;
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      // Tenta parsear; se falhar por truncamento, busca o último } válido
+      const tentarParsear = (texto: string): Record<string, unknown> | null => {
+        try { return JSON.parse(texto) as Record<string, unknown>; } catch { /* continua */ }
+        let pos = texto.lastIndexOf("}");
+        while (pos > 0) {
+          try { return JSON.parse(texto.slice(0, pos + 1)) as Record<string, unknown>; } catch { /* continua */ }
+          pos = texto.lastIndexOf("}", pos - 1);
+        }
+        return null;
+      };
+
+      const parsed = tentarParsear(jsonMatch[0]);
+      if (!parsed) {
+        resultado.resumoInvestigacao = "JSON inválido mesmo após tentativa de recuperação.";
+        return resultado;
+      }
 
       resultado.achou               = parsed.achou === true;
       resultado.campos              = parsed.campos  ?? {};

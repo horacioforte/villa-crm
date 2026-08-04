@@ -9,6 +9,7 @@ import {
   Calendar,
   CalendarCheck,
   Check,
+  Clock,
   FileText,
   Hammer,
   Loader2,
@@ -753,6 +754,124 @@ export function OportunidadeDetalhe({
                     ))}
                   </div>
                 )}
+              </section>
+
+              <Separator />
+
+              {/* LINHA DO TEMPO COMPLETA */}
+              <section className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl bg-[#E8EEFB] p-2 text-[#1E4FAB]">
+                    <Clock className="size-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[#1A2E5A]">Linha do tempo</h3>
+                    <p className="mt-1 text-sm text-[#667085]">
+                      Tudo que aconteceu nesta oportunidade, em ordem cronológica.
+                    </p>
+                  </div>
+                </div>
+
+                {(() => {
+                  type TLItem =
+                    | { kind: "tarefa"; date: Date; id: string; titulo: string; tipo: string; status: string; resultado: string | null; responsavel: string | null }
+                    | { kind: "contato"; date: Date; id: string; tipo: TipoContato; resumo: string; detalhes: string | null; usuario: string | null };
+
+                  const tarefaItems: TLItem[] = tarefas.map((t) => ({
+                    kind: "tarefa" as const,
+                    date: new Date(t.dataVencimento),
+                    id: t.id,
+                    titulo: t.titulo,
+                    tipo: t.tipo,
+                    status: t.status,
+                    resultado: t.resultado ?? null,
+                    responsavel: t.responsavel?.nome ?? null,
+                  }));
+
+                  const contatoItems: TLItem[] = historicos.map((h) => ({
+                    kind: "contato" as const,
+                    date: new Date(h.dataContato),
+                    id: h.id,
+                    tipo: h.tipo,
+                    resumo: h.resumo,
+                    detalhes: h.detalhes,
+                    usuario: h.usuario?.nome ?? null,
+                  }));
+
+                  const all = [...tarefaItems, ...contatoItems].sort(
+                    (a, b) => b.date.getTime() - a.date.getTime(),
+                  );
+
+                  if (all.length === 0) {
+                    return <p className="text-sm text-[#667085]">Nenhum evento registrado ainda.</p>;
+                  }
+
+                  return (
+                    <div className="relative space-y-0 pl-4">
+                      <div className="absolute left-[7px] top-2 bottom-2 w-px bg-[#D7DEEA]" />
+                      {all.map((item) => {
+                        const dotColor =
+                          item.kind === "contato"
+                            ? "bg-purple-400"
+                            : item.status === "CONCLUIDA"
+                              ? "bg-emerald-500"
+                              : item.status === "ATRASADA"
+                                ? "bg-red-500"
+                                : "bg-blue-400";
+
+                        return (
+                          <div key={`${item.kind}-${item.id}`} className="relative flex gap-3 pb-3">
+                            <div className={`absolute -left-[9px] top-2 size-3 rounded-full border-2 border-white ${dotColor} flex-shrink-0`} />
+                            <div className="flex-1 rounded-2xl border border-[#D7DEEA] bg-white p-3">
+                              {item.kind === "tarefa" ? (
+                                <>
+                                  <div className="flex flex-wrap items-center justify-between gap-1">
+                                    <span className="text-xs font-semibold text-[#1E4FAB]">
+                                      {(TIPO_CONFIG as Record<string, { emoji: string; label: string } | undefined>)[item.tipo]?.emoji}{" "}
+                                      {(TIPO_CONFIG as Record<string, { emoji: string; label: string } | undefined>)[item.tipo]?.label ?? item.tipo}
+                                    </span>
+                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                      item.status === "CONCLUIDA" ? "bg-emerald-100 text-emerald-700"
+                                      : item.status === "ATRASADA" ? "bg-red-100 text-red-700"
+                                      : "bg-blue-100 text-blue-700"
+                                    }`}>
+                                      {item.status === "CONCLUIDA" ? "✅ Concluída" : item.status === "ATRASADA" ? "⚠️ Atrasada" : "⏳ Pendente"}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-sm font-medium text-[#1A2E5A]">{item.titulo}</p>
+                                  {item.resultado ? (
+                                    <p className="mt-1 text-xs text-[#667085]">Resultado: {item.resultado}</p>
+                                  ) : null}
+                                  <p className="mt-1 text-xs text-[#667085]">
+                                    {item.responsavel ?? "Sem responsável"} · {format(item.date, "dd/MM/yyyy", { locale: ptBR })}
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-semibold text-purple-600">
+                                      {TIPO_CONTATO_LABELS[item.tipo]}
+                                    </span>
+                                    <span className="text-xs text-[#667085]">
+                                      {format(item.date, "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-sm font-medium text-[#1A2E5A]">{item.resumo}</p>
+                                  {item.detalhes ? (
+                                    <p className="mt-1 text-xs text-[#667085]">{item.detalhes}</p>
+                                  ) : null}
+                                  {item.usuario ? (
+                                    <p className="mt-1 text-xs text-[#667085]">por {item.usuario}</p>
+                                  ) : null}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </section>
 
               {oportunidade.motivoPerda ? (

@@ -1,0 +1,222 @@
+[
+  {
+    "id": "42942c18-b682-4db5-9514-929fc1ec78bd",
+    "checksum": "036da6e990f4819d512a0d7efe6fecb2833e6e533ef698398402aa5e8b62837e",
+    "finished_at": "2026-05-26T00:59:41.383Z",
+    "migration_name": "20260524203500_init",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-05-26T00:59:33.418Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "da6d47b9-8ab3-4d80-8d0d-04afd122460c",
+    "checksum": "0ea9f8de2b9ab2a582c0c4094e76152e14008953c1b762eac1b9250274ef3abe",
+    "finished_at": "2026-05-26T00:59:46.701Z",
+    "migration_name": "20260524211800_secure_foundation",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-05-26T00:59:41.626Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "61daede2-f65b-414b-bd83-466798ff1149",
+    "checksum": "c7f1430148177720ff767c2e6d6c29163d974795849deb4e36fb6a52707ef235",
+    "finished_at": "2026-05-28T13:10:59.603Z",
+    "migration_name": "20260527220500_add_propostas_comerciais",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-05-28T13:10:57.084Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "b6f1fe28-2664-4995-be85-82da04b7f6cc",
+    "checksum": "2789264f65e2559bb32a3989cbfc734bd76a8014f511073b25c102940467af9d",
+    "finished_at": "2026-05-28T13:11:08.247Z",
+    "migration_name": "20260527224500_add_proposta_governanca",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-05-28T13:10:59.919Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "dd6da562-2a42-4f53-845b-33a97f6116b3",
+    "checksum": "b056a1896d03ed3145ee9489c925908fe9414c1979b9b83138cc376187d0b9fb",
+    "finished_at": "2026-05-29T13:50:57.370Z",
+    "migration_name": "20260529105000_add_hora_extra_to_propostas",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-05-29T13:50:56.248Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "2cd9e482-8bd1-481e-9432-1179fdb28771",
+    "checksum": "018f152ef51dbbde86c00edc4526904fd1ca4c516b0a152d19d9c44b6f0db4d7",
+    "finished_at": "2026-05-30T12:11:37.827Z",
+    "migration_name": "20260530121136_add_temperatura_oportunidade",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-05-30T12:11:37.055Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "b91d653e-aa4e-44d2-95cd-a018c8142bd4",
+    "checksum": "e46d4968386aff799320fc048b433dc658accc6f72da69d3962d770d855397f8",
+    "finished_at": "2026-05-30T15:55:01.836Z",
+    "migration_name": "20260530155457_add_tarefas",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-05-30T15:54:58.640Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "c38ec846-d65f-41a1-9a29-b3412733d380",
+    "checksum": "e22a9ed6d00cdb549703b0530411386c28ed2efcea6f55c4345f256b8b04ae1d",
+    "finished_at": "2026-05-31T12:42:53.420Z",
+    "migration_name": "20260531123500_rename_valor_pipeline",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-05-31T12:42:52.114Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "2aea4a0b-5b75-4ee8-ad62-5d7670b5df45",
+    "checksum": "6c056c76a3b338ca814d4f9a7e4f4b2760c04a4d7aa28ca090956da404b87cc5",
+    "finished_at": "2026-05-31T20:50:21.157Z",
+    "migration_name": "20260531203500_tipo_negocio_pipeline_origem",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-05-31T20:50:19.519Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "3301e773-c84d-4bfd-b451-5274e747a4dd",
+    "checksum": "0b672e6d0e158cf825bde9f3094ca31b052fbeeb921c1d7fc95472a0b7e0be69",
+    "finished_at": "2026-06-01T00:13:13.179Z",
+    "migration_name": "20260531210800_add_cadencia_comercial",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-01T00:13:12.416Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "d9e2383f-4dd3-4791-8048-f264c9a421c9",
+    "checksum": "bc983816bdc6604dd455d0178e04d91b414540ab706193639d5f4e7243db5485",
+    "finished_at": "2026-06-01T18:06:17.808Z",
+    "migration_name": "20260601143000_add_feedback",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-01T18:06:16.090Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "1f70464b-d893-46c3-a962-9dc21cc64515",
+    "checksum": "00879e57569bc7abc83661a0ebb9e0e6615e9ecf59a2f0e15d5dc27f59b67872",
+    "finished_at": "2026-06-01T18:56:34.809Z",
+    "migration_name": "20260601155000_add_equipamento_precificacao_m3",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-01T18:56:34.134Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "80435fa5-da45-4eb2-bcf6-b85b37d594fa",
+    "checksum": "79726bcada00ccd4b10e476c163d4b6fdea5e3a4c0bc1c6ee3bcd219c4cc09b0",
+    "finished_at": "2026-06-01T19:32:54.318Z",
+    "migration_name": "20260601163000_add_proposta_precificacao_m3",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-01T19:32:53.607Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "e1900fc4-7a7c-41c7-95c3-935455951870",
+    "checksum": "d4175d5435199c50fc26fe4c60f95e9cf0e5f3d491774d3e0e5dbde5e186725d",
+    "finished_at": "2026-06-02T10:41:48.366Z",
+    "migration_name": "20260602073000_add_proposta_itens",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-02T10:41:47.181Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "58b6f6c3-efa7-4d11-ba5c-494b58d52d07",
+    "checksum": "bfac661263ba5500a54635375352bfedcfacb41a56c06f9944387df3abedd3bd",
+    "finished_at": "2026-06-03T18:11:51.048Z",
+    "migration_name": "20260603103500_add_proposta_grupos",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-03T18:11:49.250Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "21e28a1f-d979-476c-895f-e245041b247e",
+    "checksum": "af4dccef9a685cca559270646f62034a883db5a4c937f852ab93642e325f36da",
+    "finished_at": "2026-06-06T12:57:19.466Z",
+    "migration_name": "20260606124500_add_agente_config",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-06T12:57:18.687Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "d9d4cd6e-2bfa-4b82-885a-66f7b8928eac",
+    "checksum": "d6e551493defbe4aa04badf5c4a656d0fa8d8cb3e2ee85001f342b722d72ed67",
+    "finished_at": "2026-06-23T01:34:22.930Z",
+    "migration_name": "20260622120000_central_atendimento",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-23T01:34:18.444Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "e9420dda-60b0-47c0-9e26-81677f650f07",
+    "checksum": "3db71ce02a72904380e50ab06460bf51437bb209b78c36ef8552fa21ddee4afb",
+    "finished_at": "2026-06-23T03:18:22.736Z",
+    "migration_name": "20260623100000_conversa_transferencia",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-23T03:18:20.666Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "34049975-7896-42c2-a29c-275e0c479e44",
+    "checksum": "1c005ed9462fee5dddf2235c61ea6ee24d8efb4f7df89a61b674b7ceb7673142",
+    "finished_at": "2026-06-23T12:50:25.771Z",
+    "migration_name": "20260623210000_prospect_campanha",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-23T12:50:22.820Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "caba5fb2-5ba2-4a96-a862-1f1b71817ff3",
+    "checksum": "2509ff695df810c90a22bc4d463b577ff22ea80908760f5c66be56db0be46d5d",
+    "finished_at": "2026-06-23T17:12:31.250Z",
+    "migration_name": "20260623220000_campanha_mensagem_inicial",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-23T17:12:30.515Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "d4771f81-116a-4970-af23-db425afd007a",
+    "checksum": "aad63d04943f16b1633c285d02f1404f398554b2edc9a4aa1fda429df870af40",
+    "finished_at": "2026-06-23T18:18:35.138Z",
+    "migration_name": "20260623230000_joao_outbound_oportunidade",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-06-23T18:18:34.222Z",
+    "applied_steps_count": 1
+  },
+  {
+    "id": "c4dd6ffe-9d87-4cb1-bca7-3e58c426f2ac",
+    "checksum": "739964f04d5fd49d356220f85007406768a0c3a96b18e2d74a4ea29a86e2f27a",
+    "finished_at": "2026-07-09T00:46:39.486Z",
+    "migration_name": "20260708000000_central_inteligencia",
+    "logs": null,
+    "rolled_back_at": null,
+    "started_at": "2026-07-09T00:46:37.723Z",
+    "applied_steps_count": 1
+  }
+]

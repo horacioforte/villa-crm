@@ -242,7 +242,7 @@ function BadgeTipoAtualizacao({ tipo }: { tipo: string }) {
 
 // ─── Aba ─────────────────────────────────────────────────────────────────────
 
-type Aba = "resumo" | "decisores" | "empresas" | "timeline" | "inteligencia";
+type Aba = "resumo" | "decisores" | "empresas" | "timeline" | "inteligencia" | "investigacoes";
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
@@ -529,11 +529,12 @@ export default function DossieDetalhe() {
       <div className="bg-white border-b px-4 sticky top-[57px] z-10">
         <div className="flex overflow-x-auto">
           {([
-            ["resumo",       "Resumo Executivo"],
-            ["decisores",    `Decisores (${dossie.decisores.length})`],
-            ["empresas",     `Empresas (${dossie.empresasRelacionadas.length})`],
-            ["timeline",     "Timeline"],
-            ["inteligencia", "Inteligência"],
+            ["resumo",         "Resumo Executivo"],
+            ["decisores",      `Decisores (${dossie.decisores.length})`],
+            ["empresas",       `Empresas (${dossie.empresasRelacionadas.length})`],
+            ["timeline",       "Timeline"],
+            ["inteligencia",   "Inteligência"],
+            ["investigacoes",  "🤖 Investigações"],
           ] as [Aba, string][]).map(([aba, label]) => (
             <button key={aba} onClick={() => setAbaAtiva(aba)}
               className={`px-3 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors shrink-0 ${
@@ -973,6 +974,75 @@ export default function DossieDetalhe() {
 
           </div>
         )}
+
+        {/* ────────────────────────────────── INVESTIGAÇÕES ─── */}
+        {abaAtiva === "investigacoes" && (() => {
+          const agenteJoao = (a: Atualizacao) =>
+            !!(a.agente?.startsWith("joao"));
+
+          const investigacoes = dossie.atualizacoes.filter(agenteJoao);
+
+          const ordenadas = [...investigacoes].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+
+          const corAgente = (agente?: string | null) => {
+            if (agente === "joao-claude") return { bg: "bg-violet-50", border: "border-violet-200", badge: "bg-violet-100 text-violet-700", label: "Claude Haiku" };
+            if (agente === "joao-gpt4o")  return { bg: "bg-emerald-50", border: "border-emerald-200", badge: "bg-emerald-100 text-emerald-700", label: "GPT-4o" };
+            return { bg: "bg-slate-50", border: "border-slate-200", badge: "bg-slate-100 text-slate-600", label: agente ?? "João" };
+          };
+
+          return (
+            <div className="space-y-3 max-w-2xl">
+              {ordenadas.length === 0 ? (
+                <div className="text-center py-14">
+                  <Brain className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-slate-400">Nenhuma investigação registrada ainda.</p>
+                  <p className="text-xs text-slate-300 mt-1">João investigará nas próximas segundas e quartas-feiras.</p>
+                </div>
+              ) : (
+                ordenadas.map(a => {
+                  const cores = corAgente(a.agente);
+                  const isNoticia = a.tipo === "NOTICIA_ENCONTRADA";
+                  const isDecisor = a.tipo === "DECISOR_ENCONTRADO";
+                  return (
+                    <div key={a.id} className={`rounded-xl border p-4 ${cores.bg} ${cores.border}`}>
+                      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cores.badge}`}>
+                            {cores.label}
+                          </span>
+                          {isNoticia && <span className="text-xs text-cyan-700 font-semibold bg-cyan-100 px-2 py-0.5 rounded-full">📰 Notícia</span>}
+                          {isDecisor && <span className="text-xs text-purple-700 font-semibold bg-purple-100 px-2 py-0.5 rounded-full">👤 Decisor</span>}
+                          {!isNoticia && !isDecisor && <span className="text-xs text-slate-600 font-semibold bg-slate-200 px-2 py-0.5 rounded-full">📋 Relatório</span>}
+                        </div>
+                        <span className="text-xs text-slate-400">{formatarDataHora(a.createdAt)}</span>
+                      </div>
+
+                      <p className="text-sm font-bold text-slate-800 mb-1.5 leading-snug">
+                        {a.titulo.replace(/^\[joao-\w+\]\s*/i, "")}
+                      </p>
+
+                      <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">
+                        {a.conteudo}
+                      </p>
+
+                      {a.link && (
+                        <a href={a.link} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-2">
+                          Ver fonte <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      {!a.link && a.fonte && (
+                        <p className="text-xs text-slate-400 mt-2">Fonte: {a.fonte}</p>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          );
+        })()}
 
       </div>
     </div>

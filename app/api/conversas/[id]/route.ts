@@ -29,8 +29,48 @@ export async function GET(
         },
       },
       atendidoPor: { select: { nome: true } },
-      pessoa: { select: { id: true, nome: true } },
+      pessoa: { select: { id: true, nome: true, telefone: true, cargo: true } },
       empresa: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
+      oportunidade: {
+        select: {
+          id: true,
+          titulo: true,
+          status: true,
+          potencialOportunidade: true,
+          valorContrato: true,
+          probabilidade: true,
+          tarefas: {
+            orderBy: { dataVencimento: "asc" },
+            take: 5,
+            select: {
+              id: true,
+              titulo: true,
+              status: true,
+              prioridade: true,
+              dataVencimento: true,
+            },
+          },
+          propostas: {
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: {
+              id: true,
+              numeroProposta: true,
+              status: true,
+            },
+          },
+          historicos: {
+            orderBy: { dataContato: "desc" },
+            take: 5,
+            select: {
+              id: true,
+              resumo: true,
+              tipo: true,
+              dataContato: true,
+            },
+          },
+        },
+      },
     },
   });
 

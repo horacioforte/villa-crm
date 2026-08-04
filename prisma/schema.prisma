@@ -45,6 +45,7 @@ enum StatusObra {
 
 enum TipoOperacao {
   LOCACAO
+  VENDA
   EQUIPAMENTO_USADO
 }
 
@@ -249,6 +250,9 @@ model Usuario {
 
   // Central de Inteligência — nunca remover
   dossiesAssumidos             DossieComercial[]         @relation("DossieAssumidoPor")
+
+  // Fase 2 — Central de Atendimento WhatsApp
+  canaisWhatsappResponsavel    CanalWhatsapp[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -759,6 +763,9 @@ model Tarefa {
   whatsappMessageId     String?
   googleCalendarEventId String?
 
+  // Fase 2 — conversas que hoje exibem/referenciam esta tarefa (não são donas do histórico)
+  conversasComoAtual Conversa[] @relation("ConversaTarefaAtual")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1031,6 +1038,7 @@ enum AutorMensagem {
   IA
   HUMANO
   SISTEMA
+  CLIENTE
 }
 
 enum StatusMensagem {
@@ -1038,6 +1046,60 @@ enum StatusMensagem {
   ENTREGUE
   LIDA
   ERRO
+  PENDENTE
+  RECEBIDA
+}
+
+// ─────────────────────────────────────────────
+// CANAIS WHATSAPP (Fase 2 — Central de Atendimento) — nunca remover, só acrescentar
+// ─────────────────────────────────────────────
+
+// Estado persistente de processamento (Etapa 3 — fecha o risco de mensagem recebida
+// e abandonada por interrupção do processamento síncrono, sem depender de heurística).
+enum ProcessamentoMensagemStatus {
+  NAO_APLICAVEL       // mensagens de saída, ou entrada em canal sem agente de IA
+  PENDENTE            // entrada recebida, aguardando início do processamento
+  PROCESSANDO         // processamento em andamento — adquirido atomicamente
+  PROCESSADA          // IA concluída + envio aceito pela Meta + CRM atualizado
+  ERRO_PROCESSAMENTO  // qualquer falha em qualquer etapa do processamento
+}
+
+enum CanalWhatsappTipo {
+  META_CLOUD_API
+  EVOLUTION
+  CHATWOOT_MIRROR
+}
+
+model CanalWhatsapp {
+  id                  String            @id @default(cuid())
+  nome                String
+  tipo                CanalWhatsappTipo
+  instanceName        String            @unique
+  phoneNumberId       String?           @unique
+  businessAccountId   String?
+  displayPhoneNumber  String?
+
+  // Nomes de variaveis de ambiente (nunca o segredo em si) — resolvidos
+  // apenas via allowlist fixa em lib/whatsapp/env-allowlist.ts
+  accessTokenEnvVar   String?
+  verifyTokenEnvVar   String?
+  appSecretEnvVar     String?           // App Secret da Meta — usado so para validar X-Hub-Signature-256
+
+  ativo               Boolean           @default(true)
+  responsavelPadraoId String?
+  responsavelPadrao   Usuario?          @relation(fields: [responsavelPadraoId], references: [id], onDelete: SetNull)
+  agenteIA            String?
+
+  ultimoWebhookEm     DateTime?
+  ultimoErro          String?           @db.Text
+
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  conversas Conversa[] @relation("ConversaCanal")
+  mensagens Mensagem[] @relation("MensagemCanal")
+
+  @@index([ativo])
 }
 
 model Conversa {
@@ -1063,6 +1125,18 @@ model Conversa {
   atendidoPorId  String?
   atendidoPor    Usuario? @relation("ConversaAtendente", fields: [atendidoPorId], references: [id], onDelete: SetNull)
 
+  // Fase 2 — canal WhatsApp de origem/atual da conversa
+  // onDelete Restrict: canal usado nunca pode ser apagado, só desativado (ativo=false)
+  canalWhatsappId        String?
+  canalWhatsapp          CanalWhatsapp? @relation("ConversaCanal", fields: [canalWhatsappId], references: [id], onDelete: Restrict)
+
+  // Fase 2 — tarefa que hoje referencia/exibe esta conversa (não é dono do histórico)
+  tarefaAtualId          String?
+  tarefaAtual            Tarefa? @relation("ConversaTarefaAtual", fields: [tarefaAtualId], references: [id], onDelete: SetNull)
+
+  iaPausada              Boolean  @default(false)
+  atendimentoHumanoAtivo Boolean  @default(false)
+
   ultimaMensagemEm DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -1077,6 +1151,8 @@ model Conversa {
   @@index([oportunidadeId])
   @@index([atendidoPorId])
   @@index([ultimaMensagemEm])
+  @@index([canalWhatsappId])
+  @@index([tarefaAtualId])
 }
 
 model Mensagem {
@@ -1085,7 +1161,7 @@ model Mensagem {
   direcao      DirecaoMensagem
   autor        AutorMensagem   @default(IA)
   status       StatusMensagem  @default(ENVIADA)
-  waMessageId  String?         // ID retornado pela Evolution API
+  waMessageId  String?         // ID retornado pela Evolution API — legado, mantido por compatibilidade
   mimeType     String?         // para arquivos/áudio
   mediaUrl     String?
 
@@ -1096,12 +1172,42 @@ model Mensagem {
   autorUsuarioId String?
   autorUsuario   Usuario? @relation("MensagemAutor", fields: [autorUsuarioId], references: [id], onDelete: SetNull)
 
+  // Fase 2 — idempotência e auditoria
+  // onDelete Restrict: evita SetNull deixar externalMessageId orfao (conflitaria com o CHECK
+  // mensagem_external_id_requer_canal); canal usado nunca e apagado, so desativado
+  canalWhatsappId   String?
+  canalWhatsapp     CanalWhatsapp? @relation("MensagemCanal", fields: [canalWhatsappId], references: [id], onDelete: Restrict)
+  externalMessageId String?        // ID do provedor (wamid.* na Meta) — unicidade é composta com canalWhatsappId, ver @@unique abaixo
+  messageType       String?        // text|image|audio|video|document|location|contact|template|interactive|unsupported
+  replyToMensagemId String?
+  replyTo           Mensagem?  @relation("MensagemReply", fields: [replyToMensagemId], references: [id], onDelete: SetNull)
+  replies           Mensagem[] @relation("MensagemReply")
+  errorCode         String?
+  errorMessage      String?    @db.Text
+  rawPayload        Json?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  receivedAt        DateTime?
+
+  // Estado persistente de processamento (Etapa 3)
+  processamentoStatus       ProcessamentoMensagemStatus @default(NAO_APLICAVEL)
+  processamentoErroCodigo   String?
+  processamentoErro         String?   @db.Text
+  processamentoTentativas   Int       @default(0)
+  processamentoAtualizadoEm DateTime?
+  processadaEm              DateTime?
+
   createdAt DateTime @default(now())
 
   @@index([conversaId])
   @@index([conversaId, createdAt])
   @@index([autorUsuarioId])
   @@index([waMessageId])
+  @@index([canalWhatsappId])
+  @@index([externalMessageId])
+  @@index([replyToMensagemId])
+  @@index([processamentoStatus, processamentoAtualizadoEm])
+  @@unique([canalWhatsappId, externalMessageId])
 }
 
 // Histórico de transferências de conversa entre atendentes

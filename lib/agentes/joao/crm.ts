@@ -480,6 +480,7 @@ export async function processarRespostaJoao({
   interesse,
   confidenceScore = 0,
   gatilho = "nenhum",
+  salvarMensagens = true,
 }: {
   telefone: string;
   nomeContato: string;
@@ -488,6 +489,14 @@ export async function processarRespostaJoao({
   interesse: boolean;
   confidenceScore?: number;
   gatilho?: string;
+  /**
+   * ACRESCENTADO (Fase 2 — fluxo V2): quando false, pula salvarMensagensJoao().
+   * Usado pelo webhook V2, que já persiste a mensagem de entrada e saída via
+   * lib/whatsapp/meta-client.ts com canalWhatsappId/externalMessageId corretos —
+   * chamar salvarMensagensJoao() também duplicaria o histórico. O fluxo V1 (padrão,
+   * sem passar este parâmetro) continua salvando exatamente como antes.
+   */
+  salvarMensagens?: boolean;
 }) {
   // Garante que existe um prospect (pode ter recebido resposta sem cadastro prévio)
   const prospectId = await encontrarOuCriarProspect({ telefone, nomeContato });
@@ -534,8 +543,11 @@ export async function processarRespostaJoao({
     });
   }
 
-  // Salva na tabela Conversa/Mensagem para o contexto funcionar
-  await salvarMensagensJoao({ telefone, nomeContato, textoCliente: textoCiente, textoJoao });
+  // Salva na tabela Conversa/Mensagem para o contexto funcionar (fluxo V1).
+  // Fluxo V2 já persiste isso via lib/whatsapp/meta-client.ts — ver salvarMensagens acima.
+  if (salvarMensagens) {
+    await salvarMensagensJoao({ telefone, nomeContato, textoCliente: textoCiente, textoJoao });
+  }
 
   return { prospectId, interesse, confidenceScore, oportunidadeId };
 }

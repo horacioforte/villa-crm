@@ -3,8 +3,19 @@
 // Handler unificado Meta Cloud API — recebe webhooks de TODOS os números Meta (Maria, João etc.)
 // e roteia para o agente correto baseado no phone_number_id da mensagem.
 // Substituiu a configuração de webhook individual por número no Meta Developer Console.
+//
+// Etapa 4 (roteador unificado por CanalWhatsapp) — ACRESCENTADO: branch por feature
+// flag WHATSAPP_META_ROUTER_V2.
+//   - "false" ou ausente (padrão): fluxo V1 abaixo, roteamento hardcoded por
+//     MARIA_META_PHONE_NUMBER_ID/META_JOAO_PHONE_NUMBER_ID — SEM NENHUMA alteração de
+//     comportamento em relação ao que já rodava em produção.
+//   - "true": delega inteiramente para lib/whatsapp/meta-router-v2.ts, que identifica
+//     o canal por CanalWhatsapp.phoneNumberId (banco), nunca por comparação de env var.
+// Nunca os dois caminhos executam para o mesmo evento — a checagem da flag decide um
+// único branch antes de qualquer processamento começar.
 
 import { NextRequest, NextResponse } from "next/server";
+import { processarRoteadorMetaV2 } from "@/lib/whatsapp/meta-router-v2";
 
 export const maxDuration = 90;
 
@@ -32,8 +43,18 @@ export async function GET(request: NextRequest) {
 }
 
 // ─── POST — recebimento de mensagens e roteamento ────────────────────────────
+// Branch único, decidido antes de qualquer leitura do corpo da requisição: V2 se a
+// flag estiver exatamente "true", V1 (legado, inalterado) em qualquer outro caso.
 
 export async function POST(request: NextRequest) {
+  if (process.env.WHATSAPP_META_ROUTER_V2 === "true") {
+    return processarRoteadorMetaV2(request);
+  }
+
+  return processarRoteadorV1(request);
+}
+
+async function processarRoteadorV1(request: NextRequest) {
   let body: Record<string, unknown>;
 
   try {

@@ -3,7 +3,7 @@
 // ARQUIVO: app/conversas/page.tsx
 // REGRA: nunca remover. Apenas acrescentar.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRightLeft,
   Bot,
@@ -17,6 +17,8 @@ import {
 
 import { PageNavigation } from "@/components/layout/PageNavigation";
 import { cn } from "@/lib/utils";
+import { buildMelhorProximaAcao } from "@/lib/conversas/next-action";
+import { getConversaPrioridade, ordenarConversasPorPrioridade } from "@/lib/conversas/prioridade";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +52,53 @@ type Usuario = {
   id: string;
   nome: string;
   email: string;
+};
+
+type TarefaResumo = {
+  id: string;
+  titulo: string;
+  status: string;
+  prioridade: string;
+  dataVencimento: string;
+};
+
+type PropostaResumo = {
+  id: string;
+  numeroProposta: string;
+  status: string;
+};
+
+type HistoricoResumo = {
+  id: string;
+  resumo: string;
+  tipo: string;
+  dataContato: string;
+};
+
+type OportunidadeResumo = {
+  id: string;
+  titulo: string;
+  status: string;
+  potencialOportunidade?: string | number | null;
+  valorContrato?: string | number | null;
+  probabilidade?: number | null;
+  tarefas?: TarefaResumo[];
+  propostas?: PropostaResumo[];
+  historicos?: HistoricoResumo[];
+};
+
+type ConversaContexto = {
+  id: string;
+  empresa?: { id: string; razaoSocial: string | null; nomeFantasia: string | null } | null;
+  pessoa?: { id: string; nome: string | null; telefone: string | null; cargo: string | null } | null;
+  oportunidade?: OportunidadeResumo | null;
+};
+
+type HistoricoRecomendacao = {
+  id: string;
+  acao: string;
+  status: "executado" | "nao-executado";
+  data: string;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -91,11 +140,23 @@ function formatData(iso: string) {
   }).format(d);
 }
 
+function formatCurrency(value?: string | number | null) {
+  if (value === null || value === undefined || value === "") return null;
+  const numero = typeof value === "number" ? value : Number(value);
+  if (Number.isNaN(numero)) return null;
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  }).format(numero);
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function ConversasPage() {
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [conversaAtiva, setConversaAtiva] = useState<Conversa | null>(null);
+  const [conversaContexto, setConversaContexto] = useState<ConversaContexto | null>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -108,6 +169,7 @@ export default function ConversasPage() {
   const [showTransferir, setShowTransferir] = useState(false);
   const [transferindo, setTransferindo] = useState(false);
   const [transferiuPara, setTransferiuPara] = useState<string | null>(null);
+  const [historicoRecomendacoes, setHistoricoRecomendacoes] = useState<HistoricoRecomendacao[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -142,26 +204,44 @@ export default function ConversasPage() {
     carregarConversas();
   }, [carregarConversas]);
 
-  // Carrega mensagens da conversa ativa
-  const carregarMensagens = useCallback(async (conversa: Conversa) => {
-    const resp = await fetch(`/api/conversas/${conversa.id}/mensagens`);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const salvo = window.localStorage.getItem("villa-conversas-historico-recomendacoes");
+    if (salvo) {
+      try {
+        setHistoricoRecomendacoes(JSON.parse(salvo));
+      } catch {
+        window.localStorage.removeItem("villa-conversas-historico-recomendacoes");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("villa-conversas-historico-recomendacoes", JSON.stringify(historicoRecomendacoes));
+  }, [historicoRecomendacoes]);
+
+  // Carrega contexto e mensagens da conversa ativa
+  const carregarDetalhesConversa = useCallback(async (conversa: Conversa) => {
+    const resp = await fetch(`/api/conversas/${conversa.id}`);
     if (resp.ok) {
       const data = await resp.json();
-      setMensagens(data);
+      setMensagens(data.mensagens ?? []);
+      setConversaContexto(data);
       setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }
   }, []);
 
   useEffect(() => {
-    if (conversaAtiva) carregarMensagens(conversaAtiva);
-  }, [conversaAtiva, carregarMensagens]);
+    if (conversaAtiva) carregarDetalhesConversa(conversaAtiva);
+  }, [conversaAtiva, carregarDetalhesConversa]);
 
-  // Auto-refresh mensagens a cada 5s
+  // Auto-refresh contexto e mensagens a cada 5s
   useEffect(() => {
     if (!conversaAtiva) return;
-    const timer = setInterval(() => carregarMensagens(conversaAtiva), 5000);
+    const timer = setInterval(() => carregarDetalhesConversa(conversaAtiva), 5000);
     return () => clearInterval(timer);
-  }, [conversaAtiva, carregarMensagens]);
+  }, [conversaAtiva, carregarDetalhesConversa]);
 
   async function enviarMensagem() {
     if (!texto.trim() || !conversaAtiva || enviando) return;
@@ -187,7 +267,7 @@ export default function ConversasPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversaId: conversaAtiva.id, conteudo: conteudoLocal }),
       });
-      await carregarMensagens(conversaAtiva);
+      await carregarDetalhesConversa(conversaAtiva);
     } catch {
       // mantém a mensagem local mesmo com erro
     } finally {
@@ -228,6 +308,60 @@ export default function ConversasPage() {
       e.preventDefault();
       enviarMensagem();
     }
+  }
+
+  const melhorProximaAcao = useMemo(() => {
+    if (!conversaContexto) {
+      return buildMelhorProximaAcao({
+        tarefasVencidas: 0,
+        propostasAbertas: 0,
+        ultimaMensagemEm: null,
+        ultimaMensagemCliente: false,
+        oportunidadeAtiva: true,
+      });
+    }
+
+    const tarefas = conversaContexto.oportunidade?.tarefas ?? [];
+    const propostas = conversaContexto.oportunidade?.propostas ?? [];
+    const ultimaMensagem = mensagens[mensagens.length - 1];
+    const ultimaMensagemEm = ultimaMensagem ? new Date(ultimaMensagem.createdAt) : null;
+    const ultimaMensagemCliente = Boolean(ultimaMensagem && ultimaMensagem.direcao === "ENTRADA");
+    const oportunidadeAtiva = !["GANHA", "PERDIDA"].includes(conversaContexto.oportunidade?.status ?? "");
+
+    return buildMelhorProximaAcao({
+      tarefasVencidas: tarefas.filter((t) => t.status === "ATRASADA" || t.status === "PENDENTE").length,
+      propostasAbertas: propostas.filter((p) => !["ACEITA", "REJEITADA", "CANCELADA"].includes(p.status)).length,
+      ultimaMensagemEm,
+      ultimaMensagemCliente,
+      oportunidadeAtiva,
+    });
+  }, [conversaContexto, mensagens]);
+
+  useEffect(() => {
+    if (!conversaAtiva || !melhorProximaAcao.acao) return;
+    const chave = `${conversaAtiva.id}:${melhorProximaAcao.acao}`;
+    setHistoricoRecomendacoes((prev) => {
+      const ultimo = prev[prev.length - 1];
+      if (ultimo?.acao === melhorProximaAcao.acao && ultimo?.id === chave) return prev;
+      return [...prev.slice(-4), {
+        id: chave,
+        acao: melhorProximaAcao.acao,
+        status: "nao-executado",
+        data: new Date().toISOString(),
+      }];
+    });
+  }, [conversaAtiva, melhorProximaAcao.acao]);
+
+  function marcarRecomendacao(status: "executado" | "nao-executado") {
+    setHistoricoRecomendacoes((prev) => {
+      if (prev.length === 0) return prev;
+      const atualizados = [...prev];
+      atualizados[atualizados.length - 1] = {
+        ...atualizados[atualizados.length - 1],
+        status,
+      };
+      return atualizados;
+    });
   }
 
   return (
@@ -306,13 +440,14 @@ export default function ConversasPage() {
                   <p className="text-xs">As mensagens chegam via WhatsApp e aparecem aqui automaticamente.</p>
                 </div>
               ) : (
-                conversas.map((c) => {
+                ordenarConversasPorPrioridade(conversas).map((c) => {
                   const instanceInfo =
                     INSTANCE_LABELS[c.instanceName] ?? {
                       label: c.instanceName,
                       cor: "bg-zinc-100 text-zinc-600",
                     };
                   const ultimaMsg = c.mensagens[0];
+                  const prioridadeInfo = getConversaPrioridade(c);
 
                   return (
                     <button
@@ -343,6 +478,9 @@ export default function ConversasPage() {
                         </span>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_LABELS[c.status]?.cor}`}>
                           {STATUS_LABELS[c.status]?.label}
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${prioridadeInfo.cor}`}>
+                          {prioridadeInfo.label}
                         </span>
                         {c.atendidoPor && (
                           <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
@@ -444,6 +582,105 @@ export default function ConversasPage() {
                   </div>
                 </div>
 
+                {/* Próxima ação */}
+                <div className="border-b border-[#D7DEEA] bg-[#F8FAFF] p-4 sm:p-6" onClick={() => setShowTransferir(false)}>
+                  <div className="rounded-3xl border border-[#D7DEEA] bg-white p-4 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#1E4FAB]">
+                      O Brain analisou esta oportunidade e recomenda a seguinte ação:
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-[#1A2E5A]">
+                          {melhorProximaAcao.acao}
+                        </h3>
+                        <p className="mt-2 text-sm text-[#475467]">
+                          {melhorProximaAcao.motivos.join(" · ")}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className={cn(
+                          "rounded-full px-3 py-1 text-xs font-semibold",
+                          melhorProximaAcao.urgencia === "alta" ? "bg-rose-100 text-rose-700" :
+                          melhorProximaAcao.urgencia === "media" ? "bg-amber-100 text-amber-700" :
+                          "bg-emerald-100 text-emerald-700"
+                        )}>
+                          {melhorProximaAcao.urgencia === "alta" ? "Urgência alta" : melhorProximaAcao.urgencia === "media" ? "Urgência média" : "Urgência baixa"}
+                        </span>
+                        <span className={cn(
+                          "rounded-full px-3 py-1 text-xs font-semibold",
+                          melhorProximaAcao.confianca === "alta" ? "bg-emerald-100 text-emerald-700" :
+                          melhorProximaAcao.confianca === "media" ? "bg-amber-100 text-amber-700" :
+                          "bg-zinc-100 text-zinc-600"
+                        )}>
+                          {melhorProximaAcao.confianca === "alta" ? "Confiança alta" : melhorProximaAcao.confianca === "media" ? "Confiança média" : "Confiança baixa"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 rounded-2xl bg-[#F4F6FA] p-3 text-sm text-[#1A2E5A]">
+                      <p className="font-medium">Impacto esperado:</p>
+                      <p className="mt-1 text-[#475467]">{melhorProximaAcao.impacto}</p>
+                      <p className="mt-2 font-medium">Se não agir:</p>
+                      <p className="mt-1 text-[#475467]">{melhorProximaAcao.naoAgir}</p>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => marcarRecomendacao("executado")}
+                        className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#1A2E5A] hover:bg-[#E8EEFB]"
+                      >
+                        📞 Ligar
+                      </button>
+                      <button
+                        onClick={() => marcarRecomendacao("executado")}
+                        className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#1A2E5A] hover:bg-[#E8EEFB]"
+                      >
+                        💬 WhatsApp
+                      </button>
+                      <button
+                        onClick={() => marcarRecomendacao("executado")}
+                        className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#1A2E5A] hover:bg-[#E8EEFB]"
+                      >
+                        📅 Agendar follow-up
+                      </button>
+                      <button
+                        onClick={() => marcarRecomendacao("executado")}
+                        className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#1A2E5A] hover:bg-[#E8EEFB]"
+                      >
+                        📄 Abrir proposta
+                      </button>
+                    </div>
+
+                    <div className="mt-4 rounded-2xl border border-[#D7DEEA] bg-[#F8FAFF] p-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1E4FAB]">Últimas recomendações</p>
+                      <div className="mt-2 space-y-2 text-sm text-[#475467]">
+                        {historicoRecomendacoes.length === 0 ? (
+                          <p className="text-[#98A2B3]">Ainda não há histórico para esta sessão.</p>
+                        ) : (
+                          historicoRecomendacoes.slice().reverse().map((item) => (
+                            <div key={item.id} className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2">
+                              <span>{item.status === "executado" ? "✔" : "✖"} {item.acao}</span>
+                              <span className="text-xs text-[#98A2B3]">{new Date(item.data).toLocaleDateString("pt-BR")}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-3 text-sm text-[#667085]">
+                      {conversaContexto?.empresa?.razaoSocial && (
+                        <span>Cliente: <strong className="text-[#1A2E5A]">{conversaContexto.empresa.razaoSocial}</strong></span>
+                      )}
+                      {conversaContexto?.oportunidade?.status && (
+                        <span>Etapa: <strong className="text-[#1A2E5A]">{conversaContexto.oportunidade.status}</strong></span>
+                      )}
+                      {conversaContexto?.oportunidade?.valorContrato && (
+                        <span>Valor: <strong className="text-[#1A2E5A]">{formatCurrency(conversaContexto.oportunidade.valorContrato)}</strong></span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Mensagens */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-3" onClick={() => setShowTransferir(false)}>
                   {mensagens.length === 0 ? (
@@ -536,8 +773,8 @@ export default function ConversasPage() {
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-[#667085]">
                 <MessageCircle className="size-12 opacity-20" />
-                <p className="text-lg font-semibold">Central de Atendimento</p>
-                <p className="text-sm">Selecione uma conversa para começar a atender.</p>
+                <p className="text-lg font-semibold">Workspace Comercial</p>
+                <p className="text-sm">Selecione uma conversa para começar a trabalhar na próxima ação.</p>
               </div>
             )}
           </div>

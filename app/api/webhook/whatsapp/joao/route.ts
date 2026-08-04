@@ -1,13 +1,21 @@
 // ARQUIVO: app/api/webhook/whatsapp/joao/route.ts
 // REGRA: nunca remover. Apenas acrescentar.
 // Webhook exclusivo do João (outbound) — Meta Cloud API.
-// GET: verificação do webhook pelo Meta.
+// GET: verificação do webhook pelo Meta (compartilhado entre V1 e V2 — mesmo mecanismo).
 // POST: recebimento de mensagens e status updates.
+//
+// Fase 2 (Etapa 3) — ACRESCENTADO: branch por feature flag WHATSAPP_JOAO_V2.
+//   - "false" ou ausente (padrão): fluxo V1 abaixo, sem NENHUMA alteração de
+//     comportamento em relação ao que já rodava em produção.
+//   - "true": delega inteiramente para lib/whatsapp/joao-webhook-v2.ts.
+// Nunca os dois caminhos executam para o mesmo evento — a checagem da flag decide um
+// único branch antes de qualquer processamento começar.
 
 import { NextResponse } from "next/server";
 import { analisarMensagemJoao } from "@/lib/agentes/joao/handler";
 import { getContextoJoao } from "@/lib/agentes/joao/contexto";
 import { enviarWhatsappJoao, processarRespostaJoao } from "@/lib/agentes/joao/crm";
+import { processarWebhookJoaoV2 } from "@/lib/whatsapp/joao-webhook-v2";
 
 export const maxDuration = 90;
 
@@ -62,8 +70,19 @@ export async function GET(request: Request) {
 }
 
 // ─── POST — mensagens recebidas ───────────────────────────────────────────────
+// Branch único, decidido antes de qualquer processamento: V2 se a flag estiver
+// exatamente "true", V1 (legado, inalterado) em qualquer outro caso — inclusive
+// ausente, vazia, ou com qualquer outro valor.
 
 export async function POST(request: Request) {
+  if (process.env.WHATSAPP_JOAO_V2 === "true") {
+    return processarWebhookJoaoV2(request);
+  }
+
+  return processarWebhookJoaoV1(request);
+}
+
+async function processarWebhookJoaoV1(request: Request) {
   let body: MetaWebhookPayload;
 
   try {

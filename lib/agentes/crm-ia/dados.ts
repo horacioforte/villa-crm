@@ -1406,13 +1406,9 @@ export async function gerarRelatorio({
       return {
         titulo: titulo ?? `Histórico Completo — ${op.titulo}`,
         tipoGrafico: "bar",
-        labels: ["Tarefas concluídas", "Pendentes", "Contatos registrados"],
-        datasets: [{
-          label: "Atividades",
-          data: [concluidas, pendentes, op.historicos.length],
-          backgroundColor: ["#10B981", "#F59E0B", "#6366F1"],
-        }],
-        descricao: `Oportunidade: ${op.titulo} | Empresa: ${op.empresa?.razaoSocial ?? "—"} | Contato: ${op.pessoa?.nome ?? "—"} | Status: ${op.status} | Temperatura: ${op.temperatura ?? "—"} | Responsável: ${op.responsavel?.nome ?? "—"}`,
+        labels: [],
+        datasets: [],
+        descricao: `Empresa: ${op.empresa?.razaoSocial ?? "—"} · Contato: ${op.pessoa?.nome ?? "—"} · Status: ${op.status} · Temperatura: ${op.temperatura ?? "—"} · Responsável: ${op.responsavel?.nome ?? "—"} · ${eventos.length} eventos registrados`,
         colunas,
         tabela,
         conclusoes: [

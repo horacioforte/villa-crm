@@ -18,6 +18,19 @@ function verificarApiKey(req: NextRequest): boolean {
   return req.headers.get("authorization") === `Bearer ${apiKey}`;
 }
 
+// Converte valor para número compatível com Decimal do Prisma.
+// Retorna undefined se não conseguir converter (campo será ignorado).
+function sanitizarDecimal(valor: unknown): number | undefined {
+  if (valor === undefined || valor === null || valor === "") return undefined;
+  if (typeof valor === "number" && !isNaN(valor)) return valor;
+  if (typeof valor === "string") {
+    const limpo = valor.replace(/[^0-9.,]/g, "").replace(",", ".");
+    const num = parseFloat(limpo);
+    return isNaN(num) ? undefined : num;
+  }
+  return undefined;
+}
+
 // ─── POST — executa o loop ────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -100,14 +113,14 @@ export async function POST(req: NextRequest) {
     const camposAtualizados: string[] = [];
 
     // 1. Atualiza campos estruturados do dossiê (se encontrou algo)
-    const camposPermitidos = [
+    const camposString = [
       "construtora", "epc", "epcm", "faseObra", "cronograma",
-      "valorEstimado", "volumeConcreto", "concorrentes",
-      "fonteInformacao", "linkFonte",
+      "concorrentes", "fonteInformacao", "linkFonte",
     ];
+    const camposDecimal = ["valorEstimado", "volumeConcreto"];
 
     const camposNovos: Record<string, unknown> = {};
-    for (const campo of camposPermitidos) {
+    for (const campo of camposString) {
       const valor = resultado.campos[campo];
       const valorAtual = (dossie as Record<string, unknown>)[campo];
       if (valor !== undefined && valor !== null && valor !== "" && valor !== valorAtual) {
@@ -115,13 +128,23 @@ export async function POST(req: NextRequest) {
         camposAtualizados.push(campo);
       }
     }
+    for (const campo of camposDecimal) {
+      const raw = resultado.campos[campo];
+      const valorAtual = (dossie as Record<string, unknown>)[campo];
+      const sanitized = sanitizarDecimal(raw);
+      if (sanitized !== undefined && sanitized !== sanitizarDecimal(valorAtual)) {
+        camposNovos[campo] = sanitized;
+        camposAtualizados.push(campo);
+      }
+    }
 
     if (Object.keys(camposNovos).length > 0) {
       const dadosMesclados = { ...dossie, ...camposNovos };
-      const { completude, missaoAtual } = recalcularDossie(dadosMesclados, dossie.decisores);
-      camposNovos.completude      = completude;
-      camposNovos.missaoAtual     = missaoAtual;
-      camposNovos.ultimaAtividade = new Date();
+      const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosMesclados, dossie.decisores);
+      camposNovos.completude          = completude;
+      camposNovos.missaoAtual         = missaoAtual;
+      camposNovos.maturidadeComercial = maturidadeComercial;
+      camposNovos.ultimaAtividade     = new Date();
 
       if (completude >= 80 && dossie.status === "INVESTIGANDO") {
         camposNovos.status = "AGUARDANDO_VALIDACAO";

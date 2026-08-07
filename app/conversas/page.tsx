@@ -17,7 +17,7 @@ import {
 
 import { PageNavigation } from "@/components/layout/PageNavigation";
 import { cn } from "@/lib/utils";
-import { buildMelhorProximaAcao } from "@/lib/conversas/next-action";
+import { buildMelhorProximaAcao, buildTarefaPayloadFromRecomendacao } from "@/lib/conversas/next-action";
 import { getConversaPrioridade, ordenarConversasPorPrioridade } from "@/lib/conversas/prioridade";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -170,6 +170,8 @@ export default function ConversasPage() {
   const [transferindo, setTransferindo] = useState(false);
   const [transferiuPara, setTransferiuPara] = useState<string | null>(null);
   const [historicoRecomendacoes, setHistoricoRecomendacoes] = useState<HistoricoRecomendacao[]>([]);
+  const [criandoTarefa, setCriandoTarefa] = useState(false);
+  const [feedbackAcao, setFeedbackAcao] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -310,6 +312,45 @@ export default function ConversasPage() {
     }
   }
 
+  async function criarTarefaDaRecomendacao() {
+    if (!conversaAtiva || !conversaContexto?.oportunidade?.id) {
+      setFeedbackAcao("A oportunidade ainda não está vinculada a esta conversa.");
+      return;
+    }
+
+    setCriandoTarefa(true);
+    setFeedbackAcao(null);
+
+    try {
+      const payload = buildTarefaPayloadFromRecomendacao({
+        acao: melhorProximaAcao.acao,
+        urgencia: melhorProximaAcao.urgencia,
+        motivos: melhorProximaAcao.motivos,
+        oportunidadeId: conversaContexto.oportunidade.id,
+        empresaId: conversaContexto.empresa?.id,
+        pessoaId: conversaContexto.pessoa?.id,
+      });
+
+      const response = await fetch(`/api/oportunidades/${conversaContexto.oportunidade.id}/tarefas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.message ?? "Não foi possível criar a tarefa.");
+      }
+
+      setFeedbackAcao("Tarefa criada e vinculada à oportunidade.");
+    } catch (error) {
+      setFeedbackAcao(error instanceof Error ? error.message : "Não foi possível criar a tarefa.");
+    } finally {
+      setCriandoTarefa(false);
+    }
+  }
+
   const melhorProximaAcao = useMemo(() => {
     if (!conversaContexto) {
       return buildMelhorProximaAcao({
@@ -351,18 +392,6 @@ export default function ConversasPage() {
       }];
     });
   }, [conversaAtiva, melhorProximaAcao.acao]);
-
-  function marcarRecomendacao(status: "executado" | "nao-executado") {
-    setHistoricoRecomendacoes((prev) => {
-      if (prev.length === 0) return prev;
-      const atualizados = [...prev];
-      atualizados[atualizados.length - 1] = {
-        ...atualizados[atualizados.length - 1],
-        status,
-      };
-      return atualizados;
-    });
-  }
 
   return (
     <div className="min-h-screen bg-[#F4F6FA]">
@@ -624,35 +653,38 @@ export default function ConversasPage() {
                       <p className="mt-1 text-[#475467]">{melhorProximaAcao.naoAgir}</p>
                     </div>
 
+                    <div className="mt-3 rounded-2xl border border-dashed border-[#D7DEEA] bg-[#F8FAFF] p-3 text-sm text-[#475467]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1E4FAB]">Status da entrega</p>
+                      <p className="mt-1">Implementada tecnicamente — aguardando validação dos usuários.</p>
+                      <p className="mt-2 text-xs text-[#667085]">Os botões abaixo são prévias e ainda não executam ações reais no sistema.</p>
+                    </div>
+
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
-                        onClick={() => marcarRecomendacao("executado")}
-                        className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#1A2E5A] hover:bg-[#E8EEFB]"
+                        onClick={criarTarefaDaRecomendacao}
+                        disabled={criandoTarefa || !conversaContexto?.oportunidade?.id}
+                        className="rounded-2xl border border-[#D7DEEA] bg-[#1E4FAB] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#1A2E5A] disabled:cursor-not-allowed disabled:bg-[#98A2B3]"
                       >
-                        📞 Ligar
+                        {criandoTarefa ? "Criando tarefa..." : "✅ Criar tarefa"}
                       </button>
-                      <button
-                        onClick={() => marcarRecomendacao("executado")}
-                        className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#1A2E5A] hover:bg-[#E8EEFB]"
-                      >
-                        💬 WhatsApp
+                      <button disabled className="cursor-not-allowed rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#98A2B3]">
+                        💬 WhatsApp · Em breve
                       </button>
-                      <button
-                        onClick={() => marcarRecomendacao("executado")}
-                        className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#1A2E5A] hover:bg-[#E8EEFB]"
-                      >
-                        📅 Agendar follow-up
+                      <button disabled className="cursor-not-allowed rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#98A2B3]">
+                        📅 Agendar follow-up · Em breve
                       </button>
-                      <button
-                        onClick={() => marcarRecomendacao("executado")}
-                        className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#1A2E5A] hover:bg-[#E8EEFB]"
-                      >
-                        📄 Abrir proposta
+                      <button disabled className="cursor-not-allowed rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#98A2B3]">
+                        📄 Abrir proposta · Em breve
                       </button>
                     </div>
 
+                    {feedbackAcao && (
+                      <p className="mt-3 text-sm text-[#1A2E5A]">{feedbackAcao}</p>
+                    )}
+
                     <div className="mt-4 rounded-2xl border border-[#D7DEEA] bg-[#F8FAFF] p-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1E4FAB]">Últimas recomendações</p>
+                      <p className="mt-2 text-xs text-[#667085]">Protótipo de UX local: não é persistência oficial, não é compartilhado entre usuários, não gera auditoria e não alimenta o Brain.</p>
                       <div className="mt-2 space-y-2 text-sm text-[#475467]">
                         {historicoRecomendacoes.length === 0 ? (
                           <p className="text-[#98A2B3]">Ainda não há histórico para esta sessão.</p>

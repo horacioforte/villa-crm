@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMelhorProximaAcao } from "./next-action";
+import { buildMelhorProximaAcao, buildTarefaPayloadFromRecomendacao } from "./next-action";
 
 describe("buildMelhorProximaAcao", () => {
   it("prioriza uma tarefa vencida quando existe uma pendência urgente", () => {
@@ -42,5 +42,21 @@ describe("buildMelhorProximaAcao", () => {
 
     expect(resultado.acao).toBe("Mantenha o acompanhamento");
     expect(resultado.confianca).toBe("baixa");
+  });
+
+  it("constrói um payload de tarefa a partir da recomendação", () => {
+    const payload = buildTarefaPayloadFromRecomendacao({
+      acao: "Envie um follow-up",
+      urgencia: "alta",
+      motivos: ["proposta aberta", "cliente sem retorno"],
+      oportunidadeId: "opp-1",
+      empresaId: "empresa-1",
+      pessoaId: "pessoa-1",
+    });
+
+    expect(payload.titulo).toBe("Enviar follow-up");
+    expect(payload.prioridade).toBe("ALTA");
+    expect(payload.tipo).toBe("RETORNO_CLIENTE");
+    expect(payload.oportunidadeId).toBe("opp-1");
   });
 });

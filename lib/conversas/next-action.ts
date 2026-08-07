@@ -7,6 +7,28 @@ export type MelhorProximaAcao = {
   naoAgir: string;
 };
 
+export type BuildTarefaPayloadInput = {
+  acao: string;
+  urgencia: "alta" | "media" | "baixa";
+  motivos?: string[];
+  oportunidadeId?: string | null;
+  empresaId?: string | null;
+  pessoaId?: string | null;
+  dataVencimento?: Date | null;
+};
+
+export type TarefaPayloadDraft = {
+  titulo: string;
+  descricao: string;
+  prioridade: "BAIXA" | "MEDIA" | "ALTA" | "URGENTE";
+  tipo: "LIGACAO" | "RETORNO_CLIENTE" | "TAREFA_INTERNA";
+  dataVencimento: string;
+  observacoes: string;
+  oportunidadeId?: string | null;
+  empresaId?: string | null;
+  pessoaId?: string | null;
+};
+
 export type BuildMelhorProximaAcaoInput = {
   tarefasVencidas?: number;
   propostasAbertas?: number;
@@ -19,6 +41,32 @@ function diasSemResposta(ultimaMensagemEm?: Date | null) {
   if (!ultimaMensagemEm) return Number.POSITIVE_INFINITY;
   const diffMs = Date.now() - ultimaMensagemEm.getTime();
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+export function buildTarefaPayloadFromRecomendacao(
+  input: BuildTarefaPayloadInput,
+): TarefaPayloadDraft {
+  const prioridade = input.urgencia === "alta" ? "ALTA" : input.urgencia === "media" ? "MEDIA" : "BAIXA";
+  const tipo = input.acao.includes("follow-up") || input.acao.includes("acompanh") ? "RETORNO_CLIENTE" : "LIGACAO";
+  const vencimento = input.dataVencimento ?? new Date(Date.now() + 1000 * 60 * 60 * 24);
+  const dataVencimento = vencimento.toISOString().slice(0, 10);
+
+  return {
+    titulo:
+      input.acao === "Ligue agora"
+        ? "Ligar para cliente"
+        : input.acao === "Envie um follow-up"
+          ? "Enviar follow-up"
+          : "Acompanhar oportunidade",
+    descricao: `Recomendação do Brain: ${input.acao}`,
+    prioridade,
+    tipo,
+    dataVencimento,
+    observacoes: input.motivos?.join(" · ") ?? "Recomendação do Brain",
+    oportunidadeId: input.oportunidadeId,
+    empresaId: input.empresaId,
+    pessoaId: input.pessoaId,
+  };
 }
 
 export function buildMelhorProximaAcao(input: BuildMelhorProximaAcaoInput): MelhorProximaAcao {

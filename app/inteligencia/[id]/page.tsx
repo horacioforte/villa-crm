@@ -256,6 +256,17 @@ export default function DossieDetalhe() {
   const [descartando,     setDescartando]     = useState(false);
   const [motivoDescarte,  setMotivoDescarte]  = useState("");
   const [mostrarDescarte, setMostrarDescarte] = useState(false);
+  // Papel do usuário logado — controla visibilidade do botão "Assumir"
+  const [papelUsuario,    setPapelUsuario]    = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((s) => setPapelUsuario(s?.user?.papel ?? null))
+      .catch(() => {});
+  }, []);
+
+  const podeAssumirDossie = papelUsuario === "ADMIN" || papelUsuario === "GERENTE";
 
   async function carregar() {
     setCarregando(true);
@@ -476,8 +487,8 @@ export default function DossieDetalhe() {
         </div>
       )}
 
-      {/* ── Ações ── */}
-      {!jaAssumido && !arquivado && (
+      {/* ── Ações — visíveis apenas para ADMIN e GERENTE ── */}
+      {!jaAssumido && !arquivado && podeAssumirDossie && (
         <div className="bg-white border-b px-4 py-3 space-y-2">
 
           {/* Botão Assumir — inteligente */}
@@ -866,8 +877,8 @@ export default function DossieDetalhe() {
               </CardContent>
             </Card>
 
-            {/* O que falta para a Morgana assumir */}
-            <Card>
+            {/* O que falta para a Morgana assumir — só para ADMIN/GERENTE */}
+            {podeAssumirDossie && <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest">O Que Falta Para Assumir</p>
@@ -889,7 +900,7 @@ export default function DossieDetalhe() {
                   ))}
                 </div>
               </CardContent>
-            </Card>
+            </Card>}
 
             {/* Fatos confirmados */}
             {fatosConfirmados.length > 0 && (

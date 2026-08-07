@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuth } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { auditLog } from "@/lib/audit";
 import {
@@ -24,7 +24,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(req);
+  // Somente ADMIN (Horacio) e GERENTE (Morgana) podem assumir dossiês
+  const authResult = await requirePermission("inteligencia", "create", req);
   if (authResult instanceof NextResponse) return authResult;
 
   const { id } = await params;

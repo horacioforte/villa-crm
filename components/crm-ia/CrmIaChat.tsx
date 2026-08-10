@@ -157,8 +157,13 @@ export function CrmIaChat() {
         }),
       });
 
-      if (!res.ok) throw new Error("Erro na resposta");
       const data = await res.json();
+
+      if (!res.ok) {
+        // Mostra o detalhe real do erro para facilitar diagnóstico
+        const detalhe = data?.detalhe ?? data?.error ?? `HTTP ${res.status}`;
+        throw new Error(detalhe);
+      }
 
       const novaMsgAssistant: Mensagem = {
         role: "assistant",
@@ -166,12 +171,13 @@ export function CrmIaChat() {
         ...(data.relatorio ? { relatorio: data.relatorio } : {}),
       };
       setMensagens([...novasMensagens, novaMsgAssistant]);
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
       setMensagens([
         ...novasMensagens,
         {
           role: "assistant",
-          content: "Desculpe, ocorreu um erro. Tente novamente.",
+          content: `⚠️ Erro: ${msg}\n\nSe o erro persistir, clique em **Limpar** para resetar o histórico e tente novamente.`,
         },
       ]);
     } finally {

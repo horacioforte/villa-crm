@@ -253,6 +253,7 @@ export default function DossieDetalhe() {
   const [carregando,      setCarregando]      = useState(true);
   const [abaAtiva,        setAbaAtiva]        = useState<Aba>("resumo");
   const [assumindo,       setAssumindo]       = useState(false);
+  const [desvinculando,   setDesvinculando]   = useState(false);
   const [descartando,     setDescartando]     = useState(false);
   const [motivoDescarte,  setMotivoDescarte]  = useState("");
   const [mostrarDescarte, setMostrarDescarte] = useState(false);
@@ -296,6 +297,19 @@ export default function DossieDetalhe() {
       router.push(data.urlOportunidade);
     } catch (e) { toast.error(String(e)); }
     finally { setAssumindo(false); }
+  }
+
+  async function desvincular() {
+    if (!confirm("Desvincular a oportunidade deste dossiê? O status voltará para 'Pronto para assumir' e ele poderá ser assumido novamente.")) return;
+    setDesvinculando(true);
+    try {
+      const res = await fetch(`/api/inteligencia/${id}/desvincular`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro");
+      toast.success("Dossiê desvinculado. Pronto para assumir novamente.");
+      carregar();
+    } catch (e) { toast.error(String(e)); }
+    finally { setDesvinculando(false); }
   }
 
   async function descartar() {
@@ -470,19 +484,35 @@ export default function DossieDetalhe() {
       )}
 
       {/* ── Assumido ── */}
-      {jaAssumido && dossie.oportunidade && (
-        <div className="bg-emerald-600 px-5 py-3">
+      {jaAssumido && (
+        <div className={`px-5 py-3 ${dossie.oportunidade ? "bg-emerald-600" : "bg-amber-500"}`}>
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-emerald-100 shrink-0" />
-            <div className="flex-1">
-              <p className="text-xs font-bold text-emerald-100 uppercase tracking-wide">Assumido pelo Comercial</p>
-              <button
-                onClick={() => router.push(`/oportunidades/${dossie.oportunidade!.id}`)}
-                className="text-sm font-semibold text-white hover:underline flex items-center gap-1"
-              >
-                {dossie.oportunidade.titulo} <ExternalLink className="h-3 w-3" />
-              </button>
+            <CheckCircle2 className="h-5 w-5 text-white shrink-0 opacity-80" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-white uppercase tracking-wide opacity-80">
+                {dossie.oportunidade ? "Assumido pelo Comercial" : "Assumido — oportunidade removida"}
+              </p>
+              {dossie.oportunidade ? (
+                <button
+                  onClick={() => router.push(`/oportunidades/${dossie.oportunidade!.id}`)}
+                  className="text-sm font-semibold text-white hover:underline flex items-center gap-1"
+                >
+                  {dossie.oportunidade.titulo} <ExternalLink className="h-3 w-3" />
+                </button>
+              ) : (
+                <p className="text-sm text-white opacity-90">A oportunidade vinculada foi excluída.</p>
+              )}
             </div>
+            {/* Botão desvincular — só para ADMIN/GERENTE */}
+            {podeAssumirDossie && (
+              <button
+                onClick={desvincular}
+                disabled={desvinculando}
+                className="shrink-0 text-xs font-bold text-white border border-white/40 rounded-lg px-3 py-1.5 hover:bg-white/20 transition-colors disabled:opacity-50"
+              >
+                {desvinculando ? "Aguarde..." : "↩ Desvincular"}
+              </button>
+            )}
           </div>
         </div>
       )}

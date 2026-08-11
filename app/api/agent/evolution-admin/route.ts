@@ -107,14 +107,22 @@ export async function POST(req: NextRequest) {
       : "/api/webhook/whatsapp";
     const url = `${baseUrl}${suffix}`;
 
+    // Formato exigido pela versão atual da Evolution API: corpo aninhado sob
+    // "webhook", campos em camelCase — confirmado pelo erro '"instance requires
+    // property \"webhook\""' ao enviar o formato antigo (campos soltos, snake_case),
+    // e pelos nomes de campo já vistos na resposta de GET /webhook/find/{instance}
+    // (url, enabled, webhookByEvents, webhookBase64, events).
     const res = await fetch(`${apiUrl}/webhook/set/${instance}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: apiKey },
       body: JSON.stringify({
-        url,
-        webhook_by_events: false,
-        webhook_base64: false,
-        events: ["MESSAGES_UPSERT"],
+        webhook: {
+          url,
+          enabled: true,
+          webhookByEvents: false,
+          webhookBase64: false,
+          events: ["MESSAGES_UPSERT"],
+        },
       }),
     });
     const data = await res.json();

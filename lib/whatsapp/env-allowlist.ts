@@ -17,6 +17,7 @@ export type WhatsappEnvVarKind = "access_token" | "verify_token" | "app_secret";
 const ALLOWED_ACCESS_TOKEN_ENV_VARS = new Set<string>([
   "MARIA_META_ACCESS_TOKEN",
   "META_JOAO_ACCESS_TOKEN",
+  "MORGANA_EVOLUTION_API_KEY",
 ]);
 
 const ALLOWED_VERIFY_TOKEN_ENV_VARS = new Set<string>([

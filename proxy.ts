@@ -16,6 +16,7 @@ const publicRoutes = [
   "/api/webhook/whatsapp/joao",
   "/api/webhook/whatsapp/maria",
   "/api/webhook/whatsapp/meta",
+  "/api/webhook/whatsapp/morgana",
   "/api/email/cron",
   "/api/email/processar",
 ];

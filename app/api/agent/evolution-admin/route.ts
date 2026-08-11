@@ -100,7 +100,11 @@ export async function POST(req: NextRequest) {
 
   if (action === "setWebhook") {
     const baseUrl = ((webhookUrl as string | undefined) ?? process.env.NEXTAUTH_URL ?? "").replace(/\/+$/, "");
-    const suffix = instance?.startsWith("joao") ? "/api/webhook/whatsapp/joao" : "/api/webhook/whatsapp";
+    const suffix = instance?.startsWith("joao")
+      ? "/api/webhook/whatsapp/joao"
+      : instance?.startsWith("morgana")
+      ? "/api/webhook/whatsapp/morgana"
+      : "/api/webhook/whatsapp";
     const url = `${baseUrl}${suffix}`;
 
     const res = await fetch(`${apiUrl}/webhook/set/${instance}`, {

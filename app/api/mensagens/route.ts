@@ -122,6 +122,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Salva no banco
+  // canalWhatsappId + externalMessageId (= waMessageId, quando a Evolution devolve
+  // key.id no envio): fecha o vínculo com o canal e permite que o webhook da Morgana
+  // reconcilie o eco fromMe desta mesma mensagem sem criar uma segunda linha — ver
+  // lib/whatsapp/agentes/morgana.ts.
   const mensagem = await prisma.mensagem.create({
     data: {
       conversaId,
@@ -131,6 +135,8 @@ export async function POST(req: NextRequest) {
       autorUsuarioId: user.id,
       waMessageId,
       status: waMessageId ? "ENVIADA" : "ERRO",
+      canalWhatsappId: conversa.canalWhatsappId,
+      externalMessageId: waMessageId,
     },
   });
 

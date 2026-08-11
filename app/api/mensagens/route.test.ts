@@ -122,6 +122,46 @@ describe("POST /api/mensagens — roteamento determinístico por canal (sem fall
     vi.unstubAllGlobals();
   });
 
+  it("Evolution: grava canalWhatsappId e externalMessageId (= key.id devolvido no envio) na Mensagem — habilita reconciliação do eco fromMe da Morgana", async () => {
+    prismaMock.conversa.findUnique.mockResolvedValue({
+      id: "c1",
+      telefone: "5581999999999",
+      instanceName: "morgana-villa",
+      canalWhatsappId: "canal-morgana",
+      canalWhatsapp: { tipo: "EVOLUTION" },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ key: { id: "wamid-evolution-123" } }) }));
+
+    await POST(criarRequest({ conversaId: "c1", conteudo: "Já te retorno" }));
+
+    expect(prismaMock.mensagem.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        canalWhatsappId: "canal-morgana",
+        externalMessageId: "wamid-evolution-123",
+      }),
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("Evolution: quando a resposta não traz key.id, externalMessageId fica undefined/null — sem quebrar o envio", async () => {
+    prismaMock.conversa.findUnique.mockResolvedValue({
+      id: "c1",
+      telefone: "5581999999999",
+      instanceName: "morgana-villa",
+      canalWhatsappId: "canal-morgana",
+      canalWhatsapp: { tipo: "EVOLUTION" },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+
+    const res = await POST(criarRequest({ conversaId: "c1", conteudo: "Já te retorno" }));
+
+    expect(res.status).toBe(200);
+    expect(prismaMock.mensagem.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ canalWhatsappId: "canal-morgana", externalMessageId: undefined }),
+    });
+    vi.unstubAllGlobals();
+  });
+
   it("quando o envio via meta-client falha, NÃO tenta Evolution como fallback", async () => {
     process.env.WHATSAPP_JOAO_V2 = "true";
     prismaMock.conversa.findUnique.mockResolvedValue({

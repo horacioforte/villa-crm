@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { auditLogMock } = vi.hoisted(() => ({ auditLogMock: vi.fn() }));
+vi.mock("@/lib/audit", () => ({ auditLog: auditLogMock }));
+
 import { POST } from "./route";
+import { auditLog } from "@/lib/audit";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -152,6 +157,164 @@ describe("POST /api/agent/evolution-admin — action=getChatwoot (só leitura)",
 
     await POST(criarRequest({ action: "getChatwoot", instance: "morgana-villa" }));
 
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("POST /api/agent/evolution-admin — action=setChatwoot (restrito a morgana-villa, enabled:false)", () => {
+  const configAtual = {
+    enabled: true,
+    accountId: "171792",
+    token: "mkYuFYeVMDx5nsqcWkrmAGM6",
+    url: "https://app.chatwoot.com",
+    nameInbox: "Morgana",
+    signMsg: false,
+    reopenConversation: true,
+  };
+
+  it("desativa morgana-villa reutilizando exatamente os valores atuais, só 'enabled' muda", async () => {
+    const fetchSpy = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith("/chatwoot/find/morgana-villa")) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => configAtual });
+      }
+      if (url.endsWith("/chatwoot/set/morgana-villa")) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ ...configAtual, enabled: false }) });
+      }
+      throw new Error(`URL inesperada: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "setChatwoot", instance: "morgana-villa", enabled: false }));
+
+    expect(res.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    const setCall = fetchSpy.mock.calls.find(([url]) => url.endsWith("/chatwoot/set/morgana-villa"));
+    const bodyEnviado = JSON.parse(setCall![1].body);
+    expect(bodyEnviado).toEqual({ chatwoot: { ...configAtual, enabled: false } });
+  });
+
+  it("nenhum campo além de 'enabled' é alterado (accountId, url, nameInbox, token idênticos ao find)", async () => {
+    const fetchSpy = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith("/chatwoot/find/morgana-villa")) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => configAtual });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await POST(criarRequest({ action: "setChatwoot", instance: "morgana-villa", enabled: false }));
+
+    const setCall = fetchSpy.mock.calls.find(([url]) => url.endsWith("/chatwoot/set/morgana-villa"));
+    const enviado = JSON.parse(setCall![1].body).chatwoot;
+    expect(enviado.accountId).toBe(configAtual.accountId);
+    expect(enviado.url).toBe(configAtual.url);
+    expect(enviado.nameInbox).toBe(configAtual.nameInbox);
+    expect(enviado.token).toBe(configAtual.token);
+    expect(enviado.enabled).toBe(false);
+  });
+
+  it("rejeita qualquer instância diferente de morgana-villa (maria-villa), sem chamar a Evolution", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "setChatwoot", instance: "maria-villa", enabled: false }));
+
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejeita joao-villa, sem chamar a Evolution", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "setChatwoot", instance: "joao-villa", enabled: false }));
+
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejeita taciane-villa, sem chamar a Evolution", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "setChatwoot", instance: "taciane-villa", enabled: false }));
+
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejeita enabled:true (nunca reativa por esta rota nesta etapa), sem chamar a Evolution", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "setChatwoot", instance: "morgana-villa", enabled: true }));
+
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejeita enabled ausente, sem chamar a Evolution", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "setChatwoot", instance: "morgana-villa" }));
+
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("grava auditoria (before mascarado) antes do write, nunca com o token completo", async () => {
+    const fetchSpy = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith("/chatwoot/find/morgana-villa")) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => configAtual });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await POST(criarRequest({ action: "setChatwoot", instance: "morgana-villa", enabled: false }));
+
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "EVOLUTION_CHATWOOT_DESATIVADO",
+        before: expect.objectContaining({ token: expect.not.stringContaining(configAtual.token) }),
+      }),
+    );
+    const chamada = vi.mocked(auditLog).mock.calls[0][0];
+    expect(JSON.stringify(chamada)).not.toContain(configAtual.token);
+  });
+
+  it("resposta da rota também mascara o token (nunca aparece completo em nenhum output)", async () => {
+    const fetchSpy = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith("/chatwoot/find/morgana-villa")) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => configAtual });
+      }
+      if (url.endsWith("/chatwoot/set/morgana-villa")) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ ...configAtual, enabled: false }) });
+      }
+      throw new Error("URL inesperada");
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "setChatwoot", instance: "morgana-villa", enabled: false }));
+    const body = await res.json();
+
+    expect(JSON.stringify(body)).not.toContain(configAtual.token);
+  });
+
+  it("se a leitura prévia (find) falhar, cancela o write e não chama /chatwoot/set", async () => {
+    const fetchSpy = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith("/chatwoot/find/morgana-villa")) {
+        return Promise.resolve({ ok: false, status: 500, json: async () => ({ error: "falha" }) });
+      }
+      throw new Error("Não deveria chamar /chatwoot/set após find falhar");
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "setChatwoot", instance: "morgana-villa", enabled: false }));
+
+    expect(res.status).toBe(502);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

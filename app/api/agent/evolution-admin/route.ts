@@ -4,6 +4,18 @@
 // REGRA: nunca remover. Apenas acrescentar.
 
 import { NextRequest, NextResponse } from "next/server";
+import { auditLog } from "@/lib/audit";
+
+// Mascara campos sensíveis antes de logar ou expor em resposta — nunca o segredo
+// completo, nem em auditoria, nem em teste, nem em relatório.
+function mascararSegredos(config: unknown): unknown {
+  if (!config || typeof config !== "object") return config;
+  const clone = { ...(config as Record<string, unknown>) };
+  if (typeof clone.token === "string" && clone.token.length > 5) {
+    clone.token = `${clone.token.slice(0, 3)}***${clone.token.slice(-2)}`;
+  }
+  return clone;
+}
 
 function verificarApiKey(req: NextRequest): boolean {
   const apiKey = process.env.AGENT_API_KEY;
@@ -17,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   const reqBody = await req.json().catch(() => ({}));
-  const { action, instance, webhookUrl } = reqBody;
+  const { action, instance, webhookUrl, enabled } = reqBody;
   const apiUrl = process.env.EVOLUTION_API_URL?.replace(/\/+$/, "");
   // Cada instância tem seu próprio token na Evolution API
   const apiKey = instance?.startsWith("joao")
@@ -108,6 +120,56 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data, { status: res.status });
   }
 
+  // RESTRITO NESTA ETAPA: só desativação (enabled:false) da instância morgana-villa,
+  // nunca em lote, nunca outra instância — guarda explícita no código, não só
+  // documentação. Lê a config atual antes de escrever (auditoria com segredo
+  // mascarado) e reutiliza exatamente os valores atuais, alterando somente "enabled".
+  if (action === "setChatwoot") {
+    if (instance !== "morgana-villa") {
+      return NextResponse.json(
+        { error: "Ação setChatwoot restrita a instance=\"morgana-villa\" nesta etapa." },
+        { status: 403 },
+      );
+    }
+    if (enabled !== false) {
+      return NextResponse.json(
+        { error: "Ação setChatwoot restrita a enabled=false nesta etapa (só desativação)." },
+        { status: 403 },
+      );
+    }
+
+    const findRes = await fetch(`${apiUrl}/chatwoot/find/${instance}`, {
+      headers: { apikey: apiKey },
+    });
+    const configAtual = await findRes.json();
+
+    if (!findRes.ok || typeof configAtual !== "object" || configAtual === null) {
+      return NextResponse.json(
+        { error: "Não foi possível ler a configuração atual do Chatwoot antes de desativar — write cancelado." },
+        { status: 502 },
+      );
+    }
+
+    await auditLog({
+      action: "EVOLUTION_CHATWOOT_DESATIVADO",
+      entity: "CanalWhatsapp",
+      entityId: null,
+      before: mascararSegredos(configAtual),
+      metadata: { instance },
+    });
+
+    // Reutiliza EXATAMENTE os valores atuais devolvidos pelo find — só "enabled" muda.
+    const novaConfig = { ...(configAtual as Record<string, unknown>), enabled: false };
+
+    const res = await fetch(`${apiUrl}/chatwoot/set/${instance}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify({ chatwoot: novaConfig }),
+    });
+    const data = await res.json();
+    return NextResponse.json({ ...(mascararSegredos(data) as object), _debugStatus: res.status }, { status: res.status });
+  }
+
   if (action === "setWebhook") {
     const baseUrl = ((webhookUrl as string | undefined) ?? process.env.NEXTAUTH_URL ?? "").replace(/\/+$/, "");
     const suffix = instance?.startsWith("joao")
@@ -139,5 +201,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ...data, webhookUrl: url, _debugStatus: res.status }, { status: res.status });
   }
 
-  return NextResponse.json({ error: "Action inválida. Use: create, connect, status, getWebhook, setWebhook, getChatwoot" }, { status: 400 });
+  return NextResponse.json({ error: "Action inválida. Use: create, connect, status, getWebhook, setWebhook, getChatwoot, setChatwoot" }, { status: 400 });
 }

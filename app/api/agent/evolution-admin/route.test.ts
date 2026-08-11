@@ -129,6 +129,33 @@ describe("POST /api/agent/evolution-admin — sem regressão nas outras actions"
   });
 });
 
+describe("POST /api/agent/evolution-admin — action=getChatwoot (só leitura)", () => {
+  it("consulta GET /chatwoot/find/{instance}, mesma resolução de apikey por prefixo", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      status: 200,
+      json: async () => ({ enabled: true, url: "https://app.chatwoot.com", accountId: "171792" }),
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "getChatwoot", instance: "morgana-villa" }));
+    const body = await res.json();
+
+    expect(fetchSpy).toHaveBeenCalledWith("https://evolution.example.com/chatwoot/find/morgana-villa", {
+      headers: { apikey: "morgana-evolution-key" },
+    });
+    expect(body).toEqual({ enabled: true, url: "https://app.chatwoot.com", accountId: "171792" });
+  });
+
+  it("é puramente leitura: não faz nenhuma segunda chamada (não habilita/desabilita/altera nada)", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ status: 200, json: async () => ({ enabled: false }) });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await POST(criarRequest({ action: "getChatwoot", instance: "morgana-villa" }));
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("POST /api/agent/evolution-admin — autenticação", () => {
   it("sem AGENT_API_KEY correta: 401, nenhuma chamada à Evolution", async () => {
     const fetchSpy = vi.fn();

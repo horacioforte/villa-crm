@@ -98,6 +98,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data, { status: res.status });
   }
 
+  // Só leitura — consulta a integração NATIVA do Chatwoot da instância (mecanismo
+  // separado do webhook genérico acima). Nunca habilita, desabilita nem altera nada.
+  if (action === "getChatwoot") {
+    const res = await fetch(`${apiUrl}/chatwoot/find/${instance}`, {
+      headers: { apikey: apiKey },
+    });
+    const data = await res.json();
+    return NextResponse.json(data, { status: res.status });
+  }
+
   if (action === "setWebhook") {
     const baseUrl = ((webhookUrl as string | undefined) ?? process.env.NEXTAUTH_URL ?? "").replace(/\/+$/, "");
     const suffix = instance?.startsWith("joao")
@@ -129,5 +139,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ...data, webhookUrl: url, _debugStatus: res.status }, { status: res.status });
   }
 
-  return NextResponse.json({ error: "Action inválida. Use: create, connect, status, getWebhook, setWebhook" }, { status: 400 });
+  return NextResponse.json({ error: "Action inválida. Use: create, connect, status, getWebhook, setWebhook, getChatwoot" }, { status: 400 });
 }

@@ -159,12 +159,17 @@ export async function POST(req: NextRequest) {
     });
 
     // Reutiliza EXATAMENTE os valores atuais devolvidos pelo find — só "enabled" muda.
+    // Formato confirmado por tentativa real: ao contrário do /webhook/set (que exige
+    // aninhamento sob "webhook"), o /chatwoot/set exige os campos SOLTOS no corpo —
+    // erro real recebido ao tentar aninhar: 'instance requires property "enabled"',
+    // "accountId", "token", "url" etc., todos listados como propriedades esperadas
+    // diretamente na raiz do body, não dentro de um objeto "chatwoot".
     const novaConfig = { ...(configAtual as Record<string, unknown>), enabled: false };
 
     const res = await fetch(`${apiUrl}/chatwoot/set/${instance}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: apiKey },
-      body: JSON.stringify({ chatwoot: novaConfig }),
+      body: JSON.stringify(novaConfig),
     });
     const data = await res.json();
     return NextResponse.json({ ...(mascararSegredos(data) as object), _debugStatus: res.status }, { status: res.status });

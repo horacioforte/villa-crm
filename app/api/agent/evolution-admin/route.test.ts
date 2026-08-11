@@ -191,7 +191,7 @@ describe("POST /api/agent/evolution-admin — action=setChatwoot (restrito a mor
 
     const setCall = fetchSpy.mock.calls.find(([url]) => url.endsWith("/chatwoot/set/morgana-villa"));
     const bodyEnviado = JSON.parse(setCall![1].body);
-    expect(bodyEnviado).toEqual({ chatwoot: { ...configAtual, enabled: false } });
+    expect(bodyEnviado).toEqual({ ...configAtual, enabled: false });
   });
 
   it("nenhum campo além de 'enabled' é alterado (accountId, url, nameInbox, token idênticos ao find)", async () => {
@@ -206,7 +206,7 @@ describe("POST /api/agent/evolution-admin — action=setChatwoot (restrito a mor
     await POST(criarRequest({ action: "setChatwoot", instance: "morgana-villa", enabled: false }));
 
     const setCall = fetchSpy.mock.calls.find(([url]) => url.endsWith("/chatwoot/set/morgana-villa"));
-    const enviado = JSON.parse(setCall![1].body).chatwoot;
+    const enviado = JSON.parse(setCall![1].body);
     expect(enviado.accountId).toBe(configAtual.accountId);
     expect(enviado.url).toBe(configAtual.url);
     expect(enviado.nameInbox).toBe(configAtual.nameInbox);

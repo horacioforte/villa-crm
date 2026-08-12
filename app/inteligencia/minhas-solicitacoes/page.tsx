@@ -56,7 +56,7 @@ export default async function MinhasSolicitacoesPage({ searchParams }: { searchP
   const filtroStatus = params.status;
 
   const where: Record<string, any> = {
-    fonteInformacao: { startsWith: "Solicitado por Horácio", mode: "insensitive" },
+    origem: "MANUAL",
     status: { notIn: ["ARQUIVADO"] },
   };
   if (filtroStatus) where.status = filtroStatus;
@@ -72,7 +72,7 @@ export default async function MinhasSolicitacoesPage({ searchParams }: { searchP
 
   const totalCount = await prisma.dossieComercial.count({
     where: {
-      fonteInformacao: { startsWith: "Solicitado por Horácio", mode: "insensitive" },
+      origem: "MANUAL",
       status: { notIn: ["ARQUIVADO"] },
     },
   });

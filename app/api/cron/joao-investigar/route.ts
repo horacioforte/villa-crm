@@ -207,22 +207,44 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const dossies = await prisma.dossieComercial.findMany({
-      where: { status: { in: ["INVESTIGANDO", "PEDIR_MAIS_PESQUISA"] } },
+    // Dossiês MANUAL (solicitados pelo usuário) têm prioridade absoluta.
+    // Slots restantes são preenchidos com dossiês do Radar João.
+    const selectDossie = {
+      id: true, titulo: true, resumo: true, segmento: true,
+      cidade: true, estado: true, status: true, clienteFinal: true,
+      construtora: true, epc: true, epcm: true, faseObra: true,
+      cronograma: true, valorEstimado: true, volumeConcreto: true,
+      concorrentes: true, missaoAtual: true, fonteInformacao: true,
+      completude: true,
+      decisores: {
+        select: { nome: true, cargo: true, telefone: true, email: true, linkedin: true },
+      },
+    } as const;
+
+    const dossiesManual = await prisma.dossieComercial.findMany({
+      where: { status: { in: ["INVESTIGANDO", "PEDIR_MAIS_PESQUISA"] }, origem: "MANUAL" },
       orderBy: { ultimaAtividade: "asc" },
       take: 5,
-      select: {
-        id: true, titulo: true, resumo: true, segmento: true,
-        cidade: true, estado: true, status: true, clienteFinal: true,
-        construtora: true, epc: true, epcm: true, faseObra: true,
-        cronograma: true, valorEstimado: true, volumeConcreto: true,
-        concorrentes: true, missaoAtual: true, fonteInformacao: true,
-        completude: true,
-        decisores: {
-          select: { nome: true, cargo: true, telefone: true, email: true, linkedin: true },
-        },
-      },
+      select: selectDossie,
     });
+
+    const slotsRestantes = 5 - dossiesManual.length;
+    const dossiesRadar = slotsRestantes > 0
+      ? await prisma.dossieComercial.findMany({
+          where: {
+            status: { in: ["INVESTIGANDO", "PEDIR_MAIS_PESQUISA"] },
+            origem: { not: "MANUAL" },
+            ...(dossiesManual.length > 0
+              ? { id: { notIn: dossiesManual.map(d => d.id) } }
+              : {}),
+          },
+          orderBy: { ultimaAtividade: "asc" },
+          take: slotsRestantes,
+          select: selectDossie,
+        })
+      : [];
+
+    const dossies = [...dossiesManual, ...dossiesRadar];
 
     if (dossies.length === 0) {
       return NextResponse.json({

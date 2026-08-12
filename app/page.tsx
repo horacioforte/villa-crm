@@ -941,6 +941,7 @@ export default async function Home() {
     { label: "Pessoas", icon: Users, href: "/contatos" },
     { label: "Obras", icon: HardHat, href: "/obras" },
     { label: "Oportunidades", icon: ClipboardList, href: "/oportunidades" },
+    { label: "Conversas", icon: MessageCircle, href: "/conversas" },
     { label: "Inteligência", icon: Brain, href: "/inteligencia" },
     { label: "Maria", icon: Sparkles, href: "/maria" },
     { label: "Equipamentos", icon: Truck, href: "/equipamentos" },

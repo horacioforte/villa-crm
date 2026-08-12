@@ -423,9 +423,9 @@ model Oportunidade {
   tipo               TipoOperacao             @default(LOCACAO)
   tipoServico        TipoServico?
   status             StatusOportunidade       @default(NOVA)
-  potencialOportunidade Decimal?              @db.Decimal(12, 2)
+  potencialOportunidade Decimal?              @db.Decimal(18, 2)
   faixaPotencial        FaixaPotencial?
-  valorContrato         Decimal?              @db.Decimal(12, 2)
+  valorContrato         Decimal?              @db.Decimal(18, 2)
   probabilidade      Int?
   canalOrigem        CanalOrigem?
   motivoPerda        String?

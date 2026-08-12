@@ -4,11 +4,18 @@
 //
 // Fase 2 (Etapa 3) — ACRESCENTADO: roteamento determinístico por Conversa.canalWhatsapp.tipo.
 // O provedor é decidido exclusivamente por esse campo, nunca por tentativa em cascata:
-//   - CanalWhatsappTipo.META_CLOUD_API (com WHATSAPP_JOAO_V2=true) → lib/whatsapp/meta-client.ts
+//   - CanalWhatsappTipo.META_CLOUD_API, canal de IA (agenteIA != null — Maria/João) com
+//     WHATSAPP_JOAO_V2=true → lib/whatsapp/meta-client.ts. Com a flag desligada, cai no
+//     caminho Evolution abaixo — EXATAMENTE o comportamento já existente, não alterado
+//     aqui (ver auditoria: Maria/João continuam presos só a WHATSAPP_JOAO_V2).
+//   - CanalWhatsappTipo.META_CLOUD_API, canal HUMANO (agenteIA === null — ex.: Taciane)
+//     com WHATSAPP_META_HUMANO_OUTBOUND_V2=true → lib/whatsapp/meta-client.ts. Com a
+//     flag desligada, o envio é BLOQUEADO (422) — nunca cai para Evolution. Um canal
+//     cadastrado como META_CLOUD_API não deve silenciosamente tentar outro provedor só
+//     porque sua feature flag está OFF.
 //   - CanalWhatsappTipo.CHATWOOT_MIRROR → envio bloqueado (sem regra de negócio para isso ainda)
-//   - Sem canalWhatsapp vinculado, CanalWhatsappTipo.EVOLUTION, ou META_CLOUD_API com a flag
-//     desligada → caminho Evolution abaixo, exatamente como antes (nenhuma mudança de
-//     comportamento observável enquanto a flag estiver desligada).
+//   - Sem canalWhatsapp vinculado ou CanalWhatsappTipo.EVOLUTION → caminho Evolution
+//     abaixo, exatamente como antes.
 // Se o envio pelo canal escolhido falhar, a rota retorna erro — nunca tenta outro provedor.
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -60,9 +67,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const canalEhMetaCloudApi = conversa.canalWhatsapp?.tipo === CanalWhatsappTipo.META_CLOUD_API;
+  const canalEhHumano = conversa.canalWhatsapp?.agenteIA === null;
+
+  if (canalEhMetaCloudApi && canalEhHumano && process.env.WHATSAPP_META_HUMANO_OUTBOUND_V2 !== "true") {
+    // Canal META_CLOUD_API humano (ex.: Taciane) sem a flag própria ligada — bloqueia
+    // sem tentar Evolution como alternativa (ver comentário no topo do arquivo).
+    return NextResponse.json(
+      { error: "Envio pelo Workspace ainda não habilitado para este canal (feature desativada)." },
+      { status: 422 },
+    );
+  }
+
   const usarMetaClient =
-    conversa.canalWhatsapp?.tipo === CanalWhatsappTipo.META_CLOUD_API &&
-    process.env.WHATSAPP_JOAO_V2 === "true";
+    canalEhMetaCloudApi &&
+    (canalEhHumano
+      ? process.env.WHATSAPP_META_HUMANO_OUTBOUND_V2 === "true"
+      : process.env.WHATSAPP_JOAO_V2 === "true");
 
   if (usarMetaClient) {
     try {

@@ -64,7 +64,6 @@ function badgeSolicitante(nome: string | null) {
   const cor = cores[letra] ?? "bg-slate-100 text-slate-600 ring-1 ring-slate-200";
   return { letra, cor, titulo: `Solicitado por ${nome}` };
 }
-}
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 

@@ -439,8 +439,21 @@ async function executarFerramenta(
       return await criarLembrete(input as any);
     case "buscar_dossies":
       return await buscarDossies(input as any);
-    case "criar_dossie":
-      return await criarDossie({ ...input, usuarioId: ctx.usuarioId, nomeUsuario: ctx.nomeUsuario } as any);
+    case "criar_dossie": {
+      const resultadoDossie = await criarDossie({ ...input, usuarioId: ctx.usuarioId, nomeUsuario: ctx.nomeUsuario } as any);
+      // Fire-and-forget: investigar o dossiê imediatamente após criação
+      if (resultadoDossie?.id) {
+        const baseUrl = process.env.NEXTAUTH_URL ?? "https://villa-crm.vercel.app";
+        const apiKey  = process.env.AGENT_API_KEY ?? "";
+        fetch(`${baseUrl}/api/cron/joao-investigar?dossieId=${resultadoDossie.id}`, {
+          method:  "GET",
+          headers: { Authorization: `Bearer ${apiKey}` },
+        }).catch((err) => {
+          console.warn("[crm-ia/criar_dossie] Disparo de investigação falhou (não crítico):", err);
+        });
+      }
+      return resultadoDossie;
+    }
     default:
       return { erro: `Ferramenta desconhecida: ${nome}` };
   }

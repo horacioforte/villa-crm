@@ -56,5 +56,17 @@ export async function POST(req: NextRequest) {
     select: { id: true, titulo: true },
   });
 
+  // ── Disparo automático de investigação ────────────────────────────────────
+  // Fire-and-forget: não bloqueia a resposta. Investiga o dossiê imediatamente
+  // com Claude + GPT-4o em paralelo, sem esperar o cron de segunda/quarta.
+  const baseUrl = process.env.NEXTAUTH_URL ?? "https://villa-crm.vercel.app";
+  const apiKey  = process.env.AGENT_API_KEY ?? "";
+  fetch(`${baseUrl}/api/cron/joao-investigar?dossieId=${dossie.id}`, {
+    method:  "GET",
+    headers: { Authorization: `Bearer ${apiKey}` },
+  }).catch((err) => {
+    console.warn("[solicitacoes] Disparo de investigação falhou (não crítico):", err);
+  });
+
   return NextResponse.json({ id: dossie.id, titulo: dossie.titulo });
 }

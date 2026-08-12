@@ -207,8 +207,6 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Dossiês MANUAL (solicitados pelo usuário) têm prioridade absoluta.
-    // Slots restantes são preenchidos com dossiês do Radar João.
     const selectDossie = {
       id: true, titulo: true, resumo: true, segmento: true,
       cidade: true, estado: true, status: true, clienteFinal: true,
@@ -221,6 +219,66 @@ export async function GET(req: NextRequest) {
       },
     } as const;
 
+    // ── Modo direto: investigar um dossiê específico imediatamente ─────────────
+    // Ativado via ?dossieId=xxx (usado pelo trigger automático pós-criação)
+    const dossieIdParam = req.nextUrl.searchParams.get("dossieId");
+    if (dossieIdParam) {
+      const dossieEspecifico = await prisma.dossieComercial.findUnique({
+        where: { id: dossieIdParam },
+        select: selectDossie,
+      });
+
+      if (!dossieEspecifico) {
+        return NextResponse.json({ error: "Dossiê não encontrado." }, { status: 404 });
+      }
+
+      console.log(`[cron/joao-investigar] Modo direto: ${dossieEspecifico.titulo}`);
+
+      let combinado;
+      try {
+        combinado = await investigarDossieCombinado(dossieEspecifico);
+      } catch (e) {
+        return NextResponse.json({
+          sucesso: false,
+          erro: String(e),
+          timestamp: new Date().toISOString(),
+        }, { status: 500 });
+      }
+
+      const dossieAtualizado = await prisma.dossieComercial.findUnique({
+        where: { id: dossieEspecifico.id },
+        select: {
+          id: true, status: true, completude: true,
+          decisores: { select: { nome: true, cargo: true, telefone: true, email: true, linkedin: true } },
+          construtora: true, epc: true, epcm: true, faseObra: true,
+          cronograma: true, valorEstimado: true, volumeConcreto: true,
+          concorrentes: true, missaoAtual: true, fonteInformacao: true,
+          cidade: true, estado: true, clienteFinal: true,
+        },
+      }) ?? dossieEspecifico;
+
+      const [resultadoClaude, resultadoGPT4o] = await Promise.all([
+        salvarResultado(dossieEspecifico.id, { ...dossieAtualizado, titulo: dossieEspecifico.titulo }, combinado.claude, "joao-claude"),
+        salvarResultado(dossieEspecifico.id, { ...dossieAtualizado, titulo: dossieEspecifico.titulo }, combinado.gpt4o,  "joao-gpt4o"),
+      ]);
+
+      return NextResponse.json({
+        sucesso:     true,
+        processados: 1,
+        modo:        "direto",
+        detalhes: [{
+          dossieId: dossieEspecifico.id,
+          titulo:   dossieEspecifico.titulo,
+          claude: { achou: combinado.claude.achou, campos: resultadoClaude.camposAtualizados.length, decisor: resultadoClaude.decisorEncontrado, noticias: resultadoClaude.noticias },
+          gpt4o:  { achou: combinado.gpt4o.achou,  campos: resultadoGPT4o.camposAtualizados.length,  decisor: resultadoGPT4o.decisorEncontrado,  noticias: resultadoGPT4o.noticias  },
+        }],
+        timestamp: new Date().toISOString(),
+      });
+    }
+    // ── Fim modo direto ────────────────────────────────────────────────────────
+
+    // Dossiês MANUAL (solicitados pelo usuário) têm prioridade absoluta.
+    // Slots restantes são preenchidos com dossiês do Radar João.
     const dossiesManual = await prisma.dossieComercial.findMany({
       where: { status: { in: ["INVESTIGANDO", "PEDIR_MAIS_PESQUISA"] }, origem: "MANUAL" },
       orderBy: { ultimaAtividade: "asc" },

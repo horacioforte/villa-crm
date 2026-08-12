@@ -134,6 +134,51 @@ describe("POST /api/agent/evolution-admin — sem regressão nas outras actions"
   });
 });
 
+describe("POST /api/agent/evolution-admin — action=logout (restrito a morgana-villa)", () => {
+  it("faz DELETE /instance/logout/morgana-villa e devolve o resultado", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ status: 200, json: async () => ({ status: "SUCCESS" }) });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "logout", instance: "morgana-villa" }));
+
+    expect(res.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledWith("https://evolution.example.com/instance/logout/morgana-villa", {
+      method: "DELETE",
+      headers: { apikey: "morgana-evolution-key" },
+    });
+  });
+
+  it("rejeita maria-villa, sem chamar a Evolution", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "logout", instance: "maria-villa" }));
+
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejeita joao-villa, sem chamar a Evolution", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "logout", instance: "joao-villa" }));
+
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejeita taciane-villa, sem chamar a Evolution", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await POST(criarRequest({ action: "logout", instance: "taciane-villa" }));
+
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /api/agent/evolution-admin — action=getChatwoot (só leitura)", () => {
   it("consulta GET /chatwoot/find/{instance}, mesma resolução de apikey por prefixo", async () => {
     const fetchSpy = vi.fn().mockResolvedValue({

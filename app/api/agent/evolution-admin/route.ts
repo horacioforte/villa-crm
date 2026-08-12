@@ -102,6 +102,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data, { status: res.status });
   }
 
+  // RESTRITO NESTA ETAPA: só morgana-villa. Encerra uma sessão travada (ex.: state
+  // "connecting" preso, impedindo novo pareamento) — desconecta o WhatsApp vinculado,
+  // mas NÃO apaga a instância nem nenhuma configuração (webhook, Chatwoot, etc.).
+  // Depois de um logout, um novo "connect" gera um QR limpo.
+  if (action === "logout") {
+    if (instance !== "morgana-villa") {
+      return NextResponse.json(
+        { error: "Ação logout restrita a instance=\"morgana-villa\" nesta etapa." },
+        { status: 403 },
+      );
+    }
+
+    const res = await fetch(`${apiUrl}/instance/logout/${instance}`, {
+      method: "DELETE",
+      headers: { apikey: apiKey },
+    });
+    const data = await res.json().catch(() => ({}));
+    return NextResponse.json({ ...data, _debugStatus: res.status }, { status: res.status });
+  }
+
   if (action === "getWebhook") {
     const res = await fetch(`${apiUrl}/webhook/find/${instance}`, {
       headers: { apikey: apiKey },
@@ -206,5 +226,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ...data, webhookUrl: url, _debugStatus: res.status }, { status: res.status });
   }
 
-  return NextResponse.json({ error: "Action inválida. Use: create, connect, status, getWebhook, setWebhook, getChatwoot, setChatwoot" }, { status: 400 });
+  return NextResponse.json({ error: "Action inválida. Use: create, connect, status, getWebhook, setWebhook, getChatwoot, setChatwoot, logout" }, { status: 400 });
 }

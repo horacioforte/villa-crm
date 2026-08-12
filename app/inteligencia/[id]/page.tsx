@@ -521,21 +521,28 @@ export default function DossieDetalhe() {
       {!jaAssumido && !arquivado && podeAssumirDossie && (
         <div className="bg-white border-b px-4 py-3 space-y-2">
 
-          {/* Botão Assumir — inteligente */}
+          {/* Botão Assumir — sempre disponível */}
           {podeAssumirAgora ? (
             <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-11 text-sm font-bold" onClick={assumir} disabled={assumindo}>
               {assumindo ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
               🟢 Assumir Oportunidade
             </Button>
           ) : (
-            <div className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-3 flex items-center gap-3">
-              <div className="h-3 w-3 rounded-full bg-amber-400 shrink-0 animate-pulse" />
-              <div>
-                <p className="text-xs font-bold text-slate-500">João ainda está investigando este dossiê</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Precisa de 80% de completude para assumir · Atual: <span className="font-semibold text-slate-600">{dossie.completude}%</span>
+            <div className="space-y-2">
+              <div className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-2.5 flex items-center gap-3">
+                <div className="h-3 w-3 rounded-full bg-amber-400 shrink-0 animate-pulse" />
+                <p className="text-xs text-slate-500">
+                  João ainda investiga — {dossie.completude}% de 80% para assumir automaticamente
                 </p>
               </div>
+              <Button
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white h-10 text-sm font-semibold"
+                onClick={assumir}
+                disabled={assumindo}
+              >
+                {assumindo ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
+                ⚡ Assumir agora mesmo assim
+              </Button>
             </div>
           )}
 

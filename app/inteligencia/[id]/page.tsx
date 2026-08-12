@@ -291,10 +291,11 @@ export default function DossieDetalhe() {
       const res = await fetch(`/api/inteligencia/${id}/assumir`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro");
+      let data: Record<string, unknown> = {};
+      try { data = await res.json(); } catch { /* resposta vazia — deixa data={} */ }
+      if (!res.ok) throw new Error((data.error as string) ?? `Erro ${res.status}`);
       toast.success("Oportunidade criada no pipeline!");
-      router.push(data.urlOportunidade);
+      router.push((data.urlOportunidade as string) ?? "/oportunidades");
     } catch (e) { toast.error(String(e)); }
     finally { setAssumindo(false); }
   }

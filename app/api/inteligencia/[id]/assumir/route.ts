@@ -52,7 +52,9 @@ export async function POST(
   }
 
   // ── Transação: cria empresa, obra, oportunidade e tarefa ──────────────────
-  const resultado = await prisma.$transaction(async (tx) => {
+  let resultado: { oportunidadeId: string; empresaId: string; obraId: string | null };
+  try {
+  resultado = await prisma.$transaction(async (tx) => {
 
     // 1. Buscar ou criar Empresa no CRM
     let empresaId = dossie.empresaId;
@@ -232,6 +234,13 @@ export async function POST(
 
     return { oportunidadeId: oportunidade.id, empresaId, obraId };
   });
+  } catch (err) {
+    console.error("[assumir] Erro na transação:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Erro interno ao assumir dossiê." },
+      { status: 500 },
+    );
+  }
 
   await auditLog({
     action: "DOSSIE_ASSUMIDO",

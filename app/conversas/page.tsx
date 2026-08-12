@@ -41,6 +41,7 @@ type Conversa = {
   ultimaMensagemEm: string | null;
   atendidoPorId?: string | null;
   atendidoPor?: { nome: string } | null;
+  canalWhatsapp?: { nome: string; displayPhoneNumber: string | null } | null;
   mensagens: Array<{
     conteudo: string;
     direcao: string;
@@ -103,12 +104,21 @@ type HistoricoRecomendacao = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const INSTANCE_LABELS: Record<string, { label: string; cor: string }> = {
-  "maria-villa":   { label: "Maria",   cor: "bg-purple-100 text-purple-700" },
-  "joao-villa":    { label: "João",    cor: "bg-blue-100 text-blue-700" },
-  "morgana-villa": { label: "Morgana", cor: "bg-rose-100 text-rose-700" },
-  "taciane-villa": { label: "Taciane", cor: "bg-amber-100 text-amber-700" },
+// corBarra: mesma família de cor do badge (cor), em tom sólido — usada na barra
+// lateral do card da lista e no badge de canal em destaque no cabeçalho (Sprint UX de
+// segurança: canal precisa ser o elemento visual mais forte, não só mais uma pill).
+const INSTANCE_LABELS: Record<string, { label: string; cor: string; corBarra: string }> = {
+  "maria-villa":   { label: "Maria",   cor: "bg-purple-100 text-purple-700", corBarra: "bg-purple-500" },
+  "joao-villa":    { label: "João",    cor: "bg-blue-100 text-blue-700",    corBarra: "bg-blue-500" },
+  "morgana-villa": { label: "Morgana", cor: "bg-rose-100 text-rose-700",    corBarra: "bg-rose-500" },
+  "taciane-villa": { label: "Taciane", cor: "bg-amber-100 text-amber-700", corBarra: "bg-amber-500" },
 };
+
+const INSTANCE_LABEL_FALLBACK = { cor: "bg-zinc-100 text-zinc-600", corBarra: "bg-zinc-400" };
+
+function getInstanceInfo(instanceName: string) {
+  return INSTANCE_LABELS[instanceName] ?? { label: instanceName, ...INSTANCE_LABEL_FALLBACK };
+}
 
 const STATUS_LABELS: Record<string, { label: string; cor: string }> = {
   ABERTA:   { label: "Aberta",   cor: "bg-green-100 text-green-700" },
@@ -157,6 +167,7 @@ export default function ConversasPage() {
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [conversaAtiva, setConversaAtiva] = useState<Conversa | null>(null);
   const [conversaContexto, setConversaContexto] = useState<ConversaContexto | null>(null);
+  const [conversasMesmoContato, setConversasMesmoContato] = useState<Conversa[]>([]);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -237,6 +248,35 @@ export default function ConversasPage() {
   useEffect(() => {
     if (conversaAtiva) carregarDetalhesConversa(conversaAtiva);
   }, [conversaAtiva, carregarDetalhesConversa]);
+
+  // Sprint UX de segurança — item 4: mesmo contato em outros canais. Busca sem os
+  // filtros ativos (status/instance/responsável) para não esconder uma conversa em
+  // outro canal só porque, por exemplo, o filtro de status está em "Abertas". Usa o
+  // mesmo /api/conversas já existente, com busca pelo telefone — nenhum endpoint novo.
+  useEffect(() => {
+    const telefone = conversaAtiva?.telefone;
+    if (!telefone) {
+      setConversasMesmoContato([]);
+      return;
+    }
+
+    let cancelado = false;
+    fetch(`/api/conversas?busca=${encodeURIComponent(telefone)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: Conversa[]) => {
+        if (cancelado || !Array.isArray(data)) return;
+        setConversasMesmoContato(
+          data.filter((c) => c.telefone === telefone && c.id !== conversaAtiva?.id),
+        );
+      })
+      .catch(() => {
+        if (!cancelado) setConversasMesmoContato([]);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [conversaAtiva?.id, conversaAtiva?.telefone]);
 
   // Auto-refresh contexto e mensagens a cada 5s
   useEffect(() => {
@@ -470,11 +510,7 @@ export default function ConversasPage() {
                 </div>
               ) : (
                 ordenarConversasPorPrioridade(conversas).map((c) => {
-                  const instanceInfo =
-                    INSTANCE_LABELS[c.instanceName] ?? {
-                      label: c.instanceName,
-                      cor: "bg-zinc-100 text-zinc-600",
-                    };
+                  const instanceInfo = getInstanceInfo(c.instanceName);
                   const ultimaMsg = c.mensagens[0];
                   const prioridadeInfo = getConversaPrioridade(c);
 
@@ -483,10 +519,16 @@ export default function ConversasPage() {
                       key={c.id}
                       onClick={() => { setConversaAtiva(c); setShowTransferir(false); }}
                       className={cn(
-                        "w-full border-b border-[#D7DEEA] px-4 py-3 text-left transition hover:bg-[#F4F6FA]",
+                        "relative w-full border-b border-[#D7DEEA] py-3 pl-4 pr-4 text-left transition hover:bg-[#F4F6FA]",
                         conversaAtiva?.id === c.id && "bg-[#E8EEFB]"
                       )}
                     >
+                      {/* Sprint UX de segurança — item 1: identidade do canal reforçada
+                          por uma barra sólida, além do badge pastel já existente abaixo. */}
+                      <span
+                        aria-hidden="true"
+                        className={cn("absolute inset-y-0 left-0 w-1", instanceInfo.corBarra)}
+                      />
                       <div className="flex items-start justify-between gap-2">
                         <p className="truncate text-sm font-semibold text-[#1A2E5A]">
                           {c.nomeContato ?? c.telefone ?? "Desconhecido"}
@@ -543,10 +585,35 @@ export default function ConversasPage() {
                         <span className="text-amber-600">· Sem responsável</span>
                       )}
                     </div>
+                    {/* Sprint UX de segurança — item 4: mesmo contato em outros canais.
+                        Não mescla histórico nenhum — só ajuda a navegar entre as
+                        conversas separadas do mesmo telefone. */}
+                    {conversasMesmoContato.length > 0 && (
+                      <p className="mt-1 text-xs text-[#667085]">
+                        Também possui conversa em:{" "}
+                        {conversasMesmoContato.map((c, i) => (
+                          <span key={c.id}>
+                            {i > 0 && " · "}
+                            <button
+                              type="button"
+                              onClick={() => { setConversaAtiva(c); setShowTransferir(false); }}
+                              className="font-semibold text-[#1E4FAB] hover:underline"
+                            >
+                              {getInstanceInfo(c.instanceName).label}
+                            </button>
+                          </span>
+                        ))}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${INSTANCE_LABELS[conversaAtiva.instanceName]?.cor}`}>
-                      {INSTANCE_LABELS[conversaAtiva.instanceName]?.label ?? conversaAtiva.instanceName}
+                    {/* Sprint UX de segurança — item 2: canal ativo com mais peso visual
+                        que os badges secundários (cor sólida + maior, não pastel). */}
+                    <span className={cn(
+                      "rounded-full px-4 py-1.5 text-sm font-extrabold text-white",
+                      getInstanceInfo(conversaAtiva.instanceName).corBarra,
+                    )}>
+                      {getInstanceInfo(conversaAtiva.instanceName).label}
                     </span>
                     <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_LABELS[conversaAtiva.status]?.cor}`}>
                       {STATUS_LABELS[conversaAtiva.status]?.label}
@@ -777,6 +844,18 @@ export default function ConversasPage() {
 
                 {/* Input de envio */}
                 <div className="border-t border-[#D7DEEA] p-4">
+                  {/* Sprint UX de segurança — item 3: faixa clara e associada ao
+                      composer, nome e número derivados de CanalWhatsapp (nunca
+                      hardcoded) — genérico para qualquer canal, não só Taciane. */}
+                  <div className={cn(
+                    "mb-2 rounded-xl px-3 py-2 text-center text-xs font-bold text-white",
+                    getInstanceInfo(conversaAtiva.instanceName).corBarra,
+                  )}>
+                    Enviando pelo WhatsApp de {getInstanceInfo(conversaAtiva.instanceName).label}
+                    {conversaAtiva.canalWhatsapp?.displayPhoneNumber
+                      ? ` · ${conversaAtiva.canalWhatsapp.displayPhoneNumber}`
+                      : ""}
+                  </div>
                   <div className="flex items-end gap-3 rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-4 py-3">
                     <textarea
                       ref={inputRef}
@@ -796,10 +875,6 @@ export default function ConversasPage() {
                       <Send className="size-4" />
                     </button>
                   </div>
-                  <p className="mt-1.5 text-center text-xs text-[#98A2B3]">
-                    Enviando como atendente humano via{" "}
-                    {INSTANCE_LABELS[conversaAtiva.instanceName]?.label ?? conversaAtiva.instanceName}
-                  </p>
                 </div>
               </>
             ) : (

@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
       atendidoPor: { select: { nome: true } },
       pessoa: { select: { nome: true } },
       empresa: { select: { razaoSocial: true, nomeFantasia: true } },
+      canalWhatsapp: { select: { nome: true, displayPhoneNumber: true } },
     },
   });
 

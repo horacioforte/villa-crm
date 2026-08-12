@@ -39,11 +39,18 @@ export function getConversaPrioridade(conversa: ConversaPrioridadeInput): Priori
   return { prioridade: "normal", label: "Normal", cor: "bg-zinc-100 text-zinc-600" };
 }
 
+// Regra explícita: prioridade primeiro, ultimaMensagemEm DESC como desempate — não
+// depende da estabilidade do Array.sort nem da ordenação prévia vinda da API.
 export function ordenarConversasPorPrioridade<T extends ConversaPrioridadeInput>(conversas: T[]) {
   return [...conversas].sort((a, b) => {
     const pa = getConversaPrioridade(a);
     const pb = getConversaPrioridade(b);
     const rank = { urgente: 0, "sem-resposta": 1, normal: 2 };
-    return rank[pa.prioridade] - rank[pb.prioridade];
+    const diferencaPrioridade = rank[pa.prioridade] - rank[pb.prioridade];
+    if (diferencaPrioridade !== 0) return diferencaPrioridade;
+
+    const dataA = a.ultimaMensagemEm ? new Date(a.ultimaMensagemEm).getTime() : 0;
+    const dataB = b.ultimaMensagemEm ? new Date(b.ultimaMensagemEm).getTime() : 0;
+    return dataB - dataA;
   });
 }

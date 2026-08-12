@@ -254,7 +254,7 @@ export async function POST(
     sucesso: true,
     mensagem: "Dossiê assumido. Oportunidade criada no pipeline comercial.",
     ...resultado,
-    urlOportunidade: `/oportunidades/${resultado.oportunidadeId}`,
+    urlOportunidade: `/oportunidades`,
     urlDossie: `/inteligencia/${id}`,
   });
 }

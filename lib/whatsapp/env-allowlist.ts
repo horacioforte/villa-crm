@@ -18,11 +18,13 @@ const ALLOWED_ACCESS_TOKEN_ENV_VARS = new Set<string>([
   "MARIA_META_ACCESS_TOKEN",
   "META_JOAO_ACCESS_TOKEN",
   "MORGANA_EVOLUTION_API_KEY",
+  "TACIANE_META_ACCESS_TOKEN",
 ]);
 
 const ALLOWED_VERIFY_TOKEN_ENV_VARS = new Set<string>([
   "MARIA_META_VERIFY_TOKEN",
   "META_WEBHOOK_VERIFY_TOKEN",
+  "TACIANE_META_VERIFY_TOKEN",
 ]);
 
 // App Secret ainda não configurado para nenhum canal (nenhuma dessas variáveis existe

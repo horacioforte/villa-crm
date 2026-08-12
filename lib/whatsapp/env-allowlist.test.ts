@@ -52,6 +52,25 @@ describe("resolveWhatsappEnvVar", () => {
     ).rejects.toBeInstanceOf(EnvVarNaoPermitidaError);
   });
 
+  it("resolve TACIANE_META_ACCESS_TOKEN como access_token (canal Taciane, Meta Cloud API)", async () => {
+    process.env.TACIANE_META_ACCESS_TOKEN = "taciane-access-fake";
+    const valor = await resolveWhatsappEnvVar("TACIANE_META_ACCESS_TOKEN", "access_token");
+    expect(valor).toBe("taciane-access-fake");
+  });
+
+  it("resolve TACIANE_META_VERIFY_TOKEN como verify_token (canal Taciane, Meta Cloud API)", async () => {
+    process.env.TACIANE_META_VERIFY_TOKEN = "taciane-verify-fake";
+    const valor = await resolveWhatsappEnvVar("TACIANE_META_VERIFY_TOKEN", "verify_token");
+    expect(valor).toBe("taciane-verify-fake");
+  });
+
+  it("rejeita TACIANE_META_ACCESS_TOKEN pedido como verify_token (categoria errada)", async () => {
+    process.env.TACIANE_META_ACCESS_TOKEN = "taciane-access-fake";
+    await expect(
+      resolveWhatsappEnvVar("TACIANE_META_ACCESS_TOKEN", "verify_token"),
+    ).rejects.toBeInstanceOf(EnvVarNaoPermitidaError);
+  });
+
   it("lança erro controlado quando a variável permitida não está configurada (ausência de token)", async () => {
     delete process.env.META_JOAO_ACCESS_TOKEN;
     await expect(

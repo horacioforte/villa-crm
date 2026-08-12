@@ -43,6 +43,29 @@ function corStatus(status: string) {
   return "bg-slate-100 text-slate-500";
 }
 
+// Extrai o nome do solicitante de criadoPorAgente ou fonteInformacao (fallback legado)
+function solicitante(criadoPorAgente: string, fonteInformacao: string | null): string | null {
+  const ignorar = new Set(["joao-radar", "joao-outbound", "manual", "equipe", ""]);
+  if (criadoPorAgente && !ignorar.has(criadoPorAgente)) return criadoPorAgente;
+  if (fonteInformacao?.startsWith("Solicitado por ")) {
+    return fonteInformacao.replace("Solicitado por ", "").trim();
+  }
+  return null;
+}
+
+function badgeSolicitante(nome: string | null) {
+  if (!nome) return null;
+  const letra = nome[0].toUpperCase();
+  const cores: Record<string, string> = {
+    H: "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200",
+    M: "bg-violet-100 text-violet-700 ring-1 ring-violet-200",
+    T: "bg-teal-100 text-teal-700 ring-1 ring-teal-200",
+  };
+  const cor = cores[letra] ?? "bg-slate-100 text-slate-600 ring-1 ring-slate-200";
+  return { letra, cor, titulo: `Solicitado por ${nome}` };
+}
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export const dynamic = "force-dynamic";
@@ -189,11 +212,25 @@ export default async function MinhasSolicitacoesPage({ searchParams }: { searchP
                   href={`/inteligencia/${d.id}`}
                   className="group flex flex-col bg-white border border-slate-100 rounded-xl p-4 hover:shadow-md hover:border-indigo-200 transition-all"
                 >
-                  {/* Score + status */}
+                  {/* Score + badge solicitante + status */}
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", corScore(d.score))}>
-                      {d.score}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", corScore(d.score))}>
+                        {d.score}
+                      </span>
+                      {(() => {
+                        const b = badgeSolicitante(solicitante(d.criadoPorAgente, d.fonteInformacao));
+                        if (!b) return null;
+                        return (
+                          <span
+                            title={b.titulo}
+                            className={cn("text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0", b.cor)}
+                          >
+                            {b.letra}
+                          </span>
+                        );
+                      })()}
+                    </div>
                     <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full", corStatus(d.status))}>
                       {labelStatus(d.status)}
                     </span>

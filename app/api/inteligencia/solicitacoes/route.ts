@@ -31,6 +31,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Título obrigatório." }, { status: 400 });
   }
 
+  const nomeUsuario = authResult.nome ?? "Usuário";
+  const primeiroNome = nomeUsuario.split(" ")[0];
+
   const dossie = await prisma.dossieComercial.create({
     data: {
       titulo:          body.titulo.trim(),
@@ -43,9 +46,10 @@ export async function POST(req: NextRequest) {
       clienteFinal:    body.clienteFinal?.trim() || null,
       resumo:          body.resumo?.trim() || null,
       missaoAtual:     body.missaoInicial?.trim() ||
-                       "Investigação solicitada por Horácio — levantar decisores, contatos e potencial da obra/empresa.",
+                       `Investigação solicitada por ${primeiroNome} — levantar decisores, contatos e potencial da obra/empresa.`,
       prioridade:      (body.prioridade as any) ?? "MEDIA",
-      fonteInformacao: "Solicitado por Horácio",
+      fonteInformacao: `Solicitado por ${primeiroNome}`,
+      criadoPorAgente: primeiroNome,
       score:           0,
       completude:      0,
     },

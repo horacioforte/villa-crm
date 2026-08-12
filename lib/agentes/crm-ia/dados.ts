@@ -708,6 +708,7 @@ export async function criarDossie({
   missaoInicial,
   prioridade = "MEDIA",
   usuarioId,
+  nomeUsuario,
 }: {
   titulo: string;
   tipo?: string;
@@ -719,7 +720,10 @@ export async function criarDossie({
   missaoInicial?: string;
   prioridade?: string;
   usuarioId?: string;
+  nomeUsuario?: string;
 }) {
+  const primeiroNome = nomeUsuario?.split(" ")[0] ?? "equipe";
+
   const dossie = await prisma.dossieComercial.create({
     data: {
       titulo,
@@ -731,9 +735,10 @@ export async function criarDossie({
       estado: estado ?? null,
       clienteFinal: clienteFinal ?? null,
       resumo: resumo ?? null,
-      missaoAtual: missaoInicial ?? "Investigação solicitada pela equipe comercial — levantar decisores, contatos e potencial da obra/empresa.",
+      missaoAtual: missaoInicial ?? `Investigação solicitada por ${primeiroNome} — levantar decisores, contatos e potencial da obra/empresa.`,
       prioridade: prioridade ?? "MEDIA",
-      fonteInformacao: "Solicitado por Horácio",
+      fonteInformacao: `Solicitado por ${primeiroNome}`,
+      criadoPorAgente: primeiroNome,
       score: 0,
       completude: 0,
     },

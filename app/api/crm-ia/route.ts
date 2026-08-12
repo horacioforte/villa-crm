@@ -440,7 +440,7 @@ async function executarFerramenta(
     case "buscar_dossies":
       return await buscarDossies(input as any);
     case "criar_dossie":
-      return await criarDossie({ ...input, usuarioId: ctx.usuarioId } as any);
+      return await criarDossie({ ...input, usuarioId: ctx.usuarioId, nomeUsuario: ctx.nomeUsuario } as any);
     default:
       return { erro: `Ferramenta desconhecida: ${nome}` };
   }

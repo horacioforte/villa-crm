@@ -90,6 +90,72 @@ describe("persistirMensagemCliente — inbound de cliente real", () => {
       }),
     ).resolves.not.toThrow();
   });
+
+  it("Ciclo de Atendimento — PENDENTE reabre para ABERTA ao chegar mensagem do cliente", async () => {
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana", status: "PENDENTE" });
+    prismaMock.mensagem.create.mockResolvedValue({ id: "m1" });
+
+    await persistirMensagemCliente({
+      canal: CANAL,
+      telefone: "558199999999",
+      nomeContato: "Cliente Teste",
+      externalMessageId: "wamid-reabre-1",
+      messageType: "text",
+      texto: "oi de novo",
+      rawPayload: {},
+    });
+
+    expect(prismaMock.conversa.update).toHaveBeenCalledWith({
+      where: { id: "conversa-1" },
+      data: { ultimaMensagemEm: expect.any(Date), status: "ABERTA" },
+    });
+  });
+
+  it("Ciclo de Atendimento — SPAM NUNCA reabre sozinha", async () => {
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana", status: "SPAM" });
+    prismaMock.mensagem.create.mockResolvedValue({ id: "m1" });
+
+    await persistirMensagemCliente({
+      canal: CANAL,
+      telefone: "558199999999",
+      nomeContato: "Cliente Teste",
+      externalMessageId: "wamid-spam-1",
+      messageType: "text",
+      texto: "mensagem indesejada",
+      rawPayload: {},
+    });
+
+    expect(prismaMock.conversa.update).toHaveBeenCalledWith({
+      where: { id: "conversa-1" },
+      data: { ultimaMensagemEm: expect.any(Date) },
+    });
+  });
+});
+
+describe("reconciliarOuCriarMensagemHumana — Ciclo de Atendimento NÃO se aplica ao eco humano", () => {
+  it("mensagem HUMANA (fromMe) não reabre PENDENTE/CONCLUIDA — a regra é só para mensagem de cliente", async () => {
+    prismaMock.mensagem.findFirst
+      .mockResolvedValueOnce(null) // mensagemJaProcessada
+      .mockResolvedValueOnce(null); // nenhuma candidata de reconciliação
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana", status: "PENDENTE" });
+    prismaMock.mensagem.create.mockResolvedValue({ id: "m-nova" });
+    prismaMock.conversa.update.mockResolvedValue({});
+
+    await reconciliarOuCriarMensagemHumana({
+      canal: CANAL,
+      telefone: "558199999999",
+      nomeContato: "Cliente Teste",
+      externalMessageId: "wamid-celular-status",
+      messageType: "text",
+      texto: "Combinado, te ligo amanhã",
+      rawPayload: {},
+    });
+
+    expect(prismaMock.conversa.update).toHaveBeenCalledWith({
+      where: { id: "conversa-1" },
+      data: { ultimaMensagemEm: expect.any(Date) }, // sem "status" — reabertura não se aplica aqui
+    });
+  });
 });
 
 describe("reconciliarOuCriarMensagemHumana — envio pela Central, eco fromMe correspondente", () => {

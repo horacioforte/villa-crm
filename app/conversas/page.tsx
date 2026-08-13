@@ -20,7 +20,8 @@ import {
 import { PageNavigation } from "@/components/layout/PageNavigation";
 import { cn } from "@/lib/utils";
 import { buildMelhorProximaAcao, buildTarefaPayloadFromRecomendacao } from "@/lib/conversas/next-action";
-import { getConversaPrioridade, ordenarConversasPorPrioridade } from "@/lib/conversas/prioridade";
+import { getPrioridadeAguardando, ordenarConversasPorPrioridade } from "@/lib/conversas/prioridade";
+import { formatarTempoDecorrido } from "@/lib/conversas/aguardando-resposta";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,10 @@ type Conversa = {
   atendidoPorId?: string | null;
   atendidoPor?: { nome: string } | null;
   canalWhatsapp?: { nome: string; displayPhoneNumber: string | null } | null;
+  // Ciclo de Atendimento — nunca persistido, sempre calculado pela API a partir das
+  // mensagens (ver lib/conversas/aguardando-resposta.ts). null = já respondida por um
+  // humano (ou nunca houve mensagem de cliente).
+  aguardandoRespostaDesde?: string | null;
   mensagens: Array<{
     conteudo: string;
     direcao: string;
@@ -92,6 +97,8 @@ type OportunidadeResumo = {
 
 type ConversaContexto = {
   id: string;
+  status?: "ABERTA" | "PENDENTE" | "CONCLUIDA" | "SPAM";
+  aguardandoRespostaDesde?: string | null;
   empresa?: { id: string; razaoSocial: string | null; nomeFantasia: string | null } | null;
   pessoa?: { id: string; nome: string | null; telefone: string | null; cargo: string | null } | null;
   oportunidade?: OportunidadeResumo | null;
@@ -188,8 +195,18 @@ export default function ConversasPage() {
   const [historicoRecomendacoes, setHistoricoRecomendacoes] = useState<HistoricoRecomendacao[]>([]);
   const [criandoTarefa, setCriandoTarefa] = useState(false);
   const [feedbackAcao, setFeedbackAcao] = useState<string | null>(null);
+  const [alterandoStatus, setAlterandoStatus] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Ciclo de Atendimento — re-renderiza a cada 30s só para o texto de "há quanto tempo
+  // aguardando" ficar em dia. Puramente client-side: não busca nada do servidor, não é
+  // cron/job, não escreve no banco — é só um "tick" para o cálculo local rodar de novo.
+  const [, forcarRecalculoTempo] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => forcarRecalculoTempo((t) => t + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Carrega lista de usuários para filtro e transferência
   useEffect(() => {
@@ -347,6 +364,27 @@ export default function ConversasPage() {
       }
     } finally {
       setTransferindo(false);
+    }
+  }
+
+  // Ciclo de Atendimento — mudança MANUAL de status (ABERTA/PENDENTE/CONCLUIDA/SPAM).
+  // "Aguardando resposta" nunca passa por aqui — é sempre calculado, nunca setado.
+  async function alterarStatusConversa(novoStatus: Conversa["status"]) {
+    if (!conversaAtiva || alterandoStatus || conversaAtiva.status === novoStatus) return;
+    setAlterandoStatus(true);
+    try {
+      const resp = await fetch(`/api/conversas/${conversaAtiva.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: novoStatus }),
+      });
+      if (resp.ok) {
+        setConversaAtiva((prev) => (prev ? { ...prev, status: novoStatus } : prev));
+        setConversaContexto((prev) => (prev ? { ...prev, status: novoStatus } : prev));
+        await carregarConversas();
+      }
+    } finally {
+      setAlterandoStatus(false);
     }
   }
 
@@ -524,7 +562,8 @@ export default function ConversasPage() {
                 ordenarConversasPorPrioridade(conversas).map((c) => {
                   const instanceInfo = getInstanceInfo(c.instanceName);
                   const ultimaMsg = c.mensagens[0];
-                  const prioridadeInfo = getConversaPrioridade(c);
+                  const aguardando = Boolean(c.aguardandoRespostaDesde);
+                  const prioridadeInfo = getPrioridadeAguardando(c.aguardandoRespostaDesde);
 
                   return (
                     <button
@@ -555,18 +594,31 @@ export default function ConversasPage() {
                           {ultimaMsg.conteudo}
                         </p>
                       )}
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${instanceInfo.cor}`}>
+                      {/* Ciclo de Atendimento — linha combinada canal + estado, no lugar
+                          dos 4 badges anteriores (canal | status | prioridade | responsável).
+                          Prioridade só aparece quando != Normal (menos ruído visual). */}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold", instanceInfo.cor)}>
                           {instanceInfo.label}
                         </span>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_LABELS[c.status]?.cor}`}>
-                          {STATUS_LABELS[c.status]?.label}
-                        </span>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${prioridadeInfo.cor}`}>
-                          {prioridadeInfo.label}
-                        </span>
+                        {aguardando ? (
+                          <span className="truncate text-[11px] font-semibold text-[#475467]">
+                            Aguardando resposta · {formatarTempoDecorrido(c.aguardandoRespostaDesde as string)}
+                            {prioridadeInfo && prioridadeInfo.prioridade !== "normal" && (
+                              <span className={cn("ml-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide", prioridadeInfo.cor)}>
+                                {prioridadeInfo.label}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          c.status !== "ABERTA" && (
+                            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", STATUS_LABELS[c.status]?.cor)}>
+                              {STATUS_LABELS[c.status]?.label}
+                            </span>
+                          )
+                        )}
                         {c.atendidoPor && (
-                          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
+                          <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
                             {c.atendidoPor.nome.split(" ")[0]}
                           </span>
                         )}
@@ -617,6 +669,28 @@ export default function ConversasPage() {
                         ))}
                       </p>
                     )}
+                    {/* Ciclo de Atendimento — "aguardando resposta" nunca é status manual,
+                        é sempre calculado (ver lib/conversas/aguardando-resposta.ts). Usa
+                        conversaContexto quando já carregado (mais fresco, atualizado a
+                        cada 5s) e cai para conversaAtiva enquanto isso não chega. */}
+                    {(() => {
+                      const aguardandoDesde =
+                        conversaContexto?.id === conversaAtiva.id
+                          ? conversaContexto?.aguardandoRespostaDesde
+                          : conversaAtiva.aguardandoRespostaDesde;
+                      if (!aguardandoDesde) return null;
+                      const prioridadeHeader = getPrioridadeAguardando(aguardandoDesde);
+                      return (
+                        <p className="mt-1 text-xs font-semibold text-[#475467]">
+                          Aguardando resposta · {formatarTempoDecorrido(aguardandoDesde)}
+                          {prioridadeHeader && prioridadeHeader.prioridade !== "normal" && (
+                            <span className={cn("ml-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide", prioridadeHeader.cor)}>
+                              {prioridadeHeader.label}
+                            </span>
+                          )}
+                        </p>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Sprint UX de segurança — item 2: canal ativo com mais peso visual
@@ -627,9 +701,25 @@ export default function ConversasPage() {
                     )}>
                       {getInstanceInfo(conversaAtiva.instanceName).label}
                     </span>
-                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_LABELS[conversaAtiva.status]?.cor}`}>
-                      {STATUS_LABELS[conversaAtiva.status]?.label}
-                    </span>
+                    {/* Ciclo de Atendimento — controle manual de status (Aberta/
+                        Pendente/Concluída/Spam). "Aguardando resposta" nunca aparece
+                        aqui — não é um status, é calculado. */}
+                    <select
+                      value={conversaAtiva.status}
+                      disabled={alterandoStatus}
+                      onChange={(e) => alterarStatusConversa(e.target.value as Conversa["status"])}
+                      title="Mudar status do atendimento"
+                      className={cn(
+                        "rounded-full border-0 px-3 py-1 text-xs font-bold outline-none disabled:opacity-60",
+                        STATUS_LABELS[conversaAtiva.status]?.cor,
+                      )}
+                    >
+                      {(["ABERTA", "PENDENTE", "CONCLUIDA", "SPAM"] as const).map((s) => (
+                        <option key={s} value={s}>
+                          {STATUS_LABELS[s]?.label}
+                        </option>
+                      ))}
+                    </select>
                     {/* Toggle do painel de contexto do cliente (coluna 3) */}
                     <button
                       onClick={() => setPainelContextoAberto((v) => !v)}

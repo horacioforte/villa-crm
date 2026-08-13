@@ -26,6 +26,7 @@ import {
   StatusMensagem,
   type CanalWhatsapp,
 } from "@/app/generated/prisma/client";
+import { statusAposNovaMensagemCliente } from "@/lib/conversas/reabertura";
 
 const INSTANCE_NAME = "taciane-villa";
 
@@ -136,6 +137,12 @@ export async function persistirMensagemCliente({
     throw err;
   }
 
-  await prisma.conversa.update({ where: { id: conversa.id }, data: { ultimaMensagemEm: new Date() } });
+  // Ciclo de Atendimento — reabertura automática: PENDENTE/CONCLUIDA voltam para
+  // ABERTA ao chegar mensagem real do cliente; SPAM nunca reabre sozinho.
+  const novoStatus = statusAposNovaMensagemCliente(conversa.status);
+  await prisma.conversa.update({
+    where: { id: conversa.id },
+    data: { ultimaMensagemEm: new Date(), ...(novoStatus ? { status: novoStatus } : {}) },
+  });
   return conversa;
 }

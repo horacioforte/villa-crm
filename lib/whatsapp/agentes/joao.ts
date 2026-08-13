@@ -24,6 +24,7 @@ import { adquirirParaProcessamento, marcarErroProcessamento, marcarProcessada } 
 import { getContextoJoao } from "@/lib/agentes/joao/contexto";
 import { analisarMensagemJoao } from "@/lib/agentes/joao/handler";
 import { processarRespostaJoao } from "@/lib/agentes/joao/crm";
+import { statusAposNovaMensagemCliente } from "@/lib/conversas/reabertura";
 
 // ─── Tipos do payload Meta Cloud API (usados também pelo roteador unificado) ──
 
@@ -189,7 +190,14 @@ async function processarMensagemRecebida({
     throw err;
   }
 
-  await prisma.conversa.update({ where: { id: conversa.id }, data: { ultimaMensagemEm: new Date() } });
+  // Ciclo de Atendimento — reabertura automática: PENDENTE/CONCLUIDA voltam para
+  // ABERTA ao chegar mensagem real do cliente; SPAM nunca reabre sozinho. Resposta
+  // automática da IA (abaixo) nunca conta como atendimento humano.
+  const novoStatus = statusAposNovaMensagemCliente(conversa.status);
+  await prisma.conversa.update({
+    where: { id: conversa.id },
+    data: { ultimaMensagemEm: new Date(), ...(novoStatus ? { status: novoStatus } : {}) },
+  });
 
   // Aquisição atômica: transiciona PENDENTE→PROCESSANDO só se ninguém mais adquiriu
   // primeiro (na prática, sempre bem-sucedida aqui — a mensagem acabou de ser criada

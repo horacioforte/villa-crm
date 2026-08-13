@@ -107,6 +107,58 @@ describe("persistirConversaMaria — conversa", () => {
     });
   });
 
+  it("Ciclo de Atendimento — PENDENTE reabre para ABERTA ao chegar mensagem do cliente (mesmo com a IA já tendo respondido)", async () => {
+    prismaMock.conversa.findFirst.mockResolvedValue({
+      id: "conversa-existente",
+      canalWhatsappId: "canal-maria",
+      status: "PENDENTE",
+    });
+    prismaMock.mensagem.create.mockResolvedValue({ id: "m1" });
+    prismaMock.conversa.update.mockResolvedValue({});
+
+    await persistirConversaMaria({
+      canal: CANAL,
+      telefone: "558199999999",
+      nomeContato: "Cliente Teste",
+      externalMessageId: "wamid.reabre",
+      messageType: "text",
+      textoCliente: "Ainda preciso de ajuda",
+      rawPayload: {},
+      textoResposta: "Claro, me conta mais!",
+    });
+
+    expect(prismaMock.conversa.update).toHaveBeenCalledWith({
+      where: { id: "conversa-existente" },
+      data: { ultimaMensagemEm: expect.any(Date), status: "ABERTA" },
+    });
+  });
+
+  it("Ciclo de Atendimento — SPAM NUNCA reabre sozinha", async () => {
+    prismaMock.conversa.findFirst.mockResolvedValue({
+      id: "conversa-existente",
+      canalWhatsappId: "canal-maria",
+      status: "SPAM",
+    });
+    prismaMock.mensagem.create.mockResolvedValue({ id: "m1" });
+    prismaMock.conversa.update.mockResolvedValue({});
+
+    await persistirConversaMaria({
+      canal: CANAL,
+      telefone: "558199999999",
+      nomeContato: "Cliente Teste",
+      externalMessageId: "wamid.spam",
+      messageType: "text",
+      textoCliente: "mensagem indesejada",
+      rawPayload: {},
+      textoResposta: "resposta da IA",
+    });
+
+    expect(prismaMock.conversa.update).toHaveBeenCalledWith({
+      where: { id: "conversa-existente" },
+      data: { ultimaMensagemEm: expect.any(Date) },
+    });
+  });
+
   it("vincula canalWhatsappId a uma Conversa existente que ainda não tinha canal", async () => {
     prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-sem-canal", canalWhatsappId: null });
     prismaMock.conversa.update.mockResolvedValueOnce({ id: "conversa-sem-canal", canalWhatsappId: "canal-maria" });

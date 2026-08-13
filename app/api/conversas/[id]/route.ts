@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
+import { calcularAguardandoRespostaDesdeMensagens } from "@/lib/conversas/aguardando-resposta";
 
 export async function GET(
   _req: NextRequest,
@@ -76,5 +77,9 @@ export async function GET(
 
   if (!conversa) return NextResponse.json({ error: "Conversa não encontrada." }, { status: 404 });
 
-  return NextResponse.json(conversa);
+  // Ciclo de Atendimento — calculado a partir das mensagens já carregadas acima
+  // (não persistido, ver lib/conversas/aguardando-resposta.ts).
+  const aguardandoRespostaDesde = calcularAguardandoRespostaDesdeMensagens(conversa.mensagens);
+
+  return NextResponse.json({ ...conversa, aguardandoRespostaDesde });
 }

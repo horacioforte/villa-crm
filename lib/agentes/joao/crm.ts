@@ -13,6 +13,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
+import { statusAposNovaMensagemCliente } from "@/lib/conversas/reabertura";
 
 // ─── Envio de WhatsApp (Meta Cloud API) ──────────────────────────────────────
 
@@ -424,7 +425,7 @@ export async function salvarMensagensJoao({
     let conversa = await prisma.conversa.findFirst({
       where: { telefone, instanceName: "joao-villa" },
       orderBy: { updatedAt: "desc" },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
     if (!conversa) {
@@ -434,13 +435,17 @@ export async function salvarMensagensJoao({
           telefone,
           nomeContato,
         },
-        select: { id: true },
+        select: { id: true, status: true },
       });
     } else {
-      // Atualiza timestamp e nome se mudou
+      // Atualiza timestamp e nome se mudou. Ciclo de Atendimento — regra mínima
+      // aprovada para o V1: PENDENTE/CONCLUIDA reabrem para ABERTA ao chegar mensagem
+      // do cliente; SPAM nunca reabre sozinha. Nenhuma outra mudança neste arquivo
+      // (nomenclatura de autor, IA, envio, feature flag) — fora de escopo desta sprint.
+      const novoStatus = statusAposNovaMensagemCliente(conversa.status);
       await prisma.conversa.update({
         where: { id: conversa.id },
-        data: { updatedAt: new Date(), nomeContato },
+        data: { updatedAt: new Date(), nomeContato, ...(novoStatus ? { status: novoStatus } : {}) },
       });
     }
 

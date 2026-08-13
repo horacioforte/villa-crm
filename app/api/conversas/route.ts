@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
+import { calcularAguardandoRespostaDesde } from "@/lib/conversas/aguardando-resposta";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -58,5 +59,39 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(conversas);
+  // Ciclo de Atendimento — "aguardando resposta" nunca é persistido (ver auditoria em
+  // lib/conversas/aguardando-resposta.ts). Calculado aqui com duas agregações Prisma
+  // tipadas (groupBy + _max), não SQL raw: para cada conversa da página, precisamos da
+  // última mensagem ENTRADA e da última SAIDA/HUMANO — Prisma não permite duas
+  // sub-seleções da mesma relação com filtros diferentes num único include, mas
+  // groupBy cobre exatamente esse caso sem sair do client tipado.
+  const conversaIds = conversas.map((c) => c.id);
+
+  const [ultimasDoCliente, ultimasRespostasHumanas] = conversaIds.length
+    ? await Promise.all([
+        prisma.mensagem.groupBy({
+          by: ["conversaId"],
+          where: { conversaId: { in: conversaIds }, direcao: "ENTRADA" },
+          _max: { createdAt: true },
+        }),
+        prisma.mensagem.groupBy({
+          by: ["conversaId"],
+          where: { conversaId: { in: conversaIds }, direcao: "SAIDA", autor: "HUMANO" },
+          _max: { createdAt: true },
+        }),
+      ])
+    : [[], []];
+
+  const mapaUltimaCliente = new Map(ultimasDoCliente.map((r) => [r.conversaId, r._max.createdAt]));
+  const mapaUltimaHumana = new Map(ultimasRespostasHumanas.map((r) => [r.conversaId, r._max.createdAt]));
+
+  const conversasComAguardando = conversas.map((c) => ({
+    ...c,
+    aguardandoRespostaDesde: calcularAguardandoRespostaDesde(
+      mapaUltimaCliente.get(c.id) ?? null,
+      mapaUltimaHumana.get(c.id) ?? null,
+    ),
+  }));
+
+  return NextResponse.json(conversasComAguardando);
 }

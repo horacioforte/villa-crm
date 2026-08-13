@@ -1,105 +1,86 @@
 import { describe, expect, it } from "vitest";
-import { getConversaPrioridade, ordenarConversasPorPrioridade } from "./prioridade";
+import { getPrioridadeAguardando, ordenarConversasPorPrioridade } from "./prioridade";
 
-describe("getConversaPrioridade", () => {
-  it("marca como urgente quando a conversa está sem responsável e sem resposta há mais de 24h", () => {
-    const conversa = {
-      status: "ABERTA",
-      ultimaMensagemEm: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
-      atendidoPorId: null,
-      mensagens: [{ direcao: "ENTRADA", createdAt: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString() }],
-    };
+const AGORA = new Date("2026-01-01T12:00:00.000Z").getTime();
+const minutosAtras = (min: number) => new Date(AGORA - min * 60_000).toISOString();
 
-    const prioridade = getConversaPrioridade(conversa as any);
-
-    expect(prioridade.prioridade).toBe("urgente");
-    expect(prioridade.label).toBe("Urgente");
+describe("getPrioridadeAguardando", () => {
+  it("null quando a conversa não está aguardando resposta (nenhuma prioridade a exibir)", () => {
+    expect(getPrioridadeAguardando(null, AGORA)).toBeNull();
+    expect(getPrioridadeAguardando(undefined, AGORA)).toBeNull();
   });
 
-  it("marca como sem resposta quando a última mensagem veio do cliente e há mais de 24h sem retorno", () => {
-    const conversa = {
-      status: "ABERTA",
-      ultimaMensagemEm: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
-      atendidoPorId: "user-1",
-      mensagens: [{ direcao: "ENTRADA", createdAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString() }],
-    };
+  it("Normal entre 0 e 30 min (inclusive)", () => {
+    expect(getPrioridadeAguardando(minutosAtras(0), AGORA)?.prioridade).toBe("normal");
+    expect(getPrioridadeAguardando(minutosAtras(12), AGORA)?.prioridade).toBe("normal");
+    expect(getPrioridadeAguardando(minutosAtras(30), AGORA)?.prioridade).toBe("normal");
+  });
 
-    const prioridade = getConversaPrioridade(conversa as any);
+  it("Atenção acima de 30 min até 4h (inclusive)", () => {
+    expect(getPrioridadeAguardando(minutosAtras(31), AGORA)?.prioridade).toBe("atencao");
+    expect(getPrioridadeAguardando(minutosAtras(47), AGORA)?.prioridade).toBe("atencao");
+    expect(getPrioridadeAguardando(minutosAtras(4 * 60), AGORA)?.prioridade).toBe("atencao");
+  });
 
-    expect(prioridade.prioridade).toBe("sem-resposta");
-    expect(prioridade.label).toBe("Sem resposta");
+  it("Urgente acima de 4h", () => {
+    expect(getPrioridadeAguardando(minutosAtras(4 * 60 + 1), AGORA)?.prioridade).toBe("urgente");
+    expect(getPrioridadeAguardando(minutosAtras(4 * 60 + 32), AGORA)?.prioridade).toBe("urgente");
+    expect(getPrioridadeAguardando(minutosAtras(26 * 60), AGORA)?.prioridade).toBe("urgente");
+  });
+
+  it("labels exatos exigidos", () => {
+    expect(getPrioridadeAguardando(minutosAtras(12), AGORA)?.label).toBe("Normal");
+    expect(getPrioridadeAguardando(minutosAtras(47), AGORA)?.label).toBe("Atenção");
+    expect(getPrioridadeAguardando(minutosAtras(4 * 60 + 32), AGORA)?.label).toBe("Urgente");
   });
 });
 
 describe("ordenarConversasPorPrioridade", () => {
-  it("coloca conversas urgentes no topo da lista", () => {
-    const conversas = [
-      {
-        id: "1",
-        status: "ABERTA",
-        ultimaMensagemEm: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        atendidoPorId: "user-1",
-        mensagens: [{ direcao: "ENTRADA", createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() }],
-      },
-      {
-        id: "2",
-        status: "ABERTA",
-        ultimaMensagemEm: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
-        atendidoPorId: null,
-        mensagens: [{ direcao: "ENTRADA", createdAt: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString() }],
-      },
-    ];
+  it("conversas aguardando resposta vêm antes das que não estão aguardando", () => {
+    const naoAguardando = { id: "nao-aguardando", aguardandoRespostaDesde: null, ultimaMensagemEm: minutosAtras(1) };
+    const aguardandoNormal = { id: "aguardando-normal", aguardandoRespostaDesde: minutosAtras(5), ultimaMensagemEm: minutosAtras(5) };
 
-    const ordenadas = ordenarConversasPorPrioridade(conversas as any[]);
+    const ordenadas = ordenarConversasPorPrioridade([naoAguardando, aguardandoNormal]);
 
-    expect(ordenadas[0].id).toBe("2");
-    expect(ordenadas[1].id).toBe("1");
+    expect(ordenadas[0].id).toBe("aguardando-normal");
+    expect(ordenadas[1].id).toBe("nao-aguardando");
   });
 
-  it("com a mesma prioridade, desempata por ultimaMensagemEm DESC (mais recente primeiro) — regra explícita, não depende da ordem de entrada", () => {
-    const antiga = {
-      id: "antiga",
-      status: "ABERTA",
-      ultimaMensagemEm: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      atendidoPorId: "user-1",
-      mensagens: [{ direcao: "ENTRADA", createdAt: new Date().toISOString() }],
-    };
-    const recente = {
-      id: "recente",
-      status: "ABERTA",
-      ultimaMensagemEm: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-      atendidoPorId: "user-1",
-      mensagens: [{ direcao: "ENTRADA", createdAt: new Date().toISOString() }],
-    };
+  it("dentro de aguardando, urgente > atenção > normal", () => {
+    const normal = { id: "normal", aguardandoRespostaDesde: minutosAtras(5) };
+    const atencao = { id: "atencao", aguardandoRespostaDesde: minutosAtras(45) };
+    const urgente = { id: "urgente", aguardandoRespostaDesde: minutosAtras(5 * 60) };
 
-    // Entrada deliberadamente na ordem "errada" (antiga antes da recente) — se o
-    // desempate dependesse da estabilidade do sort/ordem de entrada, o resultado
-    // sairia errado. Com a regra explícita, a mais recente sempre vem primeiro.
-    const ordenadas = ordenarConversasPorPrioridade([antiga, recente] as any[]);
+    const ordenadas = ordenarConversasPorPrioridade([normal, atencao, urgente]);
 
-    expect(ordenadas[0].id).toBe("recente");
-    expect(ordenadas[1].id).toBe("antiga");
+    expect(ordenadas.map((c) => c.id)).toEqual(["urgente", "atencao", "normal"]);
   });
 
-  it("conversas sem ultimaMensagemEm (nunca respondida) ficam depois das com data, dentro da mesma prioridade", () => {
-    const semData = {
-      id: "sem-data",
-      status: "ABERTA",
-      ultimaMensagemEm: null,
-      atendidoPorId: "user-1",
-      mensagens: [],
-    };
-    const comData = {
-      id: "com-data",
-      status: "ABERTA",
-      ultimaMensagemEm: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-      atendidoPorId: "user-1",
-      mensagens: [{ direcao: "ENTRADA", createdAt: new Date().toISOString() }],
-    };
+  it("dentro da mesma faixa (ambas aguardando), espera mais longa aparece primeiro", () => {
+    const esperandoPouco = { id: "pouco", aguardandoRespostaDesde: minutosAtras(5) };
+    const esperandoMais = { id: "mais", aguardandoRespostaDesde: minutosAtras(20) };
 
-    const ordenadas = ordenarConversasPorPrioridade([semData, comData] as any[]);
+    const ordenadas = ordenarConversasPorPrioridade([esperandoPouco, esperandoMais]);
 
-    expect(ordenadas[0].id).toBe("com-data");
-    expect(ordenadas[1].id).toBe("sem-data");
+    expect(ordenadas.map((c) => c.id)).toEqual(["mais", "pouco"]);
+  });
+
+  it("entre conversas que não estão aguardando, a mais recente (ultimaMensagemEm) aparece primeiro", () => {
+    const antiga = { id: "antiga", aguardandoRespostaDesde: null, ultimaMensagemEm: minutosAtras(120) };
+    const recente = { id: "recente", aguardandoRespostaDesde: null, ultimaMensagemEm: minutosAtras(5) };
+
+    const ordenadas = ordenarConversasPorPrioridade([antiga, recente]);
+
+    expect(ordenadas.map((c) => c.id)).toEqual(["recente", "antiga"]);
+  });
+
+  it("não depende da ordem de entrada nem de estabilidade de sort — entrada embaralhada dá o mesmo resultado", () => {
+    const a = { id: "a", aguardandoRespostaDesde: minutosAtras(5 * 60) }; // urgente
+    const b = { id: "b", aguardandoRespostaDesde: null, ultimaMensagemEm: minutosAtras(1) };
+    const c = { id: "c", aguardandoRespostaDesde: minutosAtras(45) }; // atenção
+
+    const ordenadas = ordenarConversasPorPrioridade([b, c, a]);
+
+    expect(ordenadas.map((x) => x.id)).toEqual(["a", "c", "b"]);
   });
 });

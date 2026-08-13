@@ -451,8 +451,8 @@ export default function ConversasPage() {
 
       <div className="min-h-0 flex-1 px-5 pb-8 sm:px-8">
         <div className="flex h-full min-h-0 overflow-hidden rounded-3xl border border-[#D7DEEA] bg-white shadow-sm">
-          {/* ── Coluna 1 (~25%): lista de conversas ── */}
-          <aside className="flex w-1/4 min-h-0 shrink-0 flex-col border-r border-[#D7DEEA]">
+          {/* ── Coluna 1 (~27%): lista de conversas ── */}
+          <aside className="flex w-[27%] min-h-0 min-w-[280px] shrink-0 flex-col border-r border-[#D7DEEA]">
             {/* Filtros */}
             <div className="border-b border-[#D7DEEA] p-4 space-y-3">
               <input
@@ -578,7 +578,7 @@ export default function ConversasPage() {
             </div>
           </aside>
 
-          {/* ── Coluna 2 (~50% com painel aberto, ~75% fechado): chat, protagonista ── */}
+          {/* ── Coluna 2 (~53% com painel aberto, ~80% fechado): chat, protagonista ── */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {conversaAtiva ? (
               <>
@@ -769,10 +769,12 @@ export default function ConversasPage() {
                 <div className="border-t border-[#D7DEEA] p-4">
                   {/* Sprint UX de segurança — item 3: faixa clara e associada ao
                       composer, nome e número derivados de CanalWhatsapp (nunca
-                      hardcoded) — genérico para qualquer canal, não só Taciane. */}
+                      hardcoded) — genérico para qualquer canal, não só Taciane.
+                      Cor pastel (mesma classe já usada nos badges de canal em toda a
+                      página) — leve, mas com a mesma identificação inequívoca. */}
                   <div className={cn(
-                    "mb-2 rounded-xl px-3 py-2 text-center text-xs font-bold text-white",
-                    getInstanceInfo(conversaAtiva.instanceName).corBarra,
+                    "mb-2 rounded-xl px-3 py-2 text-center text-xs font-bold",
+                    getInstanceInfo(conversaAtiva.instanceName).cor,
                   )}>
                     Enviando pelo WhatsApp de {getInstanceInfo(conversaAtiva.instanceName).label}
                     {conversaAtiva.canalWhatsapp?.displayPhoneNumber
@@ -809,17 +811,17 @@ export default function ConversasPage() {
             )}
           </div>
 
-          {/* ── Coluna 3 (~25%): contexto do cliente — auxiliar, recolhível ── */}
+          {/* ── Coluna 3 (~20%, piso de 260px): contexto do cliente — auxiliar, recolhível ── */}
           {conversaAtiva && painelContextoAberto && (
             <aside
-              className="flex w-1/4 min-h-0 shrink-0 flex-col overflow-y-auto border-l border-[#D7DEEA] bg-[#FAFBFC] p-4"
+              className="flex w-[20%] min-h-0 min-w-[260px] shrink-0 flex-col overflow-y-auto border-l border-[#D7DEEA] bg-[#FAFBFC] p-3"
               onClick={() => setShowTransferir(false)}
             >
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#98A2B3]">
                 Contexto do cliente
               </p>
 
-              <div className="mt-3 rounded-2xl border border-[#D7DEEA] bg-white p-3">
+              <div className="mt-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#98A2B3]">
                   Recomendação do Brain
                 </p>
@@ -848,14 +850,14 @@ export default function ConversasPage() {
                   </span>
                 </div>
 
-                <div className="mt-3 border-t border-[#F4F6FA] pt-2 text-xs text-[#475467]">
+                <div className="mt-3 border-t border-[#EDEFF3] pt-2 text-xs text-[#475467]">
                   <p className="font-medium text-[#1A2E5A]">Impacto esperado</p>
                   <p className="mt-0.5">{melhorProximaAcao.impacto}</p>
                   <p className="mt-2 font-medium text-[#1A2E5A]">Se não agir</p>
                   <p className="mt-0.5">{melhorProximaAcao.naoAgir}</p>
                 </div>
 
-                <div className="mt-3 rounded-xl border border-dashed border-[#D7DEEA] p-2 text-[11px] text-[#667085]">
+                <div className="mt-3 rounded-xl border border-dashed border-[#E4E7EC] p-2 text-[11px] text-[#667085]">
                   <p className="font-semibold uppercase tracking-[0.16em] text-[#98A2B3]">Status da entrega</p>
                   <p className="mt-1">Implementada tecnicamente — aguardando validação dos usuários.</p>
                   <p className="mt-1">Os botões abaixo são prévias e ainda não executam ações reais no sistema.</p>
@@ -869,13 +871,13 @@ export default function ConversasPage() {
                   >
                     {criandoTarefa ? "Criando tarefa..." : "✅ Criar tarefa"}
                   </button>
-                  <button disabled className="cursor-not-allowed rounded-xl border border-[#D7DEEA] bg-[#F4F6FA] px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
+                  <button disabled className="cursor-not-allowed rounded-xl border border-[#E4E7EC] bg-white px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
                     💬 WhatsApp · Em breve
                   </button>
-                  <button disabled className="cursor-not-allowed rounded-xl border border-[#D7DEEA] bg-[#F4F6FA] px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
+                  <button disabled className="cursor-not-allowed rounded-xl border border-[#E4E7EC] bg-white px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
                     📅 Follow-up · Em breve
                   </button>
-                  <button disabled className="cursor-not-allowed rounded-xl border border-[#D7DEEA] bg-[#F4F6FA] px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
+                  <button disabled className="cursor-not-allowed rounded-xl border border-[#E4E7EC] bg-white px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
                     📄 Proposta · Em breve
                   </button>
                 </div>
@@ -885,7 +887,7 @@ export default function ConversasPage() {
                 )}
               </div>
 
-              <div className="mt-3 rounded-2xl border border-[#D7DEEA] bg-white p-3">
+              <div className="mt-4 border-t border-[#EDEFF3] pt-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#98A2B3]">Últimas recomendações</p>
                 <p className="mt-1 text-[10px] text-[#98A2B3]">Protótipo de UX local — não persiste, não é compartilhado, não alimenta o Brain.</p>
                 <div className="mt-2 space-y-1.5 text-xs text-[#475467]">
@@ -893,7 +895,7 @@ export default function ConversasPage() {
                     <p className="text-[#98A2B3]">Ainda não há histórico para esta sessão.</p>
                   ) : (
                     historicoRecomendacoes.slice().reverse().map((item) => (
-                      <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#F4F6FA] px-2.5 py-1.5">
+                      <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-1.5">
                         <span>{item.status === "executado" ? "✔" : "✖"} {item.acao}</span>
                         <span className="text-[10px] text-[#98A2B3]">{new Date(item.data).toLocaleDateString("pt-BR")}</span>
                       </div>
@@ -903,7 +905,7 @@ export default function ConversasPage() {
               </div>
 
               {(conversaContexto?.empresa?.razaoSocial || conversaContexto?.oportunidade) && (
-                <div className="mt-3 rounded-2xl border border-[#D7DEEA] bg-white p-3 text-xs text-[#667085]">
+                <div className="mt-4 border-t border-[#EDEFF3] pt-3 text-xs text-[#667085]">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#98A2B3]">Oportunidade</p>
                   <div className="mt-1.5 space-y-1">
                     {conversaContexto?.empresa?.razaoSocial && (

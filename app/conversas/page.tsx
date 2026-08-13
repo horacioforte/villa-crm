@@ -9,6 +9,8 @@ import {
   Bot,
   Check,
   MessageCircle,
+  PanelRightClose,
+  PanelRightOpen,
   RefreshCw,
   Send,
   User,
@@ -168,6 +170,9 @@ export default function ConversasPage() {
   const [conversaAtiva, setConversaAtiva] = useState<Conversa | null>(null);
   const [conversaContexto, setConversaContexto] = useState<ConversaContexto | null>(null);
   const [conversasMesmoContato, setConversasMesmoContato] = useState<Conversa[]>([]);
+  // Reestruturação em 3 áreas — painel de contexto do cliente começa aberto no
+  // desktop, mas é recolhível. Não afeta nenhum estado de dados/lógica de envio.
+  const [painelContextoAberto, setPainelContextoAberto] = useState(true);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -434,13 +439,20 @@ export default function ConversasPage() {
   }, [conversaAtiva, melhorProximaAcao.acao]);
 
   return (
-    <div className="min-h-screen bg-[#F4F6FA]">
-      <div className="px-5 py-8 sm:px-8">
+    // Central de Atendimento — página trava na altura da viewport (h-screen +
+    // overflow-hidden), sem número mágico de calc(). Cada uma das 3 áreas rola por
+    // conta própria (min-h-0 em cada nível de coluna flex é o que garante isso —
+    // sem ele, o navegador deixa cada coluna crescer para caber o conteúdo em vez de
+    // respeitar a altura disponível, e a página inteira acaba rolando).
+    <div className="flex h-screen flex-col overflow-hidden bg-[#F4F6FA]">
+      <div className="shrink-0 px-5 pt-8 sm:px-8">
         <PageNavigation currentPage="Conversas" currentHref="/conversas" />
+      </div>
 
-        <div className="flex h-[calc(100vh-14rem)] overflow-hidden rounded-3xl border border-[#D7DEEA] bg-white shadow-sm">
-          {/* ── Painel esquerdo: lista de conversas ── */}
-          <aside className="flex w-80 flex-col border-r border-[#D7DEEA]">
+      <div className="min-h-0 flex-1 px-5 pb-8 sm:px-8">
+        <div className="flex h-full min-h-0 overflow-hidden rounded-3xl border border-[#D7DEEA] bg-white shadow-sm">
+          {/* ── Coluna 1 (~25%): lista de conversas ── */}
+          <aside className="flex w-1/4 min-h-0 shrink-0 flex-col border-r border-[#D7DEEA]">
             {/* Filtros */}
             <div className="border-b border-[#D7DEEA] p-4 space-y-3">
               <input
@@ -566,8 +578,8 @@ export default function ConversasPage() {
             </div>
           </aside>
 
-          {/* ── Painel direito: chat ── */}
-          <div className="flex flex-1 flex-col">
+          {/* ── Coluna 2 (~50% com painel aberto, ~75% fechado): chat, protagonista ── */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {conversaAtiva ? (
               <>
                 {/* Header da conversa */}
@@ -618,6 +630,19 @@ export default function ConversasPage() {
                     <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_LABELS[conversaAtiva.status]?.cor}`}>
                       {STATUS_LABELS[conversaAtiva.status]?.label}
                     </span>
+                    {/* Toggle do painel de contexto do cliente (coluna 3) */}
+                    <button
+                      onClick={() => setPainelContextoAberto((v) => !v)}
+                      title={painelContextoAberto ? "Fechar contexto do cliente" : "Abrir contexto do cliente"}
+                      className="flex items-center gap-1.5 rounded-xl border border-[#D7DEEA] px-3 py-1.5 text-xs font-semibold text-[#1A2E5A] hover:bg-[#F4F6FA]"
+                    >
+                      {painelContextoAberto ? (
+                        <PanelRightClose className="size-3.5" />
+                      ) : (
+                        <PanelRightOpen className="size-3.5" />
+                      )}
+                      Contexto
+                    </button>
                     {/* Botão de transferência */}
                     <div className="relative">
                       <button
@@ -673,108 +698,6 @@ export default function ConversasPage() {
                             )}
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Próxima ação */}
-                <div className="border-b border-[#D7DEEA] bg-[#F8FAFF] p-4 sm:p-6" onClick={() => setShowTransferir(false)}>
-                  <div className="rounded-3xl border border-[#D7DEEA] bg-white p-4 shadow-sm">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#1E4FAB]">
-                      O Brain analisou esta oportunidade e recomenda a seguinte ação:
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-semibold text-[#1A2E5A]">
-                          {melhorProximaAcao.acao}
-                        </h3>
-                        <p className="mt-2 text-sm text-[#475467]">
-                          {melhorProximaAcao.motivos.join(" · ")}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <span className={cn(
-                          "rounded-full px-3 py-1 text-xs font-semibold",
-                          melhorProximaAcao.urgencia === "alta" ? "bg-rose-100 text-rose-700" :
-                          melhorProximaAcao.urgencia === "media" ? "bg-amber-100 text-amber-700" :
-                          "bg-emerald-100 text-emerald-700"
-                        )}>
-                          {melhorProximaAcao.urgencia === "alta" ? "Urgência alta" : melhorProximaAcao.urgencia === "media" ? "Urgência média" : "Urgência baixa"}
-                        </span>
-                        <span className={cn(
-                          "rounded-full px-3 py-1 text-xs font-semibold",
-                          melhorProximaAcao.confianca === "alta" ? "bg-emerald-100 text-emerald-700" :
-                          melhorProximaAcao.confianca === "media" ? "bg-amber-100 text-amber-700" :
-                          "bg-zinc-100 text-zinc-600"
-                        )}>
-                          {melhorProximaAcao.confianca === "alta" ? "Confiança alta" : melhorProximaAcao.confianca === "media" ? "Confiança média" : "Confiança baixa"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 rounded-2xl bg-[#F4F6FA] p-3 text-sm text-[#1A2E5A]">
-                      <p className="font-medium">Impacto esperado:</p>
-                      <p className="mt-1 text-[#475467]">{melhorProximaAcao.impacto}</p>
-                      <p className="mt-2 font-medium">Se não agir:</p>
-                      <p className="mt-1 text-[#475467]">{melhorProximaAcao.naoAgir}</p>
-                    </div>
-
-                    <div className="mt-3 rounded-2xl border border-dashed border-[#D7DEEA] bg-[#F8FAFF] p-3 text-sm text-[#475467]">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1E4FAB]">Status da entrega</p>
-                      <p className="mt-1">Implementada tecnicamente — aguardando validação dos usuários.</p>
-                      <p className="mt-2 text-xs text-[#667085]">Os botões abaixo são prévias e ainda não executam ações reais no sistema.</p>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        onClick={criarTarefaDaRecomendacao}
-                        disabled={criandoTarefa || !conversaContexto?.oportunidade?.id}
-                        className="rounded-2xl border border-[#D7DEEA] bg-[#1E4FAB] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#1A2E5A] disabled:cursor-not-allowed disabled:bg-[#98A2B3]"
-                      >
-                        {criandoTarefa ? "Criando tarefa..." : "✅ Criar tarefa"}
-                      </button>
-                      <button disabled className="cursor-not-allowed rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#98A2B3]">
-                        💬 WhatsApp · Em breve
-                      </button>
-                      <button disabled className="cursor-not-allowed rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#98A2B3]">
-                        📅 Agendar follow-up · Em breve
-                      </button>
-                      <button disabled className="cursor-not-allowed rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2 text-sm font-medium text-[#98A2B3]">
-                        📄 Abrir proposta · Em breve
-                      </button>
-                    </div>
-
-                    {feedbackAcao && (
-                      <p className="mt-3 text-sm text-[#1A2E5A]">{feedbackAcao}</p>
-                    )}
-
-                    <div className="mt-4 rounded-2xl border border-[#D7DEEA] bg-[#F8FAFF] p-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1E4FAB]">Últimas recomendações</p>
-                      <p className="mt-2 text-xs text-[#667085]">Protótipo de UX local: não é persistência oficial, não é compartilhado entre usuários, não gera auditoria e não alimenta o Brain.</p>
-                      <div className="mt-2 space-y-2 text-sm text-[#475467]">
-                        {historicoRecomendacoes.length === 0 ? (
-                          <p className="text-[#98A2B3]">Ainda não há histórico para esta sessão.</p>
-                        ) : (
-                          historicoRecomendacoes.slice().reverse().map((item) => (
-                            <div key={item.id} className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2">
-                              <span>{item.status === "executado" ? "✔" : "✖"} {item.acao}</span>
-                              <span className="text-xs text-[#98A2B3]">{new Date(item.data).toLocaleDateString("pt-BR")}</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap gap-3 text-sm text-[#667085]">
-                      {conversaContexto?.empresa?.razaoSocial && (
-                        <span>Cliente: <strong className="text-[#1A2E5A]">{conversaContexto.empresa.razaoSocial}</strong></span>
-                      )}
-                      {conversaContexto?.oportunidade?.status && (
-                        <span>Etapa: <strong className="text-[#1A2E5A]">{conversaContexto.oportunidade.status}</strong></span>
-                      )}
-                      {conversaContexto?.oportunidade?.valorContrato && (
-                        <span>Valor: <strong className="text-[#1A2E5A]">{formatCurrency(conversaContexto.oportunidade.valorContrato)}</strong></span>
                       )}
                     </div>
                   </div>
@@ -885,6 +808,118 @@ export default function ConversasPage() {
               </div>
             )}
           </div>
+
+          {/* ── Coluna 3 (~25%): contexto do cliente — auxiliar, recolhível ── */}
+          {conversaAtiva && painelContextoAberto && (
+            <aside
+              className="flex w-1/4 min-h-0 shrink-0 flex-col overflow-y-auto border-l border-[#D7DEEA] bg-[#FAFBFC] p-4"
+              onClick={() => setShowTransferir(false)}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#98A2B3]">
+                Contexto do cliente
+              </p>
+
+              <div className="mt-3 rounded-2xl border border-[#D7DEEA] bg-white p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#98A2B3]">
+                  Recomendação do Brain
+                </p>
+                <h3 className="mt-1 text-sm font-semibold text-[#1A2E5A]">
+                  {melhorProximaAcao.acao}
+                </h3>
+                <p className="mt-1 text-xs text-[#475467]">
+                  {melhorProximaAcao.motivos.join(" · ")}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <span className={cn(
+                    "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                    melhorProximaAcao.urgencia === "alta" ? "bg-rose-100 text-rose-700" :
+                    melhorProximaAcao.urgencia === "media" ? "bg-amber-100 text-amber-700" :
+                    "bg-emerald-100 text-emerald-700"
+                  )}>
+                    {melhorProximaAcao.urgencia === "alta" ? "Urgência alta" : melhorProximaAcao.urgencia === "media" ? "Urgência média" : "Urgência baixa"}
+                  </span>
+                  <span className={cn(
+                    "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                    melhorProximaAcao.confianca === "alta" ? "bg-emerald-100 text-emerald-700" :
+                    melhorProximaAcao.confianca === "media" ? "bg-amber-100 text-amber-700" :
+                    "bg-zinc-100 text-zinc-600"
+                  )}>
+                    {melhorProximaAcao.confianca === "alta" ? "Confiança alta" : melhorProximaAcao.confianca === "media" ? "Confiança média" : "Confiança baixa"}
+                  </span>
+                </div>
+
+                <div className="mt-3 border-t border-[#F4F6FA] pt-2 text-xs text-[#475467]">
+                  <p className="font-medium text-[#1A2E5A]">Impacto esperado</p>
+                  <p className="mt-0.5">{melhorProximaAcao.impacto}</p>
+                  <p className="mt-2 font-medium text-[#1A2E5A]">Se não agir</p>
+                  <p className="mt-0.5">{melhorProximaAcao.naoAgir}</p>
+                </div>
+
+                <div className="mt-3 rounded-xl border border-dashed border-[#D7DEEA] p-2 text-[11px] text-[#667085]">
+                  <p className="font-semibold uppercase tracking-[0.16em] text-[#98A2B3]">Status da entrega</p>
+                  <p className="mt-1">Implementada tecnicamente — aguardando validação dos usuários.</p>
+                  <p className="mt-1">Os botões abaixo são prévias e ainda não executam ações reais no sistema.</p>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  <button
+                    onClick={criarTarefaDaRecomendacao}
+                    disabled={criandoTarefa || !conversaContexto?.oportunidade?.id}
+                    className="rounded-xl border border-[#D7DEEA] bg-[#1E4FAB] px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-[#1A2E5A] disabled:cursor-not-allowed disabled:bg-[#98A2B3]"
+                  >
+                    {criandoTarefa ? "Criando tarefa..." : "✅ Criar tarefa"}
+                  </button>
+                  <button disabled className="cursor-not-allowed rounded-xl border border-[#D7DEEA] bg-[#F4F6FA] px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
+                    💬 WhatsApp · Em breve
+                  </button>
+                  <button disabled className="cursor-not-allowed rounded-xl border border-[#D7DEEA] bg-[#F4F6FA] px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
+                    📅 Follow-up · Em breve
+                  </button>
+                  <button disabled className="cursor-not-allowed rounded-xl border border-[#D7DEEA] bg-[#F4F6FA] px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
+                    📄 Proposta · Em breve
+                  </button>
+                </div>
+
+                {feedbackAcao && (
+                  <p className="mt-2 text-xs text-[#1A2E5A]">{feedbackAcao}</p>
+                )}
+              </div>
+
+              <div className="mt-3 rounded-2xl border border-[#D7DEEA] bg-white p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#98A2B3]">Últimas recomendações</p>
+                <p className="mt-1 text-[10px] text-[#98A2B3]">Protótipo de UX local — não persiste, não é compartilhado, não alimenta o Brain.</p>
+                <div className="mt-2 space-y-1.5 text-xs text-[#475467]">
+                  {historicoRecomendacoes.length === 0 ? (
+                    <p className="text-[#98A2B3]">Ainda não há histórico para esta sessão.</p>
+                  ) : (
+                    historicoRecomendacoes.slice().reverse().map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#F4F6FA] px-2.5 py-1.5">
+                        <span>{item.status === "executado" ? "✔" : "✖"} {item.acao}</span>
+                        <span className="text-[10px] text-[#98A2B3]">{new Date(item.data).toLocaleDateString("pt-BR")}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {(conversaContexto?.empresa?.razaoSocial || conversaContexto?.oportunidade) && (
+                <div className="mt-3 rounded-2xl border border-[#D7DEEA] bg-white p-3 text-xs text-[#667085]">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#98A2B3]">Oportunidade</p>
+                  <div className="mt-1.5 space-y-1">
+                    {conversaContexto?.empresa?.razaoSocial && (
+                      <p>Cliente: <strong className="text-[#1A2E5A]">{conversaContexto.empresa.razaoSocial}</strong></p>
+                    )}
+                    {conversaContexto?.oportunidade?.status && (
+                      <p>Etapa: <strong className="text-[#1A2E5A]">{conversaContexto.oportunidade.status}</strong></p>
+                    )}
+                    {conversaContexto?.oportunidade?.valorContrato && (
+                      <p>Valor: <strong className="text-[#1A2E5A]">{formatCurrency(conversaContexto.oportunidade.valorContrato)}</strong></p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </aside>
+          )}
         </div>
       </div>
     </div>

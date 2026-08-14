@@ -3,7 +3,7 @@
 // ARQUIVO: app/conversas/page.tsx
 // REGRA: nunca remover. Apenas acrescentar.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowRightLeft,
@@ -173,7 +173,7 @@ function formatCurrency(value?: string | number | null) {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function ConversasPage() {
+function ConversasPage() {
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [conversaAtiva, setConversaAtiva] = useState<Conversa | null>(null);
   const [conversaContexto, setConversaContexto] = useState<ConversaContexto | null>(null);
@@ -1041,5 +1041,15 @@ export default function ConversasPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Next.js 16 exige Suspense em torno de useSearchParams.
+// REGRA: nunca remover. Apenas acrescentar.
+export default function ConversasPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <ConversasPage />
+    </Suspense>
   );
 }

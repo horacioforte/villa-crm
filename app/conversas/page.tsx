@@ -203,9 +203,13 @@ function ConversasPage() {
   const abrirConversaId = searchParams.get("abrir");
   const buscaParam = searchParams.get("busca");
 
-  // Pré-preenche o campo de busca quando vem de ?busca=TELEFONE (ex: da página Maria)
+  // Pré-preenche o campo de busca quando vem de ?busca=TELEFONE (ex: da página Maria).
+  // Limpa o filtro de status para buscar em TODAS as conversas (Abertas + Concluídas etc.)
   useEffect(() => {
-    if (buscaParam) setBusca(buscaParam);
+    if (buscaParam) {
+      setBusca(buscaParam);
+      setFiltroStatus(""); // mostra todos os status para não esconder conversas antigas
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buscaParam]);
 

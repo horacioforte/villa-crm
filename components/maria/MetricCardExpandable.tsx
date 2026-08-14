@@ -157,7 +157,12 @@ export function MetricCardExpandable({
                       </a>
                     ) : item.telefone && item.telefone !== "—" ? (
                       <a
-                        href={`/conversas?busca=${item.telefone.replace(/\D/g, "")}`}
+                        href={(() => {
+                          const d = item.telefone.replace(/\D/g, "");
+                          // Remove DDI 55 para que o "contains" da API funcione independente do formato armazenado
+                          const tel = d.startsWith("55") && d.length >= 12 ? d.slice(2) : d;
+                          return `/conversas?busca=${tel}`;
+                        })()}
                         className="flex items-center gap-1 rounded-lg bg-[#E8EEFB] px-2 py-1 text-[11px] font-bold text-[#1E4FAB] hover:bg-[#1E4FAB] hover:text-white transition-colors"
                         onClick={(e) => e.stopPropagation()}
                         title="Buscar conversa no CRM"

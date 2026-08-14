@@ -69,38 +69,49 @@ export async function GET(request: NextRequest) {
   // Tenta os dois caminhos: oportunidadeId (vínculo direto) e pessoaId (fallback).
   // Retorna mapa keyed por oportunidade.id → conversaId.
   async function getConversaIdMap(
-    oportunidades: { id: string; pessoaId: string | null }[]
+    oportunidades: { id: string; pessoaId: string | null; telefone?: string | null }[]
   ): Promise<Map<string, string>> {
     if (oportunidades.length === 0) return new Map();
     const oportunidadeIds = oportunidades.map((o) => o.id);
     const pessoaIds = oportunidades.map((o) => o.pessoaId).filter((id): id is string => !!id);
+    // Normaliza telefones (só dígitos) para fallback por número
+    const telefones = oportunidades
+      .map((o) => o.telefone?.replace(/\D/g, ""))
+      .filter((t): t is string => !!t && t.length >= 8);
+
+    const orClauses: { oportunidadeId?: { in: string[] }; pessoaId?: { in: string[] }; telefone?: { in: string[] } }[] = [
+      { oportunidadeId: { in: oportunidadeIds } },
+    ];
+    if (pessoaIds.length > 0) orClauses.push({ pessoaId: { in: pessoaIds } });
+    if (telefones.length > 0) orClauses.push({ telefone: { in: telefones } });
 
     const conversas = await prisma.conversa.findMany({
-      where: {
-        status: { not: "SPAM" },
-        OR: pessoaIds.length > 0
-          ? [{ oportunidadeId: { in: oportunidadeIds } }, { pessoaId: { in: pessoaIds } }]
-          : [{ oportunidadeId: { in: oportunidadeIds } }],
-      },
-      select: { id: true, pessoaId: true, oportunidadeId: true },
+      where: { status: { not: "SPAM" }, OR: orClauses },
+      select: { id: true, pessoaId: true, oportunidadeId: true, telefone: true },
       orderBy: { ultimaMensagemEm: "desc" },
     });
 
-    // Índices separados para priorizar o vínculo direto
     const byOportunidade = new Map<string, string>();
     const byPessoa = new Map<string, string>();
+    const byTelefone = new Map<string, string>(); // key = dígitos apenas
     for (const c of conversas) {
       if (c.oportunidadeId && !byOportunidade.has(c.oportunidadeId))
         byOportunidade.set(c.oportunidadeId, c.id);
       if (c.pessoaId && !byPessoa.has(c.pessoaId))
         byPessoa.set(c.pessoaId, c.id);
+      if (c.telefone) {
+        const norm = c.telefone.replace(/\D/g, "");
+        if (norm && !byTelefone.has(norm)) byTelefone.set(norm, c.id);
+      }
     }
 
-    const result = new Map<string, string>(); // key = oportunidade.id
+    const result = new Map<string, string>();
     for (const o of oportunidades) {
+      const normTel = o.telefone?.replace(/\D/g, "");
       const cId =
         byOportunidade.get(o.id) ??
-        (o.pessoaId ? byPessoa.get(o.pessoaId) : undefined);
+        (o.pessoaId ? byPessoa.get(o.pessoaId) : undefined) ??
+        (normTel ? byTelefone.get(normTel) : undefined);
       if (cId) result.set(o.id, cId);
     }
     return result;
@@ -113,7 +124,7 @@ export async function GET(request: NextRequest) {
         select: baseSelect,
         orderBy: { createdAt: "desc" },
       });
-      const conversaMap = await getConversaIdMap(leads.map((o) => ({ id: o.id, pessoaId: o.pessoaId })));
+      const conversaMap = await getConversaIdMap(leads.map((o) => ({ id: o.id, pessoaId: o.pessoaId, telefone: o.pessoa?.whatsapp ?? o.pessoa?.telefone })));
 
       return NextResponse.json(leads.map((o) => ({
         id: o.id,
@@ -135,7 +146,7 @@ export async function GET(request: NextRequest) {
         select: baseSelect,
         orderBy: { createdAt: "desc" },
       });
-      const conversaMap = await getConversaIdMap(leads.map((o) => ({ id: o.id, pessoaId: o.pessoaId })));
+      const conversaMap = await getConversaIdMap(leads.map((o) => ({ id: o.id, pessoaId: o.pessoaId, telefone: o.pessoa?.whatsapp ?? o.pessoa?.telefone })));
 
       return NextResponse.json(leads.map((o) => ({
         id: o.id,
@@ -171,7 +182,7 @@ export async function GET(request: NextRequest) {
         }),
       ]);
 
-      const conversaMap = await getConversaIdMap(leads.map((o) => ({ id: o.id, pessoaId: o.pessoaId })));
+      const conversaMap = await getConversaIdMap(leads.map((o) => ({ id: o.id, pessoaId: o.pessoaId, telefone: o.pessoa?.whatsapp ?? o.pessoa?.telefone })));
 
       const leadsItems = leads.map((o) => {
         const ultimoContato = o.historicos[0]?.createdAt ?? o.createdAt;

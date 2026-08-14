@@ -179,7 +179,7 @@ function SelectFiltro({
 }) {
   return (
     <Select value={value} onValueChange={(nextValue) => onChange(nextValue ?? "todos")}>
-      <SelectTrigger className="h-11 min-w-48 rounded-2xl bg-white">
+      <SelectTrigger className="h-8 min-w-40 rounded-xl bg-white text-sm">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
@@ -650,40 +650,66 @@ export default function SaudeComercialPage() {
     <main className="min-h-screen bg-[#F4F6FA] p-4 text-[#1A2E5A] md:p-6">
       <PageNavigation currentPage="Saúde Comercial" currentHref="/saude-comercial" />
 
-      <section className="rounded-3xl bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#1E4FAB]">
-              Gestão Comercial
-            </p>
-            <h1 className="mt-2 text-3xl font-bold text-[#1A2E5A]">
+      <section className="rounded-3xl bg-white px-5 py-3 shadow-sm">
+        {/* Linha 1: título + abas + botões — tudo numa linha */}
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-lg font-bold text-[#1A2E5A] shrink-0">
+            Saúde Comercial
+          </h1>
+
+          <div className="flex gap-2" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "saude"}
+              onClick={() => setActiveTab("saude")}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-bold transition ${
+                activeTab === "saude"
+                  ? "border-[#1A2E5A] bg-[#1A2E5A] text-white"
+                  : "border-[#D7DEEA] bg-white text-[#1A2E5A] hover:bg-[#E8EEFB]"
+              }`}
+            >
+              <HeartPulse className="size-3.5" />
               Saúde Comercial
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm text-[#667085]">
-              Painel para identificar oportunidades esquecidas, tarefas vencidas,
-              propostas sem retorno e disciplina de cadência da equipe.
-            </p>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "maria"}
+              onClick={() => setActiveTab("maria")}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-bold transition ${
+                activeTab === "maria"
+                  ? "border-[#1A2E5A] bg-[#1A2E5A] text-white"
+                  : "border-[#D7DEEA] bg-white text-[#1A2E5A] hover:bg-[#E8EEFB]"
+              }`}
+            >
+              <Bot className="size-3.5" />
+              Maria SDR
+            </button>
           </div>
+
           {activeTab === "saude" ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="ml-auto flex gap-2">
               <Button
                 type="button"
                 onClick={handleDownloadReport}
-                className="rounded-2xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
+                size="sm"
+                className="rounded-xl bg-[#1E4FAB] text-white hover:bg-[#1A2E5A]"
               >
-                <FileDown className="size-4" />
-                Gerar relatório
+                <FileDown className="size-3.5" />
+                Relatório
               </Button>
               <Button
                 type="button"
                 onClick={loadData}
+                size="sm"
                 variant="outline"
-                className="rounded-2xl"
+                className="rounded-xl"
               >
                 {isLoading ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader2 className="size-3.5 animate-spin" />
                 ) : (
-                  <RefreshCw className="size-4" />
+                  <RefreshCw className="size-3.5" />
                 )}
                 Atualizar
               </Button>
@@ -691,77 +717,48 @@ export default function SaudeComercialPage() {
           ) : null}
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-3" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "saude"}
-            onClick={() => setActiveTab("saude")}
-            className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-bold transition ${
-              activeTab === "saude"
-                ? "border-[#1A2E5A] bg-[#1A2E5A] text-white"
-                : "border-[#D7DEEA] bg-white text-[#1A2E5A] hover:bg-[#E8EEFB]"
-            }`}
-          >
-            <HeartPulse className="size-4" />
-            Saúde Comercial
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "maria"}
-            onClick={() => setActiveTab("maria")}
-            className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-bold transition ${
-              activeTab === "maria"
-                ? "border-[#1A2E5A] bg-[#1A2E5A] text-white"
-                : "border-[#D7DEEA] bg-white text-[#1A2E5A] hover:bg-[#E8EEFB]"
-            }`}
-          >
-            <Bot className="size-4" />
-            Maria SDR
-          </button>
-        </div>
-
+        {/* Linha 2: filtros (só quando aba Saúde) */}
         {activeTab === "saude" ? (
-          <div className="mt-6 flex flex-wrap gap-3">
-          <SelectFiltro
-            value={filters.vendedorId}
-            onChange={(vendedorId) =>
-              setFilters((current) => ({ ...current, vendedorId }))
-            }
-            options={data?.filtros.vendedores ?? []}
-            placeholder="Todos os vendedores"
-          />
-          <SelectFiltro
-            value={filters.gerenteId}
-            onChange={(gerenteId) =>
-              setFilters((current) => ({ ...current, gerenteId }))
-            }
-            options={data?.filtros.gerentes ?? []}
-            placeholder="Todos os gerentes"
-          />
-          <SelectFiltro
-            value={filters.filialId}
-            onChange={(filialId) =>
-              setFilters((current) => ({ ...current, filialId }))
-            }
-            options={data?.filtros.filiais ?? []}
-            placeholder="Todas as filiais"
-          />
-          <SelectFiltro
-            value={filters.periodo}
-            onChange={(periodo) => setFilters((current) => ({ ...current, periodo }))}
-            options={periodos}
-            placeholder="Período"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={loadData}
-            className="h-11 rounded-2xl"
-          >
-            Aplicar filtros
-          </Button>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <SelectFiltro
+              value={filters.vendedorId}
+              onChange={(vendedorId) =>
+                setFilters((current) => ({ ...current, vendedorId }))
+              }
+              options={data?.filtros.vendedores ?? []}
+              placeholder="Todos os vendedores"
+            />
+            <SelectFiltro
+              value={filters.gerenteId}
+              onChange={(gerenteId) =>
+                setFilters((current) => ({ ...current, gerenteId }))
+              }
+              options={data?.filtros.gerentes ?? []}
+              placeholder="Todos os gerentes"
+            />
+            <SelectFiltro
+              value={filters.filialId}
+              onChange={(filialId) =>
+                setFilters((current) => ({ ...current, filialId }))
+              }
+              options={data?.filtros.filiais ?? []}
+              placeholder="Todas as filiais"
+            />
+            <SelectFiltro
+              value={filters.periodo}
+              onChange={(periodo) => setFilters((current) => ({ ...current, periodo }))}
+              options={periodos}
+              placeholder="Período"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={loadData}
+              className="rounded-xl"
+            >
+              Aplicar filtros
+            </Button>
           </div>
         ) : null}
       </section>

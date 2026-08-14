@@ -4,6 +4,7 @@
 // REGRA: nunca remover. Apenas acrescentar.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowRightLeft,
   Bot,
@@ -198,6 +199,8 @@ export default function ConversasPage() {
   const [alterandoStatus, setAlterandoStatus] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const searchParams = useSearchParams();
+  const abrirConversaId = searchParams.get("abrir");
 
   // Ciclo de Atendimento — re-renderiza a cada 30s só para o texto de "há quanto tempo
   // aguardando" ficar em dia. Puramente client-side: não busca nada do servidor, não é
@@ -255,6 +258,29 @@ export default function ConversasPage() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("villa-conversas-historico-recomendacoes", JSON.stringify(historicoRecomendacoes));
   }, [historicoRecomendacoes]);
+
+  // Auto-abre a conversa quando vem de ?abrir=ID (ex: da página Maria)
+  useEffect(() => {
+    if (!abrirConversaId || conversas.length === 0 || conversaAtiva) return;
+    const alvo = conversas.find((c) => c.id === abrirConversaId);
+    if (alvo) {
+      setConversaAtiva(alvo);
+      carregarDetalhesConversa(alvo);
+    } else {
+      // Conversa pode estar em outro status (ex: CONCLUIDA) — busca direto pela API
+      fetch(`/api/conversas/${abrirConversaId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data) {
+            setConversaAtiva(data);
+            setMensagens(data.mensagens ?? []);
+            setConversaContexto(data);
+          }
+        })
+        .catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirConversaId, conversas]);
 
   // Carrega contexto e mensagens da conversa ativa
   const carregarDetalhesConversa = useCallback(async (conversa: Conversa) => {

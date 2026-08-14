@@ -4,7 +4,7 @@
 // Card de métrica clicável que expande uma lista de leads abaixo.
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, ExternalLink, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Loader2, MessageCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 type LeadItem = {
@@ -18,6 +18,7 @@ type LeadItem = {
   info: string;
   status?: string;
   titulo?: string;
+  conversaId?: string | null;
 };
 
 export function MetricCardExpandable({
@@ -143,18 +144,31 @@ export function MetricCardExpandable({
                     </div>
                     <span className="mt-0.5 text-[11px] text-[#B5790A]">{item.info}</span>
                   </div>
-                  {item.empresaId && (
-                    <a
-                      href={`/empresas/${item.empresaId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 flex-shrink-0 text-[#667085] hover:text-[#2A78D6]"
-                      onClick={(e) => e.stopPropagation()}
-                      title="Abrir empresa"
-                    >
-                      <ExternalLink className="size-3.5" />
-                    </a>
-                  )}
+                  <div className="mt-1 flex flex-shrink-0 flex-col gap-1.5">
+                    {item.conversaId && (
+                      <a
+                        href={`/conversas?abrir=${item.conversaId}`}
+                        className="flex items-center gap-1 rounded-lg bg-[#E8EEFB] px-2 py-1 text-[11px] font-bold text-[#1E4FAB] hover:bg-[#1E4FAB] hover:text-white transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Abrir conversa"
+                      >
+                        <MessageCircle className="size-3" />
+                        Conversa
+                      </a>
+                    )}
+                    {item.empresaId && (
+                      <a
+                        href={`/empresas/${item.empresaId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center text-[#667085] hover:text-[#2A78D6]"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Abrir empresa"
+                      >
+                        <ExternalLink className="size-3.5" />
+                      </a>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

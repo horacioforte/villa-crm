@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
     temperatura: true,
     canalOrigem: true,
     createdAt: true,
+    pessoaId: true,
     empresa: { select: { id: true, razaoSocial: true, nomeFantasia: true, cidade: true } },
     pessoa: { select: { nome: true, whatsapp: true, telefone: true } },
     historicos: {
@@ -64,6 +65,22 @@ export async function GET(request: NextRequest) {
     },
   };
 
+  // Helper: busca a conversa mais recente para um conjunto de pessoaIds
+  async function getConversaIdMap(pessoaIds: (string | null)[]): Promise<Map<string, string>> {
+    const ids = pessoaIds.filter((id): id is string => !!id);
+    if (ids.length === 0) return new Map();
+    const conversas = await prisma.conversa.findMany({
+      where: { pessoaId: { in: ids }, status: { not: "SPAM" } },
+      select: { id: true, pessoaId: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const map = new Map<string, string>();
+    for (const c of conversas) {
+      if (c.pessoaId && !map.has(c.pessoaId)) map.set(c.pessoaId, c.id);
+    }
+    return map;
+  }
+
   try {
     if (tipo === "novos-leads-hoje") {
       const leads = await prisma.oportunidade.findMany({
@@ -71,6 +88,7 @@ export async function GET(request: NextRequest) {
         select: baseSelect,
         orderBy: { createdAt: "desc" },
       });
+      const conversaMap = await getConversaIdMap(leads.map((o) => o.pessoaId));
 
       return NextResponse.json(leads.map((o) => ({
         id: o.id,
@@ -82,6 +100,7 @@ export async function GET(request: NextRequest) {
         temperatura: TEMP_LABEL[o.temperatura ?? ""] ?? "—",
         info: `Chegou ${tempoRelativo(diffMinutes(o.createdAt, agora))}`,
         status: o.status,
+        conversaId: o.pessoaId ? (conversaMap.get(o.pessoaId) ?? null) : null,
       })));
     }
 
@@ -91,6 +110,7 @@ export async function GET(request: NextRequest) {
         select: baseSelect,
         orderBy: { createdAt: "desc" },
       });
+      const conversaMap = await getConversaIdMap(leads.map((o) => o.pessoaId));
 
       return NextResponse.json(leads.map((o) => ({
         id: o.id,
@@ -104,6 +124,7 @@ export async function GET(request: NextRequest) {
           ? `Último contato ${tempoRelativo(diffMinutes(o.historicos[0].createdAt, agora))}`
           : `Sem contato — lead há ${tempoRelativo(diffMinutes(o.createdAt, agora))}`,
         status: o.status,
+        conversaId: o.pessoaId ? (conversaMap.get(o.pessoaId) ?? null) : null,
       })));
     }
 

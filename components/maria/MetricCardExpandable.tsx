@@ -157,15 +157,13 @@ export function MetricCardExpandable({
                       </a>
                     ) : item.telefone && item.telefone !== "—" ? (
                       <a
-                        href={`https://wa.me/${item.telefone.replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 rounded-lg bg-[#E6F4EC] px-2 py-1 text-[11px] font-bold text-[#0C8A3E] hover:bg-[#0C8A3E] hover:text-white transition-colors"
+                        href={`/conversas?busca=${item.telefone.replace(/\D/g, "")}`}
+                        className="flex items-center gap-1 rounded-lg bg-[#E8EEFB] px-2 py-1 text-[11px] font-bold text-[#1E4FAB] hover:bg-[#1E4FAB] hover:text-white transition-colors"
                         onClick={(e) => e.stopPropagation()}
-                        title="Iniciar conversa no WhatsApp"
+                        title="Buscar conversa no CRM"
                       >
                         <MessageCircle className="size-3" />
-                        WhatsApp
+                        Conversa
                       </a>
                     ) : null}
                     {item.empresaId && (

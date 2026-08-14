@@ -201,6 +201,13 @@ function ConversasPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const searchParams = useSearchParams();
   const abrirConversaId = searchParams.get("abrir");
+  const buscaParam = searchParams.get("busca");
+
+  // Pré-preenche o campo de busca quando vem de ?busca=TELEFONE (ex: da página Maria)
+  useEffect(() => {
+    if (buscaParam) setBusca(buscaParam);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buscaParam]);
 
   // Ciclo de Atendimento — re-renderiza a cada 30s só para o texto de "há quanto tempo
   // aguardando" ficar em dia. Puramente client-side: não busca nada do servidor, não é

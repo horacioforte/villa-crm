@@ -66,18 +66,32 @@ export async function GET(request: NextRequest) {
   };
 
   // Helper: busca a conversa mais recente para um conjunto de oportunidades.
-  // Tenta os dois caminhos: oportunidadeId (vínculo direto) e pessoaId (fallback).
+  // Tenta três caminhos: oportunidadeId → pessoaId → telefone (com/sem DDI 55).
   // Retorna mapa keyed por oportunidade.id → conversaId.
+
+  // Normaliza número BR: remove não-dígitos e strip do DDI 55 (se 12+ dígitos).
+  function normalizarTelefone(phone: string): string {
+    const d = phone.replace(/\D/g, "");
+    return d.startsWith("55") && d.length >= 12 ? d.slice(2) : d;
+  }
+
   async function getConversaIdMap(
     oportunidades: { id: string; pessoaId: string | null; telefone?: string | null }[]
   ): Promise<Map<string, string>> {
     if (oportunidades.length === 0) return new Map();
     const oportunidadeIds = oportunidades.map((o) => o.id);
     const pessoaIds = oportunidades.map((o) => o.pessoaId).filter((id): id is string => !!id);
-    // Normaliza telefones (só dígitos) para fallback por número
-    const telefones = oportunidades
-      .map((o) => o.telefone?.replace(/\D/g, ""))
-      .filter((t): t is string => !!t && t.length >= 8);
+    // Inclui o número com e sem DDI 55 para pegar qualquer formato armazenado
+    const telefoneSet = new Set<string>();
+    for (const o of oportunidades) {
+      if (!o.telefone) continue;
+      const sem55 = normalizarTelefone(o.telefone);
+      if (sem55.length >= 8) {
+        telefoneSet.add(sem55);
+        telefoneSet.add(`55${sem55}`);
+      }
+    }
+    const telefones = Array.from(telefoneSet);
 
     const orClauses: { oportunidadeId?: { in: string[] }; pessoaId?: { in: string[] }; telefone?: { in: string[] } }[] = [
       { oportunidadeId: { in: oportunidadeIds } },
@@ -93,25 +107,25 @@ export async function GET(request: NextRequest) {
 
     const byOportunidade = new Map<string, string>();
     const byPessoa = new Map<string, string>();
-    const byTelefone = new Map<string, string>(); // key = dígitos apenas
+    const byTelefone = new Map<string, string>(); // key = número sem DDI 55
     for (const c of conversas) {
       if (c.oportunidadeId && !byOportunidade.has(c.oportunidadeId))
         byOportunidade.set(c.oportunidadeId, c.id);
       if (c.pessoaId && !byPessoa.has(c.pessoaId))
         byPessoa.set(c.pessoaId, c.id);
       if (c.telefone) {
-        const norm = c.telefone.replace(/\D/g, "");
-        if (norm && !byTelefone.has(norm)) byTelefone.set(norm, c.id);
+        const norm = normalizarTelefone(c.telefone);
+        if (norm.length >= 8 && !byTelefone.has(norm)) byTelefone.set(norm, c.id);
       }
     }
 
     const result = new Map<string, string>();
     for (const o of oportunidades) {
-      const normTel = o.telefone?.replace(/\D/g, "");
+      const normTel = o.telefone ? normalizarTelefone(o.telefone) : undefined;
       const cId =
         byOportunidade.get(o.id) ??
         (o.pessoaId ? byPessoa.get(o.pessoaId) : undefined) ??
-        (normTel ? byTelefone.get(normTel) : undefined);
+        (normTel && normTel.length >= 8 ? byTelefone.get(normTel) : undefined);
       if (cId) result.set(o.id, cId);
     }
     return result;

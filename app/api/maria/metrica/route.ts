@@ -81,23 +81,25 @@ export async function GET(request: NextRequest) {
     if (oportunidades.length === 0) return new Map();
     const oportunidadeIds = oportunidades.map((o) => o.id);
     const pessoaIds = oportunidades.map((o) => o.pessoaId).filter((id): id is string => !!id);
-    // Inclui o número com e sem DDI 55 para pegar qualquer formato armazenado
-    const telefoneSet = new Set<string>();
-    for (const o of oportunidades) {
-      if (!o.telefone) continue;
-      const sem55 = normalizarTelefone(o.telefone);
-      if (sem55.length >= 8) {
-        telefoneSet.add(sem55);
-        telefoneSet.add(`55${sem55}`);
-      }
-    }
-    const telefones = Array.from(telefoneSet);
+    // Para cada lead, cria uma cláusula "contains" pelo número sem DDI 55.
+    // Usa "contains" (não "in" exato) para bater contra qualquer formato armazenado:
+    // "85991984127", "5585991984127", "5585991984127@s.whatsapp.net", etc.
+    const telefonesNorm = Array.from(
+      new Set(
+        oportunidades
+          .map((o) => (o.telefone ? normalizarTelefone(o.telefone) : null))
+          .filter((t): t is string => !!t && t.length >= 8)
+      )
+    );
 
-    const orClauses: { oportunidadeId?: { in: string[] }; pessoaId?: { in: string[] }; telefone?: { in: string[] } }[] = [
-      { oportunidadeId: { in: oportunidadeIds } },
-    ];
+    const orClauses: (
+      | { oportunidadeId: { in: string[] } }
+      | { pessoaId: { in: string[] } }
+      | { telefone: { contains: string } }
+    )[] = [{ oportunidadeId: { in: oportunidadeIds } }];
     if (pessoaIds.length > 0) orClauses.push({ pessoaId: { in: pessoaIds } });
-    if (telefones.length > 0) orClauses.push({ telefone: { in: telefones } });
+    // Um "contains" por número normalizado
+    for (const t of telefonesNorm) orClauses.push({ telefone: { contains: t } });
 
     const conversas = await prisma.conversa.findMany({
       where: { status: { not: "SPAM" }, OR: orClauses },

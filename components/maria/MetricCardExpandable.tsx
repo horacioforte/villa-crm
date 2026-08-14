@@ -3,8 +3,8 @@
 // REGRA: nunca remover. Apenas acrescentar.
 // Card de métrica clicável que expande uma lista de leads abaixo.
 
-import { useState } from "react";
-import { ChevronDown, ChevronUp, ExternalLink, Loader2, MessageCircle } from "lucide-react";
+import { useRef, useState } from "react";
+import { ChevronDown, ChevronUp, ExternalLink, Loader2, MessageCircle, Send, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 type LeadItem = {
@@ -43,6 +43,39 @@ export function MetricCardExpandable({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<LeadItem[] | null>(null);
+
+  // Estado do modal "Iniciar Conversa" — guarda o id do lead com o painel aberto
+  const [iniciandoId, setIniciandoId] = useState<string | null>(null);
+  const [msgTexto, setMsgTexto] = useState("");
+  const [enviandoNova, setEnviandoNova] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  async function iniciarConversa(item: LeadItem) {
+    if (enviandoNova || !msgTexto.trim()) return;
+    setEnviandoNova(true);
+    try {
+      const res = await fetch("/api/conversas/nova", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telefone: item.telefone,
+          mensagem: msgTexto.trim(),
+          nomeContato: item.nome !== "—" ? item.nome : undefined,
+          oportunidadeId: item.id,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.conversaId) {
+        window.location.href = `/conversas?abrir=${data.conversaId}`;
+      } else {
+        alert(data.error ?? "Erro ao iniciar conversa.");
+        setEnviandoNova(false);
+      }
+    } catch {
+      alert("Erro de rede ao iniciar conversa.");
+      setEnviandoNova(false);
+    }
+  }
 
   async function toggle() {
     if (disabled) return;
@@ -114,7 +147,8 @@ export function MetricCardExpandable({
           ) : (
             <div className="flex flex-col divide-y divide-[#F4F6FA]">
               {items.map((item) => (
-                <div key={item.id} className="flex items-start gap-3 py-3">
+                <div key={item.id} className="flex flex-col">
+                <div className="flex items-start gap-3 py-3">
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[13px] font-bold text-[#1A2E5A]">{item.nome}</span>
@@ -156,20 +190,24 @@ export function MetricCardExpandable({
                         Conversa
                       </a>
                     ) : item.telefone && item.telefone !== "—" ? (
-                      <a
-                        href={(() => {
-                          const d = item.telefone.replace(/\D/g, "");
-                          // Remove DDI 55 para que o "contains" da API funcione independente do formato armazenado
-                          const tel = d.startsWith("55") && d.length >= 12 ? d.slice(2) : d;
-                          return `/conversas?busca=${tel}`;
-                        })()}
+                      <button
                         className="flex items-center gap-1 rounded-lg bg-[#E8EEFB] px-2 py-1 text-[11px] font-bold text-[#1E4FAB] hover:bg-[#1E4FAB] hover:text-white transition-colors"
-                        onClick={(e) => e.stopPropagation()}
-                        title="Buscar conversa no CRM"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (iniciandoId === item.id) {
+                            setIniciandoId(null);
+                            setMsgTexto("");
+                          } else {
+                            setIniciandoId(item.id);
+                            setMsgTexto("");
+                            setTimeout(() => textareaRef.current?.focus(), 50);
+                          }
+                        }}
+                        title="Iniciar nova conversa pelo CRM (Maria)"
                       >
                         <MessageCircle className="size-3" />
-                        Conversa
-                      </a>
+                        Iniciar
+                      </button>
                     ) : null}
                     {item.empresaId && (
                       <a
@@ -184,6 +222,52 @@ export function MetricCardExpandable({
                       </a>
                     )}
                   </div>
+                </div>
+                {/* Painel inline "Iniciar Conversa" */}
+                {iniciandoId === item.id && (
+                  <div
+                    className="mb-2 rounded-xl border border-[#2A78D6] bg-[#F4F7FF] px-3 py-2.5 flex flex-col gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-[#1E4FAB]">
+                        Iniciar conversa — Maria → {item.nome}
+                      </span>
+                      <button
+                        onClick={() => { setIniciandoId(null); setMsgTexto(""); }}
+                        className="text-[#98A2B3] hover:text-[#1A2E5A]"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                    <textarea
+                      ref={textareaRef}
+                      value={msgTexto}
+                      onChange={(e) => setMsgTexto(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          iniciarConversa(item);
+                        }
+                      }}
+                      placeholder="Digite a primeira mensagem... (Enter para enviar)"
+                      rows={3}
+                      className="w-full resize-none rounded-lg border border-[#D7DEEA] bg-white px-2.5 py-1.5 text-[12px] text-[#1A2E5A] outline-none focus:border-[#2A78D6]"
+                    />
+                    <button
+                      disabled={!msgTexto.trim() || enviandoNova}
+                      onClick={() => iniciarConversa(item)}
+                      className="flex items-center justify-center gap-1.5 rounded-lg bg-[#1E4FAB] px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50 hover:bg-[#163B8A] transition-colors"
+                    >
+                      {enviandoNova ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : (
+                        <Send className="size-3" />
+                      )}
+                      {enviandoNova ? "Enviando..." : "Enviar pelo CRM"}
+                    </button>
+                  </div>
+                )}
                 </div>
               ))}
             </div>

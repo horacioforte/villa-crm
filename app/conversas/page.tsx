@@ -12,6 +12,7 @@ import {
   MessageCircle,
   PanelRightClose,
   PanelRightOpen,
+  Plus,
   RefreshCw,
   Send,
   User,
@@ -197,6 +198,11 @@ function ConversasPage() {
   const [criandoTarefa, setCriandoTarefa] = useState(false);
   const [feedbackAcao, setFeedbackAcao] = useState<string | null>(null);
   const [alterandoStatus, setAlterandoStatus] = useState(false);
+  // Nova Conversa — modal inline na sidebar
+  const [showNovaConversa, setShowNovaConversa] = useState(false);
+  const [novaConversaTel, setNovaConversaTel] = useState("");
+  const [novaConversaMsg, setNovaConversaMsg] = useState("");
+  const [novaConversaEnviando, setNovaConversaEnviando] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const searchParams = useSearchParams();
@@ -212,6 +218,40 @@ function ConversasPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buscaParam]);
+
+  async function iniciarNovaConversa() {
+    if (novaConversaEnviando || !novaConversaTel.trim() || !novaConversaMsg.trim()) return;
+    setNovaConversaEnviando(true);
+    const instance = filtroInstance || "maria-villa";
+    try {
+      const res = await fetch("/api/conversas/nova", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telefone: novaConversaTel.trim(),
+          mensagem: novaConversaMsg.trim(),
+          instanceName: instance,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.conversaId) {
+        setShowNovaConversa(false);
+        setNovaConversaTel("");
+        setNovaConversaMsg("");
+        // Recarrega lista e abre a conversa criada
+        await carregarConversas();
+        const nova = { id: data.conversaId } as Conversa;
+        setConversaAtiva(nova as Conversa);
+        carregarDetalhesConversa(nova as Conversa);
+      } else {
+        alert(data.error ?? "Erro ao iniciar conversa.");
+      }
+    } catch {
+      alert("Erro de rede.");
+    } finally {
+      setNovaConversaEnviando(false);
+    }
+  }
 
   // Ciclo de Atendimento — re-renderiza a cada 30s só para o texto de "há quanto tempo
   // aguardando" ficar em dia. Puramente client-side: não busca nada do servidor, não é
@@ -566,6 +606,13 @@ function ConversasPage() {
                 >
                   <RefreshCw className="size-4" />
                 </button>
+                <button
+                  onClick={() => setShowNovaConversa((v) => !v)}
+                  title="Nova conversa"
+                  className="rounded-xl border border-[#2A78D6] p-1.5 text-[#2A78D6] hover:bg-[#E8EEFB]"
+                >
+                  <Plus className="size-4" />
+                </button>
               </div>
               {/* Filtro por responsável */}
               <select
@@ -582,6 +629,41 @@ function ConversasPage() {
                 ))}
               </select>
             </div>
+
+            {/* Painel Nova Conversa */}
+            {showNovaConversa && (
+              <div className="border-b border-[#D7DEEA] bg-[#F4F7FF] p-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#1E4FAB]">
+                    Nova conversa — {filtroInstance ? filtroInstance.replace("-villa", "") : "Maria"}
+                  </span>
+                  <button onClick={() => setShowNovaConversa(false)} className="text-[#98A2B3] hover:text-[#1A2E5A]">
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Número (ex: 85991984127)"
+                  value={novaConversaTel}
+                  onChange={(e) => setNovaConversaTel(e.target.value)}
+                  className="w-full rounded-lg border border-[#D7DEEA] bg-white px-2.5 py-1.5 text-[12px] outline-none focus:border-[#2A78D6]"
+                />
+                <textarea
+                  placeholder="Primeira mensagem..."
+                  value={novaConversaMsg}
+                  onChange={(e) => setNovaConversaMsg(e.target.value)}
+                  rows={2}
+                  className="w-full resize-none rounded-lg border border-[#D7DEEA] bg-white px-2.5 py-1.5 text-[12px] outline-none focus:border-[#2A78D6]"
+                />
+                <button
+                  disabled={!novaConversaTel.trim() || !novaConversaMsg.trim() || novaConversaEnviando}
+                  onClick={iniciarNovaConversa}
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-[#1E4FAB] px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50 hover:bg-[#163B8A] transition-colors"
+                >
+                  {novaConversaEnviando ? "Enviando..." : <><Send className="size-3" /> Enviar e abrir</>}
+                </button>
+              </div>
+            )}
 
             {/* Lista */}
             <div className="flex-1 overflow-y-auto">

@@ -2,14 +2,21 @@
 // REGRA: nunca remover. Apenas acrescentar.
 //
 // Inicia uma conversa nova via CRM, sem precisar que o cliente tenha mandado
-// mensagem antes. Usa sempre a instância maria-villa pelo Evolution API.
+// mensagem antes. Aceita qualquer instanceName (maria-villa, taciane-villa, etc.).
 // Cria a Conversa + a Mensagem no banco e devolve { conversaId }.
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 
-const INSTANCE_NAME = "maria-villa";
+const INSTANCES_VALIDAS = ["maria-villa", "joao-villa", "morgana-villa", "taciane-villa"];
+
+function getApiKey(instanceName: string): string {
+  if (instanceName.startsWith("joao")) return process.env.JOAO_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY ?? "";
+  if (instanceName.startsWith("morgana")) return process.env.MORGANA_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY ?? "";
+  if (instanceName.startsWith("taciane")) return process.env.TACIANE_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY ?? "";
+  return process.env.EVOLUTION_API_KEY ?? ""; // maria + default
+}
 
 function normalizarTelefone(raw: string): string {
   const d = raw.replace(/\D/g, "");
@@ -22,22 +29,27 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const { telefone, mensagem, nomeContato, oportunidadeId, pessoaId } = body as {
+  const { telefone, mensagem, nomeContato, oportunidadeId, pessoaId, instanceName: rawInstance } = body as {
     telefone?: string;
     mensagem?: string;
     nomeContato?: string;
     oportunidadeId?: string;
     pessoaId?: string;
+    instanceName?: string;
   };
 
   if (!telefone || !mensagem) {
     return NextResponse.json({ error: "telefone e mensagem são obrigatórios." }, { status: 400 });
   }
 
+  const INSTANCE_NAME = INSTANCES_VALIDAS.includes(rawInstance ?? "")
+    ? (rawInstance as string)
+    : "maria-villa";
+
   const telFull = normalizarTelefone(telefone); // ex: "5585991984127"
   const telSem55 = telFull.slice(2);             // ex: "85991984127"
 
-  // Busca canal WhatsApp da Maria
+  // Busca canal WhatsApp da instância escolhida
   const canal = await prisma.canalWhatsapp.findUnique({
     where: { instanceName: INSTANCE_NAME },
     select: { id: true },
@@ -73,9 +85,9 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Envia pelo Evolution API
+  // Envia pelo Evolution API (chave correta para cada instância)
   const apiUrl = process.env.EVOLUTION_API_URL?.replace(/\/+$/, "");
-  const apiKey = process.env.EVOLUTION_API_KEY ?? "";
+  const apiKey = getApiKey(INSTANCE_NAME);
   let waMessageId: string | undefined;
 
   try {

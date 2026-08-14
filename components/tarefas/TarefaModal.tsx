@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import type {
@@ -187,9 +188,11 @@ export function TarefaModal({
   const [propostas, setPropostas] = useState<Option[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAbrindoWpp, setIsAbrindoWpp] = useState(false);
   const [modoAvancado, setModoAvancado] = useState(false);
   const [delegando, setDelegando] = useState(false);
   const [temperatura, setTemperatura] = useState<string>("");
+  const router = useRouter();
 
   const isEditing = Boolean(tarefa?.id);
   const hasContextoOportunidade = Boolean(contextoEfetivo.oportunidadeId);
@@ -486,6 +489,41 @@ export function TarefaModal({
       );
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  // Botão "Abrir no WhatsApp" — visível só quando tipo=WHATSAPP e editando tarefa
+  // com um contato vinculado. Busca a conversa existente ou redireciona para nova.
+  async function handleAbrirWhatsapp() {
+    const pessoaIdEfetivo = normalizeRelation(form.pessoaId) ?? tarefa?.pessoaId ?? null;
+    if (!pessoaIdEfetivo) {
+      toast.error("Esta tarefa não tem um contato vinculado. Associe um contato para abrir a conversa.");
+      return;
+    }
+    setIsAbrindoWpp(true);
+    try {
+      const res = await fetch(`/api/conversas/por-contato?pessoaId=${pessoaIdEfetivo}`);
+      if (!res.ok) throw new Error("Falha ao buscar conversa.");
+      const data = await res.json() as {
+        encontrada: boolean;
+        conversaId: string | null;
+        telefone: string | null;
+        nome: string;
+      };
+
+      onFechar(); // fecha o modal antes de navegar
+
+      if (data.encontrada && data.conversaId) {
+        router.push(`/conversas?abrir=${data.conversaId}`);
+      } else if (data.telefone) {
+        router.push(`/conversas?nova=1&telefone=${encodeURIComponent(data.telefone)}`);
+      } else {
+        toast.error("Contato sem telefone cadastrado. Adicione o WhatsApp do contato primeiro.");
+      }
+    } catch {
+      toast.error("Não foi possível abrir a conversa. Tente novamente.");
+    } finally {
+      setIsAbrindoWpp(false);
     }
   }
 
@@ -786,13 +824,34 @@ export function TarefaModal({
           ) : null}
 
           <DialogFooter className="gap-2 sm:justify-between">
-            <button
-              type="button"
-              onClick={() => setModoAvancado((current) => !current)}
-              className="text-sm font-semibold text-[#667085] underline-offset-2 hover:text-[#1E4FAB] hover:underline"
-            >
-              {modoAvancado ? "Menos opcoes" : "+ Mais opcoes"}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setModoAvancado((current) => !current)}
+                className="text-sm font-semibold text-[#667085] underline-offset-2 hover:text-[#1E4FAB] hover:underline"
+              >
+                {modoAvancado ? "Menos opcoes" : "+ Mais opcoes"}
+              </button>
+
+              {/* Botão WhatsApp — visível apenas quando tipo=WHATSAPP e há pessoaId */}
+              {form.tipo === "WHATSAPP" && (normalizeRelation(form.pessoaId) ?? tarefa?.pessoaId) ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAbrirWhatsapp}
+                  disabled={isAbrindoWpp}
+                  className="rounded-2xl border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
+                >
+                  {isAbrindoWpp ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <MessageCircle className="size-4" />
+                  )}
+                  Abrir no WhatsApp
+                </Button>
+              ) : null}
+            </div>
+
             <div className="flex gap-2">
               <Button
                 type="button"

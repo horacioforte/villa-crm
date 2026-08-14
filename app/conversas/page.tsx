@@ -232,6 +232,8 @@ function ConversasPage() {
   const searchParams = useSearchParams();
   const abrirConversaId = searchParams.get("abrir");
   const buscaParam = searchParams.get("busca");
+  const novaParam = searchParams.get("nova");
+  const novaParamTel = searchParams.get("telefone");
 
   // Pré-preenche o campo de busca quando vem de ?busca=TELEFONE (ex: da página Maria).
   // Limpa o filtro de status para buscar em TODAS as conversas (Abertas + Concluídas etc.)
@@ -242,6 +244,16 @@ function ConversasPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buscaParam]);
+
+  // Abre o painel de nova conversa pré-preenchido quando vem de ?nova=1&telefone=xxx
+  // (ex: botão "Abrir no WhatsApp" das tarefas quando não há conversa existente)
+  useEffect(() => {
+    if (novaParam === "1" && novaParamTel) {
+      setShowNovaConversa(true);
+      setNovaConversaTel(novaParamTel);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [novaParam, novaParamTel]);
 
   async function iniciarNovaConversa() {
     if (novaConversaEnviando || !novaConversaTel.trim() || !novaConversaMsg.trim()) return;

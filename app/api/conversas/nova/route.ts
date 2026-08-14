@@ -59,6 +59,20 @@ export async function POST(req: NextRequest) {
 
   const ehMeta = canal?.tipo === CanalWhatsappTipo.META_CLOUD_API;
 
+  // Tenta vincular a Pessoa pelo telefone (ignora DDI 55 — tanto faz ter 55 ou não).
+  // Lookup por DDD+número (telSem55) cobre casos com e sem o prefixo no banco.
+  const pessoaEncontrada = (!pessoaId && !nomeContato)
+    ? await prisma.pessoa.findFirst({
+        where: {
+          OR: [
+            { whatsapp: { contains: telSem55 } },
+            { telefone: { contains: telSem55 } },
+          ],
+        },
+        select: { id: true, nome: true },
+      })
+    : null;
+
   // Reutiliza conversa existente ou cria nova
   let conversa = await prisma.conversa.findFirst({
     where: {
@@ -78,10 +92,10 @@ export async function POST(req: NextRequest) {
       data: {
         instanceName: INSTANCE_NAME,
         telefone: telFull,
-        nomeContato: nomeContato ?? null,
+        nomeContato: nomeContato ?? pessoaEncontrada?.nome ?? null,
         canalWhatsappId: canal?.id ?? null,
         oportunidadeId: oportunidadeId ?? null,
-        pessoaId: pessoaId ?? null,
+        pessoaId: pessoaId ?? pessoaEncontrada?.id ?? null,
         atendidoPorId: user.id,
         ultimaMensagemEm: new Date(),
       },

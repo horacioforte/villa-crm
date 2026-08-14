@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npm ls *)",
+      "Read(//Users/horacioforte/Library/Caches/ms-playwright/**)",
+      "Bash(node /Users/horacioforte/Desktop/villa-crm/screenshot-maria.mjs)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git fetch *)",
+      "Bash(git push *)",
+      "Bash(mkdir -p /tmp/baseline-moved-out)",
+      "Bash(mv /Users/horacioforte/Desktop/villa-crm/prisma/migrations/20260728170000_baseline_reconciliar_drift_pre_fase2 /tmp/baseline-moved-out/)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(python3 -c \"import json; json.load\\(open\\('/Users/horacioforte/Library/Application Support/Code/User/settings.json'\\)\\)\")",
+      "Bash(vercel env *)"
+    ],
+    "additionalDirectories": [
+      "/Users/horacioforte/Library/Application Support/Code/User"
+    ]
+  }
+}

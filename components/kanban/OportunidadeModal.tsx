@@ -88,6 +88,12 @@ type PessoaOption = {
   nome: string;
 };
 
+type UsuarioOption = {
+  id: string;
+  nome: string;
+  papel: string;
+};
+
 type OportunidadeSalva = {
   id: string;
   titulo: string;
@@ -240,6 +246,7 @@ export function OportunidadeModal({
   const [equipamentos, setEquipamentos] = useState<EquipamentoOption[]>([]);
   const [obras, setObras] = useState<ObraOption[]>([]);
   const [pessoas, setPessoas] = useState<PessoaOption[]>([]);
+  const [usuarios, setUsuarios] = useState<UsuarioOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [novaEmpresaOpen, setNovaEmpresaOpen] = useState(false);
@@ -322,6 +329,14 @@ export function OportunidadeModal({
     [pessoas],
   );
 
+  const responsavelItems = useMemo(
+    () => [
+      { label: "Sem responsável", value: NONE_VALUE },
+      ...usuarios.map((u) => ({ label: u.nome, value: u.id })),
+    ],
+    [usuarios],
+  );
+
   useEffect(() => {
     if (!aberto) {
       return;
@@ -336,11 +351,13 @@ export function OportunidadeModal({
           equipamentosResponse,
           obrasResponse,
           pessoasResponse,
+          usuariosResponse,
         ] = await Promise.all([
           fetch("/api/empresas"),
           fetch("/api/equipamentos"),
           fetch("/api/obras"),
           fetch("/api/contatos"),
+          fetch("/api/usuarios/responsaveis"),
         ]);
 
         if (
@@ -364,6 +381,11 @@ export function OportunidadeModal({
         setEquipamentos(equipamentosData);
         setObras(obrasData);
         setPessoas(pessoasData);
+
+        if (usuariosResponse.ok) {
+          const usuariosData = await usuariosResponse.json();
+          setUsuarios(usuariosData);
+        }
 
         if (oportunidadeId) {
           const oportunidadeResponse = await fetch(
@@ -1035,6 +1057,23 @@ export function OportunidadeModal({
                   + Novo contato
                 </button>
               </div>
+            </Field>
+
+            <Field label="Responsável">
+              <Controller
+                control={form.control}
+                name="responsavelId"
+                render={({ field }) => (
+                  <Combobox
+                    options={responsavelItems}
+                    value={field.value ?? NONE_VALUE}
+                    onChange={(value) => field.onChange(value || NONE_VALUE)}
+                    placeholder="Selecione o responsável"
+                    searchPlaceholder="Buscar responsável..."
+                    emptyMessage="Nenhum usuário encontrado."
+                  />
+                )}
+              />
             </Field>
 
             {statusAtual === "PERDIDA" ? (

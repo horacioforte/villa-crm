@@ -75,11 +75,13 @@ export async function GET(request: NextRequest) {
     const oportunidadeIds = oportunidades.map((o) => o.id);
     const pessoaIds = oportunidades.map((o) => o.pessoaId).filter((id): id is string => !!id);
 
-    const orClause: object[] = [{ oportunidadeId: { in: oportunidadeIds } }];
-    if (pessoaIds.length > 0) orClause.push({ pessoaId: { in: pessoaIds } });
-
     const conversas = await prisma.conversa.findMany({
-      where: { status: { not: "SPAM" }, OR: orClause },
+      where: {
+        status: { not: "SPAM" },
+        OR: pessoaIds.length > 0
+          ? [{ oportunidadeId: { in: oportunidadeIds } }, { pessoaId: { in: pessoaIds } }]
+          : [{ oportunidadeId: { in: oportunidadeIds } }],
+      },
       select: { id: true, pessoaId: true, oportunidadeId: true },
       orderBy: { ultimaMensagemEm: "desc" },
     });

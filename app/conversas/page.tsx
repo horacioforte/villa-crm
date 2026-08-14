@@ -139,10 +139,34 @@ const STATUS_LABELS: Record<string, { label: string; cor: string }> = {
 };
 
 function formatHora(iso: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
+  const d = new Date(iso);
+  const agora = new Date();
+  const hora = new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(iso));
+  }).format(d);
+
+  const mesmoDia =
+    d.getDate() === agora.getDate() &&
+    d.getMonth() === agora.getMonth() &&
+    d.getFullYear() === agora.getFullYear();
+  if (mesmoDia) return hora;
+
+  const ontem = new Date(agora);
+  ontem.setDate(agora.getDate() - 1);
+  const diaAnterior =
+    d.getDate() === ontem.getDate() &&
+    d.getMonth() === ontem.getMonth() &&
+    d.getFullYear() === ontem.getFullYear();
+  if (diaAnterior) return `Ontem, ${hora}`;
+
+  const mesmOAno = d.getFullYear() === agora.getFullYear();
+  const data = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    ...(mesmOAno ? {} : { year: "2-digit" }),
+  }).format(d);
+  return `${data}, ${hora}`;
 }
 
 function formatData(iso: string) {

@@ -65,20 +65,43 @@ export async function GET(request: NextRequest) {
     },
   };
 
-  // Helper: busca a conversa mais recente para um conjunto de pessoaIds
-  async function getConversaIdMap(pessoaIds: (string | null)[]): Promise<Map<string, string>> {
-    const ids = pessoaIds.filter((id): id is string => !!id);
-    if (ids.length === 0) return new Map();
+  // Helper: busca a conversa mais recente para um conjunto de oportunidades.
+  // Tenta os dois caminhos: oportunidadeId (vínculo direto) e pessoaId (fallback).
+  // Retorna mapa keyed por oportunidade.id → conversaId.
+  async function getConversaIdMap(
+    oportunidades: { id: string; pessoaId: string | null }[]
+  ): Promise<Map<string, string>> {
+    if (oportunidades.length === 0) return new Map();
+    const oportunidadeIds = oportunidades.map((o) => o.id);
+    const pessoaIds = oportunidades.map((o) => o.pessoaId).filter((id): id is string => !!id);
+
+    const orClause: object[] = [{ oportunidadeId: { in: oportunidadeIds } }];
+    if (pessoaIds.length > 0) orClause.push({ pessoaId: { in: pessoaIds } });
+
     const conversas = await prisma.conversa.findMany({
-      where: { pessoaId: { in: ids }, status: { not: "SPAM" } },
-      select: { id: true, pessoaId: true },
-      orderBy: { createdAt: "desc" },
+      where: { status: { not: "SPAM" }, OR: orClause },
+      select: { id: true, pessoaId: true, oportunidadeId: true },
+      orderBy: { ultimaMensagemEm: "desc" },
     });
-    const map = new Map<string, string>();
+
+    // Índices separados para priorizar o vínculo direto
+    const byOportunidade = new Map<string, string>();
+    const byPessoa = new Map<string, string>();
     for (const c of conversas) {
-      if (c.pessoaId && !map.has(c.pessoaId)) map.set(c.pessoaId, c.id);
+      if (c.oportunidadeId && !byOportunidade.has(c.oportunidadeId))
+        byOportunidade.set(c.oportunidadeId, c.id);
+      if (c.pessoaId && !byPessoa.has(c.pessoaId))
+        byPessoa.set(c.pessoaId, c.id);
     }
-    return map;
+
+    const result = new Map<string, string>(); // key = oportunidade.id
+    for (const o of oportunidades) {
+      const cId =
+        byOportunidade.get(o.id) ??
+        (o.pessoaId ? byPessoa.get(o.pessoaId) : undefined);
+      if (cId) result.set(o.id, cId);
+    }
+    return result;
   }
 
   try {
@@ -88,7 +111,7 @@ export async function GET(request: NextRequest) {
         select: baseSelect,
         orderBy: { createdAt: "desc" },
       });
-      const conversaMap = await getConversaIdMap(leads.map((o) => o.pessoaId));
+      const conversaMap = await getConversaIdMap(leads.map((o) => ({ id: o.id, pessoaId: o.pessoaId })));
 
       return NextResponse.json(leads.map((o) => ({
         id: o.id,
@@ -100,7 +123,7 @@ export async function GET(request: NextRequest) {
         temperatura: TEMP_LABEL[o.temperatura ?? ""] ?? "—",
         info: `Chegou ${tempoRelativo(diffMinutes(o.createdAt, agora))}`,
         status: o.status,
-        conversaId: o.pessoaId ? (conversaMap.get(o.pessoaId) ?? null) : null,
+        conversaId: conversaMap.get(o.id) ?? null,
       })));
     }
 
@@ -110,7 +133,7 @@ export async function GET(request: NextRequest) {
         select: baseSelect,
         orderBy: { createdAt: "desc" },
       });
-      const conversaMap = await getConversaIdMap(leads.map((o) => o.pessoaId));
+      const conversaMap = await getConversaIdMap(leads.map((o) => ({ id: o.id, pessoaId: o.pessoaId })));
 
       return NextResponse.json(leads.map((o) => ({
         id: o.id,
@@ -124,7 +147,7 @@ export async function GET(request: NextRequest) {
           ? `Último contato ${tempoRelativo(diffMinutes(o.historicos[0].createdAt, agora))}`
           : `Sem contato — lead há ${tempoRelativo(diffMinutes(o.createdAt, agora))}`,
         status: o.status,
-        conversaId: o.pessoaId ? (conversaMap.get(o.pessoaId) ?? null) : null,
+        conversaId: conversaMap.get(o.id) ?? null,
       })));
     }
 

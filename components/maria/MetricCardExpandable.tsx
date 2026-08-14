@@ -145,17 +145,29 @@ export function MetricCardExpandable({
                     <span className="mt-0.5 text-[11px] text-[#B5790A]">{item.info}</span>
                   </div>
                   <div className="mt-1 flex flex-shrink-0 flex-col gap-1.5">
-                    {item.conversaId && (
+                    {item.conversaId ? (
                       <a
                         href={`/conversas?abrir=${item.conversaId}`}
                         className="flex items-center gap-1 rounded-lg bg-[#E8EEFB] px-2 py-1 text-[11px] font-bold text-[#1E4FAB] hover:bg-[#1E4FAB] hover:text-white transition-colors"
                         onClick={(e) => e.stopPropagation()}
-                        title="Abrir conversa"
+                        title="Abrir conversa no CRM"
                       >
                         <MessageCircle className="size-3" />
                         Conversa
                       </a>
-                    )}
+                    ) : item.telefone && item.telefone !== "—" ? (
+                      <a
+                        href={`https://wa.me/${item.telefone.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 rounded-lg bg-[#E6F4EC] px-2 py-1 text-[11px] font-bold text-[#0C8A3E] hover:bg-[#0C8A3E] hover:text-white transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Iniciar conversa no WhatsApp"
+                      >
+                        <MessageCircle className="size-3" />
+                        WhatsApp
+                      </a>
+                    ) : null}
                     {item.empresaId && (
                       <a
                         href={`/empresas/${item.empresaId}`}

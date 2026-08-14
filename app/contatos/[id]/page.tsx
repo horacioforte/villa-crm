@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowLeft, Loader2, MessageSquare, SlidersHorizontal, UserRound } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2, MessageSquare, SlidersHorizontal, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { ZodError } from "zod";
 
@@ -107,7 +107,17 @@ export default function ContatoDetalhePage() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [aba, setAba] = useState<"dados" | "conversas">("dados");
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((s) => setIsAdmin(s?.user?.papel === "ADMIN"))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -204,6 +214,24 @@ export default function ContatoDetalhePage() {
       }
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleDelete() {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/contatos/${params.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message ?? "Falha ao excluir contato.");
+      }
+      toast.success("Contato excluído com sucesso.");
+      router.push("/contatos");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir o contato.");
+      setIsDeleting(false);
+      setShowDeleteModal(false);
     }
   }
 
@@ -409,35 +437,98 @@ export default function ContatoDetalhePage() {
                   />
                 </Field>
 
-                <div className="flex flex-col-reverse gap-3 pt-2 md:col-span-2 md:flex-row md:justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    render={<Link href="/contatos" />}
-                    className="h-11 rounded-2xl border-[#D7DEEA]"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="h-11 rounded-2xl bg-[#1A2E5A] px-6 text-white hover:bg-[#1E4FAB]"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" />
-                        Salvando...
-                      </>
-                    ) : (
-                      "Salvar contato"
-                    )}
-                  </Button>
+                <div className="flex flex-col-reverse gap-3 pt-2 md:col-span-2 md:flex-row md:justify-between">
+                  {/* Botão Excluir — visível apenas para ADMIN */}
+                  {isAdmin ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowDeleteModal(true)}
+                      className="h-11 rounded-2xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                    >
+                      <Trash2 className="size-4" />
+                      Excluir contato
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
+
+                  <div className="flex flex-col-reverse gap-3 md:flex-row">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      render={<Link href="/contatos" />}
+                      className="h-11 rounded-2xl border-[#D7DEEA]"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="h-11 rounded-2xl bg-[#1A2E5A] px-6 text-white hover:bg-[#1E4FAB]"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Salvando...
+                        </>
+                      ) : (
+                        "Salvar contato"
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </form>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de confirmação de exclusão */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
+            <div className="mb-5 flex items-center gap-4">
+              <div className="rounded-2xl bg-red-100 p-3 text-red-600">
+                <AlertTriangle className="size-6" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-[#1A2E5A]">Excluir contato?</p>
+                <p className="text-sm text-[#667085]">Esta ação não pode ser desfeita.</p>
+              </div>
+            </div>
+            <p className="mb-6 text-sm text-[#344054]">
+              O contato <strong>{contato?.nome}</strong> será removido do CRM. Históricos, conversas e oportunidades vinculadas continuam no banco mas o contato não aparecerá mais nas listagens.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="h-11 flex-1 rounded-2xl border-[#D7DEEA]"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="h-11 flex-1 rounded-2xl bg-red-600 px-6 text-white hover:bg-red-700"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Excluindo...
+                  </>
+                ) : (
+                  "Sim, excluir"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

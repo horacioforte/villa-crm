@@ -169,6 +169,8 @@ export async function GET(request: NextRequest) {
         }),
       ]);
 
+      const conversaMap = await getConversaIdMap(leads.map((o) => ({ id: o.id, pessoaId: o.pessoaId })));
+
       const leadsItems = leads.map((o) => {
         const ultimoContato = o.historicos[0]?.createdAt ?? o.createdAt;
         const minutos = diffMinutes(ultimoContato, agora);
@@ -184,6 +186,7 @@ export async function GET(request: NextRequest) {
           status: o.status,
           minutosParado: minutos,
           tipo: "lead" as const,
+          conversaId: conversaMap.get(o.id) ?? null,
         };
       });
 

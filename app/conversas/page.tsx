@@ -19,7 +19,6 @@ import {
   X,
 } from "lucide-react";
 
-import { PageNavigation } from "@/components/layout/PageNavigation";
 import { cn } from "@/lib/utils";
 import { buildMelhorProximaAcao, buildTarefaPayloadFromRecomendacao } from "@/lib/conversas/next-action";
 import { getPrioridadeAguardando, ordenarConversasPorPrioridade } from "@/lib/conversas/prioridade";
@@ -596,11 +595,20 @@ function ConversasPage() {
     // sem ele, o navegador deixa cada coluna crescer para caber o conteúdo em vez de
     // respeitar a altura disponível, e a página inteira acaba rolando).
     <div className="flex h-screen flex-col overflow-hidden bg-[#F4F6FA]">
-      <div className="shrink-0 px-5 pt-8 sm:px-8">
-        <PageNavigation currentPage="Conversas" currentHref="/conversas" />
-      </div>
+      {/* Barra compacta — não usa PageNavigation para não desperdiçar altura no workspace */}
+      <header className="shrink-0 flex items-center gap-3 border-b border-[#D7DEEA] bg-white px-5 py-2.5 sm:px-8">
+        <Link
+          href="/"
+          className="flex size-9 items-center justify-center rounded-xl bg-[#1A2E5A] text-sm font-bold text-white hover:bg-[#1E4FAB] transition-colors"
+          aria-label="Voltar para o dashboard"
+        >
+          V
+        </Link>
+        <span className="text-sm font-semibold text-[#667085]">/</span>
+        <span className="text-sm font-bold text-[#1A2E5A]">Conversas</span>
+      </header>
 
-      <div className="min-h-0 flex-1 px-5 pb-8 sm:px-8">
+      <div className="min-h-0 flex-1 px-5 pb-5 pt-4 sm:px-8">
         <div className="flex h-full min-h-0 overflow-hidden rounded-3xl border border-[#D7DEEA] bg-white shadow-sm">
           {/* ── Coluna 1 (~27%): lista de conversas ── */}
           <aside className="flex w-[27%] min-h-0 min-w-[280px] shrink-0 flex-col border-r border-[#D7DEEA]">

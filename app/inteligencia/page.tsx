@@ -180,6 +180,7 @@ const COLUNAS_KANBAN: StatusDossie[] = [
   "EM_ANALISE",
   "PEDIR_MAIS_PESQUISA",
   "PRONTO_PARA_ASSUMIR",
+  "ASSUMIDO",
 ];
 
 const FEED_ICONE_MAP: Record<string, React.ReactNode> = {
@@ -1108,7 +1109,7 @@ export default function CockpitPage() {
               </div>
 
               {/* Colunas Kanban */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
                 {COLUNAS_KANBAN.map(status => {
                   const cfg = STATUS_CFG[status];
                   const lista = dossiesFiltrados.filter(d => d.status === status);

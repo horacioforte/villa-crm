@@ -277,6 +277,99 @@ export async function enviarTextoMeta({
   }
 }
 
+export type EnviarMidiaInput = {
+  canalId: string;
+  conversaId: string;
+  telefone: string;
+  arquivo: Buffer;
+  mimeType: string;
+  nomeArquivo: string;
+  caption?: string;
+  autorUsuarioId?: string | null;
+};
+
+export async function enviarMidiaMeta({
+  canalId,
+  conversaId,
+  telefone,
+  arquivo,
+  mimeType,
+  nomeArquivo,
+  caption,
+  autorUsuarioId,
+}: EnviarMidiaInput) {
+  const canal = await buscarCanalAtivoMeta(canalId);
+  const numero = sanitizarTelefone(telefone);
+
+  const accessToken = await resolveWhatsappEnvVar(canal.accessTokenEnvVar as string, "access_token", {
+    canalId: canal.id,
+  });
+
+  // 1. Upload da mídia para a Meta
+  const fd = new FormData();
+  const blob = new Blob([new Uint8Array(arquivo)], { type: mimeType });
+  fd.append("file", blob, nomeArquivo);
+  fd.append("type", mimeType);
+  fd.append("messaging_product", "whatsapp");
+
+  const uploadResponse = await fetch(
+    `https://graph.facebook.com/${GRAPH_API_VERSION}/${canal.phoneNumberId}/media`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: fd,
+    },
+  );
+
+  if (!uploadResponse.ok) {
+    const corpo = await uploadResponse.json().catch(() => null);
+    const { code, message } = classificarErroGraphApi(uploadResponse.status, corpo);
+    throw new EnvioMetaError(message, code);
+  }
+
+  const uploadData = (await uploadResponse.json()) as { id: string };
+  const mediaId = uploadData.id;
+
+  // 2. Determina o tipo de mídia para o WhatsApp
+  const tipo: "image" | "video" | "audio" | "document" = mimeType.startsWith("image/")
+    ? "image"
+    : mimeType.startsWith("video/")
+      ? "video"
+      : mimeType.startsWith("audio/")
+        ? "audio"
+        : "document";
+
+  // 3. Registra mensagem pendente no banco
+  const conteudoRegistro = caption?.trim() || `[${tipo}: ${nomeArquivo}]`;
+  const mensagem = await criarOuReaproveitarMensagemPendente({
+    conversaId,
+    canal,
+    conteudo: conteudoRegistro,
+    messageType: tipo,
+    autorUsuarioId,
+  });
+
+  // 4. Envia via Graph API
+  const payload: Record<string, unknown> = {
+    messaging_product: "whatsapp",
+    to: numero,
+    type: tipo,
+    [tipo]: {
+      id: mediaId,
+      ...(caption?.trim() ? { caption: caption.trim() } : {}),
+      ...(tipo === "document" ? { filename: nomeArquivo } : {}),
+    },
+  };
+
+  try {
+    const { externalMessageId } = await chamarGraphApi(canal, payload);
+    return await marcarComoEnviada(mensagem.id, externalMessageId);
+  } catch (err) {
+    await marcarComoErro(mensagem.id, err);
+    throw err;
+  }
+}
+
 export type EnviarTemplateInput = {
   canalId: string;
   conversaId: string;

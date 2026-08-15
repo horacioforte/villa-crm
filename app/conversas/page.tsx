@@ -10,13 +10,18 @@ import {
   ArrowRightLeft,
   Bot,
   Check,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
   MessageCircle,
+  Paperclip,
   PanelRightClose,
   PanelRightOpen,
   Plus,
   RefreshCw,
   Send,
   User,
+  Video,
   X,
 } from "lucide-react";
 
@@ -227,8 +232,12 @@ function ConversasPage() {
   const [novaConversaTel, setNovaConversaTel] = useState("");
   const [novaConversaMsg, setNovaConversaMsg] = useState("");
   const [novaConversaEnviando, setNovaConversaEnviando] = useState(false);
+  // Anexo de mídia
+  const [arquivoAnexo, setArquivoAnexo] = useState<File | null>(null);
+  const [enviandoMidia, setEnviandoMidia] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const searchParams = useSearchParams();
   const abrirConversaId = searchParams.get("abrir");
   const buscaParam = searchParams.get("busca");
@@ -420,7 +429,56 @@ function ConversasPage() {
     return () => clearInterval(timer);
   }, [conversaAtiva, carregarDetalhesConversa]);
 
+  // Helpers para exibição do arquivo anexo
+  function formatarTamanho(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function IconeArquivo({ mimeType }: { mimeType: string }) {
+    if (mimeType.startsWith("image/")) return <ImageIcon className="size-3.5 shrink-0 text-blue-500" />;
+    if (mimeType.startsWith("video/")) return <Video className="size-3.5 shrink-0 text-purple-500" />;
+    return <FileText className="size-3.5 shrink-0 text-[#667085]" />;
+  }
+
+  async function enviarMidia() {
+    if (!arquivoAnexo || !conversaAtiva || enviandoMidia) return;
+    setEnviandoMidia(true);
+    const caption = texto.trim();
+    const nomeArquivo = arquivoAnexo.name;
+
+    // Optimistic update
+    const tempMsg: Mensagem = {
+      id: `temp-${Date.now()}`,
+      conteudo: caption || `[${nomeArquivo}]`,
+      direcao: "SAIDA",
+      autor: "HUMANO",
+      status: "ENVIADA",
+      createdAt: new Date().toISOString(),
+    };
+    setMensagens((prev) => [...prev, tempMsg]);
+    setTexto("");
+    setArquivoAnexo(null);
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+
+    try {
+      const fd = new FormData();
+      fd.append("conversaId", conversaAtiva.id);
+      fd.append("arquivo", arquivoAnexo);
+      if (caption) fd.append("caption", caption);
+      await fetch("/api/mensagens/midia", { method: "POST", body: fd });
+      await carregarDetalhesConversa(conversaAtiva);
+    } catch {
+      // mantém mensagem local
+    } finally {
+      setEnviandoMidia(false);
+      inputRef.current?.focus();
+    }
+  }
+
   async function enviarMensagem() {
+    if (arquivoAnexo) { await enviarMidia(); return; }
     if (!texto.trim() || !conversaAtiva || enviando) return;
     setEnviando(true);
     const conteudoLocal = texto.trim();
@@ -1035,24 +1093,67 @@ function ConversasPage() {
                       ? ` · ${conversaAtiva.canalWhatsapp.displayPhoneNumber}`
                       : ""}
                   </div>
-                  <div className="flex items-end gap-3 rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-4 py-3">
-                    <textarea
-                      ref={inputRef}
-                      value={texto}
-                      onChange={(e) => setTexto(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Digite uma mensagem... (Enter para enviar, Shift+Enter para quebrar linha)"
-                      rows={1}
-                      className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-[#98A2B3]"
-                      style={{ maxHeight: "120px" }}
-                    />
-                    <button
-                      onClick={enviarMensagem}
-                      disabled={!texto.trim() || enviando}
-                      className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#1A2E5A] text-white transition hover:bg-[#1E4FAB] disabled:opacity-40"
-                    >
-                      <Send className="size-4" />
-                    </button>
+                  {/* Input de mensagem + anexo */}
+                  <div className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] px-3 py-2.5">
+                    {/* Preview do arquivo selecionado */}
+                    {arquivoAnexo && (
+                      <div className="mb-2 flex items-center gap-2 rounded-xl border border-[#D7DEEA] bg-white px-3 py-2 text-xs">
+                        <IconeArquivo mimeType={arquivoAnexo.type} />
+                        <span className="flex-1 truncate font-medium text-[#1A2E5A]">{arquivoAnexo.name}</span>
+                        <span className="shrink-0 text-[#98A2B3]">{formatarTamanho(arquivoAnexo.size)}</span>
+                        <button
+                          onClick={() => { setArquivoAnexo(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                          className="shrink-0 rounded p-0.5 text-[#98A2B3] hover:bg-red-50 hover:text-red-500"
+                          title="Remover arquivo"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-end gap-2">
+                      {/* Input oculto de arquivo */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,video/*,audio/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) setArquivoAnexo(f);
+                          e.target.value = "";
+                        }}
+                      />
+                      {/* Botão de anexo */}
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        title="Anexar arquivo (imagem, documento, vídeo...)"
+                        className="flex size-8 shrink-0 items-center justify-center rounded-xl text-[#667085] transition hover:bg-white hover:text-[#1A2E5A]"
+                      >
+                        <Paperclip className="size-4" />
+                      </button>
+                      {/* Textarea */}
+                      <textarea
+                        ref={inputRef}
+                        value={texto}
+                        onChange={(e) => setTexto(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder={arquivoAnexo ? "Adicionar legenda (opcional)..." : "Digite uma mensagem... (Enter para enviar, Shift+Enter para quebrar linha)"}
+                        rows={1}
+                        className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-[#98A2B3]"
+                        style={{ maxHeight: "120px" }}
+                      />
+                      {/* Botão de envio */}
+                      <button
+                        onClick={enviarMensagem}
+                        disabled={(!texto.trim() && !arquivoAnexo) || enviando || enviandoMidia}
+                        className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#1A2E5A] text-white transition hover:bg-[#1E4FAB] disabled:opacity-40"
+                      >
+                        {(enviando || enviandoMidia)
+                          ? <Loader2 className="size-4 animate-spin" />
+                          : <Send className="size-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </>

@@ -764,6 +764,78 @@ export async function criarDossie({
   };
 }
 
+// ─── Leads do João — decisores com telefone para abordar ─────────────────────
+
+export async function buscarLeadsJoao({
+  apenasComTelefone = true,
+  statusDossie,
+  segmento,
+  estado,
+  limite = 20,
+}: {
+  apenasComTelefone?: boolean;
+  statusDossie?: string;   // ex: "PRONTO_PARA_ASSUMIR" | "AGUARDANDO_VALIDACAO" | "EM_ANALISE"
+  segmento?: string;
+  estado?: string;
+  limite?: number;
+} = {}) {
+  const whereDossie: Record<string, unknown> = {
+    status: { notIn: ["ARQUIVADO", "ASSUMIDO"] },
+  };
+  if (statusDossie) whereDossie.status = statusDossie;
+  if (segmento) whereDossie.segmento = { contains: segmento, mode: "insensitive" };
+  if (estado) whereDossie.estado = estado;
+
+  const decisores = await prisma.decisorDossie.findMany({
+    where: {
+      ativo: true,
+      ...(apenasComTelefone ? { telefone: { not: null } } : {}),
+      dossie: whereDossie,
+    },
+    include: {
+      dossie: {
+        select: {
+          id: true,
+          titulo: true,
+          status: true,
+          segmento: true,
+          cidade: true,
+          estado: true,
+          prioridade: true,
+          score: true,
+        },
+      },
+    },
+    orderBy: [{ confianca: "desc" }, { createdAt: "desc" }],
+    take: limite,
+  });
+
+  return decisores.map((d) => ({
+    id: d.id,
+    nome: d.nome,
+    cargo: d.cargo ?? null,
+    empresaOndeTrabalha: d.empresa ?? null,
+    telefone: d.telefone ?? null,
+    email: d.email ?? null,
+    linkedin: d.linkedin ?? null,
+    confianca: d.confianca,
+    fonte: d.fonte ?? null,
+    jaEstaNosCRM: !!d.pessoaId,
+    dossie: {
+      id: d.dossie.id,
+      titulo: d.dossie.titulo,
+      status: d.dossie.status,
+      segmento: d.dossie.segmento ?? null,
+      cidade: d.dossie.cidade ?? null,
+      estado: d.dossie.estado ?? null,
+      prioridade: d.dossie.prioridade,
+      score: d.dossie.score,
+    },
+    sugestaoMensagem: `Olá, ${d.nome.split(" ")[0]}! Somos da Villa Empreendimentos, especializados em bomba de concreto e betoneira. Notamos que ${d.dossie.titulo} pode precisar dos nossos serviços. Posso te apresentar nossas soluções?`,
+    urlDossie: `/inteligencia/${d.dossie.id}`,
+  }));
+}
+
 // ─── Conversas WhatsApp ───────────────────────────────────────────────────────
 
 export async function buscarConversas({

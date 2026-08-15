@@ -28,6 +28,7 @@ import {
   buscarDossies,
   criarDossie,
   buscarConversas,
+  buscarLeadsJoao,
 } from "@/lib/agentes/crm-ia/dados";
 
 // ─── Definição das ferramentas disponíveis para o CRM IA ─────────────────────
@@ -360,6 +361,37 @@ const ferramentas = [
     },
   },
   {
+    name: "buscar_leads_joao",
+    description: "Retorna os decisores com telefone encontrados pelo João Hunter IA nos dossiês — leads que João indica para a equipe entrar em contato via WhatsApp. Use OBRIGATORIAMENTE quando o usuário perguntar: 'João tem algum número?', 'João tem leads para contatar?', 'quem o João indica abordar?', 'números que João encontrou', 'leads do João com telefone', 'João quer que a gente ligue/mande mensagem para alguém?', 'quem posso abordar?', 'tem alguém para contatar?'. Retorna nome, cargo, empresa, telefone, LinkedIn e uma sugestão de mensagem de apresentação pronta para usar no WhatsApp.",
+    input_schema: {
+      type: "object",
+      properties: {
+        statusDossie: {
+          type: "string",
+          enum: ["INVESTIGANDO", "AGUARDANDO_VALIDACAO", "EM_ANALISE", "PRONTO_PARA_ASSUMIR"],
+          description: "Filtrar por status do dossiê. Padrão: todos exceto ASSUMIDO e ARQUIVADO",
+        },
+        segmento: {
+          type: "string",
+          description: "Filtrar por segmento da obra/empresa (ex: Celulose, Saneamento, Energia)",
+        },
+        estado: {
+          type: "string",
+          description: "Filtrar por estado (UF, ex: SP, PE, RS)",
+        },
+        apenasComTelefone: {
+          type: "boolean",
+          description: "Se false, inclui decisores sem telefone (padrão: true — só com telefone)",
+        },
+        limite: {
+          type: "number",
+          description: "Número máximo de resultados (padrão 20)",
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: "buscar_conversas",
     description: "Busca conversas WhatsApp ativas no CRM. Use quando o usuário perguntar sobre mensagens pendentes, conversas abertas, clientes aguardando resposta, atendimento humano ativo, conversas do Chatwoot, conversas de um agente específico (Maria, João, Taciane, Morgana) ou qualquer pergunta sobre o workspace de WhatsApp. Use aguardandoResposta=true para conversas onde o cliente mandou a última mensagem e ninguém respondeu ainda.",
     input_schema: {
@@ -478,6 +510,8 @@ async function executarFerramenta(
       return await agendarVisita({ ...input, responsavelId: ctx.usuarioId } as any);
     case "criar_lembrete":
       return await criarLembrete(input as any);
+    case "buscar_leads_joao":
+      return await buscarLeadsJoao(input as any);
     case "buscar_conversas":
       return await buscarConversas(input as any);
     case "buscar_dossies":

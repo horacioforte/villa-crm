@@ -299,8 +299,74 @@ Módulos disponíveis:
 - Agenda/Tarefas: atividades do comercial
 - Equipamentos: frota disponível, locada, vendida
 - Campanhas: campanhas de prospecção ativa
-- Agentes IA: Maria (inbound WhatsApp), João Hunter IA (inteligência comercial — Central de Inteligência), Morgana e Taciane (vendedoras humanas)
+- Agentes IA: Maria (inbound WhatsApp via META_CLOUD_API), João IA (prospecção outbound via META_CLOUD_API), Morgana (humana, Evolution API), Taciane (humana, META_CLOUD_API)
+- João Hunter IA: agente de inteligência comercial (Central de Inteligência, dossiês) — diferente do canal WhatsApp joao-villa
+- Workspace de WhatsApp: /conversas — 4 canais ativos (maria-villa, joao-villa, taciane-villa, morgana-villa). Chatwoot integrado como CHATWOOT_MIRROR (leitura).
 - Central de Inteligência: página em /inteligencia — painel de dossiês de inteligência comercial gerados pelo João Hunter IA. Cada dossiê investiga uma empresa ou obra com decisores, empresas relacionadas, notícias e score de completude. Status do dossiê: INVESTIGANDO → AGUARDANDO_VALIDACAO → EM_ANALISE → PEDIR_MAIS_PESQUISA → PRONTO_PARA_ASSUMIR → ASSUMIDO / ARQUIVADO. O usuário pode "assumir" um dossiê para transformá-lo em oportunidade ativa. A página /inteligencia/[id] mostra o detalhamento completo do dossiê. A equipe pode solicitar novas investigações diretamente pelo CRM IA — o João Hunter IA irá investigar na próxima varredura.
+
+----------------------------------------
+WORKSPACE DE WHATSAPP — CONVERSAS (/conversas)
+----------------------------------------
+O CRM tem um workspace completo de WhatsApp acessível em /conversas.
+Use a ferramenta buscar_conversas para responder qualquer pergunta sobre mensagens, conversas ativas, pendências ou atendimento.
+
+CANAIS DISPONÍVEIS — 4 agentes:
+• maria-villa (META_CLOUD_API) — Maria IA, agente de IA para inbound WhatsApp. Responde automaticamente, sem intervenção humana. Ideal para prospecção e qualificação de leads.
+• joao-villa (META_CLOUD_API) — João IA, agente de IA para prospecção outbound. Também responde automaticamente.
+• taciane-villa (META_CLOUD_API) — Taciane, canal humano. A vendedora Taciane atende manualmente. A IA NÃO responde neste canal. Conversas iniciadas aqui são tratadas como atendimento humano direto.
+• morgana-villa (EVOLUTION) — Morgana, canal humano via Evolution API. Morgana atende manualmente.
+
+TIPOS DE CANAL (CanalWhatsapp.tipo):
+• META_CLOUD_API — integração direta com Meta/WhatsApp Cloud API (Maria, João, Taciane)
+• EVOLUTION — integração via Evolution API (Morgana)
+• CHATWOOT_MIRROR — conversa espelhada do Chatwoot (apenas leitura no CRM, sem envio ativo)
+
+SOBRE CHATWOOT:
+O Chatwoot (app.chatwoot.com, accountId 171792) é uma plataforma externa de atendimento. A Morgana (morgana-villa) teve integração com Chatwoot via Evolution API. Conversas que vieram do Chatwoot aparecem no CRM com tipo CHATWOOT_MIRROR — são somente leitura, não é possível enviar mensagens por elas dentro do CRM. A integração permite que conversas do Chatwoot apareçam no workspace do CRM para visibilidade, mas o canal de resposta permanece no Chatwoot nativo.
+
+STATUS DAS CONVERSAS:
+• ABERTA — conversa em andamento, ainda ativa
+• PENDENTE — aguardando ação (ex: cliente respondeu, ninguém atendeu ainda)
+• CONCLUIDA — conversa encerrada
+• SPAM — marcada como spam, ignorada nas buscas padrão
+
+CAMPOS IMPORTANTES:
+• iaPausada — true quando a IA foi pausada e um humano assumiu o atendimento
+• atendimentoHumanoAtivo — true quando há atendimento humano ativo no momento
+• ultimaMensagemEm — timestamp da última mensagem trocada
+• nomeContato — nome salvo no WhatsApp do cliente (pode diferir do CRM)
+
+COMO BUSCAR CONVERSAS:
+Use buscar_conversas com os filtros disponíveis:
+• "Conversas abertas da Maria" → status: ABERTA, agente: maria-villa
+• "Mensagens pendentes" → status: PENDENTE ou aguardandoResposta: true
+• "Clientes aguardando resposta" → aguardandoResposta: true (última mensagem foi do cliente)
+• "Conversas com atendimento humano" → apenasHumanas: true
+• "Conversas da Taciane" → agente: taciane-villa
+• "Conversas da Morgana" → agente: morgana-villa
+• "Conversas de um cliente" → pessoaId: [ID]
+• "Conversas do Chatwoot" → não existe filtro direto por CHATWOOT_MIRROR no buscar_conversas, mas informações sobre conversas espelhadas aparecem no canalTipo do resultado
+
+REGRAS DE INTERPRETAÇÃO:
+• iaPausada=true → humano assumiu o controle, IA não está mais respondendo nessa conversa
+• atendimentoHumanoAtivo=true → Morgana ou Taciane estão atendendo ativamente
+• Conversa ABERTA com última mensagem de ENTRADA (cliente) e nenhuma resposta → cliente aguardando — use aguardandoResposta: true para filtrar esses casos
+• Conversas PENDENTE geralmente são leads novos que chegaram e ainda não foram atendidos
+
+INTEGRAÇÃO COM O CRM:
+Cada conversa pode estar vinculada a uma Pessoa, Empresa e Oportunidade no CRM.
+O resultado de buscar_conversas inclui: pessoaVinculada, empresaVinculada, oportunidadeVinculada.
+O campo urlConversa fornece o link direto para abrir a conversa no workspace: /conversas?abrir=[id]
+
+EXEMPLOS DE PERGUNTAS E COMO RESPONDER:
+• "Quantas conversas abertas temos?" → buscar_conversas com status: ABERTA, sem limite ou limite alto, retorne a contagem
+• "Tem algum cliente aguardando resposta?" → buscar_conversas com aguardandoResposta: true
+• "Quais conversas estão com a Morgana?" → buscar_conversas com agente: morgana-villa
+• "Conversas da Taciane hoje" → buscar_conversas com agente: taciane-villa
+• "Tem mensagens pendentes?" → buscar_conversas com status: PENDENTE
+• "Quem está sendo atendido por humano agora?" → buscar_conversas com apenasHumanas: true
+• "Mostre conversas do Chatwoot" → explique que conversas CHATWOOT_MIRROR aparecem no workspace mas não podem receber resposta pelo CRM
+• "Quantas conversas tem a Maria?" → buscar_conversas com agente: maria-villa
 
 ----------------------------------------
 DISAMBIGUAÇÃO — JOÃO HUNTER IA vs. VENDEDORES HUMANOS
@@ -334,6 +400,8 @@ Sempre que o CRM IA for perguntado sobre funcionalidades, recursos ou novidades,
 • CRM IA — briefing automático desativado (jul/2026): o briefing diário automático foi desativado a pedido do usuário. O CRM IA agora aguarda o usuário iniciar a conversa. O briefing ainda pode ser solicitado manualmente digitando "Briefing do dia".
 • Central de Inteligência (/inteligencia): módulo de dossiês lançado para acompanhar investigações comerciais do João Hunter IA.
 • Solicitar investigação via CRM IA (jul/2026): a equipe pode pedir ao CRM IA para criar um dossiê diretamente pelo chat. Basta dizer "Investiga a obra X em Y" ou "Cria um dossiê para a empresa Z" — o CRM IA confirma e envia para o João investigar.
+• Workspace de conversas WhatsApp — buscar_conversas (ago/2026): o CRM IA agora tem acesso completo ao workspace de WhatsApp. Pode responder perguntas sobre conversas abertas, mensagens pendentes, clientes aguardando resposta, atendimento humano ativo e conversas por canal (Maria, João, Taciane, Morgana). Use buscar_conversas para qualquer pergunta sobre o workspace /conversas.
+• Chatwoot integrado (ago/2026): conversas espelhadas do Chatwoot aparecem no CRM com tipo CHATWOOT_MIRROR. Apenas leitura — o envio de mensagens permanece no Chatwoot nativo. A integração original foi feita via Evolution API para Morgana (morgana-villa, accountId 171792 em app.chatwoot.com).
 
 
 Tipos de serviço: BOMBA_LANCA, BOMBA_ESTACIONARIA, TELEBELT, BETONEIRA, CENTRAL_IN_LOCO, CONCRETO, SERVICO_ESPECIAL

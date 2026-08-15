@@ -27,6 +27,7 @@ import {
   criarLembrete,
   buscarDossies,
   criarDossie,
+  buscarConversas,
 } from "@/lib/agentes/crm-ia/dados";
 
 // ─── Definição das ferramentas disponíveis para o CRM IA ─────────────────────
@@ -359,6 +360,46 @@ const ferramentas = [
     },
   },
   {
+    name: "buscar_conversas",
+    description: "Busca conversas WhatsApp ativas no CRM. Use quando o usuário perguntar sobre mensagens pendentes, conversas abertas, clientes aguardando resposta, atendimento humano ativo, conversas do Chatwoot, conversas de um agente específico (Maria, João, Taciane, Morgana) ou qualquer pergunta sobre o workspace de WhatsApp. Use aguardandoResposta=true para conversas onde o cliente mandou a última mensagem e ninguém respondeu ainda.",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["ABERTA", "PENDENTE", "CONCLUIDA", "SPAM"],
+          description: "Filtrar por status da conversa",
+        },
+        agente: {
+          type: "string",
+          enum: ["maria-villa", "joao-villa", "taciane-villa", "morgana-villa"],
+          description: "Filtrar por agente/canal: maria-villa (IA), joao-villa (IA), taciane-villa (humano Taciane), morgana-villa (humano Morgana)",
+        },
+        pessoaId: {
+          type: "string",
+          description: "ID do contato/pessoa para buscar conversas de um cliente específico",
+        },
+        empresaId: {
+          type: "string",
+          description: "ID da empresa para buscar conversas de todos os contatos da empresa",
+        },
+        apenasHumanas: {
+          type: "boolean",
+          description: "Se true, retorna apenas conversas com atendimento humano ativo ou IA pausada",
+        },
+        aguardandoResposta: {
+          type: "boolean",
+          description: "Se true, retorna conversas onde a última mensagem foi do cliente (aguardando nossa resposta)",
+        },
+        limite: {
+          type: "number",
+          description: "Número máximo de resultados (padrão 20)",
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: "criar_tarefa",
     description: "Cria uma nova tarefa no CRM. Use apenas quando o usuário confirmar explicitamente.",
     input_schema: {
@@ -437,6 +478,8 @@ async function executarFerramenta(
       return await agendarVisita({ ...input, responsavelId: ctx.usuarioId } as any);
     case "criar_lembrete":
       return await criarLembrete(input as any);
+    case "buscar_conversas":
+      return await buscarConversas(input as any);
     case "buscar_dossies":
       return await buscarDossies(input as any);
     case "criar_dossie": {

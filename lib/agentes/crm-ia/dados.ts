@@ -764,6 +764,86 @@ export async function criarDossie({
   };
 }
 
+// ─── Conversas WhatsApp ───────────────────────────────────────────────────────
+
+export async function buscarConversas({
+  status,
+  agente,
+  pessoaId,
+  empresaId,
+  apenasHumanas,
+  aguardandoResposta,
+  limite = 20,
+}: {
+  status?: string;        // ABERTA | PENDENTE | CONCLUIDA | SPAM
+  agente?: string;        // maria-villa | joao-villa | taciane-villa | morgana-villa
+  pessoaId?: string;
+  empresaId?: string;
+  apenasHumanas?: boolean; // iaPausada=true ou atendimentoHumanoAtivo=true
+  aguardandoResposta?: boolean; // status=ABERTA com última mensagem do cliente (ENTRADA)
+  limite?: number;
+} = {}) {
+  const where: Record<string, unknown> = {
+    status: { not: "SPAM" },
+  };
+
+  if (status) where.status = status as string;
+  if (agente) where.instanceName = agente;
+  if (pessoaId) where.pessoaId = pessoaId;
+  if (empresaId) where.empresaId = empresaId;
+  if (apenasHumanas) {
+    where.OR = [{ iaPausada: true }, { atendimentoHumanoAtivo: true }];
+  }
+
+  const conversas = await prisma.conversa.findMany({
+    where,
+    include: {
+      pessoa: { select: { nome: true } },
+      empresa: { select: { razaoSocial: true } },
+      oportunidade: { select: { titulo: true } },
+      atendidoPor: { select: { nome: true } },
+      canalWhatsapp: { select: { instanceName: true, tipo: true } },
+      mensagens: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { conteudo: true, direcao: true, autor: true, createdAt: true },
+      },
+    },
+    orderBy: { ultimaMensagemEm: "desc" },
+    take: limite,
+  });
+
+  // Filtra "aguardando resposta" pós-query: última mensagem é do cliente (ENTRADA)
+  const resultado = aguardandoResposta
+    ? conversas.filter((c) => c.mensagens[0]?.direcao === "ENTRADA")
+    : conversas;
+
+  return resultado.map((c) => ({
+    id: c.id,
+    nomeContato: c.nomeContato ?? c.pessoa?.nome ?? "Desconhecido",
+    telefone: c.telefone ?? null,
+    status: c.status,
+    agente: c.instanceName,
+    canalTipo: c.canalWhatsapp?.tipo ?? null,
+    iaPausada: c.iaPausada,
+    atendimentoHumanoAtivo: c.atendimentoHumanoAtivo,
+    atendidoPor: c.atendidoPor?.nome ?? null,
+    pessoaVinculada: c.pessoa?.nome ?? null,
+    empresaVinculada: c.empresa?.razaoSocial ?? null,
+    oportunidadeVinculada: c.oportunidade?.titulo ?? null,
+    ultimaMensagemEm: c.ultimaMensagemEm,
+    ultimaMensagem: c.mensagens[0]
+      ? {
+          conteudo: c.mensagens[0].conteudo.slice(0, 120),
+          direcao: c.mensagens[0].direcao,
+          autor: c.mensagens[0].autor,
+          quando: c.mensagens[0].createdAt,
+        }
+      : null,
+    urlConversa: `/conversas?abrir=${c.id}`,
+  }));
+}
+
 // ─── Gerar Relatório Visual ───────────────────────────────────────────────────
 
 const CORES_VILLA = [

@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { buildMelhorProximaAcao, buildTarefaPayloadFromRecomendacao } from "@/lib/conversas/next-action";
 import { getPrioridadeAguardando, ordenarConversasPorPrioridade } from "@/lib/conversas/prioridade";
 import { formatarTempoDecorrido } from "@/lib/conversas/aguardando-resposta";
+import { SupervisaoBoard } from "@/components/conversas/SupervisaoBoard";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -235,6 +236,8 @@ function ConversasPage() {
   // Anexo de mídia
   const [arquivoAnexo, setArquivoAnexo] = useState<File | null>(null);
   const [enviandoMidia, setEnviandoMidia] = useState(false);
+  // Aba Supervisão
+  const [abaSupervisao, setAbaSupervisao] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -664,13 +667,43 @@ function ConversasPage() {
           V
         </Link>
         <span className="text-sm font-semibold text-[#667085]">/</span>
-        <span className="text-sm font-bold text-[#1A2E5A]">Conversas</span>
+        <button
+          onClick={() => setAbaSupervisao(false)}
+          className={cn(
+            "text-sm font-bold transition-colors",
+            !abaSupervisao ? "text-[#1A2E5A]" : "text-[#667085] hover:text-[#1A2E5A]"
+          )}
+        >
+          Conversas
+        </button>
+        <span className="text-sm text-[#D7DEEA]">·</span>
+        <button
+          onClick={() => setAbaSupervisao(true)}
+          className={cn(
+            "text-sm font-bold transition-colors",
+            abaSupervisao ? "text-[#1A2E5A]" : "text-[#667085] hover:text-[#1A2E5A]"
+          )}
+        >
+          Supervisão
+        </button>
       </header>
 
       <div className="min-h-0 flex-1 px-5 pb-5 pt-4 sm:px-8">
         <div className="flex h-full min-h-0 overflow-hidden rounded-3xl border border-[#D7DEEA] bg-white shadow-sm">
+          {/* ── Aba Supervisão ── */}
+          {abaSupervisao && (
+            <SupervisaoBoard
+              usuarios={usuarios}
+              onAbrirConversa={(c) => {
+                setAbaSupervisao(false);
+                setConversaAtiva(c as Conversa);
+                carregarDetalhesConversa(c as Conversa);
+              }}
+            />
+          )}
+
           {/* ── Coluna 1 (~27%): lista de conversas ── */}
-          <aside className="flex w-[27%] min-h-0 min-w-[280px] shrink-0 flex-col border-r border-[#D7DEEA]">
+          <aside className={cn("flex w-[27%] min-h-0 min-w-[280px] shrink-0 flex-col border-r border-[#D7DEEA]", abaSupervisao && "hidden")}>
             {/* Filtros */}
             <div className="border-b border-[#D7DEEA] p-4 space-y-3">
               <input
@@ -853,7 +886,7 @@ function ConversasPage() {
           </aside>
 
           {/* ── Coluna 2 (~53% com painel aberto, ~80% fechado): chat, protagonista ── */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", abaSupervisao && "hidden")}>
             {conversaAtiva ? (
               <>
                 {/* Header da conversa */}
@@ -1167,7 +1200,7 @@ function ConversasPage() {
           </div>
 
           {/* ── Coluna 3 (~20%, piso de 260px): contexto do cliente — auxiliar, recolhível ── */}
-          {conversaAtiva && painelContextoAberto && (
+          {!abaSupervisao && conversaAtiva && painelContextoAberto && (
             <aside
               className="flex w-[20%] min-h-0 min-w-[260px] shrink-0 flex-col overflow-y-auto border-l border-[#D7DEEA] bg-[#FAFBFC] p-3"
               onClick={() => setShowTransferir(false)}

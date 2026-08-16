@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarCheck,
   Check,
   ChevronDown,
+  ChevronRight,
   Clock3,
   Edit,
+  History,
   Loader2,
   Plus,
   Trash2,
@@ -78,6 +80,15 @@ type TarefaContadores = {
 };
 
 type TabStatus = "PENDENTE" | "EM_ANDAMENTO" | "ATRASADA" | "CONCLUIDA";
+
+type EventoHistorico = {
+  id: string;
+  icone: string;
+  descricao: string;
+  usuario: string | null;
+  data: string;
+  action: string;
+};
 type Periodo = "hoje" | "amanha" | "esta_semana" | "todas";
 
 const tabs: Array<{ value: TabStatus; label: string }> = [
@@ -205,6 +216,11 @@ export default function TarefasPage() {
   const [concluirDialogOpen, setConcluirDialogOpen] = useState(false);
   const [tab, setTab] = useState<TabStatus>("PENDENTE");
   const [periodo, setPeriodo] = useState<Periodo>("hoje");
+  // Histórico inline por tarefa
+  const [tarefaExpandidaId, setTarefaExpandidaId] = useState<string | null>(null);
+  const [historicos, setHistoricos] = useState<Record<string, EventoHistorico[]>>({});
+  const [carregandoHistorico, setCarregandoHistorico] = useState<Record<string, boolean>>({});
+  const historicoRef = useRef<Record<string, boolean>>({});
   const [responsavelId, setResponsavelId] = useState("todas");
   const [empresaId, setEmpresaId] = useState("todas");
   const [oportunidadeId, setOportunidadeId] = useState("todas");
@@ -250,6 +266,28 @@ export default function TarefasPage() {
       setContadores(await response.json());
     } catch {
       toast.error("Nao foi possivel carregar os contadores de tarefas.");
+    }
+  }
+
+  // Histórico inline — toggle + fetch com cache
+  async function toggleHistorico(tarefaId: string) {
+    if (tarefaExpandidaId === tarefaId) {
+      setTarefaExpandidaId(null);
+      return;
+    }
+    setTarefaExpandidaId(tarefaId);
+    // Já carregado anteriormente — não busca de novo
+    if (historicos[tarefaId] || historicoRef.current[tarefaId]) return;
+    historicoRef.current[tarefaId] = true;
+    setCarregandoHistorico((prev) => ({ ...prev, [tarefaId]: true }));
+    try {
+      const res = await fetch(`/api/tarefas/${tarefaId}/historico`);
+      if (res.ok) {
+        const data: EventoHistorico[] = await res.json();
+        setHistoricos((prev) => ({ ...prev, [tarefaId]: data }));
+      }
+    } finally {
+      setCarregandoHistorico((prev) => ({ ...prev, [tarefaId]: false }));
     }
   }
 
@@ -834,8 +872,66 @@ export default function TarefasPage() {
                           >
                             <Trash2 className="size-4" />
                           </Button>
+                          {/* Botão de histórico */}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                              "rounded-2xl gap-1.5",
+                              tarefaExpandidaId === tarefa.id && "bg-[#E8EEFB] border-[#1E4FAB] text-[#1E4FAB]"
+                            )}
+                            onClick={() => toggleHistorico(tarefa.id)}
+                            title="Ver histórico completo"
+                          >
+                            <History className="size-4" />
+                            {tarefaExpandidaId === tarefa.id
+                              ? <ChevronDown className="size-3" />
+                              : <ChevronRight className="size-3" />}
+                          </Button>
                         </div>
                       </div>
+
+                      {/* ── Histórico expandido inline ── */}
+                      {tarefaExpandidaId === tarefa.id && (
+                        <div className="mt-4 border-t border-[#E8EDF5] pt-4">
+                          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-[#98A2B3]">
+                            Histórico completo
+                          </p>
+                          {carregandoHistorico[tarefa.id] ? (
+                            <div className="flex items-center gap-2 text-sm text-[#98A2B3]">
+                              <Loader2 className="size-4 animate-spin" />
+                              Carregando histórico...
+                            </div>
+                          ) : !historicos[tarefa.id] || historicos[tarefa.id].length === 0 ? (
+                            <p className="text-sm text-[#98A2B3]">Nenhum evento registrado ainda.</p>
+                          ) : (
+                            <ol className="relative ml-3 border-l border-[#D7DEEA]">
+                              {[...historicos[tarefa.id]].reverse().map((evento, idx) => {
+                                const dt = new Date(evento.data);
+                                const dtFormatada = new Intl.DateTimeFormat("pt-BR", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }).format(dt);
+                                return (
+                                  <li key={evento.id} className={cn("relative pl-5 pb-4", idx === 0 && "font-medium")}>
+                                    {/* Ponto na linha do tempo */}
+                                    <span className="absolute -left-[9px] top-0.5 flex size-[18px] items-center justify-center rounded-full border-2 border-white bg-[#F4F6FA] text-[10px]">
+                                      {evento.icone}
+                                    </span>
+                                    <p className="text-sm text-[#1A2E5A]">{evento.descricao}</p>
+                                    <p className="mt-0.5 text-[11px] text-[#98A2B3]">
+                                      {evento.usuario ? `${evento.usuario} · ` : ""}{dtFormatada}
+                                    </p>
+                                  </li>
+                                );
+                              })}
+                            </ol>
+                          )}
+                        </div>
+                      )}
                     </article>
                   );
                 })

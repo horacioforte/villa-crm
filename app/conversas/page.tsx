@@ -5,7 +5,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRightLeft,
   Bot,
@@ -226,6 +226,7 @@ function ConversasPage() {
   const [transferiuPara, setTransferiuPara] = useState<string | null>(null);
   const [historicoRecomendacoes, setHistoricoRecomendacoes] = useState<HistoricoRecomendacao[]>([]);
   const [criandoTarefa, setCriandoTarefa] = useState(false);
+  const [criandoFollowUp, setCriandoFollowUp] = useState(false);
   const [feedbackAcao, setFeedbackAcao] = useState<string | null>(null);
   const [alterandoStatus, setAlterandoStatus] = useState(false);
   // Nova Conversa — modal inline na sidebar
@@ -241,6 +242,7 @@ function ConversasPage() {
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const abrirConversaId = searchParams.get("abrir");
   const buscaParam = searchParams.get("busca");
@@ -605,6 +607,93 @@ function ConversasPage() {
       setFeedbackAcao(error instanceof Error ? error.message : "Não foi possível criar a tarefa.");
     } finally {
       setCriandoTarefa(false);
+    }
+  }
+
+  // ─── Botão WhatsApp: pré-preenche o textarea com mensagem contextual ────────
+  function usarMensagemWhatsApp() {
+    if (!conversaAtiva) return;
+    const nome = conversaAtiva.nomeContato ?? conversaContexto?.pessoa?.nome ?? "cliente";
+    const empresa = conversaContexto?.empresa?.nomeFantasia ?? conversaContexto?.empresa?.razaoSocial ?? "";
+    const sufixo = empresa ? ` sobre ${empresa}` : "";
+
+    const textosPorAcao: Record<string, string> = {
+      "Ligue agora": `Olá, ${nome}! Tudo bem? Queria dar sequência à nossa conversa${sufixo}. Podemos falar agora?`,
+      "Envie um follow-up": `Olá, ${nome}! Passando para saber se teve oportunidade de analisar nossa proposta${sufixo}. Ficou com alguma dúvida?`,
+      "Reative o contato": `Olá, ${nome}! Tudo bem? Passando para retomar nosso contato${sufixo ? ` a respeito${sufixo}` : ""}. Como posso ajudar?`,
+      "Reative a oportunidade": `Olá, ${nome}! Tudo bem? Queria verificar como estão as coisas por aí e se ainda faz sentido conversarmos${sufixo}.`,
+      "Mantenha o acompanhamento": `Olá, ${nome}! Tudo bem? Passando para acompanhar nossa conversa${sufixo}. Há algo em que posso ajudar?`,
+    };
+
+    const mensagem = textosPorAcao[melhorProximaAcao.acao] ?? `Olá, ${nome}! Tudo bem? Estou entrando em contato para dar sequência à nossa conversa.`;
+    setTexto(mensagem);
+    setFeedbackAcao("Mensagem sugerida adicionada — revise e envie.");
+    setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
+  }
+
+  // ─── Botão Follow-up: cria tarefa RETORNO_CLIENTE para 3 dias ───────────────
+  async function criarFollowUp() {
+    if (!conversaAtiva) {
+      setFeedbackAcao("Selecione uma conversa para criar o follow-up.");
+      return;
+    }
+    if (!conversaContexto?.oportunidade?.id && !conversaContexto?.empresa?.id && !conversaContexto?.pessoa?.id) {
+      setFeedbackAcao("Vincule uma empresa, pessoa ou oportunidade à conversa antes de criar o follow-up.");
+      return;
+    }
+
+    setCriandoFollowUp(true);
+    setFeedbackAcao(null);
+
+    try {
+      const dataVencimento = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      const nome = conversaAtiva.nomeContato ?? conversaContexto?.pessoa?.nome ?? "cliente";
+
+      const payload = {
+        titulo: `Follow-up com ${nome}`,
+        descricao: `Recomendação do Brain: ${melhorProximaAcao.acao} · ${melhorProximaAcao.motivos.join(" · ")}`,
+        tipo: "RETORNO_CLIENTE",
+        prioridade: melhorProximaAcao.urgencia === "alta" ? "ALTA" : melhorProximaAcao.urgencia === "media" ? "MEDIA" : "BAIXA",
+        dataVencimento: dataVencimento.toISOString().slice(0, 10),
+        oportunidadeId: conversaContexto?.oportunidade?.id ?? null,
+        empresaId: conversaContexto?.empresa?.id ?? null,
+        pessoaId: conversaContexto?.pessoa?.id ?? null,
+      };
+
+      const endpoint = conversaContexto?.oportunidade?.id
+        ? `/api/oportunidades/${conversaContexto.oportunidade.id}/tarefas`
+        : "/api/tarefas";
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.message ?? "Não foi possível criar o follow-up.");
+      }
+
+      setFeedbackAcao("Follow-up criado para daqui a 3 dias.");
+    } catch (error) {
+      setFeedbackAcao(error instanceof Error ? error.message : "Não foi possível criar o follow-up.");
+    } finally {
+      setCriandoFollowUp(false);
+    }
+  }
+
+  // ─── Botão Proposta: navega para a empresa/pessoa vinculada ─────────────────
+  function abrirPaginaProposta() {
+    if (conversaContexto?.empresa?.id) {
+      router.push(`/empresas/${conversaContexto.empresa.id}`);
+    } else if (conversaContexto?.pessoa?.id) {
+      router.push(`/contatos/${conversaContexto.pessoa.id}`);
+    } else {
+      setFeedbackAcao("Vincule uma empresa ou pessoa à conversa para criar a proposta.");
     }
   }
 
@@ -1245,28 +1334,45 @@ function ConversasPage() {
                   <p className="mt-0.5">{melhorProximaAcao.naoAgir}</p>
                 </div>
 
-                <div className="mt-3 rounded-xl border border-dashed border-[#E4E7EC] p-2 text-[11px] text-[#667085]">
-                  <p className="font-semibold uppercase tracking-[0.16em] text-[#98A2B3]">Status da entrega</p>
-                  <p className="mt-1">Implementada tecnicamente — aguardando validação dos usuários.</p>
-                  <p className="mt-1">Os botões abaixo são prévias e ainda não executam ações reais no sistema.</p>
-                </div>
-
                 <div className="mt-3 flex flex-wrap gap-1.5">
+                  {/* Criar tarefa */}
                   <button
                     onClick={criarTarefaDaRecomendacao}
                     disabled={criandoTarefa || !conversaContexto?.oportunidade?.id}
+                    title={!conversaContexto?.oportunidade?.id ? "Requer oportunidade vinculada" : ""}
                     className="rounded-xl border border-[#D7DEEA] bg-[#1E4FAB] px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-[#1A2E5A] disabled:cursor-not-allowed disabled:bg-[#98A2B3]"
                   >
-                    {criandoTarefa ? "Criando tarefa..." : "✅ Criar tarefa"}
+                    {criandoTarefa ? "Criando..." : "✅ Criar tarefa"}
                   </button>
-                  <button disabled className="cursor-not-allowed rounded-xl border border-[#E4E7EC] bg-white px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
-                    💬 WhatsApp · Em breve
+
+                  {/* WhatsApp: pré-preenche textarea com mensagem sugerida */}
+                  <button
+                    onClick={usarMensagemWhatsApp}
+                    disabled={!conversaAtiva}
+                    title="Preenche o campo de texto com uma mensagem contextual para revisar e enviar"
+                    className="rounded-xl border border-[#D7DEEA] bg-white px-2.5 py-1.5 text-xs font-medium text-[#1A2E5A] transition hover:bg-[#F4F6FA] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    💬 WhatsApp
                   </button>
-                  <button disabled className="cursor-not-allowed rounded-xl border border-[#E4E7EC] bg-white px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
-                    📅 Follow-up · Em breve
+
+                  {/* Follow-up: cria tarefa RETORNO_CLIENTE para 3 dias */}
+                  <button
+                    onClick={criarFollowUp}
+                    disabled={criandoFollowUp || !conversaAtiva}
+                    title="Cria uma tarefa de follow-up para daqui a 3 dias"
+                    className="rounded-xl border border-[#D7DEEA] bg-white px-2.5 py-1.5 text-xs font-medium text-[#1A2E5A] transition hover:bg-[#F4F6FA] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {criandoFollowUp ? "Criando..." : "📅 Follow-up"}
                   </button>
-                  <button disabled className="cursor-not-allowed rounded-xl border border-[#E4E7EC] bg-white px-2.5 py-1.5 text-xs font-medium text-[#98A2B3]">
-                    📄 Proposta · Em breve
+
+                  {/* Proposta: abre a página da empresa/pessoa */}
+                  <button
+                    onClick={abrirPaginaProposta}
+                    disabled={!conversaAtiva}
+                    title="Abre a página da empresa para criar a proposta"
+                    className="rounded-xl border border-[#D7DEEA] bg-white px-2.5 py-1.5 text-xs font-medium text-[#1A2E5A] transition hover:bg-[#F4F6FA] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    📄 Proposta
                   </button>
                 </div>
 

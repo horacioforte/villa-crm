@@ -90,25 +90,12 @@ export async function POST(req: NextRequest) {
   const canalEhMetaCloudApi = canalResolvido?.tipo === CanalWhatsappTipo.META_CLOUD_API;
   const canalEhHumano = canalResolvido?.agenteIA === null;
 
-  if (canalEhMetaCloudApi && canalEhHumano && process.env.WHATSAPP_META_HUMANO_OUTBOUND_V2 !== "true") {
-    // Canal META_CLOUD_API humano (ex.: Taciane) sem a flag própria ligada — bloqueia
-    // sem tentar Evolution como alternativa (ver comentário no topo do arquivo).
-    return NextResponse.json(
-      { error: "Envio pelo Workspace ainda não habilitado para este canal (feature desativada)." },
-      { status: 422 },
-    );
-  }
-
-  // Fase 2 (Etapa 4) — ACRESCENTADO: canais de IA (agenteIA != null — Maria, João)
-  // com tipo META_CLOUD_API usam sempre o meta-client, sem depender de feature flag.
-  // A flag WHATSAPP_JOAO_V2 é mantida para compatibilidade mas não é mais obrigatória
-  // para canais de IA que já têm tipo=META_CLOUD_API confirmado no banco.
-  // Canais humanos (Taciane) continuam exigindo WHATSAPP_META_HUMANO_OUTBOUND_V2=true.
-  const usarMetaClient =
-    canalEhMetaCloudApi &&
-    (canalEhHumano
-      ? process.env.WHATSAPP_META_HUMANO_OUTBOUND_V2 === "true"
-      : true); // canais de IA META_CLOUD_API: sempre usa meta-client
+  // Fase 2 (Etapa 4) — ACRESCENTADO: todos os canais META_CLOUD_API (IA e humanos)
+  // usam o meta-client sem depender de feature flag. A flag WHATSAPP_META_HUMANO_OUTBOUND_V2
+  // era uma proteção durante o desenvolvimento de Taciane — removida agora que o canal
+  // está em produção e funcionando. A flag WHATSAPP_JOAO_V2 é mantida para compatibilidade
+  // mas não é mais obrigatória para canais de IA com tipo=META_CLOUD_API no banco.
+  const usarMetaClient = canalEhMetaCloudApi;
 
   if (usarMetaClient) {
     try {

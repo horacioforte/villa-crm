@@ -1505,3 +1505,30 @@ model AtualizacaoDossie {
   @@index([oportunidadeId])
  @@index([createdAt])
 }
+
+/// Oportunidades do Radar João aguardando aprovação da Morgana via WhatsApp A/B.
+/// Criado em /api/agent/route.ts ao enviar o WhatsApp. Processado em lib/whatsapp/agentes/joao.ts.
+/// REGRA: nunca remover este modelo.
+model RadarPendingOportunidade {
+  id          String   @id @default(cuid())
+  titulo      String
+  descricao   String?  @db.Text
+  temperatura String?
+  potencial   Decimal? @db.Decimal(18, 2)
+  tipoServico String?
+  origem      String
+
+  /// IDs armazenados sem FK explícita — modelos existentes não são alterados (regra: nunca remover)
+  empresaId String
+  obraId    String
+  pessoaId  String?
+
+  /// AGUARDANDO | APROVADA | DESCARTADA
+  status    String   @default("AGUARDANDO")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}

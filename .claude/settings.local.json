@@ -14,7 +14,8 @@
       "Skill(update-config)",
       "Skill(update-config:*)",
       "Bash(python3 -c \"import json; json.load\\(open\\('/Users/horacioforte/Library/Application Support/Code/User/settings.json'\\)\\)\")",
-      "Bash(vercel env *)"
+      "Bash(vercel env *)",
+      "Bash(node --env-file=.env.local ./audit_pipeline_tmp.mjs)"
     ],
     "additionalDirectories": [
       "/Users/horacioforte/Library/Application Support/Code/User"

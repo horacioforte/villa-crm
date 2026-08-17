@@ -23,7 +23,14 @@ import { enviarTextoMeta } from "../meta-client";
 import { adquirirParaProcessamento, marcarErroProcessamento, marcarProcessada } from "../processamento-mensagem";
 import { getContextoJoao } from "@/lib/agentes/joao/contexto";
 import { analisarMensagemJoao } from "@/lib/agentes/joao/handler";
-import { processarRespostaJoao, enviarWhatsappJoao } from "@/lib/agentes/joao/crm";
+import {
+  processarRespostaJoao,
+  enviarWhatsappJoao,
+  buscarProximaPendingMorgana,
+  aprovarPendingOportunidade,
+  descartarPendingOportunidade,
+  montarMensagemPendingMorgana,
+} from "@/lib/agentes/joao/crm";
 import { statusAposNovaMensagemCliente } from "@/lib/conversas/reabertura";
 
 // ─── Tipos do payload Meta Cloud API (usados também pelo roteador unificado) ──
@@ -151,24 +158,63 @@ async function processarMensagemRecebida({
   const telefone = msg.from;
   if (!telefone) return;
 
-  // ── Número interno da Morgana — respostas de aprovação de oportunidade ───────
-  // Quando Morgana responde A) ou B) ao alerta do Radar João, NÃO acionar o fluxo
-  // de prospecção/vendas. Responder com um ack simples e retornar.
+  // ── Número interno da Morgana — aprovação de oportunidade via A/B ───────────
+  // Quando Morgana responde A ou B ao alerta do Radar João, João cria (ou descarta)
+  // a oportunidade automaticamente. Nunca acionar o fluxo de prospecção/vendas.
   const MORGANA_NUMERO = "5581985595931";
   if (telefone === MORGANA_NUMERO) {
     const textoResposta = (msg.type === "text" ? msg.text?.body?.trim() ?? "" : "").toLowerCase();
-    let ack: string;
-    if (textoResposta === "a" || textoResposta.includes("criar") || textoResposta.includes("sim")) {
-      ack = "✅ Entendido, Morgana! Crie a oportunidade no CRM quando quiser. Continuo monitorando outras obras.";
-    } else if (textoResposta === "b" || textoResposta.includes("investig") || textoResposta.includes("continu")) {
-      ack = "🔍 Ok! Vou continuar investigando essa obra.";
-    } else {
-      ack = "✅ Mensagem recebida, Morgana! Responda *A* para criar a oportunidade ou *B* para continuar investigando.";
+    const isA = textoResposta === "a" || textoResposta.startsWith("a)") || textoResposta.includes("criar") || textoResposta.includes("sim");
+    const isB = textoResposta === "b" || textoResposta.startsWith("b)") || textoResposta.includes("investig") || textoResposta.includes("continu");
+
+    const pending = await buscarProximaPendingMorgana();
+
+    if (!pending) {
+      await enviarWhatsappJoao({
+        telefone: MORGANA_NUMERO,
+        texto: "✅ Não há obras pendentes de aprovação no momento. Quando o Radar encontrar novas obras, eu te aviso!",
+      }).catch(() => {});
+      return;
     }
-    await enviarWhatsappJoao({ telefone: MORGANA_NUMERO, texto: ack }).catch((err) =>
-      console.warn("[agentes/joao] Falha ao responder Morgana (não crítico):", err),
-    );
-    return; // Não criar conversa nem acionar IA de prospecção
+
+    if (isA) {
+      const resultado = await aprovarPendingOportunidade(pending.id);
+      if (!resultado) {
+        await enviarWhatsappJoao({ telefone: MORGANA_NUMERO, texto: "⚠️ Erro ao criar oportunidade. Tente novamente." }).catch(() => {});
+        return;
+      }
+      let ack = `✅ Oportunidade criada no CRM!\n\n*${resultado.oportunidade.titulo}*\nhttps://villa-crm.vercel.app/oportunidades/${resultado.oportunidade.id}`;
+      if (resultado.proximo) {
+        ack += `\n\n📋 Há mais ${1} obra pendente. Enviando a próxima...`;
+        await enviarWhatsappJoao({ telefone: MORGANA_NUMERO, texto: ack }).catch(() => {});
+        const proxMsg = montarMensagemPendingMorgana(resultado.proximo);
+        await enviarWhatsappJoao({ telefone: MORGANA_NUMERO, texto: proxMsg }).catch(() => {});
+      } else {
+        ack += "\n\n📭 Nenhuma outra obra pendente. Continuo monitorando!";
+        await enviarWhatsappJoao({ telefone: MORGANA_NUMERO, texto: ack }).catch(() => {});
+      }
+    } else if (isB) {
+      const proximo = await descartarPendingOportunidade(pending.id);
+      let ack = `🔍 Ok! Continuo investigando *${pending.titulo}*.`;
+      if (proximo) {
+        ack += `\n\n📋 Há mais obras pendentes. Enviando a próxima...`;
+        await enviarWhatsappJoao({ telefone: MORGANA_NUMERO, texto: ack }).catch(() => {});
+        const proxMsg = montarMensagemPendingMorgana(proximo);
+        await enviarWhatsappJoao({ telefone: MORGANA_NUMERO, texto: proxMsg }).catch(() => {});
+      } else {
+        ack += "\n\n📭 Nenhuma outra obra pendente.";
+        await enviarWhatsappJoao({ telefone: MORGANA_NUMERO, texto: ack }).catch(() => {});
+      }
+    } else {
+      // Mensagem não reconhecida — lembra o formato e mostra a obra pendente
+      const pendingMsg = montarMensagemPendingMorgana(pending);
+      await enviarWhatsappJoao({
+        telefone: MORGANA_NUMERO,
+        texto: `Responda *A* para criar a oportunidade ou *B* para continuar investigando.\n\n${pendingMsg}`,
+      }).catch(() => {});
+    }
+
+    return; // Nunca acionar IA de prospecção para o número da Morgana
   }
 
   const nomeContato = contacts.find((c) => c.wa_id === telefone)?.profile?.name?.trim() || "Cliente";

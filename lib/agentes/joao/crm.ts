@@ -571,3 +571,82 @@ export async function processarRespostaJoao({
 
   return { prospectId, interesse, confidenceScore, oportunidadeId };
 }
+
+// ─── Aprovação de oportunidade pela Morgana via WhatsApp A/B ──────────────────
+
+/**
+ * Retorna a oportunidade pendente mais antiga (status AGUARDANDO) — a próxima da fila.
+ * Usada para mostrar à Morgana qual obra está sendo processada.
+ */
+export async function buscarProximaPendingMorgana() {
+  return prisma.radarPendingOportunidade.findFirst({
+    where: { status: "AGUARDANDO" },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/**
+ * Morgana respondeu A: cria a oportunidade no CRM e marca o pending como APROVADA.
+ * Retorna a oportunidade criada e o próximo pending (se houver).
+ */
+export async function aprovarPendingOportunidade(pendingId: string) {
+  const pending = await prisma.radarPendingOportunidade.findUnique({ where: { id: pendingId } });
+  if (!pending) return null;
+
+  const oportunidade = await prisma.oportunidade.create({
+    data: {
+      titulo:               pending.titulo,
+      descricao:            pending.descricao ?? null,
+      tipo:                 "LOCACAO",
+      tipoServico:          (pending.tipoServico as any) ?? null,
+      status:               "NOVA",
+      temperatura:          (pending.temperatura as any) ?? "QUENTE",
+      potencialOportunidade: pending.potencial ?? null,
+      canalOrigem:          "OBRA_MAPEADA",
+      empresaId:            pending.empresaId,
+      obraId:               pending.obraId,
+      pessoaId:             pending.pessoaId ?? null,
+      ativa:                true,
+    },
+    select: { id: true, titulo: true },
+  });
+
+  await prisma.radarPendingOportunidade.update({
+    where: { id: pendingId },
+    data: { status: "APROVADA", updatedAt: new Date() },
+  });
+
+  const proximo = await buscarProximaPendingMorgana();
+  return { oportunidade, proximo };
+}
+
+/**
+ * Morgana respondeu B: descarta o pending sem criar oportunidade.
+ * Retorna o próximo pending (se houver).
+ */
+export async function descartarPendingOportunidade(pendingId: string) {
+  await prisma.radarPendingOportunidade.update({
+    where: { id: pendingId },
+    data: { status: "DESCARTADA", updatedAt: new Date() },
+  });
+
+  return buscarProximaPendingMorgana();
+}
+
+/**
+ * Monta a mensagem WhatsApp de alerta para a Morgana a partir de um pending.
+ */
+export function montarMensagemPendingMorgana(pending: {
+  titulo: string;
+  origem: string;
+  potencial?: any;
+  pessoaId?: string | null;
+}) {
+  return (
+    `🏗️ *Obra do Radar — ${pending.origem}*\n\n` +
+    `*${pending.titulo}*\n` +
+    (pending.potencial ? `💰 Potencial: R$ ${Number(pending.potencial).toLocaleString("pt-BR")}\n` : "") +
+    `\nA) Você quer que eu crie a oportunidade?\n` +
+    `B) Continuo investigando?`
+  );
+}

@@ -293,6 +293,22 @@ export async function POST(req: NextRequest) {
       console.warn("[AGENT API] Falha ao notificar Morgana via WhatsApp (não crítico):", wppErr);
     }
 
+    // Salva pending para que João crie a oportunidade automaticamente ao receber "A" da Morgana
+    await prisma.radarPendingOportunidade.create({
+      data: {
+        titulo:      oportunidade.titulo,
+        descricao:   oportunidade.descricao ?? null,
+        temperatura: oportunidade.temperatura ?? null,
+        potencial:   oportunidade.potencialOportunidade ? String(oportunidade.potencialOportunidade) : null,
+        tipoServico: oportunidade.tipoServico ?? null,
+        origem,
+        empresaId:   empresaRecord.id,
+        obraId:      obraRecord.id,
+        pessoaId:    pessoaRecord?.id ?? null,
+        status:      "AGUARDANDO",
+      },
+    });
+
     await auditLog({
       action: "OPORTUNIDADE_PENDENTE_APROVACAO_MORGANA",
       entity: "Obra",

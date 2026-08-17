@@ -9,7 +9,6 @@ import {
   Brain,
   Building2,
   CalendarCheck,
-  ChartNoAxesCombined,
   ChevronDown,
   ClipboardList,
   HardHat,
@@ -26,9 +25,8 @@ import { cn } from "@/lib/utils";
 
 // Itens primários — sempre visíveis
 const primaryItems = [
-  { label: "Dashboard", href: "/", icon: ChartNoAxesCombined },
-  { label: "Empresas", href: "/empresas", icon: Building2 },
-  { label: "Contatos", href: "/contatos", icon: Users },
+  { label: "Relatórios", href: "/relatorios", icon: BarChart2 },
+  { label: "Saúde Comercial", href: "/saude-comercial", icon: Activity },
   { label: "Oportunidades", href: "/oportunidades", icon: ClipboardList },
   { label: "Conversas", href: "/conversas", icon: MessageCircle },
   { label: "Inteligência", href: "/inteligencia", icon: Brain },
@@ -38,9 +36,9 @@ const primaryItems = [
 
 // Itens secundários — ficam no dropdown "Mais ▾"
 const secondaryItems = [
-  { label: "Saúde Comercial", href: "/saude-comercial", icon: Activity },
+  { label: "Empresas", href: "/empresas", icon: Building2 },
+  { label: "Contatos", href: "/contatos", icon: Users },
   { label: "Obras", href: "/obras", icon: HardHat },
-  { label: "Relatórios", href: "/relatorios", icon: BarChart2 },
   { label: "Feedback", href: "/feedback", icon: MessageSquarePlus },
   { label: "Equipamentos", href: "/equipamentos", icon: Truck },
   { label: "Usuarios", href: "/usuarios", icon: UserCog },

@@ -363,22 +363,25 @@ export default function OportunidadesPage() {
       return searchable.includes(termo);
     });
   }, [filtroTipo, oportunidades, searchTerm]);
-  // GOVERNANÇA (17/08/2026): Pipeline Potencial = soma de potencialOportunidade
-  // apenas nos estágios abertos (PIPELINE_ABERTO_STATUSES) — mesma definição usada
-  // no Dashboard, em Relatórios e no BI. GANHA, PERDIDA e PRE_QUALIFICADA ficam de
-  // fora. Não confundir com o valor de "Proposta"/"Contrato" mostrado em cada card.
+  // GOVERNANÇA (17/08/2026): Pipeline Potencial e contador exibem apenas estágios
+  // abertos (PIPELINE_ABERTO_STATUSES). GANHA, PERDIDA e PRE_QUALIFICADA ficam de
+  // fora tanto do valor quanto da contagem — são histórico, não pipeline ativo.
+  const oportunidadesPipelineAberto = useMemo(
+    () =>
+      oportunidadesFiltradas.filter((oportunidade) =>
+        (PIPELINE_ABERTO_STATUSES as readonly string[]).includes(oportunidade.status),
+      ),
+    [oportunidadesFiltradas],
+  );
+
   const pipelinePotencial = useMemo(
     () =>
-      oportunidadesFiltradas
-        .filter((oportunidade) =>
-          (PIPELINE_ABERTO_STATUSES as readonly string[]).includes(oportunidade.status),
-        )
-        .reduce(
-          (total, oportunidade) =>
-            total + Number(oportunidade.potencialOportunidade ?? 0),
-          0,
-        ),
-    [oportunidadesFiltradas],
+      oportunidadesPipelineAberto.reduce(
+        (total, oportunidade) =>
+          total + Number(oportunidade.potencialOportunidade ?? 0),
+        0,
+      ),
+    [oportunidadesPipelineAberto],
   );
 
   function handleSalvar(oportunidade: Omit<Oportunidade, "temperatura" | "temperaturaMotivo"> & { temperatura?: TemperaturaOportunidade | null; temperaturaMotivo?: string | null }) {
@@ -455,8 +458,8 @@ export default function OportunidadesPage() {
               Nova Oportunidade
             </Button>
             <div className="shrink-0 rounded-2xl border border-[#D7DEEA] bg-white px-4 py-2">
-              <p className="whitespace-nowrap text-xs text-[#667085]">Oportunidades</p>
-              <p className="whitespace-nowrap text-base font-bold text-[#1A2E5A]">{oportunidadesFiltradas.length}</p>
+              <p className="whitespace-nowrap text-xs text-[#667085]">Oportunidades ativas</p>
+              <p className="whitespace-nowrap text-base font-bold text-[#1A2E5A]">{oportunidadesPipelineAberto.length}</p>
             </div>
             <div className="shrink-0 rounded-2xl border border-[#D7DEEA] bg-white px-4 py-2">
               <p className="whitespace-nowrap text-xs text-[#667085]">Pipeline Potencial</p>

@@ -7,6 +7,12 @@ import {
 } from "@/app/generated/prisma/client";
 import type { AuthenticatedUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { PIPELINE_ABERTO_STATUSES } from "@/lib/metrics/constants";
+import {
+  selecionarPropostasVigentes,
+  somarPropostasVigentes,
+  type PropostaVigenteInput,
+} from "@/lib/metrics/proposta-vigente";
 
 export type FormatoRelatorio = "json" | "xlsx" | "pdf";
 
@@ -134,25 +140,6 @@ export async function getRelatorioOportunidades(
   });
 
   return oportunidades.map((oportunidade) => {
-    const propostasValidas = oportunidade.propostas.filter(
-      (proposta) => !statusPropostaExcluidos.includes(proposta.status),
-    );
-    const ativas = propostasValidas.filter((proposta) => proposta.ativa);
-    const propostasParaSoma =
-      ativas.length > 0
-        ? ativas
-        : Array.from(
-            propostasValidas
-              .reduce((mapa, proposta) => {
-                const atual = mapa.get(proposta.numeroProposta);
-                if (!atual || proposta.versao > atual.versao) {
-                  mapa.set(proposta.numeroProposta, proposta);
-                }
-                return mapa;
-              }, new Map<string, (typeof propostasValidas)[number]>())
-              .values(),
-          );
-
     return {
       id: oportunidade.id,
       titulo: oportunidade.titulo,
@@ -161,12 +148,11 @@ export async function getRelatorioOportunidades(
       tipoServico: oportunidade.tipoServico,
       temperatura: oportunidade.temperatura,
       potencialOportunidade: oportunidade.potencialOportunidade,
+      // Regra única (Fase 0): lib/metrics/proposta-vigente.ts — prefere a versão
+      // marcada como ativa, com fallback para a maior versão do numeroProposta.
       valorProposto:
         Math.round(
-          propostasParaSoma.reduce(
-            (soma, proposta) => soma + Number(proposta.valorTotal),
-            0,
-          ) * 100,
+          somarPropostasVigentes(oportunidade.propostas as unknown as PropostaVigenteInput[]) * 100,
         ) / 100,
       valorContrato: oportunidade.valorContrato,
       canalOrigem: oportunidade.canalOrigem,
@@ -325,28 +311,9 @@ export async function getRelatorioPipeline(user: AuthenticatedUser) {
       { empresa: string; valorProposto: number; oportunidades: Set<string> }
     >(),
   );
-  const getValorPropostoOportunidade = (oportunidade: (typeof oportunidades)[number]) => {
-    const ativas = oportunidade.propostas.filter((proposta) => proposta.ativa);
-    const propostasParaSoma =
-      ativas.length > 0
-        ? ativas
-        : Array.from(
-            oportunidade.propostas
-              .reduce((mapa, proposta) => {
-                const atual = mapa.get(proposta.numeroProposta);
-                if (!atual || proposta.versao > atual.versao) {
-                  mapa.set(proposta.numeroProposta, proposta);
-                }
-                return mapa;
-              }, new Map<string, (typeof oportunidade.propostas)[number]>())
-              .values(),
-          );
-
-    return propostasParaSoma.reduce(
-      (soma, proposta) => soma + Number(proposta.valorTotal),
-      0,
-    );
-  };
+  // Regra única (Fase 0): lib/metrics/proposta-vigente.ts
+  const getValorPropostoOportunidade = (oportunidade: (typeof oportunidades)[number]) =>
+    somarPropostasVigentes(oportunidade.propostas as unknown as PropostaVigenteInput[]);
   const porEstadoMap = oportunidades.reduce(
     (mapa, oportunidade) => {
       const estado = oportunidade.obra?.estado ?? "Não informado";
@@ -422,11 +389,15 @@ export async function getRelatorioPipeline(user: AuthenticatedUser) {
   );
 
   return {
-    totalPotencial: oportunidades.reduce(
-      (soma, oportunidade) =>
-        soma + Number(oportunidade.potencialOportunidade ?? 0),
-      0,
-    ),
+    // GOVERNANÇA (17/08/2026): só entram oportunidades em estágio aberto —
+    // GANHA, PERDIDA e PRE_QUALIFICADA nunca contam para o Pipeline Potencial.
+    totalPotencial: oportunidades
+      .filter((oportunidade) =>
+        (PIPELINE_ABERTO_STATUSES as readonly StatusOportunidade[]).includes(
+          oportunidade.status,
+        ),
+      )
+      .reduce((soma, oportunidade) => soma + Number(oportunidade.potencialOportunidade ?? 0), 0),
     totalProposto: propostas.reduce(
       (soma, proposta) => soma + Number(proposta.valorTotal),
       0,

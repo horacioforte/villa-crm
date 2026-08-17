@@ -36,6 +36,7 @@ import { OportunidadeDetalhe } from "@/components/kanban/OportunidadeDetalhe";
 import { OportunidadeModal } from "@/components/kanban/OportunidadeModal";
 import { PageNavigation } from "@/components/layout/PageNavigation";
 import { temProximaAcao } from "@/lib/utils";
+import { PIPELINE_ABERTO_STATUSES } from "@/lib/metrics/constants";
 import {
   statusOportunidadeValues,
   tipoServicoValues,
@@ -362,13 +363,21 @@ export default function OportunidadesPage() {
       return searchable.includes(termo);
     });
   }, [filtroTipo, oportunidades, searchTerm]);
-  const totalPipeline = useMemo(
+  // GOVERNANÇA (17/08/2026): Pipeline Potencial = soma de potencialOportunidade
+  // apenas nos estágios abertos (PIPELINE_ABERTO_STATUSES) — mesma definição usada
+  // no Dashboard, em Relatórios e no BI. GANHA, PERDIDA e PRE_QUALIFICADA ficam de
+  // fora. Não confundir com o valor de "Proposta"/"Contrato" mostrado em cada card.
+  const pipelinePotencial = useMemo(
     () =>
-      oportunidadesFiltradas.reduce((total, oportunidade) => {
-        const valorPipeline = getValorPipeline(oportunidade);
-
-        return total + Number(valorPipeline?.value ?? 0);
-      }, 0),
+      oportunidadesFiltradas
+        .filter((oportunidade) =>
+          (PIPELINE_ABERTO_STATUSES as readonly string[]).includes(oportunidade.status),
+        )
+        .reduce(
+          (total, oportunidade) =>
+            total + Number(oportunidade.potencialOportunidade ?? 0),
+          0,
+        ),
     [oportunidadesFiltradas],
   );
 
@@ -450,8 +459,8 @@ export default function OportunidadesPage() {
               <p className="whitespace-nowrap text-base font-bold text-[#1A2E5A]">{oportunidadesFiltradas.length}</p>
             </div>
             <div className="shrink-0 rounded-2xl border border-[#D7DEEA] bg-white px-4 py-2">
-              <p className="whitespace-nowrap text-xs text-[#667085]">Pipeline total</p>
-              <p className="whitespace-nowrap text-base font-bold text-[#1A2E5A]">{formatCurrency(totalPipeline)}</p>
+              <p className="whitespace-nowrap text-xs text-[#667085]">Pipeline Potencial</p>
+              <p className="whitespace-nowrap text-base font-bold text-[#1A2E5A]">{formatCurrency(pipelinePotencial)}</p>
             </div>
           </div>
         </header>

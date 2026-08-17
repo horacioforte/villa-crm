@@ -176,7 +176,13 @@ export async function POST(
         tipo:                 TipoOperacao.LOCACAO,
         status:               StatusOportunidade.NOVA,
         canalOrigem:          CanalOrigem.OBRA_MAPEADA,
-        potencialOportunidade: dossie.valorEstimado ? String(dossie.valorEstimado) : null,
+        // GOVERNANÇA (17/08/2026): dossie.valorEstimado é o investimento total do
+        // empreendimento (inteligência de mercado), não o potencial de faturamento
+        // da Villa — nunca copiar automaticamente. potencialOportunidade nasce em
+        // branco ("A definir"); o comercial preenche com uma estimativa real depois
+        // de analisar o dossiê. O investimento do projeto continua preservado em
+        // DossieComercial.valorEstimado, acessível via a relação com este dossiê.
+        potencialOportunidade: null,
         temperatura:          dossie.score >= 80 ? "QUENTE" : dossie.score >= 50 ? "MEDIA" : "FRIA",
         empresaId,
         obraId,

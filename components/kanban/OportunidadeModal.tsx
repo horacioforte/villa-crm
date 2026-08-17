@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import type { TipoAtividade } from "@/app/generated/prisma/client";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { NovaEmpresaInline } from "@/components/kanban/inline/NovaEmpresaInline";
 import { NovaObraInline } from "@/components/kanban/inline/NovaObraInline";
 import { NovoContatoInline } from "@/components/kanban/inline/NovoContatoInline";
@@ -39,6 +40,7 @@ import {
   statusOportunidadeValues,
   tipoOperacaoValues,
 } from "@/lib/validations/oportunidade";
+import { POTENCIAL_ALERTA_EXCEPCIONAL } from "@/lib/metrics/constants";
 import { cn } from "@/lib/utils";
 
 type StatusOportunidade = (typeof statusOportunidadeValues)[number];
@@ -63,6 +65,7 @@ type OportunidadeFormValues = {
   responsavelId: string;
   descricao: string;
   motivoPerda: string;
+  confirmacaoPotencialExcepcional: boolean;
 };
 
 type EmpresaOption = {
@@ -231,6 +234,7 @@ function getDefaultValues(
     responsavelId: NONE_VALUE,
     descricao: "",
     motivoPerda: "",
+    confirmacaoPotencialExcepcional: false,
   };
 }
 
@@ -282,6 +286,19 @@ export function OportunidadeModal({
     control: form.control,
     name: "empresaId",
   });
+  const watchedPotencial = useWatch({
+    control: form.control,
+    name: "potencialOportunidade",
+  });
+  const potencialExcepcional =
+    Number(watchedPotencial || 0) >= POTENCIAL_ALERTA_EXCEPCIONAL;
+
+  useEffect(() => {
+    if (form.formState.dirtyFields.potencialOportunidade) {
+      form.setValue("confirmacaoPotencialExcepcional", false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedPotencial]);
 
   const empresaItems = useMemo(
     () =>
@@ -418,6 +435,11 @@ export function OportunidadeModal({
             responsavelId: oportunidade.responsavelId ?? NONE_VALUE,
             descricao: oportunidade.descricao ?? "",
             motivoPerda: oportunidade.motivoPerda ?? "",
+            // Valor excepcional já salvo anteriormente conta como confirmado; se o
+            // usuário alterar o campo, o efeito abaixo (dirtyFields) exige nova confirmação.
+            confirmacaoPotencialExcepcional:
+              Number(oportunidade.potencialOportunidade ?? 0) >=
+              POTENCIAL_ALERTA_EXCEPCIONAL,
           });
 
           // Alerta se contato não foi preenchido
@@ -475,6 +497,7 @@ export function OportunidadeModal({
             obraId: null,
             equipamentoId: null,
             potencialOportunidade: values.potencialOportunidade || null,
+            confirmacaoPotencialExcepcional: values.confirmacaoPotencialExcepcional,
             faixaPotencial: null,
             tipoServico: null,
             descricao: null,
@@ -852,7 +875,10 @@ export function OportunidadeModal({
             </Field>
 
             {!isEditing ? (
-              <Field label="Valor da oportunidade">
+              <Field
+                label="Valor da oportunidade"
+                className={potencialExcepcional ? "md:col-span-2" : undefined}
+              >
                 <Input
                   type="number"
                   step="0.01"
@@ -860,6 +886,15 @@ export function OportunidadeModal({
                   placeholder="Opcional. Ex: 15000"
                   className="h-11 rounded-2xl bg-[#F4F6FA]"
                 />
+                {potencialExcepcional ? (
+                  <PotencialExcepcionalAlerta
+                    checked={form.watch("confirmacaoPotencialExcepcional")}
+                    onCheckedChange={(checked) =>
+                      form.setValue("confirmacaoPotencialExcepcional", checked === true)
+                    }
+                    error={form.formState.errors.confirmacaoPotencialExcepcional?.message}
+                  />
+                ) : null}
               </Field>
             ) : null}
 
@@ -898,7 +933,10 @@ export function OportunidadeModal({
               </Field>
             ) : null}
 
-            <Field label="Potencial da oportunidade">
+            <Field
+              label="Potencial da oportunidade"
+              className={potencialExcepcional ? "md:col-span-2" : undefined}
+            >
               <Input
                 type="number"
                 step="0.01"
@@ -906,6 +944,15 @@ export function OportunidadeModal({
                 placeholder="Ex: 15000 (estimativa inicial, pode deixar em branco)"
                 className="h-11 rounded-2xl bg-[#F4F6FA]"
               />
+              {potencialExcepcional ? (
+                <PotencialExcepcionalAlerta
+                  checked={form.watch("confirmacaoPotencialExcepcional")}
+                  onCheckedChange={(checked) =>
+                    form.setValue("confirmacaoPotencialExcepcional", checked === true)
+                  }
+                  error={form.formState.errors.confirmacaoPotencialExcepcional?.message}
+                />
+              ) : null}
             </Field>
 
             <Field label="Faixa de potencial">
@@ -1163,6 +1210,37 @@ export function OportunidadeModal({
         }}
       />
     </>
+  );
+}
+
+function PotencialExcepcionalAlerta({
+  checked,
+  onCheckedChange,
+  error,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  error?: string;
+}) {
+  return (
+    <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 p-3">
+      <p className="text-xs font-semibold text-amber-800">
+        ⚠️ Valor excepcionalmente alto para o pipeline da Villa.
+      </p>
+      <p className="mt-1 text-xs text-amber-700">
+        Confirme que este número é o potencial de faturamento real da Villa
+        nesta oportunidade — e não o investimento total do empreendimento
+        (ex.: o valor de uma fábrica ou rodovia inteira encontrada pelo João).
+      </p>
+      <label className="mt-2 flex items-center gap-2 text-xs font-medium text-amber-900">
+        <Checkbox
+          checked={checked}
+          onCheckedChange={(value) => onCheckedChange(value === true)}
+        />
+        Confirmo que este é o potencial real de faturamento da Villa.
+      </label>
+      {error ? <p className="mt-2 text-xs text-red-600">{error}</p> : null}
+    </div>
   );
 }
 

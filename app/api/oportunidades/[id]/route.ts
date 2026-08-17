@@ -5,7 +5,7 @@ import type { Prisma } from "@/app/generated/prisma/client";
 import { auditLog } from "@/lib/audit";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
-import { getValorPropostaAtiva } from "@/lib/propostas/utils";
+import { getPropostaVigenteDaOportunidade } from "@/lib/metrics/comercial";
 import { criarTarefaAutomatica } from "@/lib/tarefas/automaticas";
 import { oportunidadePatchSchema } from "@/lib/validations/oportunidade";
 
@@ -44,9 +44,9 @@ export async function GET(
             in: ["ENVIADA", "APROVADA", "ACEITA"],
           },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
+        // GOVERNANÇA (17/08/2026): prioriza a versão vigente (ativa=true); só cai
+        // para a versão mais recente quando nenhuma estiver marcada como vigente.
+        orderBy: [{ ativa: "desc" }, { versao: "desc" }],
         take: 1,
         select: {
           valorTotal: true,
@@ -93,10 +93,10 @@ export async function PATCH(
     };
 
     if (data.status === "GANHA" && !data.valorContrato) {
-      const valorPropostaAtiva = await getValorPropostaAtiva(id);
+      const propostaVigente = await getPropostaVigenteDaOportunidade(id);
 
-      if (valorPropostaAtiva !== null) {
-        updateData.valorContrato = valorPropostaAtiva;
+      if (propostaVigente !== null) {
+        updateData.valorContrato = propostaVigente.valorTotal;
       }
     }
 

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { POTENCIAL_ALERTA_EXCEPCIONAL } from "@/lib/metrics/constants";
+
 const optionalText = z
   .union([z.string(), z.null()])
   .optional()
@@ -121,6 +123,10 @@ const oportunidadeBaseSchema = z.object({
   obraId: optionalRelationId,
   responsavelId: optionalRelationId,
   equipamentoId: optionalRelationId,
+  // GOVERNANÇA (17/08/2026): confirmação exigida quando potencialOportunidade
+  // for excepcionalmente alto — ver validateOportunidadeRules abaixo. Não é um
+  // teto/bloqueio: qualquer valor pode ser salvo, desde que confirmado.
+  confirmacaoPotencialExcepcional: z.boolean().optional().default(false),
 });
 
 function validateOportunidadeRules(
@@ -132,6 +138,19 @@ function validateOportunidadeRules(
       code: "custom",
       path: ["motivoPerda"],
       message: "Informe o motivo da perda.",
+    });
+  }
+
+  if (
+    typeof data.potencialOportunidade === "number" &&
+    data.potencialOportunidade >= POTENCIAL_ALERTA_EXCEPCIONAL &&
+    !data.confirmacaoPotencialExcepcional
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["confirmacaoPotencialExcepcional"],
+      message:
+        "Valor excepcionalmente alto. Confirme que este é o potencial de faturamento real da Villa nesta oportunidade — não o investimento total do empreendimento.",
     });
   }
 

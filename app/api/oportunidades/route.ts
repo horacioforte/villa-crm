@@ -32,9 +32,9 @@ export async function GET(request: Request) {
             in: ["ENVIADA", "APROVADA", "ACEITA"],
           },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
+        // GOVERNANÇA (17/08/2026): prioriza a versão vigente (ativa=true); só cai
+        // para a versão mais recente quando nenhuma estiver marcada como vigente.
+        orderBy: [{ ativa: "desc" }, { versao: "desc" }],
         take: 1,
         select: {
           valorTotal: true,

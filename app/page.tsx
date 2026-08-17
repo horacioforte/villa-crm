@@ -37,6 +37,11 @@ import { ProposalQuickActions } from "@/components/dashboard/ProposalQuickAction
 import { TIPO_CONFIG } from "@/components/tarefas/tarefa-config";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import {
+  getPipelineContratado,
+  getPipelinePotencial,
+  getPipelineProposto,
+} from "@/lib/metrics/comercial";
 
 const pendingProposalStatuses: StatusPropostaComercial[] = [
   StatusPropostaComercial.RASCUNHO,
@@ -475,11 +480,8 @@ export default async function Home() {
     tarefasAtrasadas,
     oportunidadesSemAcao,
     pipelinePotencial,
-    pipelinePotencialCount,
     pipelineProposto,
-    pipelinePropostoCount,
     pipelineContratado,
-    pipelineContratadoCount,
     locacaoAberta,
     pipelineLocacao,
     propostasLocacao,
@@ -758,96 +760,15 @@ export default async function Home() {
         },
       },
     }),
-    prisma.oportunidade.aggregate({
-      where: {
-        ...oportunidadeAccessWhere,
-        status: {
-          in: [
-            StatusOportunidade.NOVA,
-            StatusOportunidade.EM_ATENDIMENTO,
-            StatusOportunidade.PROPOSTA_ENVIADA,
-            StatusOportunidade.NEGOCIACAO,
-          ],
-        },
-        potencialOportunidade: {
-          not: null,
-        },
-      },
-      _sum: {
-        potencialOportunidade: true,
-      },
-    }),
-    prisma.oportunidade.count({
-      where: {
-        ...oportunidadeAccessWhere,
-        status: {
-          in: [
-            StatusOportunidade.NOVA,
-            StatusOportunidade.EM_ATENDIMENTO,
-            StatusOportunidade.PROPOSTA_ENVIADA,
-            StatusOportunidade.NEGOCIACAO,
-          ],
-        },
-        potencialOportunidade: {
-          not: null,
-        },
-      },
-    }),
-    prisma.propostaComercial.aggregate({
-      where: {
-        ...propostaAccessWhere,
-        ativa: true,
-        status: {
-          notIn: [
-            StatusPropostaComercial.CANCELADA,
-            StatusPropostaComercial.REJEITADA,
-          ],
-        },
-      },
-      _sum: {
-        valorTotal: true,
-      },
-    }),
-    prisma.propostaComercial.count({
-      where: {
-        ...propostaAccessWhere,
-        ativa: true,
-        status: {
-          notIn: [
-            StatusPropostaComercial.CANCELADA,
-            StatusPropostaComercial.REJEITADA,
-          ],
-        },
-      },
-    }),
-    prisma.oportunidade.aggregate({
-      where: {
-        ...oportunidadeAccessWhere,
-        status: StatusOportunidade.GANHA,
-        fechadaEm: {
-          gte: mesAtual.start,
-          lte: mesAtual.end,
-        },
-        valorContrato: {
-          not: null,
-        },
-      },
-      _sum: {
-        valorContrato: true,
-      },
-    }),
-    prisma.oportunidade.count({
-      where: {
-        ...oportunidadeAccessWhere,
-        status: StatusOportunidade.GANHA,
-        fechadaEm: {
-          gte: mesAtual.start,
-          lte: mesAtual.end,
-        },
-        valorContrato: {
-          not: null,
-        },
-      },
+    // GOVERNANÇA (17/08/2026): Pipeline Potencial/Proposto/Contratado vêm da
+    // camada central lib/metrics/comercial.ts — mesma definição usada no Kanban,
+    // em Relatórios e no BI. Não reimplementar a fórmula aqui.
+    getPipelinePotencial({ user: currentUser }),
+    getPipelineProposto({ user: currentUser }),
+    getPipelineContratado({
+      user: currentUser,
+      dataInicio: mesAtual.start,
+      dataFim: mesAtual.end,
     }),
     prisma.oportunidade.count({
       where: {
@@ -992,24 +913,24 @@ export default async function Home() {
     {
       label: "Pipeline Potencial",
       detail: "Estimativa das oportunidades abertas",
-      value: formatCurrency(pipelinePotencial._sum.potencialOportunidade),
-      count: `${pipelinePotencialCount} oportunidades`,
+      value: formatCurrency(pipelinePotencial.total),
+      count: `${pipelinePotencial.quantidade} oportunidades`,
       className: "bg-[#E8EEFB] text-[#1E4FAB]",
       icon: ChartNoAxesCombined,
     },
     {
       label: "Pipeline Proposto",
       detail: "Propostas enviadas ou aprovadas",
-      value: formatCurrency(pipelineProposto._sum.valorTotal),
-      count: `${pipelinePropostoCount} propostas ativas`,
+      value: formatCurrency(pipelineProposto.total),
+      count: `${pipelineProposto.quantidade} propostas ativas`,
       className: "bg-amber-100 text-amber-800",
       icon: FileText,
     },
     {
       label: "Pipeline Contratado",
       detail: "Fechado este mes",
-      value: formatCurrency(pipelineContratado._sum.valorContrato),
-      count: `${pipelineContratadoCount} contratos`,
+      value: formatCurrency(pipelineContratado.total),
+      count: `${pipelineContratado.quantidade} contratos`,
       className: "bg-emerald-100 text-emerald-800",
       icon: BadgeCheck,
     },

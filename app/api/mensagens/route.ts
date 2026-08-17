@@ -60,15 +60,35 @@ export async function POST(req: NextRequest) {
 
   // ─── Roteamento determinístico por canal (Fase 2) ────────────────────────
 
-  if (conversa.canalWhatsapp?.tipo === CanalWhatsappTipo.CHATWOOT_MIRROR) {
+  // Compatibilidade V1: conversas criadas pelo webhook V1 do João/Maria não têm
+  // canalWhatsappId. Se a conversa não tem canal vinculado mas tem instanceName,
+  // tenta encontrar o canal pelo instanceName e preenche o vínculo automaticamente.
+  let canalResolvido = conversa.canalWhatsapp;
+  if (!canalResolvido && conversa.instanceName) {
+    const canalPorInstance = await prisma.canalWhatsapp.findUnique({
+      where: { instanceName: conversa.instanceName },
+    });
+    if (canalPorInstance) {
+      canalResolvido = canalPorInstance;
+      // Preenche o vínculo para que as próximas mensagens já encontrem o canal correto
+      await prisma.conversa.update({
+        where: { id: conversaId },
+        data: { canalWhatsappId: canalPorInstance.id },
+      }).catch((err) => {
+        console.warn("[api/mensagens] Falha ao vincular canal à conversa (não bloqueia envio):", err);
+      });
+    }
+  }
+
+  if (canalResolvido?.tipo === CanalWhatsappTipo.CHATWOOT_MIRROR) {
     return NextResponse.json(
       { error: "Envio bloqueado: conversa espelhada do Chatwoot, sem regra de envio definida." },
       { status: 422 },
     );
   }
 
-  const canalEhMetaCloudApi = conversa.canalWhatsapp?.tipo === CanalWhatsappTipo.META_CLOUD_API;
-  const canalEhHumano = conversa.canalWhatsapp?.agenteIA === null;
+  const canalEhMetaCloudApi = canalResolvido?.tipo === CanalWhatsappTipo.META_CLOUD_API;
+  const canalEhHumano = canalResolvido?.agenteIA === null;
 
   if (canalEhMetaCloudApi && canalEhHumano && process.env.WHATSAPP_META_HUMANO_OUTBOUND_V2 !== "true") {
     // Canal META_CLOUD_API humano (ex.: Taciane) sem a flag própria ligada — bloqueia
@@ -93,7 +113,7 @@ export async function POST(req: NextRequest) {
   if (usarMetaClient) {
     try {
       const mensagem = await enviarTextoMeta({
-        canalId: conversa.canalWhatsappId as string,
+        canalId: (canalResolvido?.id ?? conversa.canalWhatsappId) as string,
         conversaId,
         telefone,
         texto: conteudo,

@@ -420,11 +420,19 @@ export async function salvarMensagensJoao({
   textoJoao: string;
 }) {
   try {
+    // Busca o canal do João para vincular nas conversas.
+    // Necessário para o workspace conseguir enviar mensagens pelo Meta Cloud API
+    // em vez de cair no caminho Evolution (que não está configurado para João).
+    const canalJoao = await prisma.canalWhatsapp.findUnique({
+      where: { instanceName: "joao-villa" },
+      select: { id: true },
+    }).catch(() => null);
+
     // Encontra ou cria a conversa para esse telefone
     let conversa = await prisma.conversa.findFirst({
       where: { telefone, instanceName: "joao-villa" },
       orderBy: { updatedAt: "desc" },
-      select: { id: true, status: true },
+      select: { id: true, status: true, canalWhatsappId: true },
     });
 
     if (!conversa) {
@@ -433,18 +441,26 @@ export async function salvarMensagensJoao({
           instanceName: "joao-villa",
           telefone,
           nomeContato,
+          ...(canalJoao ? { canalWhatsappId: canalJoao.id } : {}),
         },
-        select: { id: true, status: true },
+        select: { id: true, status: true, canalWhatsappId: true },
       });
     } else {
       // Atualiza timestamp e nome se mudou. Ciclo de Atendimento — regra mínima
       // aprovada para o V1: PENDENTE/CONCLUIDA reabrem para ABERTA ao chegar mensagem
       // do cliente; SPAM nunca reabre sozinha. Nenhuma outra mudança neste arquivo
       // (nomenclatura de autor, IA, envio, feature flag) — fora de escopo desta sprint.
+      // ACRESCENTADO: preenche canalWhatsappId se ainda não estava configurado (conversas
+      // criadas pelo V1 antes desta correção não tinham o canal vinculado).
       const novoStatus = statusAposNovaMensagemCliente(conversa.status);
       await prisma.conversa.update({
         where: { id: conversa.id },
-        data: { updatedAt: new Date(), nomeContato, ...(novoStatus ? { status: novoStatus } : {}) },
+        data: {
+          updatedAt: new Date(),
+          nomeContato,
+          ...(novoStatus ? { status: novoStatus } : {}),
+          ...(canalJoao && !conversa.canalWhatsappId ? { canalWhatsappId: canalJoao.id } : {}),
+        },
       });
     }
 

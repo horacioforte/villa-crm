@@ -21,6 +21,7 @@ import {
 } from "@/app/generated/prisma/client";
 import { auditLog } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
+import { enviarWhatsappJoao } from "@/lib/agentes/joao/crm";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -249,98 +250,66 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 7. Criar Oportunidade
-    const oportunidadeRecord = await prisma.oportunidade.create({
-      data: {
-        titulo: oportunidade.titulo,
-        descricao: [
-            oportunidade.descricao ?? null,
-            oportunidade.potencialUsoEquipamentos
-              ? `Potencial de uso: ${oportunidade.potencialUsoEquipamentos}`
-              : null,
-            oportunidade.equipamentosRecomendados
-              ? `Equipamentos recomendados: ${oportunidade.equipamentosRecomendados}`
-              : null,
-            oportunidade.proximaAcaoComercial
-              ? `Próxima ação: ${oportunidade.proximaAcaoComercial}`
-              : null,
-            `📡 ${origem}`,
-          ]
-            .filter(Boolean)
-            .join("\n\n"),
-        tipo: TipoOperacao.LOCACAO,
-        tipoServico: oportunidade.tipoServico ?? null,
-        status: StatusOportunidade.NOVA,
-        temperatura: oportunidade.temperatura ?? TemperaturaOportunidade.QUENTE,
-        potencialOportunidade: oportunidade.potencialOportunidade
-          ? String(oportunidade.potencialOportunidade)
-          : null,
-        canalOrigem: CanalOrigem.OBRA_MAPEADA,
-        empresaId: empresaRecord.id,
-        obraId: obraRecord.id,
-        pessoaId: pessoaRecord?.id ?? null,
-        ativa: true,
-      },
-    });
+    // 7. Notificar Morgana via WhatsApp para aprovação — João NÃO cria oportunidade automaticamente.
+    // REGRA (17/08/2026): João apenas notifica Morgana para que ela decida se cria a oportunidade.
+    // Código original de criação de oportunidade preservado abaixo como comentário (regra: nunca remover).
+    //
+    // CÓDIGO ORIGINAL PRESERVADO — NÃO REMOVER:
+    // const oportunidadeRecord = await prisma.oportunidade.create({ data: { ... } });
+    // await prisma.tarefa.create({ data: { ... } });
+
+    const MORGANA_WHATSAPP = "5581985595931";
+
+    const localizacao = [obraRecord.cidade, obraRecord.estado].filter(Boolean).join(" / ");
+    const decisor = pessoaRecord
+      ? `\n👤 Decisor: ${pessoaRecord.nome}${pessoaRecord.cargo ? ` (${pessoaRecord.cargo})` : ""}`
+      : "";
+    const potencial = oportunidade.potencialOportunidade
+      ? `\n💰 Potencial: R$ ${Number(oportunidade.potencialOportunidade).toLocaleString("pt-BR")}`
+      : "";
+    const descricaoBreve = oportunidade.descricao
+      ? `\n📋 ${oportunidade.descricao.substring(0, 300)}`
+      : "";
+
+    const mensagemMorgana = [
+      `🏗️ *Obra do Radar — ${origem}*`,
+      "",
+      `*${oportunidade.titulo}*`,
+      `🏢 ${empresaRecord.razaoSocial}`,
+      localizacao ? `📍 ${localizacao}` : null,
+      potencial || null,
+      decisor || null,
+      descricaoBreve || null,
+      "",
+      "A) Você quer que eu crie a oportunidade?",
+      "B) Continuo investigando?",
+    ]
+      .filter((l) => l !== null)
+      .join("\n");
+
+    try {
+      await enviarWhatsappJoao({ telefone: MORGANA_WHATSAPP, texto: mensagemMorgana });
+    } catch (wppErr) {
+      console.warn("[AGENT API] Falha ao notificar Morgana via WhatsApp (não crítico):", wppErr);
+    }
 
     await auditLog({
-      action: "OPORTUNIDADE_CREATED_BY_AGENT",
-      entity: "Oportunidade",
-      entityId: oportunidadeRecord.id,
-      after: oportunidadeRecord,
-      metadata: { origem },
+      action: "OPORTUNIDADE_PENDENTE_APROVACAO_MORGANA",
+      entity: "Obra",
+      entityId: obraRecord.id,
+      after: { titulo: oportunidade.titulo, empresaId: empresaRecord.id },
+      metadata: { origem, notificadaMorgana: MORGANA_WHATSAPP },
       request: req,
-    });
-
-    // 8. Criar tarefa de follow-up para o dia seguinte às 09h
-    const amanha = new Date();
-    amanha.setDate(amanha.getDate() + 1);
-    amanha.setHours(9, 0, 0, 0);
-
-    // Mapeia prioridade do briefing → PrioridadeTarefa (fallback: temperatura da oportunidade)
-    const prioridadeTarefa: PrioridadeTarefa = (() => {
-      const p = oportunidade.prioridade?.toLowerCase();
-      if (p === "alta") return PrioridadeTarefa.ALTA;
-      if (p === "baixa") return PrioridadeTarefa.BAIXA;
-      if (p === "média" || p === "media") return PrioridadeTarefa.MEDIA;
-      return oportunidade.temperatura === TemperaturaOportunidade.QUENTE
-        ? PrioridadeTarefa.ALTA
-        : PrioridadeTarefa.MEDIA;
-    })();
-
-    const tituloTarefa = oportunidade.proximaAcaoComercial
-      ? `${oportunidade.proximaAcaoComercial} — ${oportunidade.titulo}`
-      : `Primeiro contato — ${oportunidade.titulo}`;
-
-    const descricaoTarefa = pessoaRecord
-      ? `Decisor identificado: ${pessoaRecord.nome}${
-          pessoaRecord.cargo ? ` (${pessoaRecord.cargo})` : ""
-        }. Lead gerado pelo ${origem}.`
-      : `Decisor ainda não identificado. Pesquisar antes do contato. Lead gerado pelo ${origem}.`;
-
-    await prisma.tarefa.create({
-      data: {
-        titulo: tituloTarefa,
-        descricao: descricaoTarefa,
-        tipo: pessoaRecord?.whatsapp ? TipoAtividade.WHATSAPP : TipoAtividade.EMAIL,
-        prioridade: prioridadeTarefa,
-        status: StatusTarefa.PENDENTE,
-        dataVencimento: amanha,
-        oportunidadeId: oportunidadeRecord.id,
-        empresaId: empresaRecord.id,
-        pessoaId: pessoaRecord?.id ?? null,
-      },
     });
 
     return NextResponse.json(
       {
         sucesso: true,
-        mensagem: "Lead criado com sucesso no CRM.",
+        mensagem: "Obra e empresa registradas. Morgana notificada via WhatsApp para aprovação de oportunidade.",
         empresaId: empresaRecord.id,
         obraId: obraRecord.id,
-        oportunidadeId: oportunidadeRecord.id,
         pessoaId: pessoaRecord?.id ?? null,
-        urlCRM: "https://villa-crm.vercel.app/oportunidades",
+        notificadaMorgana: MORGANA_WHATSAPP,
       },
       { status: 201 },
     );

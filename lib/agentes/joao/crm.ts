@@ -225,42 +225,41 @@ export async function criarOportunidadeOutbound({
       return null;
     }
 
-    // Com empresa: cria oportunidade com status PRE_QUALIFICADA e canalOrigem JOAO_OUTBOUND
-    const oportunidade = await prisma.oportunidade.create({
-      data: {
-        titulo: `[João] ${nomeContato} — ${gatilho}`,
-        status: "PRE_QUALIFICADA",
-        canalOrigem: "JOAO_OUTBOUND",
-        descricao: `Oportunidade gerada automaticamente pelo João via prospecção ativa.\nGatilho: ${gatilho}\nScore de confiança: ${confidenceScore}/100\nTelefone: ${telefone}`,
-        pessoaId: pessoa?.id ?? null,
-        empresaId,
-      },
-      select: { id: true },
-    });
+    // REGRA (17/08/2026): João NÃO cria oportunidade automaticamente.
+    // Envia WhatsApp para Morgana (81985595931) pedindo autorização, e retorna null.
+    // Código original de criação preservado abaixo como comentário (regra: nunca remover).
+    //
+    // CÓDIGO ORIGINAL PRESERVADO — NÃO REMOVER:
+    // const oportunidade = await prisma.oportunidade.create({ data: { titulo: `[João] ${nomeContato} — ${gatilho}`, status: "PRE_QUALIFICADA", canalOrigem: "JOAO_OUTBOUND", ... } });
+    // await prisma.prospect.update({ where: { id: prospectId }, data: { status: "OPORTUNIDADE_CRIADA", oportunidadeId: oportunidade.id } });
+    // return oportunidade.id;
 
-    // Vincula o prospect à oportunidade e atualiza status
-    await prisma.prospect.update({
-      where: { id: prospectId },
-      data: {
-        status: "OPORTUNIDADE_CRIADA",
-        oportunidadeId: oportunidade.id,
-        updatedAt: new Date(),
-      },
-    });
+    const MORGANA_WHATSAPP = "5581985595931";
+    const mensagemMorgana =
+      `🏗️ *Obra do Radar — Outbound João*\n\n` +
+      `*[João] ${nomeContato} — ${gatilho}*\n` +
+      `📞 Telefone: ${telefone}\n` +
+      `🎯 Score: ${confidenceScore}/100\n\n` +
+      `A) Você quer que eu crie a oportunidade?\n` +
+      `B) Continuo investigando?`;
 
-    // Registra interação
+    await enviarWhatsappJoao({ telefone: MORGANA_WHATSAPP, texto: mensagemMorgana }).catch((err) =>
+      console.warn("[joao/crm] Falha ao notificar Morgana (não crítico):", err),
+    );
+
+    // Registra interação — prospect aguardando aprovação da Morgana
     await prisma.prospectInteracao.create({
       data: {
         prospectId,
-        tipo: "INTERESSE_REGISTRADO",
+        tipo: "QUALIFICADO_MANUAL",
         canal: "WHATSAPP",
-        conteudo: `[João] Oportunidade outbound criada automaticamente. Gatilho: ${gatilho} | Score: ${confidenceScore}/100 | Oportunidade: ${oportunidade.id}`,
+        conteudo: `[João] Score ${confidenceScore} — gatilho: ${gatilho}. Morgana notificada para aprovação de oportunidade (${MORGANA_WHATSAPP}).`,
         instancia: "joao-villa",
         criadoPorIA: true,
       },
     });
 
-    return oportunidade.id;
+    return null;
   } catch (err) {
     console.error("[joao/crm] Erro ao criar oportunidade outbound:", err);
     return null;

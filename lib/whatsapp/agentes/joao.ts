@@ -23,7 +23,7 @@ import { enviarTextoMeta } from "../meta-client";
 import { adquirirParaProcessamento, marcarErroProcessamento, marcarProcessada } from "../processamento-mensagem";
 import { getContextoJoao } from "@/lib/agentes/joao/contexto";
 import { analisarMensagemJoao } from "@/lib/agentes/joao/handler";
-import { processarRespostaJoao } from "@/lib/agentes/joao/crm";
+import { processarRespostaJoao, enviarWhatsappJoao } from "@/lib/agentes/joao/crm";
 import { statusAposNovaMensagemCliente } from "@/lib/conversas/reabertura";
 
 // ─── Tipos do payload Meta Cloud API (usados também pelo roteador unificado) ──
@@ -150,6 +150,26 @@ async function processarMensagemRecebida({
 
   const telefone = msg.from;
   if (!telefone) return;
+
+  // ── Número interno da Morgana — respostas de aprovação de oportunidade ───────
+  // Quando Morgana responde A) ou B) ao alerta do Radar João, NÃO acionar o fluxo
+  // de prospecção/vendas. Responder com um ack simples e retornar.
+  const MORGANA_NUMERO = "5581985595931";
+  if (telefone === MORGANA_NUMERO) {
+    const textoResposta = (msg.type === "text" ? msg.text?.body?.trim() ?? "" : "").toLowerCase();
+    let ack: string;
+    if (textoResposta === "a" || textoResposta.includes("criar") || textoResposta.includes("sim")) {
+      ack = "✅ Entendido, Morgana! Crie a oportunidade no CRM quando quiser. Continuo monitorando outras obras.";
+    } else if (textoResposta === "b" || textoResposta.includes("investig") || textoResposta.includes("continu")) {
+      ack = "🔍 Ok! Vou continuar investigando essa obra.";
+    } else {
+      ack = "✅ Mensagem recebida, Morgana! Responda *A* para criar a oportunidade ou *B* para continuar investigando.";
+    }
+    await enviarWhatsappJoao({ telefone: MORGANA_NUMERO, texto: ack }).catch((err) =>
+      console.warn("[agentes/joao] Falha ao responder Morgana (não crítico):", err),
+    );
+    return; // Não criar conversa nem acionar IA de prospecção
+  }
 
   const nomeContato = contacts.find((c) => c.wa_id === telefone)?.profile?.name?.trim() || "Cliente";
   const texto = msg.type === "text" ? msg.text?.body ?? "" : "";

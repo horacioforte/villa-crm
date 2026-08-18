@@ -105,6 +105,7 @@ type SaudeComercialData = {
       titulo: string;
       cliente: string;
       oportunidade: string | null;
+      oportunidadeId: string | null;
       responsavel: string;
       vencimento: string;
       diasVencida: number;
@@ -112,6 +113,7 @@ type SaudeComercialData = {
     propostasAguardandoRetorno: Array<{
       id: string;
       numeroProposta: string;
+      oportunidadeId: string;
       cliente: string;
       obra: string | null;
       valor: number;
@@ -429,6 +431,7 @@ function DetailPanel({
           {data.listas.tarefasVencidas.map((item) => (
             <DetailRow
               key={item.id}
+              href={item.oportunidadeId ? `/oportunidades?id=${item.oportunidadeId}` : undefined}
               title={item.titulo}
               subtitle={`${item.cliente}${item.oportunidade ? ` · ${item.oportunidade}` : ""}`}
               right={`${item.diasVencida} dia(s)`}
@@ -446,6 +449,7 @@ function DetailPanel({
         {data.listas.propostasAguardandoRetorno.map((item) => (
           <DetailRow
             key={item.id}
+            href={`/oportunidades?id=${item.oportunidadeId}`}
             title={`${item.numeroProposta} · ${item.cliente}`}
             subtitle={`${item.obra ?? "Obra não informada"} · ${formatCurrency(item.valor)}`}
             right={`${item.diasSemContato} dia(s)`}

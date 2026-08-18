@@ -9,13 +9,11 @@ import {
 } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { PIPELINE_ABERTO_STATUSES } from "@/lib/metrics/constants";
 
-const openOpportunityStatuses = [
-  StatusOportunidade.NOVA,
-  StatusOportunidade.EM_ATENDIMENTO,
-  StatusOportunidade.PROPOSTA_ENVIADA,
-  StatusOportunidade.NEGOCIACAO,
-];
+// GOVERNANÇA (17/08/2026): mesma definição de "aberta" usada em todo o CRM —
+// ver lib/metrics/constants.ts. Não manter uma lista local própria aqui.
+const openOpportunityStatuses = PIPELINE_ABERTO_STATUSES as StatusOportunidade[];
 const activeTaskStatuses = [StatusTarefa.PENDENTE, StatusTarefa.EM_ANDAMENTO];
 const activeTaskStatusSet = new Set<StatusTarefa>(activeTaskStatuses);
 
@@ -328,6 +326,7 @@ export async function GET(request: Request) {
     titulo: tarefa.titulo,
     cliente: getNullableCompanyName(tarefa),
     oportunidade: tarefa.oportunidade?.titulo ?? null,
+    oportunidadeId: tarefa.oportunidade?.id ?? null,
     responsavel: tarefa.responsavel?.nome ?? "Sem responsável",
     vencimento: tarefa.dataVencimento,
     diasVencida: differenceInDays(tarefa.dataVencimento),
@@ -346,6 +345,7 @@ export async function GET(request: Request) {
       return {
         id: proposta.id,
         numeroProposta: proposta.numeroProposta,
+        oportunidadeId: proposta.oportunidade.id,
         cliente: getCompanyName(proposta.oportunidade),
         obra: proposta.oportunidade.obra?.nome ?? null,
         valor: Number(proposta.valorTotal),

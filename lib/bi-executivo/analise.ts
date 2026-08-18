@@ -34,6 +34,8 @@ function buildPrompt(m: AnaliseExecutivaMetricas): string {
 
 Os números abaixo já foram calculados pelo sistema — use SOMENTE estes números. Nunca invente cliente, valor, obra ou fato que não esteja aqui. Nunca recalcule nada, apenas interprete.
 
+Ao citar um valor em R$ no seu texto, copie o número exatamente como está formatado abaixo (ex.: "R$ 140.000,00" continua "R$ 140.000,00", nunca vire "R$ 140M" nem "R$ 140 mil" abreviado incorretamente). Não arredonde, não abrevie e não troque a escala (mil/milhão) de nenhum valor.
+
 ## Período: ${m.periodoLabel}
 
 Pipeline Potencial (oportunidades abertas): ${formatCurrencyBR(m.pipelinePotencial.total)} em ${m.pipelinePotencial.quantidade} oportunidades

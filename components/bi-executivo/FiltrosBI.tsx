@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 
@@ -24,9 +24,12 @@ export function FiltrosBI({
   periodoAtual: string;
   tipoAtual: string;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Navegação completa (não router.push): confirmado em produção que o
+  // client-side soft nav do App Router não estava atualizando a URL de forma
+  // confiável para este page.tsx (Server Component com searchParams
+  // assíncrono) — a troca de filtro ficava presa sem refletir na tela.
   function atualizar(chave: string, valor: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (valor === "TODOS") {
@@ -39,7 +42,7 @@ export function FiltrosBI({
       params.delete("dataInicio");
       params.delete("dataFim");
     }
-    router.push(`/bi-executivo?${params.toString()}`);
+    window.location.href = `/bi-executivo?${params.toString()}`;
   }
 
   return (

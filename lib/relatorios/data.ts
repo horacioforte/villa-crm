@@ -61,7 +61,13 @@ export function buildOportunidadeWhere(
   return {
     ativa: true,
     ...oportunidadeAccessWhere(user),
-    ...(status ? { status: status as StatusOportunidade } : {}),
+    // "ATIVAS" é um valor especial que mapeia para PIPELINE_ABERTO_STATUSES
+    // (NOVA, EM_ATENDIMENTO, PROPOSTA_ENVIADA, NEGOCIACAO) — padrão do relatório.
+    ...(status === "ATIVAS"
+      ? { status: { in: PIPELINE_ABERTO_STATUSES as StatusOportunidade[] } }
+      : status
+        ? { status: status as StatusOportunidade }
+        : {}),
     ...(user.papel !== "COMERCIAL" && responsavelId ? { responsavelId } : {}),
     ...(estado ? { obra: { is: { estado } } } : {}),
     ...(temperatura === "sem_classificacao"

@@ -108,12 +108,13 @@ type PipelineRelatorio = {
 };
 
 const statusOportunidade = [
-  "NOVA",
-  "EM_ATENDIMENTO",
-  "PROPOSTA_ENVIADA",
-  "NEGOCIACAO",
-  "GANHA",
-  "PERDIDA",
+  { value: "ATIVAS", label: "Ativas (pipeline)" },
+  { value: "NOVA", label: "Nova" },
+  { value: "EM_ATENDIMENTO", label: "Em atendimento" },
+  { value: "PROPOSTA_ENVIADA", label: "Proposta enviada" },
+  { value: "NEGOCIACAO", label: "Negociação" },
+  { value: "GANHA", label: "Ganha" },
+  { value: "PERDIDA", label: "Perdida" },
 ];
 const statusProposta = [
   "RASCUNHO",
@@ -385,7 +386,7 @@ function RelatorioOportunidades() {
   const [filters, setFilters] = useState({
     dataInicio: "",
     dataFim: "",
-    status: "__all",
+    status: "ATIVAS",  // padrão: só oportunidades ativas (pipeline aberto)
     estado: "__all",
     temperatura: "__all",
     canalOrigem: "__all",
@@ -450,7 +451,7 @@ function RelatorioOportunidades() {
           value={filters.status}
           onChange={(status) => setFilters((current) => ({ ...current, status }))}
           placeholder="Todos os status"
-          options={statusOportunidade.map((status) => ({ value: status, label: status }))}
+          options={statusOportunidade}
         />
         <FilterSelect
           label="Estado"
@@ -522,10 +523,10 @@ function RelatorioOportunidades() {
         </Button>
       </div>
       <div className="grid gap-4 md:grid-cols-4">
-        <CardTotal label="Total de oportunidades" value={data.length} type="number" />
-        <CardTotal label="Valor potencial" value={totals.potencial} />
-        <CardTotal label="Valor proposto" value={totals.proposto} />
-        <CardTotal label="Valor contratado" value={totals.contrato} />
+        <CardTotal label="Oportunidades no período" value={data.length} type="number" />
+        <CardTotal label="Pipeline potencial" value={totals.potencial} />
+        <CardTotal label="Propostas emitidas" value={totals.proposto} />
+        <CardTotal label="Valor contratado (Ganhas)" value={totals.contrato} />
       </div>
       <SortableTable
         rows={data}

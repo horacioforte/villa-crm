@@ -60,12 +60,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const data = oportunidadeSchema.parse(await request.json());
+    // confirmacaoPotencialExcepcional é um campo Zod de validação UI — não existe
+    // no banco, por isso é extraído antes de criar o registro (evita erro Prisma).
+    const { confirmacaoPotencialExcepcional: _skip, ...dbData } =
+      oportunidadeSchema.parse(await request.json());
 
     const oportunidade = await prisma.oportunidade.create({
       data: {
-        ...data,
-        responsavelId: data.responsavelId ?? authResult.id,
+        ...dbData,
+        responsavelId: dbData.responsavelId ?? authResult.id,
         createdById: authResult.id,
         updatedById: authResult.id,
       },

@@ -85,10 +85,13 @@ export async function PATCH(
   const { id } = await context.params;
 
   try {
-    const data = oportunidadePatchSchema.parse(await request.json());
+    // confirmacaoPotencialExcepcional é um campo Zod de validação UI — não existe
+    // no banco, por isso é extraído antes de criar updateData (evita erro Prisma).
+    const { confirmacaoPotencialExcepcional: _skip, ...dbData } =
+      oportunidadePatchSchema.parse(await request.json());
     const before = await prisma.oportunidade.findUnique({ where: { id } });
     const updateData: Prisma.OportunidadeUncheckedUpdateInput = {
-      ...data,
+      ...dbData,
       updatedById: authResult.id,
     };
 

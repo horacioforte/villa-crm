@@ -179,7 +179,7 @@ function RelatorioBiExecutivo({ dados }: { dados: RelatorioProps }) {
           </View>
 
           <View style={{ ...styles.section, flexGrow: 1 }}>
-            <Text style={styles.sectionTitle}>⭐ Estratégicas sem Proposta</Text>
+            <Text style={styles.sectionTitle}>Estratégicas sem Proposta</Text>
             {dados.estrategicas.length === 0 ? (
               <Text style={styles.cell}>Nenhuma no momento.</Text>
             ) : (
@@ -198,7 +198,7 @@ function RelatorioBiExecutivo({ dados }: { dados: RelatorioProps }) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>✨ CRM IA — Análise Executiva</Text>
+          <Text style={styles.sectionTitle}>CRM IA — Análise Executiva</Text>
           <View style={styles.analiseBox}>
             {dados.analise ? (
               <>

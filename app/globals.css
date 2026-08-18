@@ -135,3 +135,20 @@
     @apply font-heading;
   }
 }
+
+/* Widget flutuante do CRM IA (components/crm-ia/CrmIaChat.tsx, montado em
+   app/layout.tsx) nunca deve aparecer em impressão/PDF — usado pelo BI
+   Executivo e por qualquer outra tela que for impressa. */
+@media print {
+  .fixed.z-50 {
+    display: none !important;
+  }
+
+  /* BI Executivo usa um grid de 3 colunas — cabe melhor em paisagem.
+     Navegadores que respeitam @page size pré-selecionam paisagem no
+     diálogo de impressão (o usuário ainda pode trocar manualmente). */
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+}

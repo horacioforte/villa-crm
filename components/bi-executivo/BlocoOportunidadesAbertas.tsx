@@ -27,7 +27,7 @@ export function BlocoOportunidadesAbertas({
         {evolucao.length >= 2 ? (
           <div className="mt-4 h-28">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={evolucao} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+              <LineChart data={evolucao} margin={{ top: 20, right: 24, left: 16, bottom: 0 }}>
                 <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "#667085" }} axisLine={false} tickLine={false} />
                 <YAxis hide domain={["dataMin - 2", "dataMax + 2"]} />
                 <Tooltip

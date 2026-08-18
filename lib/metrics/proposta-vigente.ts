@@ -7,7 +7,10 @@
 // com ativa=true; se nenhuma estiver marcada, cai para a de maior "versao" dentro
 // do mesmo numeroProposta. Nunca soma duas versões do mesmo numeroProposta.
 
-import { PROPOSTA_STATUS_EXCLUIDOS } from "@/lib/metrics/constants";
+import {
+  PROPOSTA_STATUS_EXCLUIDOS,
+  VALOR_FINANCEIRO_MINIMO_REAL,
+} from "@/lib/metrics/constants";
 
 export type PropostaVigenteInput = {
   numeroProposta: string;
@@ -45,10 +48,13 @@ export function selecionarPropostasVigentes<T extends PropostaVigenteInput>(
   return Array.from(maiorVersaoPorNumero.values());
 }
 
-/** Soma o valorTotal das propostas vigentes (dedup por numeroProposta). */
+/**
+ * Soma o valorTotal das propostas vigentes (dedup por numeroProposta).
+ * Ignora valores abaixo de VALOR_FINANCEIRO_MINIMO_REAL — placeholder técnico,
+ * nunca compromisso financeiro real (ex.: um "R$ 1" simbólico).
+ */
 export function somarPropostasVigentes(propostas: PropostaVigenteInput[]): number {
-  return selecionarPropostasVigentes(propostas).reduce(
-    (soma, proposta) => soma + Number(proposta.valorTotal),
-    0,
-  );
+  return selecionarPropostasVigentes(propostas)
+    .filter((proposta) => Number(proposta.valorTotal) >= VALOR_FINANCEIRO_MINIMO_REAL)
+    .reduce((soma, proposta) => soma + Number(proposta.valorTotal), 0);
 }

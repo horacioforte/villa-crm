@@ -89,13 +89,27 @@ export async function PATCH(
     // no banco, por isso é extraído antes de criar updateData (evita erro Prisma).
     const { confirmacaoPotencialExcepcional: _skip, ...dbData } =
       oportunidadePatchSchema.parse(await request.json());
+
+    // BI Executivo (18/08/2026): marcar/desmarcar "estratégica" é restrito a
+    // ADMIN/GERENTE, mesmo que o usuário tenha permissão geral de update.
+    if (
+      dbData.estrategica !== undefined &&
+      authResult.papel !== "ADMIN" &&
+      authResult.papel !== "GERENTE"
+    ) {
+      return NextResponse.json(
+        { message: "Apenas ADMIN ou GERENTE podem marcar oportunidades como estratégicas." },
+        { status: 403 },
+      );
+    }
+
     const before = await prisma.oportunidade.findUnique({ where: { id } });
     const updateData: Prisma.OportunidadeUncheckedUpdateInput = {
       ...dbData,
       updatedById: authResult.id,
     };
 
-    if (data.status === "GANHA" && !data.valorContrato) {
+    if (dbData.status === "GANHA" && !dbData.valorContrato) {
       const propostaVigente = await getPropostaVigenteDaOportunidade(id);
 
       if (propostaVigente !== null) {
@@ -103,7 +117,14 @@ export async function PATCH(
       }
     }
 
-    if (data.status === "GANHA" && before?.status !== "GANHA" && !before?.fechadaEm) {
+    if (dbData.status === "GANHA" && before?.status !== "GANHA" && !before?.fechadaEm) {
+      updateData.fechadaEm = new Date();
+    }
+
+    // GOVERNANÇA (18/08/2026): PERDIDA também fecha a oportunidade — antes só
+    // GANHA gravava fechadaEm, o que deixava "Perdido no período" sem filtro
+    // de data confiável (confirmado: só 5,4% das PERDIDA tinham a data).
+    if (dbData.status === "PERDIDA" && before?.status !== "PERDIDA" && !before?.fechadaEm) {
       updateData.fechadaEm = new Date();
     }
 
@@ -124,9 +145,8 @@ export async function PATCH(
               in: ["ENVIADA", "APROVADA", "ACEITA"],
             },
           },
-          orderBy: {
-            createdAt: "desc",
-          },
+          // GOVERNANÇA (17/08/2026): mesma regra do GET acima — prioriza ativa=true.
+          orderBy: [{ ativa: "desc" }, { versao: "desc" }],
           take: 1,
           select: {
             valorTotal: true,

@@ -12,7 +12,8 @@ export type Resource =
   | "auditoria"
   | "usuarios"
   | "agentes"
-  | "inteligencia";
+  | "inteligencia"
+  | "bi_executivo";
 
 export type Action = "read" | "create" | "update" | "delete";
 
@@ -33,6 +34,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     agentes: allActions,
     // Inteligência: ADMIN pode tudo — assumir dossiê, descartar, pesquisar
     inteligencia: allActions,
+    bi_executivo: ["read"],
   },
   GERENTE: {
     empresas: allActions,
@@ -48,6 +50,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     agentes: [],
     // Inteligência: GERENTE (Morgana) pode assumir e descartar dossiês
     inteligencia: ["read", "create", "update", "delete"],
+    bi_executivo: ["read"],
   },
   COMERCIAL: {
     empresas: ["read", "create", "update"],
@@ -63,6 +66,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     agentes: [],
     // Inteligência: COMERCIAL só visualiza — NÃO pode assumir nem descartar dossiês
     inteligencia: ["read"],
+    bi_executivo: [],
   },
   OPERACIONAL: {
     empresas: ["read"],
@@ -78,6 +82,7 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     agentes: [],
     // Inteligência: OPERACIONAL só visualiza
     inteligencia: ["read"],
+    bi_executivo: [],
   },
 };
 

@@ -2,8 +2,10 @@
 // REGRA: nunca remover. Apenas acrescentar.
 // Funções de consulta ao banco de dados para o CRM IA.
 
+import type { StatusOportunidade } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auditLog } from "@/lib/audit";
+import { PIPELINE_ABERTO_STATUSES } from "@/lib/metrics/constants";
 
 // ─── Resumo Geral ─────────────────────────────────────────────────────────────
 
@@ -19,10 +21,11 @@ export async function resumoGeral() {
   ] = await Promise.all([
     prisma.empresa.count({ where: { ativa: true } }),
     prisma.oportunidade.count({ where: { ativa: true } }),
+    // GOVERNANÇA (17/08/2026): mesma definição de "aberta" do resto do CRM.
     prisma.oportunidade.count({
       where: {
         ativa: true,
-        status: { notIn: ["GANHA", "PERDIDA"] },
+        status: { in: PIPELINE_ABERTO_STATUSES as StatusOportunidade[] },
       },
     }),
     prisma.propostaComercial.count(),
@@ -1206,6 +1209,11 @@ export async function gerarRelatorio({
         }),
       ]);
       const totalOps = pipeline.reduce((a, g) => a + g._count.id, 0);
+      // GOVERNANÇA (17/08/2026): "em andamento" = estágios abertos oficiais,
+      // não todas as oportunidades ativas (isso incluiria GANHA/PERDIDA).
+      const oportunidadesEmAndamento = pipeline
+        .filter((g) => (PIPELINE_ABERTO_STATUSES as string[]).includes(g.status))
+        .reduce((a, g) => a + g._count.id, 0);
       const totalPropostas = propostas.reduce((a, g) => a + g._count.id, 0);
       const disponivéis = equipamentos.find((e) => e.status === "DISPONIVEL")?._count.id ?? 0;
       const locados = equipamentos.find((e) => e.status === "LOCADO")?._count.id ?? 0;
@@ -1218,7 +1226,7 @@ export async function gerarRelatorio({
         datasets: [{ label: "Oportunidades", data, backgroundColor: gerarCores(labels.length) }],
         descricao: `${totalOps} oportunidades ativas · ${totalPropostas} propostas · ${tarefas} tarefas abertas`,
         conclusoes: [
-          `Pipeline total: ${totalOps} oportunidades ativas em andamento.`,
+          `Pipeline aberto: ${oportunidadesEmAndamento} oportunidades em andamento.`,
           `Propostas: ${totalPropostas} propostas no sistema.`,
           `Frota: ${locados} equipamentos locados, ${disponivéis} disponíveis.`,
           `Tarefas: ${tarefas} tarefas abertas exigem atenção.`,

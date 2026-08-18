@@ -7,7 +7,10 @@ import {
 } from "@/app/generated/prisma/client";
 import type { AuthenticatedUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
-import { PIPELINE_ABERTO_STATUSES } from "@/lib/metrics/constants";
+import {
+  PIPELINE_ABERTO_STATUSES,
+  VALOR_FINANCEIRO_MINIMO_REAL,
+} from "@/lib/metrics/constants";
 import {
   selecionarPropostasVigentes,
   somarPropostasVigentes,
@@ -397,11 +400,13 @@ export async function getRelatorioPipeline(user: AuthenticatedUser) {
   return {
     // GOVERNANÇA (17/08/2026): só entram oportunidades em estágio aberto —
     // GANHA, PERDIDA e PRE_QUALIFICADA nunca contam para o Pipeline Potencial.
+    // Placeholder técnico (ex.: "1" digitado por engano) também não conta.
     totalPotencial: oportunidades
-      .filter((oportunidade) =>
-        (PIPELINE_ABERTO_STATUSES as readonly StatusOportunidade[]).includes(
-          oportunidade.status,
-        ),
+      .filter(
+        (oportunidade) =>
+          (PIPELINE_ABERTO_STATUSES as readonly StatusOportunidade[]).includes(
+            oportunidade.status,
+          ) && Number(oportunidade.potencialOportunidade ?? 0) >= VALOR_FINANCEIRO_MINIMO_REAL,
       )
       .reduce((soma, oportunidade) => soma + Number(oportunidade.potencialOportunidade ?? 0), 0),
     totalProposto: propostas.reduce(

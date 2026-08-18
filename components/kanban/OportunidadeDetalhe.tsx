@@ -18,6 +18,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  Star,
   Trash2,
   User,
   UserCheck,
@@ -85,6 +86,7 @@ type OportunidadeDetalheData = {
   status: StatusOportunidade;
   potencialOportunidade: string | number | null;
   valorContrato: string | number | null;
+  estrategica: boolean;
   createdAt: string;
   empresaId: string;
   pessoaId: string | null;
@@ -213,6 +215,8 @@ export function OportunidadeDetalhe({
   const [tarefaConcluindo, setTarefaConcluindo] =
     useState<TarefaOportunidade | null>(null);
   const [concluirDialogOpen, setConcluirDialogOpen] = useState(false);
+  const [papel, setPapel] = useState<string | null>(null);
+  const [salvandoEstrategica, setSalvandoEstrategica] = useState(false);
 
   // Histórico de contatos
   const [historicos, setHistoricos] = useState<HistoricoContato[]>([]);
@@ -247,6 +251,43 @@ export function OportunidadeDetalhe({
 
     loadOportunidade();
   }, [id]);
+
+  useEffect(() => {
+    async function loadSessao() {
+      const response = await fetch("/api/auth/session");
+      if (!response.ok) return;
+      const session = await response.json();
+      setPapel(session?.user?.papel ?? null);
+    }
+    loadSessao();
+  }, []);
+
+  const podeMarcarEstrategica = papel === "ADMIN" || papel === "GERENTE";
+
+  async function handleToggleEstrategica() {
+    if (!oportunidade || !podeMarcarEstrategica) return;
+    const novoValor = !oportunidade.estrategica;
+    setSalvandoEstrategica(true);
+    try {
+      const response = await fetch(`/api/oportunidades/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estrategica: novoValor }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message ?? "Erro ao atualizar.");
+      }
+      setOportunidade((current) => (current ? { ...current, estrategica: novoValor } : current));
+      toast.success(
+        novoValor ? "Oportunidade marcada como estratégica." : "Marcação de estratégica removida.",
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao atualizar oportunidade.");
+    } finally {
+      setSalvandoEstrategica(false);
+    }
+  }
 
   async function handleSalvarHistorico() {
     if (!historicoResumo.trim()) {
@@ -353,15 +394,42 @@ export function OportunidadeDetalhe({
           ) : oportunidade ? (
             <div className="flex-1 space-y-6 overflow-y-auto px-6 pb-6">
               <div className="pt-2">
-                <Badge
-                  variant="secondary"
-                  className={STATUS_CONFIG[oportunidade.status].className}
-                >
-                  {STATUS_CONFIG[oportunidade.status].label}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="secondary"
+                    className={STATUS_CONFIG[oportunidade.status].className}
+                  >
+                    {STATUS_CONFIG[oportunidade.status].label}
+                  </Badge>
+                  {oportunidade.estrategica ? (
+                    <Badge className="border border-amber-300 bg-amber-100 text-amber-800">
+                      <Star className="size-3 fill-amber-600 text-amber-600" />
+                      Estratégica
+                    </Badge>
+                  ) : null}
+                </div>
                 <h2 className="mt-3 text-2xl font-bold text-[#1A2E5A]">
                   {oportunidade.titulo}
                 </h2>
+                {podeMarcarEstrategica ? (
+                  <button
+                    type="button"
+                    onClick={handleToggleEstrategica}
+                    disabled={salvandoEstrategica}
+                    className={`mt-2 flex items-center gap-1.5 text-xs font-semibold ${
+                      oportunidade.estrategica
+                        ? "text-amber-700 hover:text-amber-800"
+                        : "text-[#667085] hover:text-[#1A2E5A]"
+                    }`}
+                  >
+                    <Star
+                      className={`size-3.5 ${oportunidade.estrategica ? "fill-amber-600 text-amber-600" : ""}`}
+                    />
+                    {oportunidade.estrategica
+                      ? "Remover marcação de estratégica"
+                      : "Marcar como estratégica"}
+                  </button>
+                ) : null}
                 <Button
                   type="button"
                   onClick={() => setPropostaModalOpen(true)}

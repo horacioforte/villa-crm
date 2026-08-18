@@ -47,3 +47,16 @@ export const POTENCIAL_ALERTA_EXCEPCIONAL = 20_000_000;
 
 /** Status de proposta que nunca contam para "Pipeline Proposto" (descartadas). */
 export const PROPOSTA_STATUS_EXCLUIDOS = ["CANCELADA", "REJEITADA"] as const;
+
+/**
+ * Piso de sanidade financeira: qualquer valor abaixo disso (potencialOportunidade
+ * ou valorTotal de proposta) é tratado como placeholder técnico — nunca como
+ * valor financeiro de fato. Nunca soma em nenhum indicador em R$.
+ *
+ * CONFIRMADO EM PRODUÇÃO (18/08/2026): não é hipotético. Três oportunidades do
+ * Radar João foram encontradas com potencialOportunidade = "1" e "2000" — valores
+ * de teste/placeholder digitados diretamente no campo, não potencial real de
+ * faturamento. Nenhuma PropostaComercial com valorTotal simbólico foi encontrada
+ * (menor valor real de proposta: R$ 55), mas o piso protege os dois campos.
+ */
+export const VALOR_FINANCEIRO_MINIMO_REAL = 100;

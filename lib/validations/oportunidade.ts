@@ -127,6 +127,10 @@ const oportunidadeBaseSchema = z.object({
   // for excepcionalmente alto — ver validateOportunidadeRules abaixo. Não é um
   // teto/bloqueio: qualquer valor pode ser salvo, desde que confirmado.
   confirmacaoPotencialExcepcional: z.boolean().optional().default(false),
+  // BI Executivo (18/08/2026): SEM .default() de propósito — precisa continuar
+  // `undefined` quando ausente do payload, para o PATCH não confundir "não
+  // mudou" com "desmarcar". Permissão (ADMIN/GERENTE) é checada na rota.
+  estrategica: z.boolean().optional(),
 });
 
 function validateOportunidadeRules(

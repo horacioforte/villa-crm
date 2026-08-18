@@ -434,6 +434,8 @@ model Oportunidade {
   ativa              Boolean                  @default(true)
   temperatura        TemperaturaOportunidade?
   temperaturaMotivo  String?
+  // BI Executivo (18/08/2026): marcação manual, só ADMIN/GERENTE — nunca automática por tamanho/valor.
+  estrategica        Boolean                  @default(false)
 
   empresaId String
   empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)

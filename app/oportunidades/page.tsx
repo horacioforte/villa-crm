@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   DndContext,
   type DragEndEvent,
@@ -11,7 +12,16 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { CircleDollarSign, FileText, Loader2, Plus, Search, Sparkles, Target } from "lucide-react";
+import {
+  BarChart2,
+  CircleDollarSign,
+  FileText,
+  Loader2,
+  Plus,
+  Search,
+  Sparkles,
+  Target,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +46,10 @@ import { OportunidadeDetalhe } from "@/components/kanban/OportunidadeDetalhe";
 import { OportunidadeModal } from "@/components/kanban/OportunidadeModal";
 import { PageNavigation } from "@/components/layout/PageNavigation";
 import { temProximaAcao } from "@/lib/utils";
-import { PIPELINE_ABERTO_STATUSES } from "@/lib/metrics/constants";
+import {
+  PIPELINE_ABERTO_STATUSES,
+  VALOR_FINANCEIRO_MINIMO_REAL,
+} from "@/lib/metrics/constants";
 import {
   statusOportunidadeValues,
   tipoServicoValues,
@@ -183,6 +196,17 @@ export default function OportunidadesPage() {
   const [oportunidadeDetalheId, setOportunidadeDetalheId] = useState<
     string | null
   >(null);
+  const [papel, setPapel] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadSessao() {
+      const response = await fetch("/api/auth/session");
+      if (!response.ok) return;
+      const session = await response.json();
+      setPapel(session?.user?.papel ?? null);
+    }
+    loadSessao();
+  }, []);
 
   // Abre o detalhe automaticamente se a URL contém ?id=
   useEffect(() => {
@@ -376,11 +400,18 @@ export default function OportunidadesPage() {
 
   const pipelinePotencial = useMemo(
     () =>
-      oportunidadesPipelineAberto.reduce(
-        (total, oportunidade) =>
-          total + Number(oportunidade.potencialOportunidade ?? 0),
-        0,
-      ),
+      oportunidadesPipelineAberto
+        // Placeholder técnico (ex.: "1", "2000" digitado por engano) nunca conta
+        // como potencial real — mesma regra de lib/metrics/comercial.ts.
+        .filter(
+          (oportunidade) =>
+            Number(oportunidade.potencialOportunidade ?? 0) >= VALOR_FINANCEIRO_MINIMO_REAL,
+        )
+        .reduce(
+          (total, oportunidade) =>
+            total + Number(oportunidade.potencialOportunidade ?? 0),
+          0,
+        ),
     [oportunidadesPipelineAberto],
   );
 
@@ -465,6 +496,18 @@ export default function OportunidadesPage() {
               <p className="whitespace-nowrap text-xs text-[#667085]">Pipeline Potencial</p>
               <p className="whitespace-nowrap text-base font-bold text-[#1A2E5A]">{formatCurrency(pipelinePotencial)}</p>
             </div>
+            {papel === "ADMIN" || papel === "GERENTE" ? (
+              <Link href="/bi-executivo">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0 rounded-2xl border-[#D7DEEA] px-4 py-2 text-sm text-[#1A2E5A] hover:bg-[#E8EEFB]"
+                >
+                  <BarChart2 className="size-4" />
+                  BI Executivo
+                </Button>
+              </Link>
+            ) : null}
           </div>
         </header>
 

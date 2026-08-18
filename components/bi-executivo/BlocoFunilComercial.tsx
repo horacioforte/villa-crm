@@ -28,7 +28,7 @@ export function BlocoFunilComercial({
 
   return (
     <Card className="h-full rounded-2xl border-[#D7DEEA] bg-white print:rounded-lg print:shadow-none">
-      <CardContent className="flex h-full flex-col p-4">
+      <CardContent className="flex h-full flex-col p-4 print:p-2.5">
         <div className="flex items-center gap-1.5 text-[#667085]">
           <GitBranch className="size-3.5" />
           <p className="text-[11px] font-semibold uppercase tracking-wide">Funil Comercial</p>
@@ -38,10 +38,10 @@ export function BlocoFunilComercial({
           </InfoTooltip>
         </div>
 
-        <p className="mt-2 text-[9.5px] font-bold uppercase tracking-wider text-[#98A2B3]">
+        <p className="mt-2 text-[9.5px] font-bold uppercase tracking-wider text-[#98A2B3] print:mt-1">
           Pipeline atual
         </p>
-        <div className="mt-1.5 space-y-1.5">
+        <div className="mt-1.5 space-y-1.5 print:mt-1 print:space-y-1">
           {etapas.map((etapa) => (
             <div key={etapa.label} className="flex items-center gap-2">
               <span className="w-[78px] shrink-0 text-[11px] text-[#475569]">{etapa.label}</span>
@@ -65,14 +65,14 @@ export function BlocoFunilComercial({
           ))}
         </div>
 
-        <div className="my-2.5 border-t border-dashed border-[#D7DEEA]" />
+        <div className="my-2.5 border-t border-dashed border-[#D7DEEA] print:my-1.5" />
 
         <p className="text-[9.5px] font-bold uppercase tracking-wider text-[#98A2B3]">
           Resultado do período
         </p>
-        <div className="mt-1.5 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+        <div className="mt-1.5 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 print:mt-1 print:py-1.5">
           <span className="text-xs font-semibold text-emerald-800">Ganhas no período</span>
-          <span className="text-lg font-bold text-emerald-800">{funil.ganhasNoPeriodo}</span>
+          <span className="text-lg font-bold text-emerald-800 print:text-base">{funil.ganhasNoPeriodo}</span>
         </div>
       </CardContent>
     </Card>

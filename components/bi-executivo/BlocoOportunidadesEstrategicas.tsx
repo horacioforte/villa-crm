@@ -21,7 +21,7 @@ export function BlocoOportunidadesEstrategicas({
 }) {
   return (
     <Card className="h-full rounded-2xl border-[#D7DEEA] bg-white print:rounded-lg print:shadow-none">
-      <CardContent className="flex h-full flex-col p-4">
+      <CardContent className="flex h-full flex-col p-4 print:p-2.5">
         <div className="flex items-center gap-1.5 text-amber-700">
           <Star className="size-3.5 fill-amber-600" />
           <p className="text-[11px] font-semibold uppercase tracking-wide">Estratégicas sem Proposta</p>

@@ -96,7 +96,7 @@ export default async function BiExecutivoPage({
           </header>
 
           {/* Cockpit 3×2 — 3 colunas no desktop, 2 no tablet, 1 no mobile */}
-          <section className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 print:mt-3 print:grid-cols-3 print:gap-2">
+          <section className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 print:mt-2 print:grid-cols-3 print:gap-1.5">
             <div className="print:break-inside-avoid">
               <BlocoOportunidadesAbertas abertas={funil.abertas} evolucao={evolucaoAbertas} />
             </div>
@@ -122,7 +122,7 @@ export default async function BiExecutivoPage({
             </div>
           </section>
 
-          <section className="mt-3 print:mt-2 print:break-inside-avoid">
+          <section className="mt-3 print:mt-1.5 print:break-inside-avoid">
             <AnaliseIA analise={analiseIA} />
           </section>
         </div>

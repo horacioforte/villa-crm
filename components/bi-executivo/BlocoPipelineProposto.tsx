@@ -18,7 +18,7 @@ export function BlocoPipelineProposto({
 
   return (
     <Card className="h-full rounded-2xl border-[#D7DEEA] bg-white print:rounded-lg print:shadow-none">
-      <CardContent className="flex h-full flex-col p-4">
+      <CardContent className="flex h-full flex-col p-4 print:p-2.5">
         <div className="flex items-center gap-1.5 text-[#667085]">
           <CircleDollarSign className="size-3.5" />
           <p className="text-[11px] font-semibold uppercase tracking-wide">Pipeline Proposto</p>

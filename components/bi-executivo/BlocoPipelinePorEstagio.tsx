@@ -34,7 +34,7 @@ export function BlocoPipelinePorEstagio({
 
   return (
     <Card className="h-full rounded-2xl border-[#D7DEEA] bg-white print:rounded-lg print:shadow-none">
-      <CardContent className="flex h-full flex-col p-4">
+      <CardContent className="flex h-full flex-col p-4 print:p-2.5">
         <div className="flex items-center gap-1.5 text-[#667085]">
           <Layers className="size-3.5" />
           <p className="text-[11px] font-semibold uppercase tracking-wide">Pipeline por Estágio</p>
@@ -75,7 +75,7 @@ export function BlocoPipelinePorEstagio({
           </div>
         )}
 
-        <div className="mt-2 flex items-center justify-between rounded-lg bg-[#F4F6FA] px-3 py-1.5 text-[11px]">
+        <div className="mt-2 flex items-center justify-between rounded-lg bg-[#F4F6FA] px-3 py-1.5 text-[11px] print:mt-1 print:py-1">
           <span className="text-[#667085]">
             {dados.quantidadeComProposta} proposta{dados.quantidadeComProposta === 1 ? "" : "s"}
           </span>

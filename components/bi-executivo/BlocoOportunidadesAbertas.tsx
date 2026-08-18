@@ -23,7 +23,7 @@ export function BlocoOportunidadesAbertas({
 
   return (
     <Card className="h-full rounded-2xl border-[#D7DEEA] bg-white print:rounded-lg print:shadow-none">
-      <CardContent className="flex h-full flex-col p-4">
+      <CardContent className="flex h-full flex-col p-4 print:p-2.5">
         <div className="flex items-center gap-1.5 text-[#667085]">
           <ClipboardList className="size-3.5" />
           <p className="text-[11px] font-semibold uppercase tracking-wide">Oportunidades Abertas</p>
@@ -33,8 +33,8 @@ export function BlocoOportunidadesAbertas({
           </InfoTooltip>
         </div>
 
-        <div className="mt-1 flex items-baseline gap-2">
-          <p className="text-[32px] font-bold leading-none text-[#1A2E5A]">{abertas}</p>
+        <div className="mt-1 flex items-baseline gap-2 print:mt-0.5">
+          <p className="text-[32px] font-bold leading-none text-[#1A2E5A] print:text-2xl">{abertas}</p>
           {diferenca !== null ? (
             <div className="flex items-center gap-1">
               <span className="text-xs font-semibold text-[#475569]">
@@ -53,7 +53,7 @@ export function BlocoOportunidadesAbertas({
         </div>
 
         {evolucao.length >= 2 ? (
-          <div className="mt-2 flex-1" style={{ minHeight: 64 }}>
+          <div className="mt-2 flex-1 print:mt-1" style={{ minHeight: 64 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={evolucao} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
                 <ChartTooltip
@@ -72,7 +72,7 @@ export function BlocoOportunidadesAbertas({
             </ResponsiveContainer>
           </div>
         ) : (
-          <p className="mt-2 flex-1 text-[11px] text-[#98A2B3]">
+          <p className="mt-2 flex-1 text-[11px] text-[#98A2B3] print:mt-1">
             Histórico ainda curto para evolução — dados desde {evolucao[0]?.mes ?? "recentemente"}.
           </p>
         )}

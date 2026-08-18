@@ -1,6 +1,7 @@
 import { CircleDollarSign } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { InfoTooltip } from "@/components/bi-executivo/InfoTooltip";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -13,29 +14,42 @@ export function BlocoPipelineProposto({
   proposto: { total: number; quantidade: number };
   potencial: { total: number; quantidade: number };
 }) {
+  const semProposta = proposto.total === 0;
+
   return (
-    <Card className="rounded-3xl border-[#D7DEEA] bg-white">
-      <CardContent className="p-5">
-        <div className="flex items-center gap-2 text-[#667085]">
-          <CircleDollarSign className="size-4" />
-          <p className="text-xs font-semibold uppercase tracking-wide">Pipeline Proposto</p>
+    <Card className="h-full rounded-2xl border-[#D7DEEA] bg-white print:rounded-lg print:shadow-none">
+      <CardContent className="flex h-full flex-col p-4">
+        <div className="flex items-center gap-1.5 text-[#667085]">
+          <CircleDollarSign className="size-3.5" />
+          <p className="text-[11px] font-semibold uppercase tracking-wide">Pipeline Proposto</p>
+          <InfoTooltip>
+            Valor das propostas vigentes de oportunidades ainda abertas. Nunca inclui GANHA, PERDIDA,
+            versões antigas de proposta nem valores simbólicos abaixo de R$ 100.
+          </InfoTooltip>
         </div>
-        <p className="mt-2 text-3xl font-bold text-[#1A2E5A]">{formatCurrency(proposto.total)}</p>
-        <p className="mt-1 text-xs text-[#667085]">
-          {proposto.quantidade} proposta{proposto.quantidade === 1 ? "" : "s"} vigente
-          {proposto.quantidade === 1 ? "" : "s"} de oportunidades abertas
-        </p>
-        {proposto.total === 0 ? (
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-            Nenhuma oportunidade aberta tem proposta vigente hoje. Dinheiro em disputa neste
-            momento: zero — mesmo com {formatCurrency(potencial.total)} de potencial em{" "}
-            {potencial.quantidade} oportunidades abertas.
+
+        {semProposta ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-1.5 text-center">
+            <p className="text-sm font-bold text-[#1A2E5A]">Nenhuma proposta vigente</p>
+            <p className="text-xs text-[#667085]">0 propostas abertas</p>
+            {potencial.quantidade > 0 ? (
+              <div className="mt-1.5 rounded-lg bg-[#EFF4FF] px-3 py-1.5 text-[11px] text-[#1849A9]">
+                {potencial.quantidade} oportunidade{potencial.quantidade === 1 ? "" : "s"} com potencial
+                ainda sem proposta
+              </div>
+            ) : null}
           </div>
-        ) : null}
-        <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#E8EEFB] px-3 py-2 text-xs">
-          <span className="text-[#1A2E5A]">Pipeline Potencial (referência)</span>
-          <span className="font-bold text-[#1E4FAB]">{formatCurrency(potencial.total)}</span>
-        </div>
+        ) : (
+          <div className="flex flex-1 flex-col justify-center">
+            <p className="text-[32px] font-bold leading-none text-[#1A2E5A]">
+              {formatCurrency(proposto.total)}
+            </p>
+            <p className="mt-1.5 text-xs text-[#667085]">
+              {proposto.quantidade} proposta{proposto.quantidade === 1 ? "" : "s"} vigente
+              {proposto.quantidade === 1 ? "" : "s"}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

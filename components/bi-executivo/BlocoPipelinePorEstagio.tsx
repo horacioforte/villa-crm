@@ -1,9 +1,10 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from "recharts";
 import { Layers } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { InfoTooltip } from "@/components/bi-executivo/InfoTooltip";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" }).format(
@@ -25,70 +26,62 @@ export function BlocoPipelinePorEstagio({
     quantidadeComProposta: number;
   };
 }) {
+  const semDados = dados.quantidadeComProposta === 0;
   const chartData = dados.porEstagio.map((item) => ({
     estagio: estagioLabels[item.estagio] ?? item.estagio,
     valor: item.valor,
-    percentual: item.percentual,
   }));
-  const semDados = dados.quantidadeComProposta === 0;
 
   return (
-    <Card className="rounded-3xl border-[#D7DEEA] bg-white">
-      <CardContent className="p-5">
-        <div className="flex items-center gap-2 text-[#667085]">
-          <Layers className="size-4" />
-          <p className="text-xs font-semibold uppercase tracking-wide">Pipeline por Estágio</p>
+    <Card className="h-full rounded-2xl border-[#D7DEEA] bg-white print:rounded-lg print:shadow-none">
+      <CardContent className="flex h-full flex-col p-4">
+        <div className="flex items-center gap-1.5 text-[#667085]">
+          <Layers className="size-3.5" />
+          <p className="text-[11px] font-semibold uppercase tracking-wide">Pipeline por Estágio</p>
+          <InfoTooltip>
+            Decompõe o Pipeline Proposto entre Proposta Enviada e Negociação — os dois estágios onde uma
+            proposta vigente normalmente existe.
+          </InfoTooltip>
         </div>
 
         {semDados ? (
-          <p className="mt-4 text-xs text-[#667085]">
-            Nenhuma proposta vigente em Proposta Enviada ou Negociação no momento.
-          </p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center">
+            <Layers className="size-5 text-[#D7DEEA]" />
+            <p className="text-xs font-semibold text-[#475569]">Ainda não há propostas vigentes</p>
+            <p className="text-[10.5px] text-[#98A2B3]">
+              O gráfico aparece quando propostas entrarem no pipeline
+            </p>
+          </div>
         ) : (
-          <>
-            <div className="mt-3 h-32">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 24 }}>
-                  <CartesianGrid horizontal={false} stroke="#EEF1F7" />
-                  <XAxis type="number" hide />
-                  <YAxis
-                    dataKey="estagio"
-                    type="category"
-                    tick={{ fontSize: 11, fill: "#1A2E5A" }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={100}
-                  />
-                  <Tooltip
-                    formatter={(value: any) => formatCurrency(Number(value))}
-                    contentStyle={{ borderRadius: 12, borderColor: "#D7DEEA", fontSize: 12 }}
-                  />
-                  <Bar dataKey="valor" fill="#1E4FAB" radius={[0, 8, 8, 0]} barSize={22} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-2 space-y-1">
-              {dados.porEstagio.map((item) => (
-                <div key={item.estagio} className="flex justify-between text-xs text-[#667085]">
-                  <span>{estagioLabels[item.estagio] ?? item.estagio}</span>
-                  <span className="font-semibold text-[#1A2E5A]">
-                    {Math.round(item.percentual * 100)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          </>
+          <div className="flex-1" style={{ minHeight: 70 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} layout="vertical" margin={{ left: 4, right: 20, top: 4, bottom: 4 }}>
+                <XAxis type="number" hide />
+                <YAxis
+                  dataKey="estagio"
+                  type="category"
+                  tick={{ fontSize: 10.5, fill: "#1A2E5A" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={90}
+                />
+                <ChartTooltip
+                  formatter={(value: any) => formatCurrency(Number(value))}
+                  contentStyle={{ borderRadius: 10, borderColor: "#D7DEEA", fontSize: 11, padding: "4px 8px" }}
+                />
+                <Bar dataKey="valor" fill="#1E4FAB" radius={[0, 6, 6, 0]} barSize={16} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         )}
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="rounded-2xl bg-[#F4F6FA] px-3 py-2 text-center">
-            <p className="text-[10px] text-[#667085]">Ticket médio</p>
-            <p className="text-sm font-bold text-[#1A2E5A]">{formatCurrency(dados.ticketMedio)}</p>
-          </div>
-          <div className="rounded-2xl bg-[#F4F6FA] px-3 py-2 text-center">
-            <p className="text-[10px] text-[#667085]">Com proposta</p>
-            <p className="text-sm font-bold text-[#1A2E5A]">{dados.quantidadeComProposta}</p>
-          </div>
+        <div className="mt-2 flex items-center justify-between rounded-lg bg-[#F4F6FA] px-3 py-1.5 text-[11px]">
+          <span className="text-[#667085]">
+            {dados.quantidadeComProposta} proposta{dados.quantidadeComProposta === 1 ? "" : "s"}
+          </span>
+          <span className="font-semibold text-[#1A2E5A]">
+            Ticket médio {formatCurrency(dados.ticketMedio)}
+          </span>
         </div>
       </CardContent>
     </Card>

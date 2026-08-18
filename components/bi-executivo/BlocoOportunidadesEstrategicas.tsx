@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Star } from "lucide-react";
+import { AlertTriangle, Star } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -14,57 +14,61 @@ type OportunidadeEstrategica = {
   tarefas: Array<{ titulo: string; dataVencimento: Date }>;
 };
 
-const statusLabels: Record<string, string> = {
-  NOVA: "Nova",
-  EM_ATENDIMENTO: "Em atendimento",
-  PROPOSTA_ENVIADA: "Proposta enviada",
-  NEGOCIACAO: "Negociação",
-};
-
 export function BlocoOportunidadesEstrategicas({
   oportunidades,
 }: {
   oportunidades: OportunidadeEstrategica[];
 }) {
   return (
-    <Card className="rounded-3xl border-[#D7DEEA] bg-white">
-      <CardContent className="p-5">
-        <div className="flex items-center gap-2 text-amber-700">
-          <Star className="size-4 fill-amber-600" />
-          <p className="text-xs font-semibold uppercase tracking-wide">
-            Oportunidades Estratégicas — Sem Proposta
-          </p>
+    <Card className="h-full rounded-2xl border-[#D7DEEA] bg-white print:rounded-lg print:shadow-none">
+      <CardContent className="flex h-full flex-col p-4">
+        <div className="flex items-center gap-1.5 text-amber-700">
+          <Star className="size-3.5 fill-amber-600" />
+          <p className="text-[11px] font-semibold uppercase tracking-wide">Estratégicas sem Proposta</p>
         </div>
 
         {oportunidades.length === 0 ? (
-          <p className="mt-4 text-xs text-[#667085]">
-            Nenhuma oportunidade marcada como estratégica está sem proposta hoje. Marcações
-            manuais podem ser feitas na tela de cada oportunidade (ADMIN/GERENTE).
-          </p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-1.5 text-center">
+            <p className="text-xs text-[#667085]">Nenhuma oportunidade estratégica marcada</p>
+            <Link href="/oportunidades" className="text-xs font-semibold text-[#1E4FAB] hover:underline">
+              Ver oportunidades →
+            </Link>
+          </div>
         ) : (
-          <ul className="mt-3 space-y-2">
-            {oportunidades.map((oportunidade) => (
-              <li key={oportunidade.id}>
-                <Link
-                  href={`/oportunidades?id=${oportunidade.id}`}
-                  className="block rounded-2xl border border-amber-200 bg-amber-50 p-3 transition hover:border-amber-300"
-                >
-                  <p className="text-xs font-bold text-[#1A2E5A]">
-                    {oportunidade.empresa.nomeFantasia ?? oportunidade.empresa.razaoSocial}
-                  </p>
-                  <p className="text-[11px] text-[#667085]">
-                    {oportunidade.obra?.nome ?? "Sem obra vinculada"} ·{" "}
-                    {statusLabels[oportunidade.status] ?? oportunidade.status}
-                  </p>
-                  <p className="mt-1 text-[10px] text-[#667085]">
-                    Responsável: {oportunidade.responsavel?.nome ?? "Sem responsável"}
-                    {oportunidade.tarefas[0]
-                      ? ` · Próxima ação: ${oportunidade.tarefas[0].titulo}`
-                      : " · Sem próxima ação"}
-                  </p>
-                </Link>
-              </li>
-            ))}
+          <ul className="mt-1.5 flex-1 space-y-1.5 overflow-hidden">
+            {oportunidades.map((oportunidade, index) => {
+              const proximaAcao = oportunidade.tarefas[0];
+              return (
+                <li key={oportunidade.id}>
+                  <Link
+                    href={`/oportunidades?id=${oportunidade.id}`}
+                    className="flex items-start gap-2 rounded-lg px-1.5 py-1 transition hover:bg-amber-50"
+                  >
+                    <span className="mt-0.5 w-4 shrink-0 text-[10px] font-bold text-amber-600">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11.5px] font-bold text-[#1A2E5A]">
+                        {oportunidade.empresa.nomeFantasia ?? oportunidade.empresa.razaoSocial}
+                      </span>
+                      <span className="block truncate text-[10px] text-[#667085]">
+                        {oportunidade.obra?.nome ?? "Sem obra"} · {oportunidade.responsavel?.nome ?? "Sem responsável"}
+                      </span>
+                      {proximaAcao ? (
+                        <span className="block truncate text-[10px] text-[#98A2B3]">
+                          Próxima ação: {proximaAcao.titulo}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-700">
+                          <AlertTriangle className="size-2.5" />
+                          Sem próxima ação
+                        </span>
+                      )}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </CardContent>

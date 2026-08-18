@@ -49,12 +49,19 @@ Oportunidades estratégicas (marcadas manualmente) sem proposta: ${m.oportunidad
 
 Responda EXATAMENTE neste formato, sem nada além disso:
 ANALISE: [2 a 3 frases objetivas sobre a situação comercial, baseadas só nos números acima]
-ALERTA1: [uma situação que merece atenção da diretoria, ou "Nenhum alerta relevante no momento" se não houver base nos dados]
-ALERTA2: [idem]
-ALERTA3: [idem]
-PRIORIDADE1: [uma ação concreta recomendada com base nos dados, ou "Sem prioridade adicional identificada"]
-PRIORIDADE2: [idem]
-PRIORIDADE3: [idem]`;
+ALERTA1: [uma situação real que merece atenção da diretoria, baseada nos números acima]
+ALERTA2: [opcional — só inclua esta linha se houver um segundo alerta real e distinto]
+ALERTA3: [opcional — só inclua esta linha se houver um terceiro alerta real e distinto]
+PRIORIDADE1: [uma ação concreta recomendada com base nos dados]
+PRIORIDADE2: [opcional — só inclua se houver uma segunda prioridade real e distinta]
+PRIORIDADE3: [opcional — só inclua se houver uma terceira prioridade real e distinta]
+
+Regra importante sobre ALERTA e PRIORIDADE: gere de 1 a 3 linhas de cada, sempre com conteúdo real e
+distinto entre si. NUNCA escreva uma linha ALERTA ou PRIORIDADE só para completar as três — se só
+houver 1 ou 2 pontos genuinamente relevantes, pare nessa quantidade e não escreva a linha seguinte.
+A única exceção: se não houver absolutamente nenhum alerta a reportar, escreva só
+"ALERTA1: Nenhum alerta relevante no momento." e nada em ALERTA2/ALERTA3 — nunca misture essa frase
+com um alerta real em outra linha.`;
 }
 
 function parseResposta(text: string): AnaliseExecutivaIA | null {

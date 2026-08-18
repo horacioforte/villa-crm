@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { PageNavigation } from "@/components/layout/PageNavigation";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { FiltrosBI } from "@/components/bi-executivo/FiltrosBI";
 import { BlocoOportunidadesAbertas } from "@/components/bi-executivo/BlocoOportunidadesAbertas";
 import { BlocoFunilComercial } from "@/components/bi-executivo/BlocoFunilComercial";
@@ -71,61 +72,61 @@ export default async function BiExecutivoPage({
   });
 
   return (
-    <main className="min-h-screen bg-[#F4F6FA] px-5 py-3 text-[#172033] sm:px-8 print:min-h-0 print:bg-white print:px-0 print:py-0">
-      <div className="mx-auto max-w-[1500px] pb-16 print:max-w-none print:pb-0">
-        <div className="print:hidden">
-          <PageNavigation currentPage="BI Executivo" currentHref="/bi-executivo" />
+    <TooltipProvider delay={150}>
+      <main className="min-h-screen bg-[#F4F6FA] px-5 py-3 text-[#172033] sm:px-8 print:min-h-0 print:bg-white print:px-0 print:py-0">
+        <div className="mx-auto max-w-[1500px] pb-10 print:max-w-none print:pb-0">
+          <div className="print:hidden">
+            <PageNavigation currentPage="BI Executivo" currentHref="/bi-executivo" />
+          </div>
+
+          {/* Cabeçalho compacto: título + período numa linha, controles na mesma linha à direita */}
+          <header className="flex flex-wrap items-center justify-between gap-3 print:flex-nowrap">
+            <div>
+              <h1 className="text-lg font-bold leading-tight text-[#1A2E5A]">
+                Visão Executiva
+                <span className="ml-2 text-xs font-normal text-[#667085]">
+                  Panorama comercial · {label}
+                </span>
+              </h1>
+            </div>
+            <div className="flex items-center gap-2 print:hidden">
+              <FiltrosBI periodoAtual={periodo} tipoAtual={tipo ?? "TODOS"} />
+              <BotaoGerarPdf periodo={periodo} tipo={tipo} />
+            </div>
+          </header>
+
+          {/* Cockpit 3×2 — 3 colunas no desktop, 2 no tablet, 1 no mobile */}
+          <section className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 print:mt-3 print:grid-cols-3 print:gap-2">
+            <div className="print:break-inside-avoid">
+              <BlocoOportunidadesAbertas abertas={funil.abertas} evolucao={evolucaoAbertas} />
+            </div>
+            <div className="print:break-inside-avoid">
+              <BlocoFunilComercial funil={funil} />
+            </div>
+            <div className="print:break-inside-avoid">
+              <BlocoPipelineProposto proposto={pipelineProposto} potencial={pipelinePotencial} />
+            </div>
+            <div className="print:break-inside-avoid">
+              <BlocoPipelinePorEstagio dados={porEstagio} />
+            </div>
+            <div className="print:break-inside-avoid">
+              <BlocoResultadoComercial
+                ganhas={ganhosPerdas.ganhas}
+                perdidas={ganhosPerdas.perdidas}
+                taxaConversao={ganhosPerdas.taxaConversao}
+                evolucao={evolucaoResultado}
+              />
+            </div>
+            <div className="print:break-inside-avoid">
+              <BlocoOportunidadesEstrategicas oportunidades={estrategicasSemProposta} />
+            </div>
+          </section>
+
+          <section className="mt-3 print:mt-2 print:break-inside-avoid">
+            <AnaliseIA analise={analiseIA} />
+          </section>
         </div>
-
-        <header className="flex flex-col gap-3 2xl:flex-row 2xl:items-end 2xl:justify-between print:flex-row print:items-end print:justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#1E4FAB]">
-              Villa CRM
-            </p>
-            <h1 className="text-2xl font-bold text-[#1A2E5A]">Visão Executiva</h1>
-            <p className="mt-1 text-sm text-[#667085]">
-              Panorama comercial atualizado em tempo real · {label}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 print:hidden">
-            <FiltrosBI periodoAtual={periodo} tipoAtual={tipo ?? "TODOS"} />
-            <BotaoGerarPdf periodo={periodo} tipo={tipo} />
-          </div>
-        </header>
-
-        <section className="mt-6 grid gap-4 xl:grid-cols-3 print:mt-3 print:grid-cols-3 print:gap-2">
-          <div className="print:break-inside-avoid">
-            <BlocoOportunidadesAbertas abertas={funil.abertas} evolucao={evolucaoAbertas} />
-          </div>
-          <div className="print:break-inside-avoid">
-            <BlocoFunilComercial funil={funil} />
-          </div>
-          <div className="print:break-inside-avoid">
-            <BlocoPipelineProposto proposto={pipelineProposto} potencial={pipelinePotencial} />
-          </div>
-        </section>
-
-        <section className="mt-4 grid gap-4 xl:grid-cols-3 print:mt-2 print:grid-cols-3 print:gap-2">
-          <div className="print:break-inside-avoid">
-            <BlocoPipelinePorEstagio dados={porEstagio} />
-          </div>
-          <div className="print:break-inside-avoid">
-            <BlocoResultadoComercial
-              ganhas={ganhosPerdas.ganhas}
-              perdidas={ganhosPerdas.perdidas}
-              taxaConversao={ganhosPerdas.taxaConversao}
-              evolucao={evolucaoResultado}
-            />
-          </div>
-          <div className="print:break-inside-avoid">
-            <BlocoOportunidadesEstrategicas oportunidades={estrategicasSemProposta} />
-          </div>
-        </section>
-
-        <section className="mt-4 print:mt-2 print:break-inside-avoid">
-          <AnaliseIA analise={analiseIA} />
-        </section>
-      </div>
-    </main>
+      </main>
+    </TooltipProvider>
   );
 }

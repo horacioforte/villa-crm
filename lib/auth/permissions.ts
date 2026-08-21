@@ -13,7 +13,9 @@ export type Resource =
   | "usuarios"
   | "agentes"
   | "inteligencia"
-  | "bi_executivo";
+  | "bi_executivo"
+  | "contratos"
+  | "midias_sociais";
 
 export type Action = "read" | "create" | "update" | "delete";
 
@@ -35,6 +37,9 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     // Inteligência: ADMIN pode tudo — assumir dossiê, descartar, pesquisar
     inteligencia: allActions,
     bi_executivo: ["read"],
+    contratos: allActions,
+    // Mídias Sociais: ADMIN configura conexão/credenciais (sensível, mesmo padrão de "agentes")
+    midias_sociais: allActions,
   },
   GERENTE: {
     empresas: allActions,
@@ -51,6 +56,9 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     // Inteligência: GERENTE (Morgana) pode assumir e descartar dossiês
     inteligencia: ["read", "create", "update", "delete"],
     bi_executivo: ["read"],
+    contratos: allActions,
+    // Mídias Sociais: GERENTE só visualiza o cockpit — não mexe em conexão/credenciais
+    midias_sociais: ["read"],
   },
   COMERCIAL: {
     empresas: ["read", "create", "update"],
@@ -67,6 +75,9 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     // Inteligência: COMERCIAL só visualiza — NÃO pode assumir nem descartar dossiês
     inteligencia: ["read"],
     bi_executivo: [],
+    contratos: ["read", "create"],
+    // Mídias Sociais: COMERCIAL vê leads/oportunidades vindos do marketing (relevante ao papel)
+    midias_sociais: ["read"],
   },
   OPERACIONAL: {
     empresas: ["read"],
@@ -83,6 +94,9 @@ export const permissions: Record<PapelUsuario, Record<Resource, Action[]>> = {
     // Inteligência: OPERACIONAL só visualiza
     inteligencia: ["read"],
     bi_executivo: [],
+    contratos: ["read"],
+    // Mídias Sociais: fora do escopo operacional deste papel
+    midias_sociais: [],
   },
 };
 

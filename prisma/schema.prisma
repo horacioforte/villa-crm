@@ -225,6 +225,8 @@ model Usuario {
   oportunidadesAtualizadas     Oportunidade[]             @relation("OportunidadeUpdatedBy")
   equipamentosCriados          Equipamento[]              @relation("EquipamentoCreatedBy")
   equipamentosAtualizados      Equipamento[]              @relation("EquipamentoUpdatedBy")
+  analisesContratoCriadas      AnaliseContrato[]          @relation("AnaliseContratoCreatedBy")
+  redesSociaisCriadas          RedeSocialConta[]          @relation("RedeSocialContaCreatedBy")
   historicosContatoCriados     HistoricoContato[]         @relation("HistoricoContatoCreatedBy")
   historicosContatoAtualizados HistoricoContato[]         @relation("HistoricoContatoUpdatedBy")
   propostasCriadas             PropostaComercial[]        @relation("PropostaComercialCreatedBy")
@@ -275,6 +277,7 @@ model Filial {
   empresas     Empresa[]
   obras        Obra[]
   equipamentos Equipamento[]
+  analisesContrato AnaliseContrato[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -313,6 +316,7 @@ model Empresa {
   tarefas       Tarefa[]
   conversas     Conversa[]
   prospects     Prospect[]        @relation("ProspectEmpresa")
+  analisesContrato AnaliseContrato[]
 
   // Central de Inteligência — nunca remover
   dossies              DossieComercial[]  @relation("DossieEmpresa")
@@ -464,6 +468,7 @@ model Oportunidade {
   tarefas    Tarefa[]
   conversas  Conversa[]
   prospects  Prospect[]         @relation("ProspectOportunidade")
+  analisesContrato AnaliseContrato[]
 
   // Central de Inteligência — nunca remover
   dossies    DossieComercial[]
@@ -1532,5 +1537,62 @@ model RadarPendingOportunidade {
   updatedAt DateTime @updatedAt
 
   @@index([status])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANÁLISE DE CONTRATOS — integração do app "villa-contratos" ao CRM.
+// Compara o contrato do cliente com as 21 Regras de Ouro e as propostas padrão
+// da Villa via IA (Claude, chamado no servidor — nunca mais exposto no navegador).
+// nunca remover, só acrescentar.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TipoContrato {
+  CAMINHAO_BETONEIRA
+  AUTO_BOMBA
+  USINA_CONCRETO
+  GERAL_OUTRO
+}
+
+enum NivelRisco {
+  BAIXO
+  MEDIO
+  ALTO
+}
+
+model AnaliseContrato {
+  id             String        @id @default(cuid())
+  nomeArquivo    String?
+  tipoContrato   TipoContrato
+  tipoDetectado  String?
+  partes         String[]      @default([])
+  prazo          String?
+  valor          String?
+  reajuste       String?
+  riscoGeral     NivelRisco?
+  resumo         String?       @db.Text
+  resultado      Json
+  textoAnalisado String?       @db.Text
+
+  empresaId String?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+
+  oportunidadeId String?
+  oportunidade   Oportunidade? @relation(fields: [oportunidadeId], references: [id], onDelete: SetNull)
+
+  filialId String?
+  filial   Filial? @relation(fields: [filialId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   Usuario? @relation("AnaliseContratoCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("criadoEm")
+  updatedAt DateTime @updatedAt @map("atualizadoEm")
+
+  @@index([empresaId])
+  @@index([oportunidadeId])
+  @@index([filialId])
+  @@index([createdById])
+  @@index([riscoGeral])
   @@index([createdAt])
 }

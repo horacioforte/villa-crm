@@ -286,4 +286,38 @@ NEXTAUTH_SECRET=...
 NEXTAUTH_URL=http://localhost:3000
 ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+## MÓDULO: ANÁLISE DE CONTRATOS (`/contratos`)
+
+Integrado a partir do app standalone `villa-contratos` (Vite/React solto, ficava no
+Desktop fora do CRM). Ele comparava o contrato do cliente com as 21 Regras de Ouro e as
+propostas padrão da Villa via Claude API — mas rodava só no navegador, com a chave da
+Anthropic exposta no bundle (`ANTHROPIC_API_KEY` hardcoded em `src/App.jsx`).
+
+Agora roda dentro do CRM, com a chamada de IA 100% no servidor:
+- `lib/contratos/regras.ts` — `GOLDEN_RULES`, `PROPOSALS_BY_TIPO`, `buildAnalisePrompt()`
+  (conteúdo portado 1:1 do app original; não alterar sem validar com o comercial/jurídico)
+- `lib/validations/contrato.ts` — `analisarContratoSchema`, `tipoContratoValues`,
+  `TIPO_CONTRATO_LABELS`, `nivelRiscoValues`, `NIVEL_RISCO_LABELS`
+- `app/api/contratos/route.ts` — GET (histórico, últimas 200) · POST (chama a IA,
+  salva o resultado em `AnaliseContrato` e retorna o registro)
+- `app/api/contratos/[id]/route.ts` — GET (detalhe) · DELETE (remove um registro,
+  recurso `contratos` ação `delete` — só ADMIN/GERENTE)
+- `app/contratos/page.tsx` — formulário de nova análise (upload PDF ou colar texto,
+  tipo de contrato, vínculo opcional com Empresa) + abas de resultado (Regras de Ouro,
+  Conflitos, Conformes, Faltando, Ações) + tabela de histórico
+- Modelo `AnaliseContrato` em `prisma/schema.prisma` (enums `TipoContrato`, `NivelRisco`)
+- Recurso RBAC `contratos` em `lib/auth/permissions.ts`: ADMIN/GERENTE tudo,
+  COMERCIAL `read`+`create`, OPERACIONAL só `read`
+- Modelo de IA: `claude-haiku-4-5-20251001` (mesmo já usado em
+  `/api/oportunidades/[id]/temperatura`) via `ANTHROPIC_API_KEY` do `.env.local`
+
+Se a análise for concluída mas o registro não puder ser salvo no banco, a API ainda
+devolve o resultado ao usuário (`persistido: false`) para não perder o trabalho da IA.
+
+**Pendente (rodar localmente):**
+```bash
+npx prisma migrate dev --name add_analise_contrato
+npx prisma generate
+```
 <!-- END:villa-crm -->

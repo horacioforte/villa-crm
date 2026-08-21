@@ -112,10 +112,10 @@ describe("POST /api/midias-sociais/contas", () => {
     expect(prismaMock.auditLog.create).toHaveBeenCalled();
   });
 
-  it("rede já cadastrada: 409 (violação da constraint @@unique([rede]))", async () => {
+  it("Caso A — mesma rede + mesmo nome: 409 (violação da constraint @@unique([rede, nome]))", async () => {
     prismaMock.redeSocialConta.create.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError(
-        "Unique constraint failed on the fields: (`rede`)",
+        "Unique constraint failed on the fields: (`rede`,`nome`)",
         { code: "P2002", clientVersion: "0.0.0" },
       ),
     );
@@ -125,5 +125,29 @@ describe("POST /api/midias-sociais/contas", () => {
 
     expect(res.status).toBe(409);
     expect(body.message).toMatch(/INSTAGRAM/);
+  });
+
+  it("Caso B — mesma rede + nome diferente: permitido (não é mais bloqueado só por rede)", async () => {
+    prismaMock.redeSocialConta.create.mockResolvedValue({
+      id: "c2",
+      rede: "INSTAGRAM",
+      nome: "@villapumps_usados",
+    });
+
+    const res = await POST(
+      criarRequest({ rede: "INSTAGRAM", nome: "@villapumps_usados" }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.id).toBe("c2");
+    expect(prismaMock.redeSocialConta.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          rede: "INSTAGRAM",
+          nome: "@villapumps_usados",
+        }),
+      }),
+    );
   });
 });

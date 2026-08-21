@@ -3,13 +3,23 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+const directUrl = process.env["DIRECT_URL"];
+
+if (!directUrl) {
+  throw new Error("DIRECT_URL e obrigatoria para operacoes Prisma CLI/migrations.");
+}
+
+const shadowUrl = process.env["SHADOW_DATABASE_URL"] && process.env["SHADOW_DATABASE_URL"] !== directUrl
+  ? process.env["SHADOW_DATABASE_URL"]
+  : undefined;
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
-    shadowDatabaseUrl: process.env["SHADOW_DATABASE_URL"],
+    url: directUrl,
+    ...(shadowUrl ? { shadowDatabaseUrl: shadowUrl } : {}),
   },
 });

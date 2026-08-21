@@ -1596,3 +1596,54 @@ model AnaliseContrato {
   @@index([riscoGeral])
   @@index([createdAt])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CENTRAL DE MÍDIAS SOCIAIS — Sprint 1 (fundação: conexão/configuração).
+// Domínio separado do Atendimento (CanalWhatsapp/Conversa/Mensagem) — ver
+// Auditoria_Central_Midias_Sociais.docx. CanalInstagram e os campos de Conversa/
+// Mensagem para o canal Instagram entram só na Sprint 3, quando o DM for
+// implementado. Aqui só o necessário para registrar e mostrar o estado da conexão.
+// nunca remover, só acrescentar.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum RedeSocialTipo {
+  INSTAGRAM
+  FACEBOOK
+  YOUTUBE
+}
+
+enum RedeSocialStatusConexao {
+  NAO_CONECTADO
+  CONECTADO
+  ERRO
+  TOKEN_EXPIRADO
+}
+
+model RedeSocialConta {
+  id   String          @id @default(cuid())
+  rede RedeSocialTipo
+  nome String
+
+  businessId      String?
+  pageId          String?
+  contaAnunciosId String?
+
+  // Nome da variável de ambiente (nunca o segredo em si) — mesmo padrão de
+  // CanalWhatsapp.accessTokenEnvVar (lib/whatsapp/env-allowlist.ts). Nenhum
+  // token é digitado ou armazenado nesta tabela.
+  accessTokenEnvVar String?
+
+  ativo                 Boolean                 @default(false)
+  statusConexao         RedeSocialStatusConexao @default(NAO_CONECTADO)
+  ultimaSincronizacaoEm DateTime?
+  ultimoErro            String?                 @db.Text
+
+  createdById String?
+  createdBy   Usuario? @relation("RedeSocialContaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([rede])
+  @@index([ativo])
+}

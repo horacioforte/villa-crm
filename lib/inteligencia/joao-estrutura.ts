@@ -711,6 +711,21 @@ export function exportarScoresJoaoParaPersistencia(dossie: DossieEstruturaInput)
   };
 }
 
+export function montarPayloadAtualizacaoJoao(
+  dossie: DossieEstruturaInput,
+  camposExtras: Record<string, unknown> = {},
+  metadados: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const scores = exportarScoresJoaoParaPersistencia(dossie);
+  const payload: Record<string, unknown> = {
+    ...camposExtras,
+    ...scores,
+    ...metadados,
+  };
+
+  return payload;
+}
+
 export function analisarDossieEstrutura(dossie: DossieEstruturaInput): ScoreJoaoEstrutura {
   return calcularPrioridadeJoao(dossie);
 }

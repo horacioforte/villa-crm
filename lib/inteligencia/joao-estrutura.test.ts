@@ -7,6 +7,7 @@ import {
   exportarScoresJoaoParaPersistencia,
   gerarHashEvidencia,
   gerarHashMovimentacao,
+  montarPayloadAtualizacaoJoao,
   normalizarUrlParaHash,
   upsertAtualizacaoDossie,
   upsertDossieEvidencia,
@@ -81,6 +82,54 @@ describe("estrutura de inteligência João", () => {
     expect(resultado.potencialVilla).toBeGreaterThan(0);
     expect(persistivel.momentoVilla).not.toBeNull();
     expect(persistivel.prioridadeJoao).not.toBeNull();
+  });
+
+  it("monta o payload final do update com scores e preserva null semântico", () => {
+    const dossieBase = {
+      clienteFinal: "Residencial Porto Verde",
+      construtora: "Construtora Norte",
+      epc: "EPC Horizonte",
+      valorEstimado: 4200000,
+      volumeConcreto: 18000,
+      faseObra: "Licenciamento",
+      licenciamento: "Licença em trâmite junto ao município",
+      cronograma: "Mobilização em 90 dias",
+      cidade: "Recife",
+      estado: "PE",
+      segmento: "MCMV - residencial",
+    };
+
+    const payload = montarPayloadAtualizacaoJoao(dossieBase, { status: "AGUARDANDO_VALIDACAO" }, {
+      completude: 92,
+      missaoAtual: "Validar cronograma"
+    });
+
+    expect(payload).toMatchObject({
+      status: "AGUARDANDO_VALIDACAO",
+      completude: 92,
+      missaoAtual: "Validar cronograma",
+      potencialVilla: expect.any(Number),
+      momentoVilla: expect.any(Number),
+      prontidao: expect.any(Number),
+      prioridadeJoao: expect.any(Number),
+      motivoPrioridade: expect.any(String),
+    });
+    expect(payload.potencialVilla).toBeGreaterThan(0);
+    expect(payload.momentoVilla).not.toBeNull();
+    expect(payload.prioridadeJoao).not.toBeNull();
+
+    const payloadSemMomento = montarPayloadAtualizacaoJoao({
+      clienteFinal: "Condomínio Vista Azul",
+      construtora: "Construtora Sul",
+      cidade: "Recife",
+      estado: "PE",
+      segmento: "Infraestrutura",
+      valorEstimado: 1200000,
+    });
+
+    expect(payloadSemMomento.momentoVilla).toBeNull();
+    expect(payloadSemMomento.prioridadeJoao).toBeNull();
+    expect(payloadSemMomento.motivoPrioridade).toMatch(/evidência temporal|crono|tempo/i);
   });
 
   it("preserva a diferença entre ausência de dado e score zerado", () => {

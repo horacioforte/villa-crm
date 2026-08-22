@@ -19,7 +19,19 @@ const authSecret =
   "villa-crm-development-secret";
 
 function getAuthBaseUrl(baseUrl: string) {
-  return process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? baseUrl;
+  const candidates = [process.env.AUTH_URL, process.env.NEXTAUTH_URL, baseUrl];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+
+    try {
+      return new URL(candidate).toString();
+    } catch {
+      // Ignora valores mascarados/inválidos vindos do ambiente (ex.: https://[SENSITIVE]).
+    }
+  }
+
+  return baseUrl;
 }
 
 export const authConfig = {

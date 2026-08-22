@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { investigarDossieCombinado, sanitizarDecimal } from "@/lib/agentes/joao/investigador-combinado";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
+import { exportarScoresJoaoParaPersistencia } from "@/lib/inteligencia/joao-estrutura";
 import type { ResultadoInvestigacao } from "@/lib/agentes/joao/investigador";
 
 export const maxDuration = 300; // 5 minutos
@@ -64,8 +65,10 @@ async function salvarResultado(
 
   if (Object.keys(camposNovos).length > 0) {
     try {
-      const dadosMesclados = { ...dossie, ...camposNovos };
-      const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosMesclados, dossie.decisores);
+      const dadosMesclados = { ...dossie, ...camposNovos } as any;
+      const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosMesclados as any, dossie.decisores as any);
+      const scoresPersistencia = exportarScoresJoaoParaPersistencia(dadosMesclados as any);
+      Object.assign(camposNovos, scoresPersistencia);
       camposNovos.completude          = completude;
       camposNovos.missaoAtual         = missaoAtual;
       camposNovos.maturidadeComercial = maturidadeComercial;
@@ -135,7 +138,7 @@ async function salvarResultado(
           ...dossie.decisores,
           { nome: decisor.nome, telefone: decisor.telefone, email: decisor.email, linkedin: decisor.linkedin },
         ];
-        const { completude: compDec, missaoAtual: missaoDec, maturidadeComercial: maturDec } = recalcularDossie(dossie, decisoresAtualizados);
+        const { completude: compDec, missaoAtual: missaoDec, maturidadeComercial: maturDec } = recalcularDossie(dossie as any, decisoresAtualizados as any);
         await prisma.$transaction([
           prisma.dossieComercial.update({
             where: { id: dossieId },

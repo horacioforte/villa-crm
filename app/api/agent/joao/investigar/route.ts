@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
+import { exportarScoresJoaoParaPersistencia } from "@/lib/inteligencia/joao-estrutura";
 import { investigarDossie } from "@/lib/agentes/joao/investigador";
 
 export const maxDuration = 90;
@@ -141,6 +142,9 @@ export async function POST(req: NextRequest) {
     if (Object.keys(camposNovos).length > 0) {
       const dadosMesclados = { ...dossie, ...camposNovos };
       const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosMesclados, dossie.decisores);
+      const scoresPersistencia = exportarScoresJoaoParaPersistencia(dadosMesclados);
+
+      Object.assign(camposNovos, scoresPersistencia);
       camposNovos.completude          = completude;
       camposNovos.missaoAtual         = missaoAtual;
       camposNovos.maturidadeComercial = maturidadeComercial;

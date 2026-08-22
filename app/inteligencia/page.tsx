@@ -70,6 +70,11 @@ type Dossie = {
   score: number;
   completude: number;
   maturidadeComercial: number;
+  potencialVilla?: number | null;
+  momentoVilla?: number | null;
+  prontidao?: number | null;
+  prioridadeJoao?: number | null;
+  motivoPrioridade?: string | null;
   missaoAtual?: string | null;
   proximaAcaoSugerida?: string | null;
   prioridade?: string | null;
@@ -477,6 +482,10 @@ function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: (
   const dias = diasDesde(dossie.updatedAt);
   const maturidade = dossie.maturidadeComercial ?? 0;
   const parado = dias > 7;
+  const potencialVilla = typeof dossie.potencialVilla === "number" ? dossie.potencialVilla : null;
+  const momentoVilla = typeof dossie.momentoVilla === "number" ? dossie.momentoVilla : null;
+  const prontidao = typeof dossie.prontidao === "number" ? dossie.prontidao : null;
+  const prioridadeJoao = typeof dossie.prioridadeJoao === "number" ? dossie.prioridadeJoao : null;
 
   return (
     <div
@@ -504,6 +513,27 @@ function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: (
       )}
 
       <BarraDupla completude={dossie.completude} maturidade={maturidade} />
+
+      {(potencialVilla !== null || momentoVilla !== null || prontidao !== null || prioridadeJoao !== null) && (
+        <div className="grid grid-cols-4 gap-1.5 pt-1">
+          <div className="rounded bg-slate-100 px-1 py-0.5 text-center">
+            <p className="text-[8px] text-slate-500">Pot.</p>
+            <p className="text-[10px] font-bold text-slate-700">{potencialVilla ?? "—"}</p>
+          </div>
+          <div className="rounded bg-slate-100 px-1 py-0.5 text-center">
+            <p className="text-[8px] text-slate-500">Mom.</p>
+            <p className="text-[10px] font-bold text-slate-700">{momentoVilla ?? "—"}</p>
+          </div>
+          <div className="rounded bg-slate-100 px-1 py-0.5 text-center">
+            <p className="text-[8px] text-slate-500">Pr.</p>
+            <p className="text-[10px] font-bold text-slate-700">{prontidao ?? "—"}</p>
+          </div>
+          <div className="rounded bg-blue-100 px-1 py-0.5 text-center">
+            <p className="text-[8px] text-blue-600">J</p>
+            <p className="text-[10px] font-bold text-blue-700">{prioridadeJoao ?? "—"}</p>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between text-[10px] text-slate-400">
         <div className="flex gap-2">

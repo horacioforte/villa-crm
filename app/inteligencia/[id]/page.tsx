@@ -70,6 +70,8 @@ type Dossie = {
   fornecedores?: string | null; concreteiras?: string | null;
   fonteInformacao?: string | null; linkFonte?: string | null;
   score: number; completude: number; prioridade?: string | null;
+  potencialVilla?: number | null; momentoVilla?: number | null; prontidao?: number | null;
+  prioridadeJoao?: number | null; motivoPrioridade?: string | null;
   missaoAtual?: string | null;
   totalDecisores: number; totalEmpresas: number;
   totalNoticias: number; totalAtualizacoes: number;
@@ -427,6 +429,29 @@ export default function DossieDetalhe() {
             <BarraProgresso valor={dossie.completude} />
           </div>
 
+          {/* João Score */}
+          <div className="w-52 px-5 py-4 space-y-2 shrink-0">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">João</p>
+            <div className="space-y-1 text-[11px] text-slate-700">
+              <div className="flex items-center justify-between gap-3">
+                <span>Potencial</span>
+                <span className="font-bold text-slate-900">{dossie.potencialVilla ?? "—"}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span>Momento</span>
+                <span className="font-bold text-slate-900">{dossie.momentoVilla ?? "—"}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span>Prontidão</span>
+                <span className="font-bold text-slate-900">{dossie.prontidao ?? "—"}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-1">
+                <span>Prioridade</span>
+                <span className="font-bold text-blue-700">{dossie.prioridadeJoao ?? "—"}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Tempo de investigação */}
           <div className="w-40 px-5 py-4 space-y-1.5 shrink-0">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Investigação</p>
@@ -481,6 +506,36 @@ export default function DossieDetalhe() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {(dossie.potencialVilla !== null || dossie.momentoVilla !== null || dossie.prontidao !== null || dossie.prioridadeJoao !== null || dossie.motivoPrioridade) && (
+        <div className="bg-white border-b px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Brain className="h-4 w-4 text-blue-600" />
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Semântica João</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Potencial</p>
+              <p className="mt-1 text-lg font-bold text-slate-800">{dossie.potencialVilla ?? "—"}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Momento</p>
+              <p className="mt-1 text-lg font-bold text-slate-800">{dossie.momentoVilla ?? "—"}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Prontidão</p>
+              <p className="mt-1 text-lg font-bold text-slate-800">{dossie.prontidao ?? "—"}</p>
+            </div>
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-2.5">
+              <p className="text-[10px] text-blue-700 uppercase tracking-widest">Prioridade</p>
+              <p className="mt-1 text-lg font-bold text-blue-900">{dossie.prioridadeJoao ?? "—"}</p>
+            </div>
+          </div>
+          {dossie.motivoPrioridade && (
+            <p className="mt-3 text-xs text-slate-600 leading-relaxed">{dossie.motivoPrioridade}</p>
+          )}
         </div>
       )}
 

@@ -153,8 +153,20 @@ type KpisAcao = {
   emRisco: number;
 };
 
+type CarteiraResumo = {
+  slug: string;
+  label: string;
+  title: string;
+  href: string;
+  monitorados: number;
+  sinaisRecentes: number;
+  comMomentoReal: number;
+  altaPrioridade: number;
+};
+
 type CockpitData = {
   dossies: Dossie[];
+  carteirasResumo: CarteiraResumo[];
   kpis: { inteligencia: KpisInteligencia; acao: KpisAcao };
   feed: FeedItem[];
   mudancas: Mudancas;
@@ -943,7 +955,7 @@ export default function CockpitPage() {
 
   if (!dados) return null;
 
-  const { dossies, kpis, feed, mudancas, esquecidas, joao } = dados;
+  const { dossies, carteirasResumo, kpis, feed, mudancas, esquecidas, joao } = dados;
 
   // Filtros — pesquisa inteligente por intenção
   const predicadoBusca = parsearBusca(busca);
@@ -1054,6 +1066,33 @@ export default function CockpitPage() {
             <KpiChip icone={<AlertTriangle className="h-3.5 w-3.5" />} valor={kpis.acao.emRisco}       label="Em risco"            cor="red"   onClick={() => abrirListagem("em-risco")} />
             <KpiChip icone={<Eye           className="h-3.5 w-3.5" />} valor={kpis.acao.aguardandoVal} label="Aguard. validação"   cor="slate" onClick={() => abrirListagem("aguardando-val")} />
           </div>
+        </div>
+      </div>
+
+      <div className="border-b border-slate-200 bg-white px-4 py-3 shrink-0">
+        <div className="mb-2 flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-slate-500" />
+          <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">CARTEIRAS DO JOÃO</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
+          {carteirasResumo.map((carteira) => (
+            <button
+              key={carteira.slug}
+              onClick={() => router.push(carteira.href)}
+              className="group rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition-all hover:border-blue-200 hover:bg-blue-50"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-sm font-semibold text-slate-800">{carteira.label}</span>
+                <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700">{carteira.monitorados}</span>
+              </div>
+              <div className="mt-3 space-y-1 text-[10px] text-slate-600">
+                <div className="flex items-center justify-between"><span>Monitorados</span><strong>{carteira.monitorados}</strong></div>
+                <div className="flex items-center justify-between"><span>Sinais recentes</span><strong>{carteira.sinaisRecentes}</strong></div>
+                <div className="flex items-center justify-between"><span>Com momento</span><strong>{carteira.comMomentoReal}</strong></div>
+                <div className="flex items-center justify-between"><span>Alta prioridade</span><strong>{carteira.altaPrioridade}</strong></div>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
 

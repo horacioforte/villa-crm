@@ -14,6 +14,7 @@ import {
   Brain,
   Building2,
   ChevronLeft,
+  Factory,
   FolderOpen,
   Inbox,
   Radar,
@@ -22,6 +23,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CARTEIRAS_JOAO } from "@/lib/inteligencia/carteiras";
 
 // Top tabs for the Intelligence center (Roadmap step 1)
 const topTabs = [
@@ -34,6 +36,14 @@ const menuPrincipal = [
   { label: "Visão Geral",          href: "/inteligencia",  icon: Brain,      exact: true },
   { label: "Dossiês Comerciais",   href: "/inteligencia",  icon: FolderOpen, exact: true, badge: true },
   { label: "Radar de Oportunidades", href: "/inteligencia", icon: Radar,     exact: false },
+];
+
+const menuCarteiras = [
+  { label: "Construtoras", href: "/inteligencia/carteiras/construtoras-brasil", icon: Building2, exact: false },
+  { label: "Minha Casa Minha Vida", href: "/inteligencia/carteiras/mcmv", icon: Building2, exact: false },
+  { label: "Pré-moldados", href: "/inteligencia/carteiras/pre-moldados", icon: Target, exact: false },
+  { label: "Concreteiras", href: "/inteligencia/carteiras/concreteiras", icon: Factory, exact: false },
+  { label: "Agência de Caminhões", href: "/inteligencia/carteiras/revendas-caminhoes", icon: Users, exact: false },
 ];
 
 const menuDados = [
@@ -51,7 +61,9 @@ const menuSistema = [
 type MenuItem = { label: string; href: string; icon: React.ComponentType<{ className?: string }>; exact: boolean; badge?: boolean };
 
 function NavItem({ item, pathname, totalDossies }: { item: MenuItem; pathname: string; totalDossies?: number }) {
-  const isActive = item.exact ? pathname === "/inteligencia" : false;
+  const isActive = item.exact
+    ? pathname === item.href || pathname === "/inteligencia"
+    : pathname === item.href || pathname.startsWith(`${item.href}/`);
   return (
     <Link
       href={item.href}
@@ -148,6 +160,13 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         {menuPrincipal.map(item => (
           <NavItem key={item.label} item={item} pathname={pathname} totalDossies={totalDossies} />
+        ))}
+
+        <p className="px-3 pt-4 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+          CARTEIRAS DO JOÃO
+        </p>
+        {menuCarteiras.map(item => (
+          <NavItem key={item.label} item={item} pathname={pathname} />
         ))}
 
         <p className="px-3 pt-4 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">

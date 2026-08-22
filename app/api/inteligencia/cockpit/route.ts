@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { CARTEIRAS_JOAO } from "@/lib/inteligencia/carteiras";
 
 // ─── Mapeamento de tipos de atualização → Feed ────────────────────────────────
 
@@ -87,6 +88,29 @@ export async function GET(req: NextRequest) {
         },
       }),
     ]);
+
+  const carteirasResumo = await Promise.all(
+    CARTEIRAS_JOAO.map(async ({ carteira, label, slug, title }) => {
+      const [monitorados, sinaisRecentes, comMomentoReal, altaPrioridade] = await Promise.all([
+        prisma.dossieComercial.count({ where: { carteiras: { some: { carteira } } } }),
+        prisma.dossieComercial.count({ where: { carteiras: { some: { carteira } }, updatedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } }),
+        prisma.dossieComercial.count({ where: { carteiras: { some: { carteira } }, AND: [{ momentoVilla: { not: null } }, { momentoVilla: { gt: 0 } }] } }),
+        prisma.dossieComercial.count({ where: { carteiras: { some: { carteira } }, AND: [{ prioridadeJoao: { not: null } }, { prioridadeJoao: { gte: 80 } }] } }),
+      ]);
+
+      return {
+        carteira,
+        label,
+        title,
+        slug,
+        href: `/inteligencia/carteiras/${slug}`,
+        monitorados,
+        sinaisRecentes,
+        comMomentoReal,
+        altaPrioridade,
+      };
+    }),
+  );
 
   // ── 3. KPIs — Ação Comercial ────────────────────────────────────────────────
   const agora = Date.now();
@@ -228,6 +252,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     dossies,
     solicitacoesCount,
+    carteirasResumo,
     kpis: {
       inteligencia: { novosDossies, dossiesAtualizados, novosDecisores, novasEmpresas, descobertas },
       acao:         { prontos, aguardandoVal, esquecidos: esquecidosCount, quentes, emRisco },

@@ -466,7 +466,7 @@ const ferramentas = [
 async function executarFerramenta(
   nome: string,
   input: Record<string, any>,
-  ctx: { usuarioId?: string; papel?: string } = {}
+  ctx: { usuarioId?: string; papel?: string; nomeUsuario?: string } = {}
 ): Promise<any> {
   // Filtragem por permissão: COMERCIAL só vê sua carteira
   const filtroCarteira = ctx.papel === "COMERCIAL" ? { responsavelId: ctx.usuarioId } : {};
@@ -549,7 +549,11 @@ export async function POST(req: NextRequest) {
   const usuarioDB = session.user.email
     ? await buscarUsuarioPorEmail(session.user.email)
     : null;
-  const ctx = {
+  const ctx: {
+    usuarioId?: string;
+    papel: string;
+    nomeUsuario: string;
+  } = {
     usuarioId: usuarioDB?.id,
     papel: usuarioDB?.papel ?? "COMERCIAL",
     nomeUsuario: usuarioDB?.nome ?? session.user.name ?? "Usuário",

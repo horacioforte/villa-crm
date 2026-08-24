@@ -7,9 +7,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { investigarDossieCombinado, sanitizarDecimal } from "@/lib/agentes/joao/investigador-combinado";
+import { investigarConstrutora, faseParaTipoEvidencia, faseParaTipoMovimentacao, fasePossuiEvidenciaTemporal, calcularNovoStatusCarteira } from "@/lib/agentes/joao/investigador-construtora";
+import type { ResultadoInvestigacaoConstrutora } from "@/lib/agentes/joao/investigador-construtora";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
-import { exportarScoresJoaoParaPersistencia } from "@/lib/inteligencia/joao-estrutura";
+import {
+  exportarScoresJoaoParaPersistencia,
+  montarPayloadAtualizacaoJoao,
+  upsertDossieEvidenciaPersistida,
+  upsertDossieMovimentacaoPersistida,
+} from "@/lib/inteligencia/joao-estrutura";
 import type { ResultadoInvestigacao } from "@/lib/agentes/joao/investigador";
+import { CarteiraEstrategica } from "@/app/generated/prisma/client";
 
 export const maxDuration = 300; // 5 minutos
 
@@ -63,26 +71,32 @@ async function salvarResultado(
     }
   }
 
-  if (Object.keys(camposNovos).length > 0) {
+  const dadosMesclados = { ...dossie, ...camposNovos } as any;
+  const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosMesclados as any, dossie.decisores as any);
+  const scoresPersistencia = exportarScoresJoaoParaPersistencia(dadosMesclados as any);
+  const payloadAtualizacao = montarPayloadAtualizacaoJoao(dadosMesclados as any, camposNovos, {
+    completude,
+    missaoAtual,
+    maturidadeComercial,
+    ultimaAtividade: new Date(),
+    ...(completude >= 80 && dossie.status === "INVESTIGANDO" ? { status: "AGUARDANDO_VALIDACAO" } : {}),
+  });
+
+  const possuiMudancaPersistida = Object.keys(payloadAtualizacao).some((campo) => {
+    const valorAtual = (dossie as Record<string, unknown>)[campo];
+    const valorNovo = payloadAtualizacao[campo];
+    return valorAtual !== valorNovo;
+  });
+
+  if (Object.keys(camposNovos).length > 0 || possuiMudancaPersistida) {
     try {
-      const dadosMesclados = { ...dossie, ...camposNovos } as any;
-      const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosMesclados as any, dossie.decisores as any);
-      const scoresPersistencia = exportarScoresJoaoParaPersistencia(dadosMesclados as any);
-      Object.assign(camposNovos, scoresPersistencia);
-      camposNovos.completude          = completude;
-      camposNovos.missaoAtual         = missaoAtual;
-      camposNovos.maturidadeComercial = maturidadeComercial;
-      camposNovos.ultimaAtividade     = new Date();
-      if (completude >= 80 && dossie.status === "INVESTIGANDO") {
-        camposNovos.status = "AGUARDANDO_VALIDACAO";
-      }
       await prisma.$transaction([
-        prisma.dossieComercial.update({ where: { id: dossieId }, data: camposNovos }),
+        prisma.dossieComercial.update({ where: { id: dossieId }, data: payloadAtualizacao }),
         prisma.atualizacaoDossie.create({
           data: {
             dossieId,
             tipo:    "CAMPO_ATUALIZADO",
-            titulo:  `[${agenteLabel}] Campos atualizados: ${camposAtualizados.join(", ")}`,
+            titulo:  `[${agenteLabel}] Campos atualizados: ${camposAtualizados.join(", ") || "scores João"}`,
             conteudo: resultado.resumoInvestigacao,
             agente:  agenteLabel,
             fonte:   typeof resultado.campos.fonteInformacao === "string" ? resultado.campos.fonteInformacao : null,
@@ -202,6 +216,275 @@ async function salvarResultado(
   return { camposAtualizados, decisorEncontrado, noticias: noticiasCount };
 }
 
+// ─── Tipos para dossiês de construtoras ───────────────────────────────────────
+
+type DossieCarteiraSelecionada = {
+  id: string;
+  status: string;
+  proximaAcao: string | null;
+  ultimaInvestigacao: Date | null;
+  decisores: number;
+};
+
+type DossieConstrutoraSelecionado = {
+  id: string; titulo: string; resumo: string | null; segmento: string | null;
+  cidade: string | null; estado: string | null; status: string; completude: number;
+  clienteFinal: string | null; construtora: string | null; epc: string | null;
+  epcm: string | null; faseObra: string | null; cronograma: string | null;
+  valorEstimado: unknown; volumeConcreto: unknown; concorrentes: string | null;
+  missaoAtual: string | null; fonteInformacao: string | null;
+  decisores: { nome: string | null; cargo?: string | null; telefone?: string | null; email?: string | null; linkedin?: string | null }[];
+  carteiras: DossieCarteiraSelecionada[];
+};
+
+// ─── salvarResultadoConstrutora ───────────────────────────────────────────────
+// Persiste o resultado de investigarConstrutora():
+//   1. PATCH campos no DossieComercial (fase mais avançada, valor, cronograma, fonte)
+//   2. DossieEvidencia por obra encontrada   (idempotente via hashUrl/hashConteudo)
+//   3. DossieMovimentacao por fase comprovada (idempotente via hashUnico)
+//   4. Decisor (se novo)
+//   5. Notícias como AtualizacaoDossie
+//   6. Update DossieCarteira (status, score, ultimaInvestigacao, proximaAcao)
+
+async function salvarResultadoConstrutora(
+  dossieId: string,
+  dossie: DossieConstrutoraSelecionado,
+  resultado: ResultadoInvestigacaoConstrutora,
+  agenteLabel: string,
+): Promise<{
+  obrasEncontradas: number;
+  evidenciasSalvas: number;
+  movimentacoesSalvas: number;
+  decisorEncontrado: boolean;
+  noticias: number;
+}> {
+  let evidenciasSalvas = 0;
+  let movimentacoesSalvas = 0;
+  let decisorEncontrado = false;
+  let noticiasCount = 0;
+
+  // 1. Campos para PATCH no DossieComercial
+  const camposNovos: Record<string, unknown> = {};
+  const camposString = ["faseObra", "cronograma", "fonteInformacao", "linkFonte"] as const;
+  for (const campo of camposString) {
+    const valor = resultado.camposDossie[campo];
+    const valorAtual = (dossie as Record<string, unknown>)[campo];
+    if (valor && valor !== valorAtual) camposNovos[campo] = valor;
+  }
+  if (resultado.camposDossie.valorEstimado && resultado.camposDossie.valorEstimado > 0) {
+    camposNovos.valorEstimado = resultado.camposDossie.valorEstimado;
+  }
+  if (resultado.proximaMissao) {
+    camposNovos.proximaAcaoSugerida = resultado.proximaMissao;
+  }
+
+  // Recalcular scores deterministicamente (LLM não calcula scores)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dadosMesclados = { ...dossie, ...camposNovos } as any;
+  const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosMesclados, dossie.decisores as Parameters<typeof recalcularDossie>[1]);
+  const scoresPersistencia = exportarScoresJoaoParaPersistencia(dadosMesclados);
+
+  const payloadAtualizacaoDossie = montarPayloadAtualizacaoJoao(dadosMesclados, camposNovos, {
+    completude,
+    missaoAtual: resultado.proximaMissao || missaoAtual,
+    maturidadeComercial,
+    ultimaAtividade: new Date(),
+    ...(completude >= 80 && dossie.status === "INVESTIGANDO" ? { status: "AGUARDANDO_VALIDACAO" } : {}),
+  });
+
+  try {
+    await prisma.$transaction([
+      prisma.dossieComercial.update({ where: { id: dossieId }, data: payloadAtualizacaoDossie }),
+      prisma.atualizacaoDossie.create({
+        data: {
+          dossieId,
+          tipo: "CAMPO_ATUALIZADO",
+          titulo: `[${agenteLabel}-construtora] ${resultado.obras.length} obra(s) — ${resultado.resumoInvestigacao.slice(0, 80)}`,
+          conteudo: resultado.resumoInvestigacao,
+          agente: agenteLabel,
+          fonte: resultado.camposDossie.fonteInformacao ?? null,
+          link: resultado.camposDossie.linkFonte ?? null,
+        },
+      }),
+    ]);
+  } catch (e) {
+    console.error(`[cron-construtora] Erro ao salvar PATCH dossiê ${dossieId}:`, e);
+  }
+
+  // 2. DossieEvidencia + DossieMovimentacao por obra
+  for (const obra of resultado.obras) {
+    if (!obra.nome?.trim() || !obra.evidenciaTextual?.trim()) continue;
+
+    const tipoEvidencia = faseParaTipoEvidencia(obra.fase ?? "");
+    const dataInfo = obra.dataInformacao ? new Date(obra.dataInformacao) : null;
+    const titulo = obra.nome.trim();
+    const descricao = [
+      obra.evidenciaTextual,
+      obra.cidade ? `Local: ${obra.cidade}${obra.estado ? `/${obra.estado}` : ""}` : null,
+      obra.clienteFinal ? `Cliente: ${obra.clienteFinal}` : null,
+      obra.fase ? `Fase: ${obra.fase}` : null,
+      obra.cronograma ? `Cronograma: ${obra.cronograma}` : null,
+      obra.valor ? `Valor: R$ ${obra.valor.toLocaleString("pt-BR")}` : null,
+    ].filter(Boolean).join("\n");
+
+    // DossieEvidencia (idempotente via hashUrl/hashConteudo)
+    try {
+      await upsertDossieEvidenciaPersistida(
+        dossieId,
+        {
+          tipo: tipoEvidencia,
+          titulo,
+          descricao,
+          fonteTipo: obra.url ? "MIDIA" : "OUTRA",
+          fonteNome: obra.fonteNome,
+          url: obra.url ?? null,
+          dataInformacao: dataInfo,
+          confianca: obra.confianca ?? "SINAL",
+          estado: "ATIVA",
+        },
+        prisma,
+      );
+      evidenciasSalvas++;
+    } catch (e) {
+      console.error(`[cron-construtora] Erro ao salvar evidência (${obra.nome}):`, e);
+    }
+
+    // DossieMovimentacao — somente se fase temporal comprovada (não "anunciada" ou "planejada")
+    if (obra.fase && fasePossuiEvidenciaTemporal(obra.fase)) {
+      const tipoMovimentacao = faseParaTipoMovimentacao(obra.fase);
+      try {
+        await upsertDossieMovimentacaoPersistida(
+          {
+            dossieId,
+            tipo: tipoMovimentacao,
+            titulo,
+            descricao: obra.evidenciaTextual,
+            momento: dataInfo,
+            relevancia: 70,
+            status: "ATIVA",
+          },
+          prisma,
+        );
+        movimentacoesSalvas++;
+      } catch (e) {
+        console.error(`[cron-construtora] Erro ao salvar movimentação (${obra.nome}):`, e);
+      }
+    }
+  }
+
+  // 3. Decisor
+  if (resultado.decisor?.nome) {
+    const jaExiste = dossie.decisores.some(
+      (d) => d.nome?.toLowerCase() === resultado.decisor!.nome.toLowerCase(),
+    );
+    if (!jaExiste) {
+      try {
+        await prisma.$transaction([
+          prisma.decisorDossie.create({
+            data: {
+              dossieId,
+              nome: resultado.decisor.nome,
+              cargo: resultado.decisor.cargo ?? null,
+              empresa: resultado.decisor.empresa ?? null,
+              linkedin: resultado.decisor.linkedin ?? null,
+              telefone: resultado.decisor.telefone ?? null,
+              email: resultado.decisor.email ?? null,
+              confianca: 60,
+              fonte: resultado.decisor.fonte ?? agenteLabel,
+            },
+          }),
+          prisma.dossieComercial.update({
+            where: { id: dossieId },
+            data: { totalDecisores: { increment: 1 }, ultimaAtividade: new Date() },
+          }),
+          prisma.atualizacaoDossie.create({
+            data: {
+              dossieId,
+              tipo: "DECISOR_ENCONTRADO",
+              titulo: `[${agenteLabel}-construtora] Decisor: ${resultado.decisor.nome}`,
+              conteudo: [
+                `Nome: ${resultado.decisor.nome}`,
+                resultado.decisor.cargo ? `Cargo: ${resultado.decisor.cargo}` : null,
+                resultado.decisor.empresa ? `Empresa: ${resultado.decisor.empresa}` : null,
+                resultado.decisor.linkedin ? `LinkedIn: ${resultado.decisor.linkedin}` : null,
+                resultado.decisor.fonte ? `Fonte: ${resultado.decisor.fonte}` : null,
+              ]
+                .filter(Boolean)
+                .join("\n"),
+              agente: agenteLabel,
+            },
+          }),
+        ]);
+        decisorEncontrado = true;
+      } catch (e) {
+        console.error(`[cron-construtora] Erro ao salvar decisor:`, e);
+      }
+    }
+  }
+
+  // 4. Notícias
+  for (const noticia of resultado.noticias) {
+    if (!noticia.titulo?.trim() || !noticia.conteudo?.trim()) continue;
+    try {
+      await prisma.atualizacaoDossie.create({
+        data: {
+          dossieId,
+          tipo: "NOTICIA_ENCONTRADA",
+          titulo: `[${agenteLabel}-construtora] ${noticia.titulo}`,
+          conteudo: noticia.conteudo,
+          fonte: noticia.fonte ?? null,
+          link: noticia.link ?? null,
+          agente: agenteLabel,
+        },
+      });
+      await prisma.dossieComercial.update({
+        where: { id: dossieId },
+        data: { totalNoticias: { increment: 1 }, totalAtualizacoes: { increment: 1 }, ultimaAtividade: new Date() },
+      });
+      noticiasCount++;
+    } catch (e) {
+      console.error(`[cron-construtora] Erro ao salvar notícia:`, e);
+    }
+  }
+
+  // 5. Update DossieCarteira
+  const carteira = dossie.carteiras?.[0];
+  if (carteira?.id) {
+    const novoStatus = calcularNovoStatusCarteira(
+      carteira.status,
+      resultado.obras.length,
+      decisorEncontrado,
+    );
+    const principalSinal = resultado.obras[0]?.evidenciaTextual?.slice(0, 200) ?? null;
+
+    try {
+      await prisma.dossieCarteira.update({
+        where: { id: carteira.id },
+        data: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          status: novoStatus as any,
+          ultimaInvestigacao: new Date(),
+          ultimaAtualizacao: new Date(),
+          proximaAcao: resultado.proximaMissao || null,
+          ...(principalSinal ? { principalSinal } : {}),
+          score: scoresPersistencia.potencialVilla ?? 0,
+          ...(decisorEncontrado ? { decisores: { increment: 1 } } : {}),
+        },
+      });
+    } catch (e) {
+      console.error(`[cron-construtora] Erro ao atualizar DossieCarteira:`, e);
+    }
+  }
+
+  return {
+    obrasEncontradas: resultado.obras.length,
+    evidenciasSalvas,
+    movimentacoesSalvas,
+    decisorEncontrado,
+    noticias: noticiasCount,
+  };
+}
+
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -222,9 +505,110 @@ export async function GET(req: NextRequest) {
       },
     } as const;
 
+    // ── CONSTRUTORA_BRASIL — rota separada ───────────────────────────────────
+    // Dossiês com carteira CONSTRUTORA_BRASIL usam investigarConstrutora() e
+    // salvarResultadoConstrutora() em vez do fluxo obra-cêntrico padrão.
+    // Processados ANTES da fila regular para garantir prioridade de slot.
+    const dossieIdParam = req.nextUrl.searchParams.get("dossieId");
+    // (modo direto por dossieId é tratado mais abaixo — não interceptamos aqui)
+    if (!dossieIdParam) {
+      const dossiesConstrutora = await prisma.dossieComercial.findMany({
+        where: {
+          status: { in: ["INVESTIGANDO", "PEDIR_MAIS_PESQUISA"] },
+          carteiras: { some: { carteira: CarteiraEstrategica.CONSTRUTORA_BRASIL } },
+        },
+        orderBy: { ultimaAtividade: "asc" },
+        take: 3,
+        select: {
+          ...selectDossie,
+          carteiras: {
+            // alias não é suportado diretamente — usamos a relação carteiras filtrada
+            where: { carteira: CarteiraEstrategica.CONSTRUTORA_BRASIL },
+            select: { id: true, status: true, proximaAcao: true, ultimaInvestigacao: true, decisores: true },
+          },
+        },
+      });
+
+      if (dossiesConstrutora.length > 0) {
+        const resumosConstrutora: {
+          dossieId: string; titulo: string;
+          obrasEncontradas: number; evidencias: number; movimentacoes: number;
+          decisor: boolean; noticias: number; erro?: string;
+        }[] = [];
+
+        for (const dossie of dossiesConstrutora) {
+          console.log(`[cron/joao-investigar] Construtora: ${dossie.titulo}`);
+          let resultado: ResultadoInvestigacaoConstrutora;
+          try {
+            resultado = await investigarConstrutora(dossie as unknown as Parameters<typeof investigarConstrutora>[0]);
+          } catch (e) {
+            console.error(`[cron/joao-investigar] Falha construtora ${dossie.id}:`, e);
+            resumosConstrutora.push({
+              dossieId: dossie.id, titulo: dossie.titulo,
+              obrasEncontradas: 0, evidencias: 0, movimentacoes: 0,
+              decisor: false, noticias: 0, erro: String(e),
+            });
+            continue;
+          }
+
+          // Recarrega o dossiê para ter os decisores atualizados antes do salvar
+          const dossieAtualizado = await prisma.dossieComercial.findUnique({
+            where: { id: dossie.id },
+            select: {
+              id: true, status: true, completude: true, segmento: true,
+              faseObra: true, cronograma: true, valorEstimado: true, volumeConcreto: true,
+              concorrentes: true, missaoAtual: true, fonteInformacao: true,
+              cidade: true, estado: true, clienteFinal: true,
+              construtora: true, epc: true, epcm: true,
+              equipamentosSugeridos: true, campanhasSugerida: true, licenciamento: true,
+              decisores: { select: { nome: true, cargo: true, telefone: true, email: true, linkedin: true } },
+              carteiras: {
+                where: { carteira: CarteiraEstrategica.CONSTRUTORA_BRASIL },
+                select: { id: true, status: true, proximaAcao: true, ultimaInvestigacao: true, decisores: true },
+              },
+            },
+          });
+
+          const dossieParaSalvar = {
+            ...dossie,
+            ...(dossieAtualizado ?? {}),
+          } as DossieConstrutoraSelecionado;
+
+          const stats = await salvarResultadoConstrutora(
+            dossie.id,
+            dossieParaSalvar,
+            resultado,
+            "joao-claude",
+          );
+
+          resumosConstrutora.push({
+            dossieId: dossie.id, titulo: dossie.titulo,
+            obrasEncontradas: stats.obrasEncontradas,
+            evidencias: stats.evidenciasSalvas,
+            movimentacoes: stats.movimentacoesSalvas,
+            decisor: stats.decisorEncontrado,
+            noticias: stats.noticias,
+            ...(resultado.erro ? { erro: resultado.erro } : {}),
+          });
+        }
+
+        // Se só processamos construtoras nesta rodada, retorna logo
+        // (o cron pode ser chamado novamente para processar a fila regular)
+        if (resumosConstrutora.length > 0) {
+          return NextResponse.json({
+            sucesso: true,
+            processados: resumosConstrutora.length,
+            modo: "construtora",
+            detalhes: resumosConstrutora,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+    }
+    // ── Fim CONSTRUTORA_BRASIL ───────────────────────────────────────────────
+
     // ── Modo direto: investigar um dossiê específico imediatamente ─────────────
     // Ativado via ?dossieId=xxx (usado pelo trigger automático pós-criação)
-    const dossieIdParam = req.nextUrl.searchParams.get("dossieId");
     if (dossieIdParam) {
       const dossieEspecifico = await prisma.dossieComercial.findUnique({
         where: { id: dossieIdParam },

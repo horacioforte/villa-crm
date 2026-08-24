@@ -204,7 +204,7 @@ export async function investigarDossie(
 
       // Parse do JSON — remove markdown fences se presentes
       let textoJson = textoFinal.trim();
-      const mdMatch = textoJson.match(/```(?:json)?\s*([\s\S]*?)```/s);
+      const mdMatch = textoJson.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (mdMatch) textoJson = mdMatch[1].trim();
 
       const jsonMatch = textoJson.match(/\{[\s\S]*\}/);
@@ -230,11 +230,15 @@ export async function investigarDossie(
         return resultado;
       }
 
-      resultado.achou               = parsed.achou === true;
-      resultado.campos              = parsed.campos  ?? {};
-      resultado.decisor             = parsed.decisor ?? null;
-      resultado.noticias            = Array.isArray(parsed.noticias) ? parsed.noticias : [];
-      resultado.resumoInvestigacao  = parsed.resumoInvestigacao ?? "Investigação concluída.";
+      resultado.achou = parsed.achou === true;
+      resultado.campos = (parsed.campos as Record<string, unknown>) ?? {};
+      resultado.decisor = (parsed.decisor as ResultadoInvestigacao["decisor"]) ?? null;
+      resultado.noticias = Array.isArray(parsed.noticias)
+        ? (parsed.noticias as ResultadoInvestigacao["noticias"])
+        : [];
+      resultado.resumoInvestigacao = typeof parsed.resumoInvestigacao === "string"
+        ? parsed.resumoInvestigacao
+        : "Investigação concluída.";
 
     } catch (innerErr) {
       clearTimeout(timeout);

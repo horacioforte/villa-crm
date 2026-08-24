@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
+import { exportarScoresJoaoParaPersistencia } from "@/lib/inteligencia/joao-estrutura";
 
 function verificarApiKey(req: NextRequest): boolean {
   const apiKey = process.env.AGENT_API_KEY;
@@ -131,6 +132,8 @@ export async function POST(req: NextRequest) {
     if (camposEnriquecidos.length > 0) {
       const dadosMesclados = { ...dossieExistente, ...camposNovos };
       const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosMesclados, dossieExistente.decisores);
+      const scoresPersistencia = exportarScoresJoaoParaPersistencia(dadosMesclados);
+      Object.assign(camposNovos, scoresPersistencia);
       camposNovos.completude           = completude;
       camposNovos.missaoAtual          = missaoAtual;
       camposNovos.maturidadeComercial  = maturidadeComercial;
@@ -274,6 +277,7 @@ export async function POST(req: NextRequest) {
     : [];
 
   const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(dadosParaCalculo, decisoresIniciais);
+  const scoresPersistencia = exportarScoresJoaoParaPersistencia(dadosParaCalculo);
 
   // Criar DossieComercial
   const dossie = await prisma.dossieComercial.create({
@@ -295,6 +299,7 @@ export async function POST(req: NextRequest) {
       linkFonte:            body.linkFonte       ?? null,
       score:                body.score           ?? 50,
       prioridade:           body.prioridade      ?? null,
+      ...scoresPersistencia,
       completude,
       missaoAtual,
       maturidadeComercial,

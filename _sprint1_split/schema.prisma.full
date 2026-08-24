@@ -409,8 +409,6 @@ model Obra {
 
   // Central de Inteligência — nunca remover
   dossies       DossieComercial[]  @relation("DossieObra")
-  evidencias    DossieEvidencia[]
-  movimentacoes DossieMovimentacao[]
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -1330,102 +1328,6 @@ enum TipoAtualizacaoDossie {
 
 // ── DossieComercial ──────────────────────────────────────────────────────────
 
-enum CarteiraEstrategica {
-  MCMV
-  CONSTRUTORA_BRASIL
-  CONCRETEIRAS
-  PRE_MOLDADOS
-  REVENDAS_CAMINHOES
-}
-
-enum EtapaCarteira {
-  MONITORANDO
-  SINAL_DETECTADO
-  EM_INVESTIGACAO
-  DECISOR_ENCONTRADO
-  PRONTO_PARA_ABORDAR
-  EM_CAMPANHA
-  RESPONDEU
-  INTERESSADO
-}
-
-enum TipoEvidencia {
-  NOVA_OBRA
-  NOVO_EMPREENDIMENTO
-  LICENCIAMENTO
-  ALVARA
-  CONTRATO_PUBLICO
-  MOBILIZACAO
-  TERRAPLENAGEM
-  FUNDACAO
-  CONCRETAGEM
-  ESTRUTURA
-  EXPANSAO
-  NOVA_UNIDADE
-  CONTRATACAO
-  MUDANCA_EXECUTIVO
-  COMPRA_EQUIPAMENTO
-  VENDA_EQUIPAMENTO
-  NOTICIA
-  POST_LINKEDIN
-  POST_INSTAGRAM
-  OUTRO
-}
-
-enum FonteEvidencia {
-  OFICIAL
-  EMPRESA
-  ASSOCIACAO
-  MIDIA
-  REDE_SOCIAL
-  BASE_EMPRESARIAL
-  RANKING
-  IMPORTACAO_MANUAL
-  OUTRA
-}
-
-enum StatusEvidencia {
-  CONFIRMADA
-  FORTE
-  PROVAVEL
-  SINAL
-}
-
-enum EstadoEvidencia {
-  ATIVA
-  PENDENTE_VALIDACAO
-  DESCARTADA
-  SUPERADA
-}
-
-enum TipoMovimentacao {
-  OBRA_DETECTADA
-  NOVA_OBRA
-  NOVO_EMPREENDIMENTO
-  LICENCIAMENTO_EM_ANDAMENTO
-  ALVARA_EMITIDO
-  MOBILIZACAO_INICIADA
-  TERRAPLENAGEM
-  FUNDACAO_INICIADA
-  CONCRETAGEM
-  ESTRUTURA_EM_ANDAMENTO
-  EXPANSAO
-  NOVA_UNIDADE
-  CONTRATACAO_EM_ANDAMENTO
-  MUDANCA_EXECUTIVO
-  COMPRA_EQUIPAMENTO
-  VENDA_EQUIPAMENTO
-  SINAL_DE_MERCADO
-  OUTRA
-}
-
-enum StatusMovimentacao {
-  ATIVA
-  RESOLVIDA
-  DESCARTADA
-  SUPERADA
-}
-
 model DossieComercial {
   id     String @id @default(cuid())
 
@@ -1471,13 +1373,6 @@ model DossieComercial {
   maturidadeComercial  Int     @default(0)   // 0–100 — o quanto faz sentido a Villa agir comercialmente
   prioridade           String? // "ALTA" | "MEDIA" | "BAIXA"
 
-  // ── Scores persistidos do João ──
-  potencialVilla       Int?
-  momentoVilla         Int?
-  prontidao            Int?
-  prioridadeJoao       Int?
-  motivoPrioridade     String?
-
   // ── Missão João ──
   missaoAtual String?  // ex: "Descobrir o telefone do Diretor de Obras"
 
@@ -1517,9 +1412,6 @@ model DossieComercial {
   atualizacoes         AtualizacaoDossie[]
   decisores            DecisorDossie[]
   empresasRelacionadas EmpresaDossie[]
-  carteiras            DossieCarteira[]
-  evidencias           DossieEvidencia[]
-  movimentacoes        DossieMovimentacao[]
 
   @@index([status])
   @@index([estado])
@@ -1591,104 +1483,6 @@ model EmpresaDossie {
   @@index([dossieId])
   @@index([empresaId])
   @@index([papel])
-}
-
-model DossieCarteira {
-  id          String              @id @default(cuid())
-  carteira    CarteiraEstrategica
-  status      EtapaCarteira       @default(MONITORANDO)
-  principalSinal String?
-  proximaAcao String?
-  observacoes String?
-  ultimaInvestigacao DateTime?
-  ultimaAtualizacao DateTime?
-  score       Int                 @default(0)
-  decisores   Int                 @default(0)
-  emCampanha  Boolean             @default(false)
-  interessado Boolean             @default(false)
-
-  dossieId String
-  dossie   DossieComercial @relation(fields: [dossieId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([dossieId, carteira])
-  @@index([carteira])
-  @@index([status])
-  @@index([dossieId])
-}
-
-model DossieEvidencia {
-  id           String        @id @default(cuid())
-  dossieId     String
-  obraId       String?
-  tipo         TipoEvidencia
-  titulo       String
-  descricao    String?       @db.Text
-  fonteTipo    FonteEvidencia @default(OUTRA)
-  fonteNome    String?
-  url          String?
-  dataInformacao DateTime?
-  dataColeta   DateTime?     @default(now())
-  confianca    StatusEvidencia @default(SINAL)
-  estado       EstadoEvidencia @default(ATIVA)
-  hashConteudo String?
-  hashUrl      String?
-  conteudoBruto String?       @db.Text
-
-  dossie   DossieComercial @relation(fields: [dossieId], references: [id], onDelete: Cascade)
-  obra     Obra? @relation(fields: [obraId], references: [id], onDelete: SetNull)
-
-  movimentacoes DossieMovimentacaoEvidencia[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([dossieId])
-  @@index([obraId])
-  @@index([tipo])
-  @@index([hashConteudo])
-  @@index([hashUrl])
-  @@index([dataInformacao])
-}
-
-model DossieMovimentacao {
-  id          String          @id @default(cuid())
-  dossieId    String
-  obraId      String?
-  tipo        TipoMovimentacao
-  titulo      String
-  descricao   String?         @db.Text
-  momento     DateTime?
-  relevancia  Int             @default(0)
-  status      StatusMovimentacao @default(ATIVA)
-  hashUnico   String?         @unique
-
-  dossie      DossieComercial @relation(fields: [dossieId], references: [id], onDelete: Cascade)
-  obra        Obra?           @relation(fields: [obraId], references: [id], onDelete: SetNull)
-  evidencias  DossieMovimentacaoEvidencia[]
-
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  @@index([dossieId])
-  @@index([obraId])
-  @@index([tipo])
-  @@index([status])
-}
-
-model DossieMovimentacaoEvidencia {
-  id            String @id @default(cuid())
-  movimentacaoId String
-  evidenciaId   String
-  createdAt     DateTime @default(now())
-
-  movimentacao DossieMovimentacao @relation(fields: [movimentacaoId], references: [id], onDelete: Cascade)
-  evidencia   DossieEvidencia   @relation(fields: [evidenciaId], references: [id], onDelete: Cascade)
-
-  @@unique([movimentacaoId, evidenciaId])
-  @@index([evidenciaId])
 }
 
 // ── AtualizacaoDossie — log de tudo que o João descobriu ─────────────────────
@@ -1850,6 +1644,6 @@ model RedeSocialConta {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([rede, nome])
+  @@unique([rede])
   @@index([ativo])
 }

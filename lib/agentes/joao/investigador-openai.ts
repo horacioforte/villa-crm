@@ -100,7 +100,7 @@ Pesquise agora para cumprir essa missão. Retorne o JSON conforme instruído.`;
 function tentarParsearJSON(texto: string): Record<string, unknown> | null {
   // Remove markdown fences
   let limpo = texto.trim();
-  const mdMatch = limpo.match(/```(?:json)?\s*([\s\S]*?)```/s);
+  const mdMatch = limpo.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (mdMatch) limpo = mdMatch[1].trim();
 
   const jsonMatch = limpo.match(/\{[\s\S]*\}/);

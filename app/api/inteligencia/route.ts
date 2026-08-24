@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
+import { exportarScoresJoaoParaPersistencia } from "@/lib/inteligencia/joao-estrutura";
 
 // ─── GET — listar dossiês com filtros ────────────────────────────────────────
 
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { completude, missaoAtual, maturidadeComercial } = recalcularDossie(body, []);
+  const scoresPersistencia = exportarScoresJoaoParaPersistencia(body);
 
   const dossie = await prisma.dossieComercial.create({
     data: {
@@ -112,6 +114,7 @@ export async function POST(req: NextRequest) {
       linkFonte:           body.linkFonte      ?? null,
       score:               body.score          ?? 0,
       prioridade:          body.prioridade     ?? null,
+      ...scoresPersistencia,
       completude,
       missaoAtual,
       maturidadeComercial,

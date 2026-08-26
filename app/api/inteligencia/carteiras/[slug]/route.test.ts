@@ -116,6 +116,21 @@ describe("Carteiras Estratégicas", () => {
     expect(payload.items[0].score).toBe(85);
   });
 
+  it("bloqueia escrita em Construtoras, que é somente leitura", async () => {
+    const req = new NextRequest("https://localhost/api/inteligencia/carteiras/construtoras-brasil/dossie-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "INTERESSADO" }),
+    });
+
+    const res = await PATCH(req, { params: Promise.resolve({ slug: "construtoras-brasil", dossieId: "dossie-1" }) });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual(expect.objectContaining({ error: "Carteira de Construtoras é somente leitura." }));
+    expect(prismaMock.dossieCarteira.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.dossieCarteira.update).not.toHaveBeenCalled();
+  });
+
   it("muda o estágio da carteira sem criar oportunidade automática", async () => {
     prismaMock.dossieCarteira.findUnique.mockResolvedValue({
       id: "rel-1",

@@ -44,7 +44,7 @@ const filtrosPadrao = [
   "Sem atualização recente",
 ];
 
-export function CarteiraEstratPage({ slug }: { slug: string }) {
+export function CarteiraEstratPage({ slug, readOnly = false }: { slug: string; readOnly?: boolean }) {
   const meta = CARTEIRAS_META[slug] ?? CARTEIRAS_META.mcmv;
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState("TODAS");
@@ -281,6 +281,7 @@ export function CarteiraEstratPage({ slug }: { slug: string }) {
         ) : hasData ? (
           <CarteiraKanban
             items={items}
+            readOnly={readOnly}
             onOpenDossie={abrirDossie}
             onLinkedIn={abrirLinkedin}
             onCampanha={marcarCampanha}

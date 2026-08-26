@@ -16,5 +16,5 @@ export default async function CarteiraPage({ params }: { params: Promise<{ slug:
     notFound();
   }
 
-  return <CarteiraEstratPage slug={slug} />;
+  return <CarteiraEstratPage slug={slug} readOnly={slug === "construtoras-brasil"} />;
 }

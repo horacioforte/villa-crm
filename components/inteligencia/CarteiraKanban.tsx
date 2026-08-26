@@ -46,12 +46,14 @@ const ETAPAS: { key: EtapaCarteira; label: string; tone: string }[] = [
 
 export function CarteiraKanban({
   items,
+  readOnly = false,
   onOpenDossie,
   onLinkedIn,
   onCampanha,
   onStageChange,
 }: {
   items: CarteiraKanbanItem[];
+  readOnly?: boolean;
   onOpenDossie?: (item: CarteiraKanbanItem) => void;
   onLinkedIn?: (item: CarteiraKanbanItem) => void;
   onCampanha?: (item: CarteiraKanbanItem) => void;
@@ -143,14 +145,16 @@ export function CarteiraKanban({
                       LinkedIn
                       <Globe className="h-3 w-3" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onCampanha?.(item)}
-                      className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-50 px-2 py-1.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100"
-                    >
-                      Campanha
-                      <BriefcaseBusiness className="h-3 w-3" />
-                    </button>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => onCampanha?.(item)}
+                        className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-50 px-2 py-1.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100"
+                      >
+                        Campanha
+                        <BriefcaseBusiness className="h-3 w-3" />
+                      </button>
+                    )}
                     <a
                       href={item.dossieId ? `/inteligencia/${item.dossieId}` : "#"}
                       className="inline-flex items-center justify-center gap-1 rounded-lg bg-violet-50 px-2 py-1.5 text-[11px] font-medium text-violet-700 hover:bg-violet-100"
@@ -164,8 +168,9 @@ export function CarteiraKanban({
                     <label className="mb-1 block text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Mudar estágio</label>
                     <select
                       value={item.estagio}
+                      disabled={readOnly}
                       onChange={(event) => onStageChange?.(item, event.target.value as EtapaCarteira)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-700 outline-none focus:border-blue-400"
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-700 outline-none focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {ETAPAS.map((etapa) => (
                         <option key={etapa.key} value={etapa.key}>{etapa.label}</option>

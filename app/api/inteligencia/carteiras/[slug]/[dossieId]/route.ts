@@ -11,6 +11,8 @@ const slugsPermitidos = new Set([
   "revendas-caminhoes",
 ]);
 
+const slugsSomenteLeitura = new Set(["construtoras-brasil"]);
+
 const slugToCarteira = {
   mcmv: "MCMV",
   "construtoras-brasil": "CONSTRUTORA_BRASIL",
@@ -29,6 +31,10 @@ export async function PATCH(
   const { slug, dossieId } = await context.params;
   if (!slugsPermitidos.has(slug)) {
     return NextResponse.json({ error: "Carteira não encontrada" }, { status: 404 });
+  }
+
+  if (slugsSomenteLeitura.has(slug)) {
+    return NextResponse.json({ error: "Carteira de Construtoras é somente leitura." }, { status: 403 });
   }
 
   const carteira = slugToCarteira[slug as keyof typeof slugToCarteira];

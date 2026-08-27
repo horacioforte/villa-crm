@@ -45,9 +45,9 @@ export type ScoreJoaoEstrutura = {
   momentoVilla: number | null;
   prontidao: number;
   prioridadeJoao: number | null;
-  potencialMcmv: number;
-  momentoMcmv: number;
-  prioridadeMcmv: number;
+  potencialMcmv?: number;
+  momentoMcmv?: number;
+  prioridadeMcmv?: number;
   motivoPrioridade: string;
 };
 
@@ -693,9 +693,6 @@ export function exportarScoresJoaoParaPersistencia(dossie: DossieEstruturaInput)
   momentoVilla: number | null;
   prontidao: number;
   prioridadeJoao: number | null;
-  potencialMcmv: number;
-  momentoMcmv: number;
-  prioridadeMcmv: number;
   motivoPrioridade: string;
 } {
   const resultado = calcularPrioridadeJoao(dossie);
@@ -704,9 +701,6 @@ export function exportarScoresJoaoParaPersistencia(dossie: DossieEstruturaInput)
     momentoVilla: resultado.momentoVilla,
     prontidao: resultado.prontidao,
     prioridadeJoao: resultado.prioridadeJoao,
-    potencialMcmv: resultado.potencialMcmv,
-    momentoMcmv: resultado.momentoMcmv,
-    prioridadeMcmv: resultado.prioridadeMcmv,
     motivoPrioridade: resultado.motivoPrioridade,
   };
 }
@@ -722,6 +716,66 @@ export function montarPayloadAtualizacaoJoao(
     ...scores,
     ...metadados,
   };
+
+  const whitelist = new Set([
+    "id",
+    "titulo",
+    "resumo",
+    "origem",
+    "tipo",
+    "status",
+    "segmento",
+    "cidade",
+    "estado",
+    "clienteFinal",
+    "construtora",
+    "epc",
+    "epcm",
+    "consorcio",
+    "faseObra",
+    "cronograma",
+    "licenciamento",
+    "valorEstimado",
+    "volumeConcreto",
+    "equipamentosSugeridos",
+    "campanhasSugerida",
+    "proximaAcaoSugerida",
+    "concorrentes",
+    "fornecedores",
+    "concreteiras",
+    "fonteInformacao",
+    "linkFonte",
+    "score",
+    "completude",
+    "maturidadeComercial",
+    "prioridade",
+    "potencialVilla",
+    "momentoVilla",
+    "prontidao",
+    "prioridadeJoao",
+    "motivoPrioridade",
+    "missaoAtual",
+    "totalDecisores",
+    "totalEmpresas",
+    "totalNoticias",
+    "totalAtualizacoes",
+    "empresaId",
+    "obraId",
+    "oportunidadeId",
+    "assumidoPorId",
+    "assumidaEm",
+    "motivoDescarte",
+    "criadoPorAgente",
+    "ultimaAtividade",
+    "createdAt",
+    "updatedAt",
+  ]);
+
+  for (const key of Object.keys(payload)) {
+    if (!whitelist.has(key)) {
+      delete payload[key];
+    }
+  }
 
   return payload;
 }

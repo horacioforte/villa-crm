@@ -74,11 +74,11 @@ describe("estrutura de inteligência João", () => {
       "momentoVilla",
       "prontidao",
       "prioridadeJoao",
-      "potencialMcmv",
-      "momentoMcmv",
-      "prioridadeMcmv",
       "motivoPrioridade",
     ]));
+    expect(Object.keys(persistivel)).not.toContain("potencialMcmv");
+    expect(Object.keys(persistivel)).not.toContain("momentoMcmv");
+    expect(Object.keys(persistivel)).not.toContain("prioridadeMcmv");
     expect(resultado.potencialVilla).toBeGreaterThan(0);
     expect(persistivel.momentoVilla).not.toBeNull();
     expect(persistivel.prioridadeJoao).not.toBeNull();
@@ -114,6 +114,9 @@ describe("estrutura de inteligência João", () => {
       prioridadeJoao: expect.any(Number),
       motivoPrioridade: expect.any(String),
     });
+    expect(payload).not.toHaveProperty("potencialMcmv");
+    expect(payload).not.toHaveProperty("momentoMcmv");
+    expect(payload).not.toHaveProperty("prioridadeMcmv");
     expect(payload.potencialVilla).toBeGreaterThan(0);
     expect(payload.momentoVilla).not.toBeNull();
     expect(payload.prioridadeJoao).not.toBeNull();

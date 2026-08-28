@@ -106,25 +106,40 @@ export function classificarDossieEmCarteiras(dossie: DossieCarteiraInput): Array
     resultados.push({ carteira, evidencias: [...new Set(evidencias)] });
   };
 
-  if (/(mcmv|minha casa|minha casa minha vida|habitacao|habita[cç][aã]o)/.test(normalized)) {
-    add("MCMV", ["mcmv", "minha casa minha vida"].filter((item) => normalized.includes(item)));
+  const hasGenericIndustrialNoise = /(porto|aeroporto|terminal|data center|biorrefinaria|automotiva|etanol|saneamento|usina|transportadora|logistica|obras|infraestrutura|pista|fundacao)/.test(normalized);
+
+  const mcmvSignals = /(mcmv|minha casa|minha casa minha vida|habitacao|habita[cç][aã]o|residencial|conjunto habitacional|empreendimento habitacional|unidades de moradia|unidades mcmv)/.test(normalized);
+  if (mcmvSignals && !hasGenericIndustrialNoise) {
+    add("MCMV", ["mcmv", "minha casa minha vida", "habitação", "residencial"]
+      .filter((item) => normalized.includes(normalizarTexto(item))));
   }
 
-  const construtoraBoa = /(incorporadora|incorpora[cç][aã]o|empreendimento|residencial|loteamento|condominio|condom[ií]nio|multifamiliar|mcmv)/.test(normalized);
-  if (construtoraBoa && !/(mcmv|minha casa)/.test(normalized)) {
-    add("CONSTRUTORA_BRASIL", ["incorporadora", "incorporação", "empreendimento", "residencial", "loteamento", "condomínio", "multifamiliar"]);
+  const construtoraBoa = /(incorporadora|incorpora[cç][aã]o|empreendimento|residencial|loteamento|condominio|condom[ií]nio|multifamiliar)/.test(normalized);
+  const construtoraAcepta = construtoraBoa && !/(mcmv|minha casa|habitacao|habita[cç][aã]o|porto|aeroporto|automotiva|etanol|biorrefinaria|cargo|terminal|data center|logistica|transportadora)/.test(normalized);
+  if (construtoraAcepta) {
+    add("CONSTRUTORA_BRASIL", ["incorporadora", "incorporação", "empreendimento", "residencial", "loteamento", "condomínio", "multifamiliar"]
+      .filter((item) => normalized.includes(normalizarTexto(item))));
   }
 
-  if (/(concreteira|central de concreto|central de betao|betoneira|concreto)/.test(normalized)) {
-    add("CONCRETEIRAS", ["concreteira", "central de concreto", "betoneira", "concreto"]);
+  const concreteiraSignals = /(concreteira|central de concreto|central dosadora|betoneira|dosadora de concreto|concreto usinado|fornecedor de concreto|concreto.*(central|planta|usina)|planta.*concreto)/.test(normalized);
+  const concreteiraReject = /(automotiva|f[aá]brica.*(carro|ve[ií]culo)|biorrefinaria|porto|aeroporto|saneamento|etanol|construtora.*(n[aã]o|sem) concreto|data center|pista|terminal|logistica|transportadora)/.test(normalized);
+  if (concreteiraSignals && !concreteiraReject) {
+    add("CONCRETEIRAS", ["concreteira", "central de concreto", "betoneira", "concreto usinado", "planta de concreto", "dosadora de concreto"]
+      .filter((item) => normalized.includes(normalizarTexto(item))));
   }
 
-  if (/(pre[- ]?moldado|pr[eé][- ]?moldado|pilar|painel|f[aá]brica|viga|bloco|elemento)/.test(normalized)) {
-    add("PRE_MOLDADOS", ["pré-moldado", "pre moldado", "fábrica", "painel", "viga"]);
+  const preMoldadoSignals = /(pre[- ]?moldado|pr[eé][- ]?moldado|pre[- ]?fabricado|pr[eé][- ]?fabricado|pilar|viga|laje|painel|bloco)/.test(normalized);
+  const preMoldadoReject = /(automotiva|porto|aeroporto|data center|usina|etanol|cimenteira|cimento|construtor|habita[cç][aã]o|mcmv|transportadora|logistica|f[aá]brica industrial)/.test(normalized);
+  if (preMoldadoSignals && !preMoldadoReject) {
+    add("PRE_MOLDADOS", ["pré-moldado", "pre moldado", "pré-fabricado", "pre fabricado", "pilar", "painel", "viga", "laje", "bloco"]
+      .filter((item) => normalized.includes(normalizarTexto(item))));
   }
 
-  if (/(revenda|concession[aá]ria|distribuidora|caminh[aã]o|ve[íi]culo pesado|frota|truck)/.test(normalized)) {
-    add("REVENDAS_CAMINHOES", ["revenda", "concessionária", "caminhão", "veículo pesado", "frota"]);
+  const agenciaSignals = /(concession[aá]ria|revenda|revendedora|multimarcas|ve[ií]culo pesado|caminh[aã]o|caminh[oõ]es|frota|truck|trucks|distribuidora.*caminh[aã]o|ve[ií]culos pesados)/.test(normalized);
+  const agenciaReject = /(porto|aeroporto|logistica|transportadora|obra|construtora|data center|hidro|automotiva|industrial|terminal|pista|biorrefinaria|etanol)/.test(normalized);
+  if (agenciaSignals && !agenciaReject) {
+    add("REVENDAS_CAMINHOES", ["revenda", "concessionária", "caminhão", "veículo pesado", "frota", "truck"]
+      .filter((item) => normalized.includes(normalizarTexto(item))));
   }
 
   return resultados.filter((item) => item.evidencias.length > 0);

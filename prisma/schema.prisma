@@ -1850,6 +1850,139 @@ model RedeSocialConta {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Sprint 2 — Instagram Analytics Real. Distinto de pageId (IG Business
+  // Account ID != Facebook Page ID). Ver Proposta_Tecnica_Sprint2_Instagram_Analytics.docx.
+  instagramBusinessAccountId String?
+
+  metricaSnapshots  MetricaSocialSnapshot[]
+  conteudos         ConteudoSocial[]
+  sincronizacaoLogs SincronizacaoSocialLog[]
+
   @@unique([rede, nome])
   @@index([ativo])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CENTRAL DE MÍDIAS SOCIAIS — Sprint 2 (Instagram Analytics Real).
+// Ver Proposta_Tecnica_Sprint2_Instagram_Analytics.docx para o desenho completo.
+// C1: só schema — sem lógica de sincronização ainda. Snapshots são append-only
+// (nunca sobrescrevem um já existente); ConteudoSocial é upsert por
+// (rede, externalMediaId), nunca duplica.
+// nunca remover, só acrescentar.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum OrigemMetricaSocial {
+  MANUAL
+  API
+}
+
+enum StatusQualidadeMetricaSocial {
+  COMPLETO
+  PARCIAL
+}
+
+enum TipoSnapshotSocial {
+  CONTA
+  MEDIA
+}
+
+enum TipoConteudoSocial {
+  POST
+  REEL
+  CARROSSEL
+  STORY
+}
+
+enum SincronizacaoSocialStatus {
+  SUCESSO
+  PARCIAL
+  ERRO
+}
+
+model MetricaSocialSnapshot {
+  id String @id @default(cuid())
+
+  redeSocialContaId String
+  redeSocialConta   RedeSocialConta @relation(fields: [redeSocialContaId], references: [id], onDelete: Cascade)
+
+  tipo   TipoSnapshotSocial
+  origem OrigemMetricaSocial
+
+  capturadoEm   DateTime
+  periodoInicio DateTime?
+  periodoFim    DateTime?
+
+  seguidores      Int?
+  alcance         Int?
+  visualizacoes   Int?
+  interacoes      Int?
+  visitasPerfil   Int?
+  cliquesBio      Int?
+  quantidadePosts Int?
+
+  metricasExtra Json?
+
+  status StatusQualidadeMetricaSocial
+
+  createdAt DateTime @default(now())
+
+  @@index([redeSocialContaId])
+  @@index([tipo])
+  @@index([capturadoEm])
+}
+
+model ConteudoSocial {
+  id String @id @default(cuid())
+
+  redeSocialContaId String
+  redeSocialConta   RedeSocialConta @relation(fields: [redeSocialContaId], references: [id], onDelete: Cascade)
+
+  rede            RedeSocialTipo
+  externalMediaId String
+  tipo            TipoConteudoSocial
+
+  publicadoEm  DateTime
+  legenda      String? @db.Text
+  url          String?
+  thumbnailUrl String?
+
+  alcance           Int?
+  interacoes        Int?
+  curtidas          Int?
+  comentarios       Int?
+  salvamentos       Int?
+  compartilhamentos Int?
+
+  ultimaSincronizacaoEm DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([rede, externalMediaId])
+  @@index([redeSocialContaId])
+  @@index([publicadoEm])
+}
+
+model SincronizacaoSocialLog {
+  id String @id @default(cuid())
+
+  redeSocialContaId String
+  redeSocialConta   RedeSocialConta @relation(fields: [redeSocialContaId], references: [id], onDelete: Cascade)
+
+  iniciadoEm   DateTime
+  finalizadoEm DateTime?
+
+  status SincronizacaoSocialStatus
+
+  contagemMetricas  Int?
+  contagemConteudos Int?
+  duracaoMs         Int?
+  erro              String? @db.Text
+  tentativa         Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([redeSocialContaId])
+  @@index([status])
+  @@index([iniciadoEm])
 }

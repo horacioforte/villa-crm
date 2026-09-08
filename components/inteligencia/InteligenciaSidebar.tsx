@@ -30,8 +30,7 @@ const menuVisao = [
 // Seção João — ações e ferramentas do agente
 const menuJoao = [
   { label: "Radar", href: "/inteligencia", icon: Radar, exact: true },
-  { label: "Dossiês Comerciais", href: "/inteligencia", icon: FolderOpen, exact: true, badge: true },
-  { label: "Oportunidades", href: "/oportunidades", icon: Target, exact: false },
+  { label: "Dossiês Comerciais", href: "/inteligencia/dossies", icon: FolderOpen, exact: false, badge: true },
   { label: "Minhas Solicitações", href: "/inteligencia/minhas-solicitacoes", icon: Inbox, exact: false },
 ];
 

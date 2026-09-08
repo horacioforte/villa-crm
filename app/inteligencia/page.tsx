@@ -970,262 +970,274 @@ export default function CockpitPage() {
   const categoriasFeeds = [...new Set(feed.map(f => f.categoria))];
   const totalMudancas = mudancas.dossies + mudancas.decisores + mudancas.empresas + mudancas.noticias + mudancas.prontos;
 
+  const attentionCards = [
+    {
+      id: "prioridades",
+      icon: Flame,
+      title: "Prioridades hoje",
+      value: Math.max((dossies.filter((d) => d.status === "PRONTO_PARA_ASSUMIR").length || 0) + (dossies.filter((d) => d.prioridade === "ALTA" && (Date.now() - new Date(d.updatedAt).getTime()) / 86_400_000 > 7).length || 0), 0),
+      detail: "Ações em andamento",
+      href: "/inteligencia#prioridades",
+      accent: "bg-orange-50 border-orange-200 text-orange-700",
+    },
+    {
+      id: "novas-descobertas",
+      icon: Sparkles,
+      title: "Novas descobertas",
+      value: kpis.inteligencia.descobertas,
+      detail: "Últimas 24h",
+      href: "/inteligencia#descobertas",
+      accent: "bg-blue-50 border-blue-200 text-blue-700",
+    },
+    {
+      id: "novos-decisores",
+      icon: UserPlus,
+      title: "Novos decisores",
+      value: kpis.inteligencia.novosDecisores,
+      detail: "Mapeados por João",
+      href: "/inteligencia#decisores",
+      accent: "bg-emerald-50 border-emerald-200 text-emerald-700",
+    },
+    {
+      id: "sem-atualizacao",
+      icon: AlertTriangle,
+      title: "Sem atualização",
+      value: kpis.acao.esquecidos,
+      detail: "+15 dias",
+      href: "/inteligencia#saude",
+      accent: "bg-red-50 border-red-200 text-red-700",
+    },
+  ];
+
+  const radarHealth = {
+    investigando: dossies.filter((d) => d.status === "INVESTIGANDO").length,
+    aguardandoValidacao: dossies.filter((d) => d.status === "AGUARDANDO_VALIDACAO").length,
+    emAnalise: dossies.filter((d) => d.status === "EM_ANALISE").length,
+    maisPesquisa: dossies.filter((d) => d.status === "PEDIR_MAIS_PESQUISA").length,
+    prontoParaAssumir: dossies.filter((d) => d.status === "PRONTO_PARA_ASSUMIR").length,
+    assumido: dossies.filter((d) => d.status === "ASSUMIDO").length,
+    semAtualizacao15Dias: kpis.acao.esquecidos,
+    emRisco: dossies.filter((d) => d.prioridade === "ALTA" && (Date.now() - new Date(d.updatedAt).getTime()) / 86_400_000 > 7).length,
+  };
+
+  const findings = feed
+    .filter((item) => {
+      if (!item.createdAt) return false;
+      const diff = Date.now() - new Date(item.createdAt).getTime();
+      return diff <= 24 * 60 * 60 * 1000;
+    })
+    .slice(0, 8);
+
+  const openCrmIa = (text: string) => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("crm-ia-open", { detail: { text } }));
+  };
+
   return (
-    <>
-      {/* ── Cabeçalho / Topbar ───────────────────────────────────────────── */}
-      <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
-        <div>
-          <h1 className="text-sm font-semibold text-slate-900 leading-tight">
-            Centro de Inteligência Comercial
-          </h1>
-          <p className="text-[11px] text-slate-400">
-            João monitora o mercado · {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "short" })}
-          </p>
-        </div>
+    <div className="flex h-full flex-col bg-[#F4F6FA]">
+      <header className="border-b border-slate-200 bg-white px-5 py-4 lg:px-8">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1E4FAB]">Centro de Inteligência Comercial</p>
+            <h1 className="mt-1 text-2xl font-bold text-slate-900">João monitora o mercado e mostra onde a Villa deve agir.</h1>
+          </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setPainel(painel === "mudou" ? "cockpit" : "mudou")}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
-              painel === "mudou"
-                ? "bg-amber-100 border-amber-200 text-amber-800"
-                : "bg-amber-50 border-amber-100 text-amber-700 hover:bg-amber-100"
-            )}
-          >
-            <History className="h-3.5 w-3.5" />
-            O que mudou?
-            {totalMudancas > 0 && (
-              <span className="bg-amber-600 text-white text-[9px] font-bold px-1 py-0.5 rounded-full min-w-4 text-center">
-                {totalMudancas}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setPainel(painel === "esquecidas" ? "cockpit" : "esquecidas")}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
-              painel === "esquecidas"
-                ? "bg-red-100 border-red-200 text-red-800"
-                : "bg-red-50 border-red-100 text-red-700 hover:bg-red-100"
-            )}
-          >
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Esquecidas
-            {kpis.acao.esquecidos > 0 && (
-              <span className="bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded-full min-w-4 text-center">
-                {kpis.acao.esquecidos}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setPainel(painel === "prioridade" ? "cockpit" : "prioridade")}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
-              painel === "prioridade"
-                ? "bg-blue-100 border-blue-200 text-blue-800"
-                : "bg-blue-50 border-blue-100 text-blue-700 hover:bg-blue-100"
-            )}
-          >
-            <Target className="h-3.5 w-3.5" />
-            Prioridade hoje
-          </button>
-
-          <button onClick={carregar} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title="Atualizar">
-            <RefreshCw className="h-4 w-4 text-slate-400" />
-          </button>
+          <div className="flex flex-wrap items-center justify-start gap-3 xl:justify-end">
+            <div className="text-right text-xs text-slate-500">
+              <div>{new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "short", year: "numeric" })}</div>
+              <div className="mt-1 flex items-center justify-end gap-1.5 text-slate-600">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                {joao?.ultimaDescoberta ? `Última atualização ${formatData(joao.ultimaDescoberta.quando)}` : "Última atualização em tempo real"}
+              </div>
+            </div>
+            <button
+              onClick={carregar}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Atualizar
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* ── KPI Strip — 2 grupos ─────────────────────────────────────────── */}
-      <div className="bg-white border-b border-slate-200 px-4 py-2.5 space-y-2 shrink-0">
-        {/* Grupo 1: Inteligência */}
-        <div>
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
-            <Brain className="h-3 w-3" /> Inteligência — produção das últimas 24h
-          </p>
-          <div className="grid grid-cols-5 gap-2">
-            <KpiChip icone={<FolderPlus  className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novosDossies}       label="Novos dossiês"    cor="blue"  onClick={() => abrirListagem("novos-dossies")} />
-            <KpiChip icone={<RefreshCw   className="h-3.5 w-3.5" />} valor={kpis.inteligencia.dossiesAtualizados} label="Atualizados"       cor="blue"  onClick={() => abrirListagem("atualizados")} />
-            <KpiChip icone={<UserPlus    className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novosDecisores}      label="Novos decisores"  cor="blue"  onClick={() => abrirListagem("novos-decisores")} />
-            <KpiChip icone={<Factory     className="h-3.5 w-3.5" />} valor={kpis.inteligencia.novasEmpresas}       label="Novas empresas"   cor="blue"  onClick={() => abrirListagem("novas-empresas")} />
-            <KpiChip icone={<Sparkles    className="h-3.5 w-3.5" />} valor={kpis.inteligencia.descobertas}         label="Descobertas"      cor="blue"  onClick={() => abrirListagem("descobertas")} />
-          </div>
-        </div>
-        {/* Grupo 2: Ação Comercial */}
-        <div>
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
-            <Target className="h-3 w-3" /> Ação comercial — onde atuar
-          </p>
-          <div className="grid grid-cols-5 gap-2">
-            <KpiChip icone={<ShieldCheck   className="h-3.5 w-3.5" />} valor={kpis.acao.prontos}       label="Prontos p/ Morgana"  cor="green" onClick={() => abrirListagem("prontos")} />
-            <KpiChip icone={<Clock         className="h-3.5 w-3.5" />} valor={kpis.acao.esquecidos}    label="Esquecidos +15d"     cor="red"   onClick={() => abrirListagem("esquecidos")} />
-            <KpiChip icone={<Flame         className="h-3.5 w-3.5" />} valor={kpis.acao.quentes}       label="Quentes"             cor="amber" onClick={() => abrirListagem("quentes")} />
-            <KpiChip icone={<AlertTriangle className="h-3.5 w-3.5" />} valor={kpis.acao.emRisco}       label="Em risco"            cor="red"   onClick={() => abrirListagem("em-risco")} />
-            <KpiChip icone={<Eye           className="h-3.5 w-3.5" />} valor={kpis.acao.aguardandoVal} label="Aguard. validação"   cor="slate" onClick={() => abrirListagem("aguardando-val")} />
-          </div>
-        </div>
-      </div>
+      <main className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-7xl space-y-6 p-5 lg:p-8">
+          <section>
+            <div className="mb-3 flex items-center gap-2">
+              <Target className="h-5 w-5 text-[#1E4FAB]" />
+              <h2 className="text-xl font-semibold text-slate-900">O que merece a sua atenção hoje?</h2>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {attentionCards.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <button
+                    key={card.id}
+                    onClick={() => openCrmIa(card.id === "prioridades" ? "Quais são as prioridades hoje?" : card.id === "novas-descobertas" ? "O que mudou hoje?" : card.id === "novos-decisores" ? "Quais decisores novos João encontrou?" : "Quais dossiês estão sem atualização?")}
+                    className={cn("rounded-3xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md", card.accent)}
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <span className="text-2xl">{card.id === "prioridades" ? "🔥" : card.id === "novas-descobertas" ? "🆕" : card.id === "novos-decisores" ? "👤" : "⚠"}</span>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="text-4xl font-bold leading-none text-slate-900">{card.value}</div>
+                    <div className="mt-2 text-sm font-medium text-slate-700">{card.title}</div>
+                    <div className="mt-1 text-xs text-slate-500">{card.detail}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-      <div className="border-b border-slate-200 bg-white px-4 py-3 shrink-0">
-        <div className="mb-2 flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-slate-500" />
-          <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">CARTEIRAS DO JOÃO</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
-          {carteirasResumo.map((carteira) => (
-            <button
-              key={carteira.slug}
-              onClick={() => router.push(carteira.href)}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition-all hover:border-blue-200 hover:bg-blue-50"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-semibold text-slate-800">{carteira.label}</span>
-                <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700">{carteira.monitorados}</span>
-              </div>
-              <div className="mt-3 space-y-1 text-[10px] text-slate-600">
-                <div className="flex items-center justify-between"><span>Monitorados</span><strong>{carteira.monitorados}</strong></div>
-                <div className="flex items-center justify-between"><span>Sinais recentes</span><strong>{carteira.sinaisRecentes}</strong></div>
-                <div className="flex items-center justify-between"><span>Com momento</span><strong>{carteira.comMomentoReal}</strong></div>
-                <div className="flex items-center justify-between"><span>Alta prioridade</span><strong>{carteira.altaPrioridade}</strong></div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Corpo ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* Painéis alternativos */}
-        {painel === "mudou" && (
-          <PainelMudou mudancas={mudancas} onVoltar={() => setPainel("cockpit")} />
-        )}
-        {painel === "prioridade" && (
-          <PainelPrioridade dossies={dossies} onVoltar={() => setPainel("cockpit")} />
-        )}
-        {painel === "esquecidas" && (
-          <PainelEsquecidas
-            esquecidas={esquecidas}
-            onVoltar={() => setPainel("cockpit")}
-            onDossie={irPara}
-          />
-        )}
-        {painel === "listagem" && listagemKey && (() => {
-          const agora = Date.now();
-          const h24 = agora - 24 * 60 * 60 * 1000;
-          const LISTAGENS: Record<ListagemKey, { titulo: string; subtitulo: string; pred: (d: Dossie) => boolean }> = {
-            "novos-dossies":    { titulo: "Novos dossiês — últimas 24h",             subtitulo: "Dossiês criados pelo João Hunter nas últimas 24 horas",                                pred: d => new Date(d.createdAt).getTime() >= h24 },
-            "atualizados":      { titulo: "Dossiês atualizados — últimas 24h",       subtitulo: "Dossiês que receberam novas informações nas últimas 24h (excluindo os recém-criados)", pred: d => new Date(d.updatedAt).getTime() >= h24 && new Date(d.createdAt).getTime() < h24 },
-            "novos-decisores":  { titulo: "Dossiês com novos decisores — 24h",       subtitulo: "Dossiês atualizados nas últimas 24h com decisores mapeados",                          pred: d => new Date(d.updatedAt).getTime() >= h24 && d.totalDecisores > 0 },
-            "novas-empresas":   { titulo: "Dossiês com novas empresas — 24h",        subtitulo: "Dossiês atualizados nas últimas 24h com empresas/EPCs relacionadas",                  pred: d => new Date(d.updatedAt).getTime() >= h24 && d.totalEmpresas > 0 },
-            "descobertas":      { titulo: "Descobertas recentes — 24h",              subtitulo: "Dossiês com atividade de descoberta nas últimas 24h",                                  pred: d => new Date(d.updatedAt).getTime() >= h24 && (d.totalDecisores > 0 || d.totalEmpresas > 0) },
-            "prontos":          { titulo: "Prontos para assumir",                     subtitulo: "Dossiês aprovados aguardando contato comercial da Morgana",                            pred: d => d.status === "PRONTO_PARA_ASSUMIR" },
-            "esquecidos":       { titulo: "Esquecidos — sem atualização há +15 dias", subtitulo: "Oportunidades em risco de perder a janela comercial",                                 pred: d => (agora - new Date(d.updatedAt).getTime()) / 86_400_000 > 15 },
-            "quentes":          { titulo: "Dossiês quentes — score ≥ 75",             subtitulo: "Oportunidades de alto potencial identificadas pelo João Hunter",                       pred: d => d.score >= 75 },
-            "em-risco":         { titulo: "Em risco — alta prioridade parada há +7 dias", subtitulo: "Dossiês prioritários sem atualização recente",                                    pred: d => d.prioridade === "ALTA" && (agora - new Date(d.updatedAt).getTime()) / 86_400_000 > 7 },
-            "aguardando-val":   { titulo: "Aguardando validação",                    subtitulo: "Dossiês que precisam de revisão antes de ir para a Morgana",                           pred: d => d.status === "AGUARDANDO_VALIDACAO" },
-          };
-          const cfg = LISTAGENS[listagemKey];
-          return (
-            <PainelListagem
-              titulo={cfg.titulo}
-              subtitulo={cfg.subtitulo}
-              dossies={dossies.filter(cfg.pred)}
-              onVoltar={() => { setPainel("cockpit"); setListagemKey(null); }}
-              onDossie={irPara}
-              onAssumir={assumirDossie}
-            />
-          );
-        })()}
-
-        {/* Painel principal: Kanban + Feed */}
-        {painel === "cockpit" && (
-          <>
-            {/* Kanban */}
-            <div className="flex-1 overflow-auto p-3 space-y-3">
-              {/* Pesquisa inteligente */}
-              <div className="flex gap-2 items-center">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Ex: prontos · mineração · sem EPC · alta prioridade · MG · acima de 500 milhões..."
-                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-                    value={busca}
-                    onChange={e => setBusca(e.target.value)}
-                  />
-                  {busca && (
-                    <button
-                      onClick={() => setBusca("")}
-                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
-                    >✕</button>
-                  )}
+          <section className="grid gap-6 xl:grid-cols-[1.65fr_0.95fr]">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-[#1E4FAB]" />
+                  <h2 className="text-lg font-semibold text-slate-900">Carteiras do João</h2>
                 </div>
-                <button
-                  onClick={() => setMostrarAssumidos(v => !v)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 text-xs border rounded-lg transition-colors text-slate-500 shrink-0",
-                    mostrarAssumidos
-                      ? "bg-slate-100 border-slate-300 text-slate-700"
-                      : "bg-white border-slate-200 hover:bg-slate-50"
-                  )}
-                >
-                  {mostrarAssumidos ? "Ocultar assumidos" : "Ver assumidos"}
-                </button>
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400">Resumo</span>
               </div>
 
-              {/* Colunas Kanban */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                {COLUNAS_KANBAN.map(status => {
-                  const cfg = STATUS_CFG[status];
-                  const lista = dossiesFiltrados.filter(d => d.status === status);
-                  return (
-                    <div key={status}>
-                      <div className={cn("flex items-center gap-1.5 px-2 py-1.5 rounded-lg border mb-2", cfg.bgBorder)}>
-                        <span className={cfg.textCor}>{cfg.icone}</span>
-                        <span className={cn("text-[10px] font-semibold flex-1", cfg.textCor)}>{cfg.label}</span>
-                        <span className={cn("text-[10px] font-bold", cfg.textCor)}>{lista.length}</span>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                {carteirasResumo.map((carteira) => (
+                  <button
+                    key={carteira.slug}
+                    onClick={() => router.push(carteira.href)}
+                    className="group rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-[#D7DEEA] hover:bg-[#E8EEFB]"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm font-semibold text-slate-800">{carteira.label}</div>
+                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700">{carteira.monitorados}</span>
+                    </div>
+
+                    <div className="mt-3 space-y-2 text-[11px] text-slate-600">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-1.5"><Flame className="h-3 w-3 text-orange-500" /> com momento</span>
+                        <strong>{carteira.comMomentoReal}</strong>
                       </div>
-                      <div className="space-y-2 min-h-12">
-                        {lista.map(d => (
-                          <CardDossie
-                            key={d.id}
-                            dossie={d}
-                            onClick={() => irPara(d.id)}
-                            onAssumir={d.status === "PRONTO_PARA_ASSUMIR" ? () => assumirDossie(d.id) : undefined}
-                          />
-                        ))}
-                        {lista.length === 0 && (
-                          <p className="text-[10px] text-slate-300 text-center py-3">—</p>
-                        )}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-1.5"><TrendingUp className="h-3 w-3 text-emerald-500" /> mudanças</span>
+                        <strong>{carteira.sinaisRecentes}</strong>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-1.5"><Target className="h-3 w-3 text-[#1E4FAB]" /> prioridades</span>
+                        <strong>{carteira.altaPrioridade}</strong>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
 
-              {/* Assumidos */}
-              {mostrarAssumidos && (
-                <div className="mt-2 space-y-2">
-                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Assumidos</p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                    {dossiesFiltrados
-                      .filter(d => d.status === "ASSUMIDO")
-                      .map(d => (
-                        <CardDossie key={d.id} dossie={d} onClick={() => irPara(d.id)} />
-                      ))}
-                  </div>
-                </div>
-              )}
+                    <div className="mt-3 text-xs font-medium text-[#1E4FAB]">Ver carteira →</div>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Feed de Inteligência — ocultado a pedido de Horacio (13/07/2026) */}
-          </>
-        )}
-      </div>
-    </>
+            <div className="rounded-3xl border border-[#D7DEEA] bg-[#1A2E5A] p-4 text-white shadow-sm">
+              <div className="mb-3 flex items-center gap-2">
+                <Bot className="h-5 w-5 text-blue-200" />
+                <h2 className="text-lg font-semibold">Pergunte ao João</h2>
+              </div>
+              <p className="text-sm text-blue-100">
+                Use linguagem natural para analisar o mercado, encontrar empresas ou tirar dúvidas.
+              </p>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
+                <textarea
+                  readOnly
+                  value="Ex: Quais são as melhores oportunidades em Pernambuco hoje?"
+                  className="h-16 w-full resize-none border-none bg-transparent text-sm text-blue-100 placeholder:text-blue-200 focus:outline-none"
+                />
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "O que mudou hoje?",
+                  "Onde devo atuar?",
+                  "Quais obras estão entrando em concretagem?",
+                  "Quais empresas precisam de investigação?",
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => openCrmIa(prompt)}
+                    className="block w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-blue-50 transition hover:bg-white/10"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Zap className="h-5 w-5 text-[#1E4FAB]" />
+              <h2 className="text-xl font-semibold text-slate-900">João encontrou hoje</h2>
+            </div>
+
+            {findings.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+                Nenhuma descoberta relevante nas últimas 24h.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {findings.map((item) => (
+                  <div key={item.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8EEFB] text-[#1E4FAB]">
+                        {item.categoria === "Decisor" ? <UserCheck className="h-5 w-5" /> : item.categoria === "Empresa" ? <Building2 className="h-5 w-5" /> : item.categoria === "Notícia" ? <Newspaper className="h-5 w-5" /> : <Target className="h-5 w-5" />}
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{item.categoria}</span>
+                          <span className="text-[10px] text-slate-400">{formatData(item.createdAt)}</span>
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-slate-800">{item.titulo}</div>
+                        <div className="text-xs text-slate-500">{item.dossieTitulo}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 md:justify-end">
+                      <span className="rounded-full bg-slate-200 px-2 py-1 text-[10px] font-medium text-slate-600">{item.categoria}</span>
+                      {item.dossieId ? (
+                        <button
+                          onClick={() => router.push(`/inteligencia/${item.dossieId}`)}
+                          className="rounded-lg bg-[#1E4FAB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1A2E5A]"
+                        >
+                          Ver dossiê
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section id="saude" className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-[#1E4FAB]" />
+              <h2 className="text-xl font-semibold text-slate-900">Saúde do Radar</h2>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+              {[
+                { label: "Investigando", value: radarHealth.investigando, tone: "bg-blue-50 text-blue-700" },
+                { label: "Aguardando validação", value: radarHealth.aguardandoValidacao, tone: "bg-amber-50 text-amber-700" },
+                { label: "Em análise", value: radarHealth.emAnalise, tone: "bg-violet-50 text-violet-700" },
+                { label: "Mais pesquisa", value: radarHealth.maisPesquisa, tone: "bg-orange-50 text-orange-700" },
+                { label: "Pronto p/ assumir", value: radarHealth.prontoParaAssumir, tone: "bg-emerald-50 text-emerald-700" },
+                { label: "Assumido", value: radarHealth.assumido, tone: "bg-slate-100 text-slate-700" },
+                { label: "Sem atualização >15 dias", value: radarHealth.semAtualizacao15Dias, tone: "bg-red-50 text-red-700" },
+                { label: "Em risco", value: radarHealth.emRisco, tone: "bg-red-100 text-red-800" },
+              ].map((item) => (
+                <div key={item.label} className={cn("rounded-2xl border border-slate-200 p-3", item.tone)}>
+                  <div className="text-3xl font-bold leading-none">{item.value}</div>
+                  <div className="mt-2 text-[11px] leading-tight text-slate-700">{item.label}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
   );
 }

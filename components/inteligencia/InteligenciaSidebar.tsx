@@ -9,7 +9,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  BarChart2,
   Bot,
   Brain,
   Building2,
@@ -18,24 +17,22 @@ import {
   FolderOpen,
   Inbox,
   Radar,
-  Settings,
   Target,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CARTEIRAS_JOAO } from "@/lib/inteligencia/carteiras";
 
-// Top tabs for the Intelligence center (Roadmap step 1)
-const topTabs = [
-  { label: "Radar",    href: "/inteligencia",               icon: Radar },
-  { label: "LinkedIn", href: "/inteligencia/linkedin",     icon: Users },
-  { label: "Campanhas",href: "/inteligencia/campanhas",    icon: Target },
+// Centro de Inteligência — entrada principal
+const menuVisao = [
+  { label: "Visão Geral", href: "/inteligencia", icon: Brain, exact: true },
 ];
 
-const menuPrincipal = [
-  { label: "Visão Geral",          href: "/inteligencia",  icon: Brain,      exact: true },
-  { label: "Dossiês Comerciais",   href: "/inteligencia",  icon: FolderOpen, exact: true, badge: true },
-  { label: "Radar de Oportunidades", href: "/inteligencia", icon: Radar,     exact: false },
+// Seção João — ações e ferramentas do agente
+const menuJoao = [
+  { label: "Radar", href: "/inteligencia", icon: Radar, exact: true },
+  { label: "Dossiês Comerciais", href: "/inteligencia", icon: FolderOpen, exact: true, badge: true },
+  { label: "Oportunidades", href: "/oportunidades", icon: Target, exact: false },
+  { label: "Minhas Solicitações", href: "/inteligencia/minhas-solicitacoes", icon: Inbox, exact: false },
 ];
 
 const menuCarteiras = [
@@ -43,20 +40,22 @@ const menuCarteiras = [
   { label: "Minha Casa Minha Vida", href: "/inteligencia/carteiras/mcmv", icon: Building2, exact: false },
   { label: "Pré-moldados", href: "/inteligencia/carteiras/pre-moldados", icon: Target, exact: false },
   { label: "Concreteiras", href: "/inteligencia/carteiras/concreteiras", icon: Factory, exact: false },
-  { label: "Agência de Caminhões", href: "/inteligencia/carteiras/revendas-caminhoes", icon: Users, exact: false },
+  { label: "Agências de Caminhões", href: "/inteligencia/carteiras/revendas-caminhoes", icon: Users, exact: false },
 ];
 
-const menuDados = [
-  { label: "Empresas",   href: "/inteligencia", icon: Building2, exact: false },
-  { label: "Decisores",  href: "/inteligencia", icon: Users,     exact: false },
-  { label: "Campanhas",  href: "/campanhas",    icon: Target,    exact: false },
+const menuComercial = [
+  { label: "Empresas", href: "/empresas", icon: Building2, exact: false },
+  { label: "Decisores", href: "/contatos", icon: Users, exact: false },
+  { label: "Campanhas", href: "/campanhas", icon: Target, exact: false },
 ];
 
-const menuSistema = [
-  { label: "João Hunter IA",  href: "/inteligencia", icon: Bot,      exact: false },
-  { label: "Analytics",       href: "/inteligencia", icon: BarChart2,exact: false },
-  { label: "Configurações",   href: "/inteligencia", icon: Settings, exact: false },
+const menuCanais = [
+  { label: "LinkedIn", href: "/inteligencia/linkedin", icon: Users, exact: false },
 ];
+
+// menuSistema mantido para compatibilidade futura — itens removidos da nav principal
+// conforme redesign executivo 08/09/2026 (mantidos aqui, não excluídos)
+const menuSistema: typeof menuVisao = [];
 
 type MenuItem = { label: string; href: string; icon: React.ComponentType<{ className?: string }>; exact: boolean; badge?: boolean };
 
@@ -134,72 +133,44 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
           <span className="text-sm font-semibold text-slate-200 leading-tight group-hover:text-white transition-colors">Villa<br />Empreendimentos</span>
         </Link>
       </div>
-      {/* Top Tabs (Radar / LinkedIn / Campanhas) */}
-      <div className="px-3 pt-3">
-        <div className="flex items-center gap-2">
-          {topTabs.map(tab => {
-            const active = pathname === tab.href || pathname?.startsWith(tab.href + "/");
-            return (
-              <Link
-                key={tab.label}
-                href={tab.href}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-1 rounded-lg text-sm",
-                  active ? "bg-blue-600 text-white font-semibold" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
-                )}
-              >
-                <tab.icon className="h-4 w-4" />
-                <span className="text-xs">{tab.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        {menuPrincipal.map(item => (
-          <NavItem key={item.label} item={item} pathname={pathname} totalDossies={totalDossies} />
+        <p className="px-3 pt-1 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+          Centro de Inteligência
+        </p>
+        {menuVisao.map(item => (
+          <NavItem key={item.label} item={item} pathname={pathname} />
         ))}
 
         <p className="px-3 pt-4 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">
-          CARTEIRAS DO JOÃO
+          João
+        </p>
+        {menuJoao.map(item => (
+          <NavItem key={item.label} item={item} pathname={pathname} totalDossies={item.badge ? joao?.totalDossies ?? totalDossies : undefined} />
+        ))}
+
+        <p className="px-3 pt-4 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+          Carteiras do João
         </p>
         {menuCarteiras.map(item => (
           <NavItem key={item.label} item={item} pathname={pathname} />
         ))}
 
         <p className="px-3 pt-4 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">
-          Minhas
+          Comercial
         </p>
-        <Link
-          href="/inteligencia/minhas-solicitacoes"
-          className={cn(
-            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
-            pathname === "/inteligencia/minhas-solicitacoes"
-              ? "bg-indigo-600/20 text-indigo-300 font-medium"
-              : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-          )}
-        >
-          <Inbox className="h-4 w-4 flex-shrink-0" />
-          <span className="flex-1">Minhas Solicitações</span>
-          {solicitacoesCount > 0 && (
-            <span className="bg-indigo-600/30 text-indigo-300 text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
-              {solicitacoesCount}
-            </span>
-          )}
-        </Link>
-
-        <p className="px-3 pt-4 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">
-          Dados
-        </p>
-        {menuDados.map(item => (
+        {menuComercial.map(item => (
           <NavItem key={item.label} item={item} pathname={pathname} />
         ))}
 
         <p className="px-3 pt-4 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">
-          Sistema
+          Canais
         </p>
+        {menuCanais.map(item => (
+          <NavItem key={item.label} item={item} pathname={pathname} />
+        ))}
+
+        <div className="pt-4" />
         {menuSistema.map(item => (
           <NavItem key={item.label} item={item} pathname={pathname} />
         ))}

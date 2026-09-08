@@ -28,8 +28,9 @@ const menuVisao = [
 ];
 
 // Seção João — ações e ferramentas do agente
+// Radar removido da nav em 08/09/2026 (não tinha página própria — duplicava Visão Geral).
+// Manter aqui para referência futura quando /inteligencia/radar for criado.
 const menuJoao = [
-  { label: "Radar", href: "/inteligencia", icon: Radar, exact: true },
   { label: "Dossiês Comerciais", href: "/inteligencia/dossies", icon: FolderOpen, exact: false, badge: true },
   { label: "Minhas Solicitações", href: "/inteligencia/minhas-solicitacoes", icon: Inbox, exact: false },
 ];

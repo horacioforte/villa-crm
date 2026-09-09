@@ -124,7 +124,7 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
         <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500 mb-2">
           Centro de Inteligência
         </p>
-        <Link href="/oportunidades" className="flex items-center gap-2 group">
+        <Link href="/" className="flex items-center gap-2 group">
           <div
             className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 group-hover:opacity-80 transition-opacity"
             style={{ background: "#1A3A6B" }}

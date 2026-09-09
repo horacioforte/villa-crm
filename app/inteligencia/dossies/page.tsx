@@ -80,17 +80,18 @@ type Dossie = {
 
 const STATUS_CFG: Record<StatusDossie, {
   label: string;
+  descricao: string;
   textCor: string;
   bgBorder: string;
   icone: React.ReactNode;
 }> = {
-  INVESTIGANDO:         { label: "Investigando",       textCor: "text-blue-700",    bgBorder: "bg-blue-50 border-blue-200",       icone: <Search className="h-3 w-3" /> },
-  AGUARDANDO_VALIDACAO: { label: "Aguard. Validação",  textCor: "text-amber-700",   bgBorder: "bg-amber-50 border-amber-200",     icone: <Eye className="h-3 w-3" /> },
-  EM_ANALISE:           { label: "Em Análise",         textCor: "text-purple-700",  bgBorder: "bg-purple-50 border-purple-200",   icone: <Brain className="h-3 w-3" /> },
-  PEDIR_MAIS_PESQUISA:  { label: "Mais Pesquisa",      textCor: "text-orange-700",  bgBorder: "bg-orange-50 border-orange-200",   icone: <RefreshCw className="h-3 w-3" /> },
-  PRONTO_PARA_ASSUMIR:  { label: "Pronto p/ Assumir",  textCor: "text-emerald-700", bgBorder: "bg-emerald-50 border-emerald-200", icone: <ShieldCheck className="h-3 w-3" /> },
-  ASSUMIDO:             { label: "Assumido",           textCor: "text-slate-500",   bgBorder: "bg-slate-50 border-slate-200",     icone: <TrendingUp className="h-3 w-3" /> },
-  ARQUIVADO:            { label: "Arquivado",          textCor: "text-slate-400",   bgBorder: "bg-slate-50 border-slate-100",     icone: <ChevronDown className="h-3 w-3" /> },
+  INVESTIGANDO:         { label: "Investigando",         descricao: "João buscando dados, decisores e sinais de obra",          textCor: "text-blue-700",    bgBorder: "bg-blue-50 border-blue-200",       icone: <Search className="h-3 w-3" /> },
+  AGUARDANDO_VALIDACAO: { label: "Decisor Mapeado",      descricao: "João encontrou nome, cargo e contato de quem decide",       textCor: "text-amber-700",   bgBorder: "bg-amber-50 border-amber-200",     icone: <Eye className="h-3 w-3" /> },
+  EM_ANALISE:           { label: "Em Análise — Morgana", descricao: "Morgana revisando o dossiê e validando a oportunidade",    textCor: "text-purple-700",  bgBorder: "bg-purple-50 border-purple-200",   icone: <Brain className="h-3 w-3" /> },
+  PEDIR_MAIS_PESQUISA:  { label: "Mais Pesquisa",        descricao: "Morgana pediu aprofundamento — João retoma investigação",  textCor: "text-orange-700",  bgBorder: "bg-orange-50 border-orange-200",   icone: <RefreshCw className="h-3 w-3" /> },
+  PRONTO_PARA_ASSUMIR:  { label: "Pronto para Abordar",  descricao: "Aprovado por Morgana — momento e decisor confirmados",     textCor: "text-emerald-700", bgBorder: "bg-emerald-50 border-emerald-200", icone: <ShieldCheck className="h-3 w-3" /> },
+  ASSUMIDO:             { label: "Oportunidade Gerada",  descricao: "Morgana gerou oportunidade no pipeline comercial",         textCor: "text-indigo-600",  bgBorder: "bg-indigo-50 border-indigo-200",   icone: <TrendingUp className="h-3 w-3" /> },
+  ARQUIVADO:            { label: "Arquivado",            descricao: "Descartado ou fora do momento comercial",                  textCor: "text-slate-400",   bgBorder: "bg-slate-50 border-slate-100",     icone: <ChevronDown className="h-3 w-3" /> },
 };
 
 const COLUNAS_KANBAN: StatusDossie[] = [
@@ -279,9 +280,9 @@ function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: (
       {dossie.status === "PRONTO_PARA_ASSUMIR" && onAssumir && (
         <button
           onClick={e => { e.stopPropagation(); onAssumir(); }}
-          className="w-full text-[10px] py-1.5 rounded bg-emerald-600 text-white font-semibold hover:bg-emerald-700 active:scale-95 transition-all"
+          className="w-full text-[10px] py-1.5 rounded bg-indigo-600 text-white font-semibold hover:bg-indigo-700 active:scale-95 transition-all"
         >
-          Assumir dossiê →
+          🚀 Gerar Oportunidade →
         </button>
       )}
     </div>
@@ -393,7 +394,7 @@ export default function DossiesPage() {
             mostrarAssumidos ? "bg-slate-100 border-slate-300 text-slate-700" : "bg-white border-slate-200 hover:bg-slate-50"
           )}
         >
-          {mostrarAssumidos ? "Ocultar assumidos" : "Ver assumidos"}
+          {mostrarAssumidos ? "Ocultar oport. geradas" : "Ver oport. geradas"}
         </button>
         {busca && (
           <span className="text-[11px] text-slate-400 shrink-0">{dossiesFiltrados.length} resultado{dossiesFiltrados.length !== 1 ? "s" : ""}</span>
@@ -408,9 +409,9 @@ export default function DossiesPage() {
             const lista = dossiesFiltrados.filter(d => d.status === status);
             return (
               <div key={status}>
-                <div className={cn("flex items-center gap-1.5 px-2 py-1.5 rounded-lg border mb-2", cfg.bgBorder)}>
+                <div title={cfg.descricao} className={cn("flex items-center gap-1.5 px-2 py-1.5 rounded-lg border mb-2 cursor-help", cfg.bgBorder)}>
                   <span className={cfg.textCor}>{cfg.icone}</span>
-                  <span className={cn("text-[10px] font-semibold flex-1", cfg.textCor)}>{cfg.label}</span>
+                  <span className={cn("text-[10px] font-semibold flex-1 leading-tight", cfg.textCor)}>{cfg.label}</span>
                   <span className={cn("text-[10px] font-bold", cfg.textCor)}>{lista.length}</span>
                 </div>
                 <div className="space-y-2 min-h-12">
@@ -431,10 +432,10 @@ export default function DossiesPage() {
           })}
         </div>
 
-        {/* Assumidos (colapsáveis) */}
+        {/* Oportunidades Geradas (colapsáveis) */}
         {mostrarAssumidos && (
           <div className="mt-2 space-y-2">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Assumidos</p>
+            <p className="text-xs font-medium text-indigo-400 uppercase tracking-wider">🚀 Oportunidades Geradas</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
               {dossiesFiltrados
                 .filter(d => d.status === "ASSUMIDO")

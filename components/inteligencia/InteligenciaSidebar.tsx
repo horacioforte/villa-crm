@@ -30,9 +30,11 @@ const menuVisao = [
 // Seção João — ações e ferramentas do agente
 // Radar removido da nav em 08/09/2026 (não tinha página própria — duplicava Visão Geral).
 // Manter aqui para referência futura quando /inteligencia/radar for criado.
+// LinkedIn movido de Canais para cá em 09/09/2026 a pedido de Horácio.
 const menuJoao = [
   { label: "Dossiês Comerciais", href: "/inteligencia/dossies", icon: FolderOpen, exact: false, badge: true },
   { label: "Minhas Solicitações", href: "/inteligencia/minhas-solicitacoes", icon: Inbox, exact: false },
+  { label: "LinkedIn", href: "/inteligencia/linkedin", icon: Users, exact: false },
 ];
 
 const menuCarteiras = [
@@ -49,9 +51,8 @@ const menuComercial = [
   { label: "Campanhas", href: "/campanhas", icon: Target, exact: false },
 ];
 
-const menuCanais = [
-  { label: "LinkedIn", href: "/inteligencia/linkedin", icon: Users, exact: false },
-];
+// menuCanais: LinkedIn movido para menuJoao em 09/09/2026. Array mantido para referência futura.
+const menuCanais: typeof menuVisao = [];
 
 // menuSistema mantido para compatibilidade futura — itens removidos da nav principal
 // conforme redesign executivo 08/09/2026 (mantidos aqui, não excluídos)
@@ -163,34 +164,37 @@ export function InteligenciaSidebar({ totalDossies }: Props) {
           <NavItem key={item.label} item={item} pathname={pathname} />
         ))}
 
-        <p className="px-3 pt-4 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">
-          Canais
-        </p>
-        {menuCanais.map(item => (
-          <NavItem key={item.label} item={item} pathname={pathname} />
-        ))}
+        {/* Canais: seção ocultada em 09/09/2026 — LinkedIn migrado para seção João */}
+        {menuCanais.length > 0 && (
+          <>
+            <p className="px-3 pt-4 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">Canais</p>
+            {menuCanais.map(item => <NavItem key={item.label} item={item} pathname={pathname} />)}
+          </>
+        )}
 
         <div className="pt-4" />
         {menuSistema.map(item => (
           <NavItem key={item.label} item={item} pathname={pathname} />
         ))}
 
-        {/* Saída */}
-        <div className="pt-5 pb-1">
-          <div
-            className="mx-1 rounded-lg p-2.5"
-            style={{ background: "rgba(255,255,255,0.03)", border: "0.5px solid rgba(255,255,255,0.06)" }}
-          >
-            <p className="text-[9px] text-slate-600 mb-1.5">Saída da Central</p>
-            <Link
-              href="/oportunidades"
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+        {/* Saída: "Voltar ao CRM Comercial" ocultado em 09/09/2026 a pedido de Horácio. Código mantido. */}
+        {false && (
+          <div className="pt-5 pb-1">
+            <div
+              className="mx-1 rounded-lg p-2.5"
+              style={{ background: "rgba(255,255,255,0.03)", border: "0.5px solid rgba(255,255,255,0.06)" }}
             >
-              <ChevronLeft className="h-3 w-3" />
-              Voltar ao CRM Comercial
-            </Link>
+              <p className="text-[9px] text-slate-600 mb-1.5">Saída da Central</p>
+              <Link
+                href="/oportunidades"
+                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                <ChevronLeft className="h-3 w-3" />
+                Voltar ao CRM Comercial
+              </Link>
+            </div>
           </div>
-        </div>
+        )}
       </nav>
 
       {/* João status — identificação simplificada (detalhes ocultados a pedido de Horacio 13/07/2026) */}

@@ -626,67 +626,6 @@ export default function DossieDetalhe() {
         </div>
       </div>
 
-      {/* ── Missão do João ── */}
-      {dossie.missaoAtual && !jaAssumido && !arquivado && (
-        <div className="bg-blue-950 px-5 py-3.5">
-          <div className="flex items-start gap-3">
-            <Target className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-blue-400 uppercase tracking-widest mb-1">Missão Atual</p>
-              <p className="text-sm font-semibold text-white leading-snug">{dossie.missaoAtual}</p>
-              <div className="flex items-center gap-3 mt-2 flex-wrap">
-                <span className="text-xs text-blue-400">🔄 Em andamento</span>
-                <span className="text-blue-800 text-xs">·</span>
-                <span className="text-xs text-blue-400">
-                  {dossie.prioridade === "URGENTE" ? "🔴 Urgente" :
-                   dossie.prioridade === "ALTA"    ? "🟠 Alta prioridade" :
-                                                    "🟡 Prioridade média"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {(dossie.potencialVilla !== null || dossie.momentoVilla !== null || dossie.prontidao !== null || dossie.prioridadeJoao !== null || dossie.motivoPrioridade) && (
-        <div className="bg-white border-b px-4 py-3">
-          <div className="flex items-center gap-2 mb-2">
-            <Brain className="h-4 w-4 text-blue-600" />
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Semântica João</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Potencial</p>
-              <p className="mt-1 text-lg font-bold text-slate-800">{dossie.potencialVilla ?? "—"}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Momento</p>
-              <p className="mt-1 text-lg font-bold text-slate-800">{dossie.momentoVilla ?? "—"}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Prontidão</p>
-              <p className="mt-1 text-lg font-bold text-slate-800">{dossie.prontidao ?? "—"}</p>
-            </div>
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-2.5">
-              <p className="text-[10px] text-blue-700 uppercase tracking-widest">Prioridade</p>
-              <p className="mt-1 text-lg font-bold text-blue-900">{dossie.prioridadeJoao ?? "—"}</p>
-            </div>
-          </div>
-          {dossie.motivoPrioridade && (
-            <p className="mt-3 text-xs text-slate-600 leading-relaxed">{dossie.motivoPrioridade}</p>
-          )}
-        </div>
-      )}
-
-      {/* ── Widget de maturidade ── */}
-      {nivelAtual !== "ARQUIVADO" && (
-        <WidgetMaturidade
-          nivelAtual={nivelAtual}
-          gatesFaltantes={maturidade.gatesFaltantes}
-          criteriosParaProximo={maturidade.criteriosParaProximo}
-          completude={dossie.completude}
-        />
-      )}
 
       {/* ── Assumido ── */}
       {jaAssumido && (
@@ -802,7 +741,73 @@ export default function DossieDetalhe() {
       </div>
 
       {/* ── Conteúdo ── */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto">
+
+        {/* ── Missão do João (dentro da área scrollável) ── */}
+        {dossie.missaoAtual && !jaAssumido && !arquivado && (
+          <div className="bg-blue-950 px-5 py-3.5">
+            <div className="flex items-start gap-3">
+              <Target className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-blue-400 uppercase tracking-widest mb-1">Missão Atual</p>
+                <p className="text-sm font-semibold text-white leading-snug">{dossie.missaoAtual}</p>
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                  <span className="text-xs text-blue-400">🔄 Em andamento</span>
+                  <span className="text-blue-800 text-xs">·</span>
+                  <span className="text-xs text-blue-400">
+                    {dossie.prioridade === "URGENTE" ? "🔴 Urgente" :
+                     dossie.prioridade === "ALTA"    ? "🟠 Alta prioridade" :
+                                                      "🟡 Prioridade média"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Semântica João (dentro da área scrollável) ── */}
+        {(dossie.potencialVilla !== null || dossie.momentoVilla !== null || dossie.prontidao !== null || dossie.prioridadeJoao !== null || dossie.motivoPrioridade) && (
+          <div className="bg-white border-b px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Brain className="h-4 w-4 text-blue-600" />
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Semântica João</p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest">Potencial</p>
+                <p className="mt-1 text-lg font-bold text-slate-800">{dossie.potencialVilla ?? "—"}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest">Momento</p>
+                <p className="mt-1 text-lg font-bold text-slate-800">{dossie.momentoVilla ?? "—"}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest">Prontidão</p>
+                <p className="mt-1 text-lg font-bold text-slate-800">{dossie.prontidao ?? "—"}</p>
+              </div>
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-2.5">
+                <p className="text-[10px] text-blue-700 uppercase tracking-widest">Prioridade</p>
+                <p className="mt-1 text-lg font-bold text-blue-900">{dossie.prioridadeJoao ?? "—"}</p>
+              </div>
+            </div>
+            {dossie.motivoPrioridade && (
+              <p className="mt-3 text-xs text-slate-600 leading-relaxed">{dossie.motivoPrioridade}</p>
+            )}
+          </div>
+        )}
+
+        {/* ── Widget de maturidade (dentro da área scrollável) ── */}
+        {nivelAtual !== "ARQUIVADO" && (
+          <WidgetMaturidade
+            nivelAtual={nivelAtual}
+            gatesFaltantes={maturidade.gatesFaltantes}
+            criteriosParaProximo={maturidade.criteriosParaProximo}
+            completude={dossie.completude}
+          />
+        )}
+
+        {/* ── Tab content ── */}
+        <div className="p-4">
 
         {/* ─────────────────────────────── RESUMO EXECUTIVO ─── */}
         {abaAtiva === "resumo" && (
@@ -1297,7 +1302,8 @@ export default function DossieDetalhe() {
           );
         })()}
 
-      </div>
+        </div>{/* fim p-4 tab content */}
+      </div>{/* fim overflow-auto */}
     </div>
   );
 }

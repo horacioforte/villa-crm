@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
   // ── 1. Dossiês ativos (todas as colunas do kanban, exceto ARQUIVADO) ────────
   const dossiesRaw = await prisma.dossieComercial.findMany({
-    where: { status: { notIn: ["ARQUIVADO"] } },
+    where: { status: { notIn: ["ARQUIVADO"] }, carteiras: { none: {} } },
     orderBy: [{ status: "asc" }, { score: "desc" }, { updatedAt: "desc" }],
     take: 500,
     include: {

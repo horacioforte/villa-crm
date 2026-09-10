@@ -2,33 +2,41 @@
 
 // ARQUIVO: app/inteligencia/dossies/page.tsx
 // REGRA: nunca remover. Apenas acrescentar.
-// Kanban operacional de Dossiês Comerciais do João.
-// Restaurado do cockpit original conforme solicitação de Horácio (08/09/2026).
+// Kanban de Maturidade da Investigação — 5 colunas:
+//   🔎 Investigação A | 🧠 Investigação B | 🎯 Investigação C
+//   | 🟢 Pronto para Morgana | 🟣 Oportunidade Gerada
+//
+// Usa a função calcularNivelInvestigacao() de lib/inteligencia/maturidade.ts
+// como ÚNICA fonte de verdade para exibição dos níveis.
+//
+// Histórico:
+//   08/09/2026 — criado (kanban 6 colunas StatusDossie)
+//   09/09/2026 — funil 5 colunas com labels comerciais (Morgana)
+//   10/09/2026 — funil de maturidade da investigação (Fases 0–27)
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
-  Bell,
   Brain,
-  Building2,
   ChevronDown,
-  Clock,
-  Eye,
-  Factory,
-  FolderPlus,
   Loader2,
-  Newspaper,
   RefreshCw,
   Search,
   ShieldCheck,
   Target,
   TrendingUp,
-  UserCheck,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  NIVEL_CFG,
+  NivelLabel,
+  calcularNivelInvestigacao,
+  statusParaNivel,
+  THRESHOLDS,
+} from "@/lib/inteligencia/maturidade";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +64,8 @@ type Dossie = {
   epcm?: string | null;
   licenciamento?: string | null;
   valorEstimado?: string | null;
+  faseObra?: string | null;
+  cronograma?: string | null;
   score: number;
   completude: number;
   maturidadeComercial: number;
@@ -76,32 +86,10 @@ type Dossie = {
   empresa?: { id: string; razaoSocial: string } | null;
 };
 
-// ─── Configurações ────────────────────────────────────────────────────────────
+// ─── Colunas do Kanban ────────────────────────────────────────────────────────
 
-const STATUS_CFG: Record<StatusDossie, {
-  label: string;
-  descricao: string;
-  textCor: string;
-  bgBorder: string;
-  icone: React.ReactNode;
-}> = {
-  INVESTIGANDO:         { label: "Investigando",         descricao: "João buscando dados, decisores e sinais de obra",          textCor: "text-blue-700",    bgBorder: "bg-blue-50 border-blue-200",       icone: <Search className="h-3 w-3" /> },
-  AGUARDANDO_VALIDACAO: { label: "Decisor Mapeado",      descricao: "João encontrou nome, cargo e contato de quem decide",       textCor: "text-amber-700",   bgBorder: "bg-amber-50 border-amber-200",     icone: <Eye className="h-3 w-3" /> },
-  EM_ANALISE:           { label: "Em Análise — Morgana", descricao: "Morgana revisando o dossiê e validando a oportunidade",    textCor: "text-purple-700",  bgBorder: "bg-purple-50 border-purple-200",   icone: <Brain className="h-3 w-3" /> },
-  PEDIR_MAIS_PESQUISA:  { label: "Mais Pesquisa",        descricao: "Morgana pediu aprofundamento — João retoma investigação",  textCor: "text-orange-700",  bgBorder: "bg-orange-50 border-orange-200",   icone: <RefreshCw className="h-3 w-3" /> },
-  PRONTO_PARA_ASSUMIR:  { label: "Pronto para Abordar",  descricao: "Aprovado por Morgana — momento e decisor confirmados",     textCor: "text-emerald-700", bgBorder: "bg-emerald-50 border-emerald-200", icone: <ShieldCheck className="h-3 w-3" /> },
-  ASSUMIDO:             { label: "Oportunidade Gerada",  descricao: "Morgana gerou oportunidade no pipeline comercial",         textCor: "text-indigo-600",  bgBorder: "bg-indigo-50 border-indigo-200",   icone: <TrendingUp className="h-3 w-3" /> },
-  ARQUIVADO:            { label: "Arquivado",            descricao: "Descartado ou fora do momento comercial",                  textCor: "text-slate-400",   bgBorder: "bg-slate-50 border-slate-100",     icone: <ChevronDown className="h-3 w-3" /> },
-};
-
-const COLUNAS_KANBAN: StatusDossie[] = [
-  "INVESTIGANDO",
-  "AGUARDANDO_VALIDACAO",
-  "EM_ANALISE",
-  "PEDIR_MAIS_PESQUISA",
-  "PRONTO_PARA_ASSUMIR",
-  "ASSUMIDO",
-];
+// Ordem das 5 colunas no Kanban (Arquivado e Oportunidade ficam separados)
+const COLUNAS_KANBAN: NivelLabel[] = ["A", "B", "C", "PRONTO"];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -127,6 +115,83 @@ function corBarra(pct: number, tipo: "completude" | "maturidade"): string {
   return "bg-slate-300";
 }
 
+/** Determina o nível visual de um dossiê usando a função central de maturidade */
+function nivelDoDossie(d: Dossie): NivelLabel {
+  // ASSUMIDO e ARQUIVADO não são reclassificados
+  if (d.status === "ASSUMIDO")  return "OPORTUNIDADE";
+  if (d.status === "ARQUIVADO") return "ARQUIVADO";
+
+  // Usa calcularNivelInvestigacao para os demais (fonte única de verdade)
+  const resultado = calcularNivelInvestigacao(
+    {
+      clienteFinal: d.clienteFinal,
+      construtora: d.construtora,
+      epc: d.epc,
+      epcm: d.epcm,
+      faseObra: d.faseObra,
+      cronograma: d.cronograma,
+      licenciamento: d.licenciamento,
+      valorEstimado: d.valorEstimado,
+      cidade: d.cidade,
+      estado: d.estado,
+      completude: d.completude,
+      totalDecisores: d.totalDecisores,
+      potencialVilla: d.potencialVilla,
+      momentoVilla: d.momentoVilla,
+      prontidao: d.prontidao,
+    },
+    [],
+  );
+
+  return resultado.nivel;
+}
+
+/** Gates faltantes para dossiês próximos de Pronto */
+function gatesFaltantesDoDossie(d: Dossie): string[] {
+  if (d.completude < THRESHOLDS.C) return [];
+  const resultado = calcularNivelInvestigacao(
+    {
+      clienteFinal: d.clienteFinal,
+      construtora: d.construtora,
+      epc: d.epc,
+      epcm: d.epcm,
+      faseObra: d.faseObra,
+      cronograma: d.cronograma,
+      licenciamento: d.licenciamento,
+      valorEstimado: d.valorEstimado,
+      cidade: d.cidade,
+      estado: d.estado,
+      completude: d.completude,
+      totalDecisores: d.totalDecisores,
+      potencialVilla: d.potencialVilla,
+    },
+    [],
+  );
+  return resultado.gatesFaltantes;
+}
+
+/** Critérios para avançar ao próximo nível */
+function criteriosParaProximo(d: Dossie): string[] {
+  const resultado = calcularNivelInvestigacao(
+    {
+      clienteFinal: d.clienteFinal,
+      construtora: d.construtora,
+      epc: d.epc,
+      epcm: d.epcm,
+      faseObra: d.faseObra,
+      cronograma: d.cronograma,
+      licenciamento: d.licenciamento,
+      valorEstimado: d.valorEstimado,
+      cidade: d.cidade,
+      estado: d.estado,
+      completude: d.completude,
+      totalDecisores: d.totalDecisores,
+    },
+    [],
+  );
+  return resultado.criteriosParaProximo;
+}
+
 // ─── Parser de pesquisa por intenção ─────────────────────────────────────────
 
 const ESTADOS_BR: Record<string, string[]> = {
@@ -142,18 +207,21 @@ function parsearBusca(rawQuery: string): (d: Dossie) => boolean {
   if (!q) return () => true;
   const intents: Array<(d: Dossie) => boolean> = [];
 
-  if (/pront[oa]|assumir/.test(q))    intents.push(d => d.status === "PRONTO_PARA_ASSUMIR");
-  if (/investigand/.test(q))          intents.push(d => d.status === "INVESTIGANDO");
-  if (/aguardand|validaç/.test(q))    intents.push(d => d.status === "AGUARDANDO_VALIDACAO");
-  if (/anális|analise/.test(q))       intents.push(d => d.status === "EM_ANALISE");
-  if (/mais pesquis/.test(q))         intents.push(d => d.status === "PEDIR_MAIS_PESQUISA");
-  if (/\balta\b|urgente/.test(q))     intents.push(d => d.prioridade === "ALTA");
-  if (/quente/.test(q))               intents.push(d => d.score >= 75);
-  if (/esquecid|parad[ao]/.test(q))   intents.push(d => diasDesde(d.updatedAt) > 15);
-  if (/recente|hoje|atual/.test(q))   intents.push(d => diasDesde(d.updatedAt) === 0);
-  if (/sem epc/.test(q))              intents.push(d => !d.epc && !d.epcm);
-  if (/sem decisor/.test(q))          intents.push(d => d.totalDecisores === 0);
-  if (/com decisor/.test(q))          intents.push(d => d.totalDecisores > 0);
+  // filtros por nível
+  if (/\bnivel\s*a\b|investiga[cç][aã]o\s*a/.test(q)) intents.push(d => nivelDoDossie(d) === "A");
+  if (/\bnivel\s*b\b|investiga[cç][aã]o\s*b/.test(q)) intents.push(d => nivelDoDossie(d) === "B");
+  if (/\bnivel\s*c\b|investiga[cç][aã]o\s*c/.test(q)) intents.push(d => nivelDoDossie(d) === "C");
+  if (/pront[ao]|morgana/.test(q))                     intents.push(d => nivelDoDossie(d) === "PRONTO");
+  if (/oportunidade\s*gerada/.test(q))                 intents.push(d => nivelDoDossie(d) === "OPORTUNIDADE");
+
+  // filtros por prioridade e qualidade
+  if (/\balta\b|urgente/.test(q))   intents.push(d => d.prioridade === "ALTA");
+  if (/quente/.test(q))             intents.push(d => d.score >= 75);
+  if (/esquecid|parad[ao]/.test(q)) intents.push(d => diasDesde(d.updatedAt) > 15);
+  if (/recente|hoje|atual/.test(q)) intents.push(d => diasDesde(d.updatedAt) === 0);
+  if (/sem epc/.test(q))            intents.push(d => !d.epc && !d.epcm);
+  if (/sem decisor/.test(q))        intents.push(d => d.totalDecisores === 0);
+  if (/com decisor/.test(q))        intents.push(d => d.totalDecisores > 0);
 
   for (const [uf, palavras] of Object.entries(ESTADOS_BR)) {
     if (q === uf.toLowerCase() || palavras.some(p => q.includes(p))) {
@@ -197,15 +265,25 @@ function BarraDupla({ completude, maturidade }: { completude: number; maturidade
   );
 }
 
-function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: () => void; onAssumir?: () => void }) {
-  const cfg = STATUS_CFG[dossie.status];
+function CardDossie({
+  dossie,
+  nivel,
+  onClick,
+  onGerarOportunidade,
+}: {
+  dossie: Dossie;
+  nivel: NivelLabel;
+  onClick: () => void;
+  onGerarOportunidade?: () => void;
+}) {
+  const cfg = NIVEL_CFG[nivel];
   const dias = diasDesde(dossie.updatedAt);
   const maturidade = dossie.maturidadeComercial ?? 0;
   const parado = dias > 7;
-  const potencialVilla = typeof dossie.potencialVilla === "number" ? dossie.potencialVilla : null;
-  const momentoVilla  = typeof dossie.momentoVilla  === "number" ? dossie.momentoVilla  : null;
-  const prontidao     = typeof dossie.prontidao     === "number" ? dossie.prontidao     : null;
-  const prioridadeJoao = typeof dossie.prioridadeJoao === "number" ? dossie.prioridadeJoao : null;
+  const gates = nivel === "C" ? gatesFaltantesDoDossie(dossie) : [];
+  const criterios = nivel !== "PRONTO" && nivel !== "OPORTUNIDADE"
+    ? criteriosParaProximo(dossie)
+    : [];
 
   return (
     <div
@@ -216,6 +294,7 @@ function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: (
         parado && "border-red-200 ring-1 ring-red-100"
       )}
     >
+      {/* Título + Score */}
       <div className="flex items-start justify-between gap-1.5">
         <p className="text-xs font-semibold text-slate-800 leading-tight group-hover:text-blue-700 line-clamp-2">
           {dossie.titulo}
@@ -225,6 +304,7 @@ function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: (
         </span>
       </div>
 
+      {/* Localização + Segmento */}
       {(dossie.cidade || dossie.estado || dossie.segmento) && (
         <p className="text-[10px] text-slate-500 truncate">
           {[dossie.cidade, dossie.estado].filter(Boolean).join("/")}
@@ -232,29 +312,10 @@ function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: (
         </p>
       )}
 
+      {/* Barras */}
       <BarraDupla completude={dossie.completude} maturidade={maturidade} />
 
-      {(potencialVilla !== null || momentoVilla !== null || prontidao !== null || prioridadeJoao !== null) && (
-        <div className="grid grid-cols-4 gap-1.5 pt-1">
-          <div className="rounded bg-slate-100 px-1 py-0.5 text-center">
-            <p className="text-[8px] text-slate-500">Pot.</p>
-            <p className="text-[10px] font-bold text-slate-700">{potencialVilla ?? "—"}</p>
-          </div>
-          <div className="rounded bg-slate-100 px-1 py-0.5 text-center">
-            <p className="text-[8px] text-slate-500">Mom.</p>
-            <p className="text-[10px] font-bold text-slate-700">{momentoVilla ?? "—"}</p>
-          </div>
-          <div className="rounded bg-slate-100 px-1 py-0.5 text-center">
-            <p className="text-[8px] text-slate-500">Pr.</p>
-            <p className="text-[10px] font-bold text-slate-700">{prontidao ?? "—"}</p>
-          </div>
-          <div className="rounded bg-blue-100 px-1 py-0.5 text-center">
-            <p className="text-[8px] text-blue-600">J</p>
-            <p className="text-[10px] font-bold text-blue-700">{prioridadeJoao ?? "—"}</p>
-          </div>
-        </div>
-      )}
-
+      {/* Contadores */}
       <div className="flex items-center justify-between text-[10px] text-slate-400">
         <div className="flex gap-2">
           {dossie.totalDecisores > 0 && <span>👤 {dossie.totalDecisores}</span>}
@@ -265,21 +326,46 @@ function CardDossie({ dossie, onClick, onAssumir }: { dossie: Dossie; onClick: (
         </span>
       </div>
 
+      {/* Missão atual */}
       {dossie.missaoAtual && (
         <div className="bg-white/60 border border-dashed border-slate-200 rounded px-2 py-1 border-l-2 border-l-blue-400">
           <p className="text-[10px] text-slate-600 line-clamp-2">{dossie.missaoAtual}</p>
         </div>
       )}
 
+      {/* Gates faltando (Nível C próximo de Pronto) */}
+      {gates.length > 0 && (
+        <div className="bg-amber-50 border border-amber-100 rounded px-2 py-1 space-y-0.5">
+          <p className="text-[9px] font-semibold text-amber-700 uppercase tracking-wide">
+            Falta para Pronto ({gates.length})
+          </p>
+          {gates.slice(0, 2).map((g, i) => (
+            <p key={i} className="text-[10px] text-amber-700 line-clamp-1">• {g}</p>
+          ))}
+        </div>
+      )}
+
+      {/* Critérios para próximo nível (níveis A e B) */}
+      {gates.length === 0 && criterios.length > 0 && nivel !== "C" && (
+        <div className="bg-slate-50 border border-slate-100 rounded px-2 py-1">
+          <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
+            Próximo nível
+          </p>
+          <p className="text-[10px] text-slate-600 line-clamp-2">• {criterios[0]}</p>
+        </div>
+      )}
+
+      {/* Parado */}
       {parado && (
         <div className="bg-red-50 border border-red-100 rounded px-2 py-1">
           <p className="text-[10px] text-red-600 font-medium">Sem atualização há {dias} dias</p>
         </div>
       )}
 
-      {dossie.status === "PRONTO_PARA_ASSUMIR" && onAssumir && (
+      {/* Botão Gerar Oportunidade (Pronto para Morgana) */}
+      {nivel === "PRONTO" && onGerarOportunidade && (
         <button
-          onClick={e => { e.stopPropagation(); onAssumir(); }}
+          onClick={e => { e.stopPropagation(); onGerarOportunidade(); }}
           className="w-full text-[10px] py-1.5 rounded bg-indigo-600 text-white font-semibold hover:bg-indigo-700 active:scale-95 transition-all"
         >
           🚀 Gerar Oportunidade →
@@ -296,10 +382,10 @@ export default function DossiesPage() {
   const [dossies, setDossies] = useState<Dossie[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
-  const [mostrarAssumidos, setMostrarAssumidos] = useState(false);
+  const [mostrarOportunidades, setMostrarOportunidades] = useState(false);
   const lastVisitRef = useRef<string | null>(null);
 
-  async function assumirDossie(id: string) {
+  async function gerarOportunidade(id: string) {
     try {
       const res = await fetch(`/api/inteligencia/${id}/assumir`, {
         method: "POST",
@@ -307,12 +393,12 @@ export default function DossiesPage() {
         body: JSON.stringify({}),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Erro ao assumir dossiê");
-      toast.success("Dossiê assumido! Oportunidade criada no pipeline comercial.");
+      if (!res.ok) throw new Error(json.error ?? "Erro ao gerar oportunidade");
+      toast.success("Oportunidade gerada no pipeline comercial!");
       if (json.urlOportunidade) router.push(json.urlOportunidade);
       else carregar();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao assumir dossiê");
+      toast.error(err instanceof Error ? err.message : "Erro ao gerar oportunidade");
     }
   }
 
@@ -355,13 +441,32 @@ export default function DossiesPage() {
   const predicadoBusca = parsearBusca(busca);
   const dossiesFiltrados = dossies.filter(predicadoBusca);
 
+  // Agrupa por nível (calculado no frontend, usando a mesma função central)
+  const porNivel: Record<NivelLabel, Dossie[]> = {
+    A: [], B: [], C: [], PRONTO: [], OPORTUNIDADE: [], ARQUIVADO: [],
+  };
+  for (const d of dossiesFiltrados) {
+    const nivel = nivelDoDossie(d);
+    porNivel[nivel].push(d);
+  }
+
+  // Total por coluna (do banco inteiro, não filtrado)
+  const totalPorNivel: Record<NivelLabel, number> = {
+    A: 0, B: 0, C: 0, PRONTO: 0, OPORTUNIDADE: 0, ARQUIVADO: 0,
+  };
+  for (const d of dossies) totalPorNivel[nivelDoDossie(d)]++;
+
   return (
     <div className="flex h-full flex-col bg-[#F4F6FA]">
       {/* Cabeçalho */}
       <header className="border-b border-slate-200 bg-white px-5 py-3 flex items-center justify-between gap-3 shrink-0">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1E4FAB]">Dossiês Comerciais</p>
-          <p className="text-sm text-slate-500">{dossies.length} dossiês monitorados pelo João</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1E4FAB]">
+            Maturidade da Investigação
+          </p>
+          <p className="text-sm text-slate-500">
+            {dossies.length} dossiês · A≥{THRESHOLDS.B}% B · ≥{THRESHOLDS.C}% C · ≥{THRESHOLDS.PRONTO}%+gates Pronto
+          </p>
         </div>
         <button
           onClick={carregar}
@@ -378,7 +483,7 @@ export default function DossiesPage() {
           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
           <input
             type="text"
-            placeholder="Ex: prontos · mineração · sem EPC · alta prioridade · MG · acima de 500 milhões..."
+            placeholder="Ex: nível b · mineração · sem EPC · com decisor · PE · nível c · pronto..."
             className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
             value={busca}
             onChange={e => setBusca(e.target.value)}
@@ -388,39 +493,58 @@ export default function DossiesPage() {
           )}
         </div>
         <button
-          onClick={() => setMostrarAssumidos(v => !v)}
+          onClick={() => setMostrarOportunidades(v => !v)}
           className={cn(
             "flex items-center gap-1.5 px-3 py-2 text-xs border rounded-lg transition-colors text-slate-500 shrink-0",
-            mostrarAssumidos ? "bg-slate-100 border-slate-300 text-slate-700" : "bg-white border-slate-200 hover:bg-slate-50"
+            mostrarOportunidades ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-white border-slate-200 hover:bg-slate-50"
           )}
         >
-          {mostrarAssumidos ? "Ocultar oport. geradas" : "Ver oport. geradas"}
+          🟣 {mostrarOportunidades ? "Ocultar oportunidades" : "Ver oportunidades"}
+          {totalPorNivel.OPORTUNIDADE > 0 && (
+            <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 rounded-full">
+              {totalPorNivel.OPORTUNIDADE}
+            </span>
+          )}
         </button>
         {busca && (
-          <span className="text-[11px] text-slate-400 shrink-0">{dossiesFiltrados.length} resultado{dossiesFiltrados.length !== 1 ? "s" : ""}</span>
+          <span className="text-[11px] text-slate-400 shrink-0">
+            {dossiesFiltrados.length} resultado{dossiesFiltrados.length !== 1 ? "s" : ""}
+          </span>
         )}
       </div>
 
       {/* Kanban */}
-      <div className="flex-1 overflow-auto p-3 space-y-3">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
-          {COLUNAS_KANBAN.map(status => {
-            const cfg = STATUS_CFG[status];
-            const lista = dossiesFiltrados.filter(d => d.status === status);
+      <div className="flex-1 overflow-auto p-3">
+        {/* 4 colunas principais */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4">
+          {COLUNAS_KANBAN.map(nivel => {
+            const cfg = NIVEL_CFG[nivel];
+            const lista = porNivel[nivel];
+            const totalGlobal = totalPorNivel[nivel];
             return (
-              <div key={status}>
-                <div title={cfg.descricao} className={cn("flex items-center gap-1.5 px-2 py-1.5 rounded-lg border mb-2 cursor-help", cfg.bgBorder)}>
-                  <span className={cfg.textCor}>{cfg.icone}</span>
-                  <span className={cn("text-[10px] font-semibold flex-1 leading-tight", cfg.textCor)}>{cfg.label}</span>
-                  <span className={cn("text-[10px] font-bold", cfg.textCor)}>{lista.length}</span>
+              <div key={nivel}>
+                {/* Cabeçalho da coluna */}
+                <div
+                  title={cfg.descricao}
+                  className={cn("flex items-center gap-1.5 px-2 py-1.5 rounded-lg border mb-2 cursor-help", cfg.bgBorder)}
+                >
+                  <span className="text-sm">{cfg.emoji}</span>
+                  <span className={cn("text-[10px] font-semibold flex-1 leading-tight", cfg.textCor)}>
+                    {cfg.label}
+                  </span>
+                  <span className={cn("text-[10px] font-bold", cfg.textCor)}>
+                    {busca ? `${lista.length}/` : ""}{totalGlobal}
+                  </span>
                 </div>
+                {/* Cards */}
                 <div className="space-y-2 min-h-12">
                   {lista.map(d => (
                     <CardDossie
                       key={d.id}
                       dossie={d}
+                      nivel={nivel}
                       onClick={() => irPara(d.id)}
-                      onAssumir={d.status === "PRONTO_PARA_ASSUMIR" ? () => assumirDossie(d.id) : undefined}
+                      onGerarOportunidade={nivel === "PRONTO" ? () => gerarOportunidade(d.id) : undefined}
                     />
                   ))}
                   {lista.length === 0 && (
@@ -432,16 +556,31 @@ export default function DossiesPage() {
           })}
         </div>
 
-        {/* Oportunidades Geradas (colapsáveis) */}
-        {mostrarAssumidos && (
-          <div className="mt-2 space-y-2">
-            <p className="text-xs font-medium text-indigo-400 uppercase tracking-wider">🚀 Oportunidades Geradas</p>
+        {/* Oportunidades Geradas (colapsável) */}
+        {mostrarOportunidades && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-indigo-500 uppercase tracking-wider">
+                🟣 Oportunidades Geradas
+              </span>
+              <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-bold">
+                {totalPorNivel.OPORTUNIDADE}
+              </span>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-              {dossiesFiltrados
-                .filter(d => d.status === "ASSUMIDO")
-                .map(d => (
-                  <CardDossie key={d.id} dossie={d} onClick={() => irPara(d.id)} />
-                ))}
+              {porNivel.OPORTUNIDADE.map(d => (
+                <CardDossie
+                  key={d.id}
+                  dossie={d}
+                  nivel="OPORTUNIDADE"
+                  onClick={() => irPara(d.id)}
+                />
+              ))}
+              {porNivel.OPORTUNIDADE.length === 0 && (
+                <p className="text-[10px] text-slate-300 col-span-4 text-center py-4">
+                  Nenhuma oportunidade gerada ainda
+                </p>
+              )}
             </div>
           </div>
         )}

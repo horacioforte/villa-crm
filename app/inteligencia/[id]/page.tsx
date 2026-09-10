@@ -31,6 +31,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  calcularNivelInvestigacao,
+  NIVEL_CFG,
+  type NivelLabel,
+  THRESHOLDS,
+} from "@/lib/inteligencia/maturidade";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -242,6 +248,132 @@ function BadgeTipoAtualizacao({ tipo }: { tipo: string }) {
   return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.class}`}>{c.label}</span>;
 }
 
+// ─── Widget de progressão de maturidade ─────────────────────────────────────
+// Exibe o funil A → B → C → Morgana → Oportunidade com nível atual destacado.
+// Nunca remover — faz parte da Fase 19 do pipeline de maturidade.
+
+const ETAPAS: { nivel: NivelLabel; label: string; emoji: string }[] = [
+  { nivel: "A",           label: "Investigação A", emoji: "🔎" },
+  { nivel: "B",           label: "Investigação B", emoji: "🧠" },
+  { nivel: "C",           label: "Investigação C", emoji: "🎯" },
+  { nivel: "PRONTO",      label: "Pronto para Morgana", emoji: "🟢" },
+  { nivel: "OPORTUNIDADE", label: "Oportunidade Gerada", emoji: "🟣" },
+];
+
+function WidgetMaturidade({
+  nivelAtual,
+  gatesFaltantes,
+  criteriosParaProximo,
+  completude,
+}: {
+  nivelAtual: NivelLabel;
+  gatesFaltantes: string[];
+  criteriosParaProximo: string[];
+  completude: number;
+}) {
+  const idxAtual = ETAPAS.findIndex(e => e.nivel === nivelAtual);
+
+  return (
+    <div className="bg-white border-b px-4 py-3">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-sm">{NIVEL_CFG[nivelAtual]?.emoji ?? "📊"}</span>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Funil de Maturidade</p>
+        <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${NIVEL_CFG[nivelAtual]?.bgBorder ?? ""} ${NIVEL_CFG[nivelAtual]?.textCor ?? ""}`}>
+          {NIVEL_CFG[nivelAtual]?.label ?? nivelAtual}
+        </span>
+      </div>
+
+      {/* Barra de etapas */}
+      <div className="flex items-center gap-0 overflow-x-auto pb-1">
+        {ETAPAS.map((etapa, idx) => {
+          const concluido = idx < idxAtual;
+          const atual     = idx === idxAtual;
+          const pendente  = idx > idxAtual;
+          return (
+            <div key={etapa.nivel} className="flex items-center min-w-0">
+              {/* Nó */}
+              <div className={`flex flex-col items-center shrink-0 ${atual ? "scale-105" : ""}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 transition-all ${
+                  concluido ? "bg-emerald-500 border-emerald-500 text-white" :
+                  atual     ? `border-current ${NIVEL_CFG[etapa.nivel]?.textCor ?? "text-slate-700"} bg-white font-bold` :
+                              "bg-slate-100 border-slate-200 text-slate-400"
+                }`}>
+                  {concluido ? "✓" : etapa.emoji}
+                </div>
+                <span className={`mt-1 text-[9px] font-medium text-center leading-tight max-w-[52px] ${
+                  atual     ? `${NIVEL_CFG[etapa.nivel]?.textCor ?? "text-slate-700"} font-bold` :
+                  concluido ? "text-emerald-600" :
+                              "text-slate-400"
+                }`}>
+                  {etapa.nivel === "PRONTO" ? "Morgana" : etapa.nivel === "OPORTUNIDADE" ? "Oportun." : `Nível ${etapa.nivel}`}
+                </span>
+              </div>
+              {/* Linha conectora */}
+              {idx < ETAPAS.length - 1 && (
+                <div className={`h-0.5 w-6 md:w-10 shrink-0 mx-1 rounded-full ${idx < idxAtual ? "bg-emerald-400" : "bg-slate-200"}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Completude em relação ao threshold */}
+      {nivelAtual !== "OPORTUNIDADE" && nivelAtual !== "ARQUIVADO" && (
+        <div className="mt-3 space-y-1">
+          <div className="flex items-center justify-between text-[10px] text-slate-500">
+            <span>Completude</span>
+            <span className="font-semibold">
+              {completude}% / {
+                nivelAtual === "A" ? `${THRESHOLDS.B}% → Nível B` :
+                nivelAtual === "B" ? `${THRESHOLDS.C}% → Nível C` :
+                nivelAtual === "C" ? `${THRESHOLDS.PRONTO}%+gates → Morgana` :
+                "✅ Pronto para Morgana"
+              }
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-1.5 rounded-full transition-all duration-700"
+              style={{
+                width: `${Math.min(100, completude)}%`,
+                backgroundColor:
+                  nivelAtual === "PRONTO" ? "#10b981" :
+                  completude >= THRESHOLDS.PRONTO ? "#a78bfa" :
+                  completude >= THRESHOLDS.C ? "#9333ea" :
+                  completude >= THRESHOLDS.B ? "#f59e0b" : "#3b82f6",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Gates faltantes (apenas se completude ≥ C e ainda não Pronto) */}
+      {gatesFaltantes.length > 0 && (
+        <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">
+            Gates obrigatórios para Morgana
+          </p>
+          {gatesFaltantes.map((g, i) => (
+            <p key={i} className="text-xs text-amber-800">⚠ {g}</p>
+          ))}
+        </div>
+      )}
+
+      {/* O que fazer para avançar (apenas A/B/C sem gates faltantes) */}
+      {criteriosParaProximo.length > 0 && gatesFaltantes.length === 0 && nivelAtual !== "PRONTO" && nivelAtual !== "OPORTUNIDADE" && (
+        <div className="mt-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+            Para avançar ao próximo nível
+          </p>
+          {criteriosParaProximo.map((c, i) => (
+            <p key={i} className="text-xs text-slate-700">→ {c}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Aba ─────────────────────────────────────────────────────────────────────
 
 type Aba = "resumo" | "decisores" | "empresas" | "timeline" | "inteligencia" | "investigacoes";
@@ -385,6 +517,13 @@ export default function DossieDetalhe() {
   }
 
   const hipoteses = dossie.atualizacoes.filter(a => a.tipo === "NOTICIA_ENCONTRADA").slice(0, 5);
+
+  // Maturidade: usa a mesma função central do Kanban
+  const maturidade = calcularNivelInvestigacao(dossie, dossie.decisores);
+  const nivelAtual: NivelLabel =
+    dossie.status === "ASSUMIDO"  ? "OPORTUNIDADE" :
+    dossie.status === "ARQUIVADO" ? "ARQUIVADO"    :
+    maturidade.nivel;
 
   // ── Render ──
   return (
@@ -537,6 +676,16 @@ export default function DossieDetalhe() {
             <p className="mt-3 text-xs text-slate-600 leading-relaxed">{dossie.motivoPrioridade}</p>
           )}
         </div>
+      )}
+
+      {/* ── Widget de maturidade ── */}
+      {nivelAtual !== "ARQUIVADO" && (
+        <WidgetMaturidade
+          nivelAtual={nivelAtual}
+          gatesFaltantes={maturidade.gatesFaltantes}
+          criteriosParaProximo={maturidade.criteriosParaProximo}
+          completude={dossie.completude}
+        />
       )}
 
       {/* ── Assumido ── */}

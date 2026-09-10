@@ -14,7 +14,26 @@
 
 import "./env";
 import { Client } from "pg";
-import { calcularNivelInvestigacao, THRESHOLDS } from "../lib/inteligencia/maturidade";
+import { calcularNivelInvestigacao, THRESHOLDS, type NivelLabel } from "../lib/inteligencia/maturidade";
+
+// ─── Ordem do funil (nunca regredir) ────────────────────────────────────────
+// O status de um dossiê nunca pode ir para um nível abaixo do que já estava.
+// Isso preserva classificações manuais feitas antes do pipeline de maturidade.
+
+const NIVEL_ORDEM: Record<string, number> = {
+  INVESTIGANDO:         0,
+  PEDIR_MAIS_PESQUISA:  1, // mapeado para EM_ANALISE mas mantém posição mínima
+  AGUARDANDO_VALIDACAO: 2,
+  EM_ANALISE:           3,
+  PRONTO_PARA_ASSUMIR:  4,
+  // ASSUMIDO e ARQUIVADO são intocáveis — nunca entram nesta lógica
+};
+
+function statusMaisAlto(atual: string, calculado: string): string {
+  const ordemAtual     = NIVEL_ORDEM[atual]     ?? 0;
+  const ordemCalculado = NIVEL_ORDEM[calculado] ?? 0;
+  return ordemAtual >= ordemCalculado ? atual : calculado;
+}
 
 const COMMIT = process.argv.includes("--commit");
 const RERUN  = process.argv.includes("--rerun");
@@ -170,17 +189,20 @@ async function main() {
       decisores,
     );
 
+    // Regra "nunca regredir": preserva status manual se for mais avançado
+    const novoStatus = statusMaisAlto(d.status, resultado.statusDb);
+
     resultados.push({
       id: d.id,
       titulo: d.titulo,
       statusAtual: d.status,
-      novoStatus: resultado.statusDb,
+      novoStatus,
       nivel: resultado.nivel,
       completude: d.completude,
       score: d.score,
       gatesFaltantes: resultado.gatesFaltantes,
       motivo: resultado.motivo,
-      mudou: d.status !== resultado.statusDb,
+      mudou: d.status !== novoStatus,
     });
   }
 

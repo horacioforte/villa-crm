@@ -271,7 +271,7 @@ export function SolicitacoesView({
   dossies: DossieParaView[];
   filtroStatusInicial: string;
 }) {
-  const [view, setView] = useState<"grid" | "kanban">("grid");
+  const [view, setView] = useState<"grid" | "kanban">("kanban");
   const [filtroStatus, setFiltroStatus] = useState(filtroStatusInicial);
 
   // Grid: filtra por status; Kanban: todos (groupados por coluna)

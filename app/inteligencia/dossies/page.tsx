@@ -17,7 +17,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Clock,
   Loader2,
+  MapPin,
   RefreshCw,
   Search,
 } from "lucide-react";
@@ -101,10 +103,9 @@ function diasDesde(isoStr: string): number {
 }
 
 function corScore(score: number): string {
-  if (score >= 85) return "bg-red-500 text-white";
-  if (score >= 70) return "bg-orange-500 text-white";
-  if (score >= 50) return "bg-amber-400 text-white";
-  return "bg-slate-300 text-slate-700";
+  if (score >= 75) return "bg-red-100 text-red-700";
+  if (score >= 50) return "bg-amber-100 text-amber-700";
+  return "bg-slate-100 text-slate-600";
 }
 
 function corBarra(pct: number, tipo: "completude" | "maturidade"): string {
@@ -280,96 +281,77 @@ function CardDossie({
   onGerarOportunidade?: () => void;
 }) {
   const dias = diasDesde(dossie.updatedAt);
-  const maturidade = dossie.maturidadeComercial ?? 0;
-  const parado = dias > 7;
-  const gates = nivel === "C" ? gatesFaltantesDoDossie(dossie) : [];
-  const criterios = nivel !== "PRONTO" && nivel !== "OPORTUNIDADE"
-    ? criteriosParaProximo(dossie)
-    : [];
+  const corBarra =
+    nivel === "PRONTO"       ? "#10b981" :
+    nivel === "OPORTUNIDADE" ? "#6366f1" :
+    nivel === "C"            ? "#9333ea" :
+    nivel === "B"            ? "#f59e0b" : "#3b82f6";
 
   return (
     <div
       onClick={onClick}
-      className={cn(
-        "cursor-pointer bg-white border border-slate-100 rounded-xl p-3 hover:shadow-md hover:border-indigo-200 transition-all group space-y-1.5",
-        parado && "ring-1 ring-red-100 border-red-200"
-      )}
+      className="cursor-pointer bg-white border border-slate-100 rounded-xl p-3 hover:shadow-md hover:border-indigo-200 transition-all group"
     >
       {/* Score + dias */}
-      <div className="flex items-center justify-between gap-1">
+      <div className="flex items-center justify-between gap-1 mb-2">
         <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0", corScore(dossie.score))}>
           {dossie.score}
         </span>
-        <span className={cn("text-[10px] flex items-center gap-0.5 shrink-0", parado ? "text-red-500 font-semibold" : "text-slate-400")}>
+        <span className="text-[10px] text-slate-400 flex items-center gap-0.5 shrink-0">
+          <Clock className="h-2.5 w-2.5" />
           {dias === 0 ? "hoje" : `${dias}d`}
         </span>
       </div>
 
       {/* Título */}
-      <p className="text-xs font-semibold text-slate-800 leading-snug group-hover:text-indigo-700 line-clamp-2 transition-colors">
+      <p className="text-xs font-semibold text-slate-800 leading-snug line-clamp-2 mb-2 group-hover:text-indigo-700 transition-colors">
         {dossie.titulo}
       </p>
 
-      {/* Localização + Segmento */}
-      {(dossie.cidade || dossie.estado || dossie.segmento) && (
-        <p className="text-[10px] text-slate-400 truncate">
+      {/* Localização */}
+      {(dossie.cidade || dossie.estado) && (
+        <p className="text-[10px] text-slate-400 flex items-center gap-0.5 mb-2">
+          <MapPin className="h-2.5 w-2.5" />
           {[dossie.cidade, dossie.estado].filter(Boolean).join(" / ")}
           {dossie.segmento ? " · " + dossie.segmento : ""}
         </p>
       )}
 
-      {/* Barras */}
-      <BarraDupla completude={dossie.completude} maturidade={maturidade} />
-
-      {/* Contadores */}
-      {(dossie.totalDecisores > 0 || dossie.totalNoticias > 0) && (
-        <div className="flex gap-2 text-[10px] text-slate-400">
-          {dossie.totalDecisores > 0 && <span>👤 {dossie.totalDecisores}</span>}
-          {dossie.totalNoticias   > 0 && <span>📰 {dossie.totalNoticias}</span>}
+      {/* Barras duplas */}
+      <div className="space-y-1 my-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-slate-400 w-12 text-right shrink-0">Complet.</span>
+          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all bg-blue-400" style={{ width: `${dossie.completude}%` }} />
+          </div>
+          <span className="text-[10px] font-medium text-blue-600 w-6 text-right shrink-0">{dossie.completude}%</span>
         </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-slate-400 w-12 text-right shrink-0">Maturid.</span>
+          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all" style={{ width: `${dossie.maturidadeComercial ?? 0}%`, backgroundColor: corBarra }} />
+          </div>
+          <span className="text-[10px] font-medium w-6 text-right shrink-0" style={{ color: corBarra }}>{dossie.maturidadeComercial ?? 0}%</span>
+        </div>
+      </div>
+
+      {/* Decisores */}
+      {dossie.totalDecisores > 0 && (
+        <p className="text-[10px] text-slate-400 mt-1.5">👤 {dossie.totalDecisores}</p>
       )}
 
-      {/* Missão atual */}
-      {dossie.missaoAtual && (
-        <div className="border-l-2 border-blue-300 bg-blue-50/50 rounded-r px-2 py-1">
-          <p className="text-[10px] text-slate-600 line-clamp-2">{dossie.missaoAtual}</p>
-        </div>
+      {/* Falta para Pronto — apenas gate count, sem bloco */}
+      {nivel === "C" && gatesFaltantesDoDossie(dossie).length > 0 && (
+        <p className="text-[10px] text-amber-600 mt-1.5 font-medium">
+          Falta para Pronto ({gatesFaltantesDoDossie(dossie).length})
+        </p>
       )}
 
-      {/* Gates faltando (Nível C próximo de Pronto) */}
-      {gates.length > 0 && (
-        <div className="bg-amber-50 border border-amber-100 rounded-lg px-2 py-1 space-y-0.5">
-          <p className="text-[9px] font-semibold text-amber-700 uppercase tracking-wide">
-            Falta para Pronto ({gates.length})
-          </p>
-          {gates.slice(0, 2).map((g, i) => (
-            <p key={i} className="text-[10px] text-amber-700 line-clamp-1">• {g}</p>
-          ))}
-        </div>
-      )}
-
-      {/* Critérios para próximo nível (níveis A e B) */}
-      {gates.length === 0 && criterios.length > 0 && nivel !== "C" && (
-        <div className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1">
-          <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
-            Próximo nível
-          </p>
-          <p className="text-[10px] text-slate-600 line-clamp-2">• {criterios[0]}</p>
-        </div>
-      )}
-
-      {/* Parado */}
-      {parado && (
-        <div className="bg-red-50 border border-red-100 rounded-lg px-2 py-1">
-          <p className="text-[10px] text-red-600 font-medium">Sem atualização há {dias} dias</p>
-        </div>
-      )}
-
-      {/* Botão Gerar Oportunidade (Pronto para Morgana) */}
+      {/* Botão Gerar Oportunidade */}
       {nivel === "PRONTO" && onGerarOportunidade && (
         <button
           onClick={e => { e.stopPropagation(); onGerarOportunidade(); }}
-          className="w-full text-[10px] py-1.5 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 active:scale-95 transition-all"
+          className="w-full mt-2 text-[10px] py-1.5 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 active:scale-95 transition-all"
         >
           🚀 Gerar Oportunidade →
         </button>
@@ -516,7 +498,7 @@ export default function DossiesPage() {
             return (
               <div
                 key={col.nivel}
-                className={cn("flex flex-col w-72 shrink-0 rounded-xl border", col.colBorder)}
+                className={cn("flex flex-col w-52 shrink-0 rounded-xl border", col.colBorder)}
               >
                 {/* Cabeçalho da coluna */}
                 <div

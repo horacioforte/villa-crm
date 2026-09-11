@@ -231,23 +231,36 @@ function CardKanban({ d }: { d: DossieParaView }) {
         </p>
       )}
 
-      <div>
-        <div className="flex items-center justify-between mb-0.5">
-          <span className="text-[10px] text-slate-400">Completude</span>
-          <span className="text-[10px] font-semibold text-blue-600">{d.completude}%</span>
+      <div className="space-y-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-slate-400 w-12 text-right shrink-0">Complet.</span>
+          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all bg-blue-400" style={{ width: `${d.completude}%` }} />
+          </div>
+          <span className="text-[10px] font-medium text-blue-600 w-6 text-right shrink-0">{d.completude}%</span>
         </div>
-        <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all"
-            style={{
-              width: `${d.completude}%`,
-              backgroundColor:
-                nivel === "PRONTO"       ? "#10b981" :
-                nivel === "OPORTUNIDADE" ? "#6366f1" :
-                nivel === "C"            ? "#9333ea" :
-                nivel === "B"            ? "#f59e0b" : "#3b82f6",
-            }}
-          />
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-slate-400 w-12 text-right shrink-0">Maturid.</span>
+          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${d.prontidao ?? 0}%`,
+                backgroundColor:
+                  nivel === "PRONTO"       ? "#10b981" :
+                  nivel === "OPORTUNIDADE" ? "#6366f1" :
+                  nivel === "C"            ? "#9333ea" :
+                  nivel === "B"            ? "#f59e0b" : "#3b82f6",
+              }}
+            />
+          </div>
+          <span className="text-[10px] font-medium w-6 text-right shrink-0" style={{
+            color:
+              nivel === "PRONTO"       ? "#10b981" :
+              nivel === "OPORTUNIDADE" ? "#6366f1" :
+              nivel === "C"            ? "#9333ea" :
+              nivel === "B"            ? "#f59e0b" : "#3b82f6",
+          }}>{d.prontidao ?? 0}%</span>
         </div>
       </div>
     </Link>
@@ -368,7 +381,7 @@ export function SolicitacoesView({
               return (
                 <div
                   key={col.nivel}
-                  className={cn("flex flex-col w-64 shrink-0 rounded-xl border", col.colBorder)}
+                  className={cn("flex flex-col w-52 shrink-0 rounded-xl border", col.colBorder)}
                 >
                   {/* Header da coluna */}
                   <div className={cn("px-3 py-2.5 rounded-t-xl flex items-center justify-between", col.headerBg)}>

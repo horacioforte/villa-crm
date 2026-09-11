@@ -208,6 +208,38 @@ Pilar 4 — PESSOAS:
 - Notícias e releases corporativos
 `.trim();
 
+// ─── BOMBA LANÇA 68 M — SANY SY68 RZR5 ──────────────────────────────────────
+// Adicionado em 11/09/2026 após aprovação do conhecimento comercial.
+// REGRA: nunca remover. Apenas acrescentar.
+
+export const VILLA_BOMBA_68M = `
+EQUIPAMENTO ESPECIAL — BOMBA LANÇA 68 METROS
+Modelo: SANY SY68 RZR5
+Tipo: Bomba de concreto montada sobre caminhão (Bomba Lança)
+Destaque: a maior bomba de concreto com lança da Villa — e uma das maiores da América Latina.
+
+DADOS TÉCNICOS:
+- Número de seções da lança: 6
+- Sistema de dobragem: RZR
+- Alcance vertical: 67,3 m
+- Alcance horizontal: 62,2 m
+- Altura de abertura/desdobramento: 14,8 m
+- Comprimento máximo da mangueira final: 3 m
+- Linha de bombeamento: DN 125
+- Capacidade máxima: 179 m³/h (efetividade depende das condições da obra)
+- Pressão de bombeamento: 85 bar
+- Número de golpes: 29
+- Cilindro de material: 260/1900 mm
+
+PERFIL DE OBRA COMPATÍVEL:
+- Obras que exigem alcance vertical acima de 60 m
+- Obras com pontos de concretagem de difícil acesso
+- Infraestrutura: pontes, viadutos, metrô, aeroportos, portos
+- Edifícios de grande altura (acima de 20 andares)
+- Data centers e plantas industriais de grande porte
+- Saneamento: adutoras, reservatórios elevados, ETA/ETE
+`.trim();
+
 // ─── EXPORT CONSOLIDADO ──────────────────────────────────────────────────────
 
 /**
@@ -241,5 +273,8 @@ export function getVillaKnowledgeBase(): string {
     "",
     "## Clientes Estratégicos",
     VILLA_CLIENTES_ESTRATEGICOS,
+    "",
+    "## Bomba Lança 68 m — SANY SY68 RZR5",
+    VILLA_BOMBA_68M,
   ].join("\n");
 }

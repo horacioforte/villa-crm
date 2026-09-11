@@ -454,7 +454,12 @@ export default function DiagnosticoBomba68mPage() {
                       key={opt.v}
                       onClick={() => {
                         pick(currentQuestion.id, opt);
-                        setTimeout(() => next(), 200);
+                        // Stale closure fix: avança diretamente sem passar por next()
+                        // (que leria answers ainda vazio da render anterior)
+                        setTimeout(() => {
+                          setStep((cur) => Math.min(cur + 1, TOTAL_STEPS));
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }, 200);
                       }}
                       className={`flex items-start gap-4 rounded-2xl border-2 px-5 py-4 text-left transition-all active:scale-[0.98] ${
                         selected

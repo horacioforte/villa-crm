@@ -507,7 +507,11 @@ function ConversasPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversaId: conversaAtiva.id, conteudo: conteudoLocal }),
       });
-      await carregarDetalhesConversa(conversaAtiva);
+      // Atualiza mensagens internas e reordena a lista (move para o topo)
+      await Promise.all([
+        carregarDetalhesConversa(conversaAtiva),
+        carregarConversas(),
+      ]);
     } catch {
       // mantém a mensagem local mesmo com erro
     } finally {

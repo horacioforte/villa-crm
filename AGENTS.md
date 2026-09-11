@@ -320,4 +320,70 @@ devolve o resultado ao usuário (`persistido: false`) para não perder o trabalh
 npx prisma migrate dev --name add_analise_contrato
 npx prisma generate
 ```
+## MÓDULO: CENTRAL DE ATENDIMENTO (`/conversas`)
+
+Inbox de WhatsApp integrado ao CRM. Canais ativos: **Maria**, **João**, **Taciane**, **Morgana** (cada um é um `CanalWhatsapp` com `instanceName` próprio).
+
+### Páginas e Componentes
+- `app/conversas/page.tsx` — página principal com 2 abas: **Conversas** e **Supervisão**
+- `components/conversas/ConversasTab.tsx` — inbox com lista de conversas + Workspace Comercial (painel direito)
+- `components/conversas/SupervisaoBoard.tsx` — visão gerencial de todas as conversas por agente
+
+### APIs
+```
+GET  /api/conversas                      lista (filtros: status, instanceName, responsavelId)
+POST /api/conversas                      cria conversa
+GET  /api/conversas/[id]                 detalhe
+PATCH /api/conversas/[id]                atualiza (responsavelId, oportunidadeId, etc.)
+POST /api/conversas/[id]/status          muda status (ABERTA→PENDENTE→CONCLUIDA)
+GET  /api/conversas/[id]/mensagens       histórico de mensagens
+POST /api/mensagens                      envia mensagem (valida canal, bloqueia CHATWOOT_MIRROR)
+POST /api/conversas/[id]/transferir      transfere entre agentes
+POST /api/conversas/nova                 abre nova conversa com contato
+GET  /api/conversas/por-contato          busca conversas de um contato/telefone
+POST /api/conversas/disparo              disparo em massa (campanhas)
+```
+
+### Modelos Prisma (campos principais)
+```
+CanalWhatsapp:   id, nome, tipo (META_CLOUD_API|EVOLUTION|CHATWOOT_MIRROR), instanceName (unique),
+                 phoneNumberId, displayPhoneNumber, ativo, responsavelId
+
+Conversa:        id, status (ABERTA|PENDENTE|CONCLUIDA), instanceName, telefone, nomeContato,
+                 canal (CanalAtendimento), canalWhatsappId, empresaId, pessoaId, oportunidadeId,
+                 tarefaAtualId, chatwootId (legado, nullable)
+
+Mensagem:        id, conteudo, direcao (ENTRADA|SAIDA), conversaId, canalWhatsappId,
+                 externalMessageId (wamid.* da Meta), messageType, replyToMensagemId,
+                 mediaUrl, mimeType
+
+ConversaTransferencia: id, conversaId, deId, paraId, criadoEm
+```
+
+### Regras de envio (`app/api/mensagens/route.ts`)
+- `META_CLOUD_API` → envia pela Meta Cloud API (flag de feature por canal)
+- `EVOLUTION` → envia pela Evolution API
+- `CHATWOOT_MIRROR` → **bloqueado** (retorna 422: "Envio bloqueado: conversa espelhada do Chatwoot")
+- Se canal não reconhecido → cai para Evolution (comportamento legado)
+
+### Canais ativos (instanceName)
+- `maria-villa` — Maria (atendimento geral)
+- `joao-villa` — João (prospecção/LinkedIn)
+- `taciane-villa` — Taciane
+- `morgana-villa` — Morgana
+
+### Estado da integração Chatwoot
+O Chatwoot foi **desintegrado** em favor da Meta Cloud API direta. O que restou é legado:
+- `Conversa.chatwootId` (nullable) e `CanalWhatsappTipo.CHATWOOT_MIRROR` preservados no schema
+- Webhook `/api/webhook/chatwoot` desativado
+- Conversas antigas marcadas como CHATWOOT_MIRROR são read-only (envio bloqueado)
+- Ref: `CHANGELOG-chatwoot-withdrawal.md`
+
+### Pendências conhecidas
+- **Task #11**: Criar `GET /api/conversas/alertas` — fila unificada de tarefas WhatsApp vencidas
+  + conversas aguardando resposta, apenas canais Taciane e Morgana. Retorna lista
+  ordenada por urgência para exibir no Saúde Comercial / notificações.
+- **Mídias Sociais / Instagram**: `CanalInstagram` e DM entram na Sprint 3 (fundação da
+  Central de Mídias Sociais já existe em `/midias-sociais`; campos de Conversa/Mensagem
+  para Instagram ainda não implementados).
 <!-- END:villa-crm -->

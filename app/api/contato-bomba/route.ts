@@ -3,6 +3,8 @@
 // API exclusiva da Landing Page Bomba Lança 68 m.
 // NÃO cria Oportunidade. Cria: Empresa, Pessoa, HistoricoContato, Tarefa.
 // Diagnóstico completo + UTMs ficam em HistoricoContato.detalhes.
+// Camada 1: Tarefa sempre atribuída à Morgana (comercial@villaempreendimentos.com.br).
+// Camada 2: HistoricoContato de status do WhatsApp (sucesso ou falha) após tentativa.
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -65,6 +67,12 @@ const bombaSchema = z.object({
 });
 
 type BombaInput = z.infer<typeof bombaSchema>;
+
+// ─── Responsável padrão ───────────────────────────────────────────────────────
+// Morgana é identificada pelo email institucional, não por ID hardcoded.
+// Se o usuário não for encontrado (e.g. email mudou), a Tarefa fica sem responsável
+// mas o lead continua salvo — nenhum dado é perdido.
+const MORGANA_EMAIL = "comercial@villaempreendimentos.com.br";
 
 // ─── Utilitários ─────────────────────────────────────────────────────────────
 
@@ -153,12 +161,60 @@ function buildContextoMaria(data: BombaInput): string {
     .join("\n");
 }
 
+// ─── Detalhes do log de WhatsApp (Camada 2) ──────────────────────────────────
+// NOTA: nenhum token, segredo ou credencial é gravado nestes logs.
+
+function buildDetalhesWhatsAppSucesso(
+  nome: string,
+  empresa: string,
+  telefoneNorm: string,
+  dataHora: string
+): string {
+  return [
+    "✅ WHATSAPP DISPARADO COM SUCESSO",
+    "",
+    `Empresa: ${empresa}`,
+    `Contato: ${nome}`,
+    `Telefone (normalizado E.164): ${telefoneNorm}`,
+    `Template utilizado: villa_bomba_68m`,
+    `Variável {{1}}: ${nome}`,
+    `Data/hora do disparo: ${dataHora}`,
+    "",
+    "STATUS: Template enviado via Meta Cloud API. Mensagem de contexto enviada após 5s.",
+    "OBSERVAÇÃO: Nenhuma credencial ou token está registrada neste log.",
+  ].join("\n");
+}
+
+function buildDetalhesWhatsAppFalha(
+  nome: string,
+  empresa: string,
+  telefoneNorm: string,
+  dataHora: string,
+  erro?: string
+): string {
+  return [
+    "⚠️ FALHA NO DISPARO DO WHATSAPP — CONTATO MANUAL NECESSÁRIO",
+    "",
+    `Empresa: ${empresa}`,
+    `Contato: ${nome}`,
+    `Telefone (normalizado E.164): ${telefoneNorm}`,
+    `Template tentado: villa_bomba_68m`,
+    `Data/hora da tentativa: ${dataHora}`,
+    erro ? `Erro retornado: ${erro}` : "Erro retornado: não disponível",
+    "",
+    "AÇÃO NECESSÁRIA: Entrar em contato manualmente pelo WhatsApp do lead.",
+    "PRIORIDADE: URGENTE",
+    "OBSERVAÇÃO: Nenhuma credencial ou token está registrada neste log.",
+  ].join("\n");
+}
+
 // ─── WhatsApp via Meta ────────────────────────────────────────────────────────
 
-async function enviarTemplateBomba68m(telefone: string, nome: string) {
+// Retorna true se o template foi aceito pela Meta Cloud API, false caso contrário.
+async function enviarTemplateBomba68m(telefone: string, nome: string): Promise<boolean> {
   const phoneNumberId = process.env.MARIA_META_PHONE_NUMBER_ID?.replace(/[^\x20-\x7E]/g, "").trim();
   const accessToken = process.env.MARIA_META_ACCESS_TOKEN?.replace(/[^\x20-\x7E]/g, "").trim();
-  if (!phoneNumberId || !accessToken || !telefone) return;
+  if (!phoneNumberId || !accessToken || !telefone) return false;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -193,20 +249,23 @@ async function enviarTemplateBomba68m(telefone: string, nome: string) {
     const body = await response.text().catch(() => "");
     if (!response.ok) {
       console.error("[API_CONTATO_BOMBA] Template Meta erro", { status: response.status, body });
-    } else {
-      console.info("[API_CONTATO_BOMBA] Template Meta ok", { status: response.status });
+      return false;
     }
+    console.info("[API_CONTATO_BOMBA] Template Meta ok", { status: response.status });
+    return true;
   } catch (error) {
     console.error("[API_CONTATO_BOMBA] Falha/timeout template Meta:", error);
+    return false;
   } finally {
     clearTimeout(timeout);
   }
 }
 
-async function enviarMensagemContextoMaria(telefone: string, contexto: string) {
+// Retorna true se a mensagem de contexto foi aceita, false caso contrário.
+async function enviarMensagemContextoMaria(telefone: string, contexto: string): Promise<boolean> {
   const phoneNumberId = process.env.MARIA_META_PHONE_NUMBER_ID?.replace(/[^\x20-\x7E]/g, "").trim();
   const accessToken = process.env.MARIA_META_ACCESS_TOKEN?.replace(/[^\x20-\x7E]/g, "").trim();
-  if (!phoneNumberId || !accessToken || !telefone) return;
+  if (!phoneNumberId || !accessToken || !telefone) return false;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -232,26 +291,64 @@ async function enviarMensagemContextoMaria(telefone: string, contexto: string) {
     if (!response.ok) {
       const body = await response.text().catch(() => "");
       console.error("[API_CONTATO_BOMBA] Contexto Maria erro", { status: response.status, body });
+      return false;
     }
+    return true;
   } catch (error) {
     console.error("[API_CONTATO_BOMBA] Falha/timeout contexto Maria:", error);
+    return false;
   } finally {
     clearTimeout(timeout);
   }
 }
 
-async function dispararWhatsApp(data: BombaInput) {
+// Resultado do disparo do WhatsApp.
+type WhatsAppDispatchResult = {
+  ok: boolean;       // true = template enviado com sucesso
+  templateOk: boolean;
+  contextoOk: boolean;
+  telefone: string;
+  erro?: string;
+};
+
+async function dispararWhatsApp(data: BombaInput): Promise<WhatsAppDispatchResult> {
   const telefone = normalizarTelefone(data.telefone);
-  if (!telefone) return;
+  if (!telefone) {
+    return { ok: false, templateOk: false, contextoOk: false, telefone: "", erro: "Telefone vazio após normalização" };
+  }
 
-  // Mensagem 1 — template aprovado pela Meta
-  await enviarTemplateBomba68m(telefone, data.nome);
+  let templateOk = false;
+  let contextoOk = false;
+  let templateErro: string | undefined;
 
-  // Aguarda 5s antes da mensagem 2 (contexto rico para Maria)
+  // Mensagem 1 — template aprovado pela Meta (abre a janela de 24h)
+  try {
+    templateOk = await enviarTemplateBomba68m(telefone, data.nome);
+  } catch (e) {
+    templateErro = e instanceof Error ? e.message : String(e);
+  }
+
+  if (!templateOk) {
+    return {
+      ok: false,
+      templateOk: false,
+      contextoOk: false,
+      telefone,
+      erro: templateErro ?? "Meta API recusou o template (template não aprovado ou número inválido)",
+    };
+  }
+
+  // Aguarda 5s antes da mensagem 2 (contexto rico para Maria, janela 24h necessária)
   await new Promise((resolve) => setTimeout(resolve, 5000));
 
-  // Mensagem 2 — contexto estruturado para Maria (janela 24h necessária)
-  await enviarMensagemContextoMaria(telefone, buildContextoMaria(data));
+  // Mensagem 2 — contexto estruturado para Maria
+  try {
+    contextoOk = await enviarMensagemContextoMaria(telefone, buildContextoMaria(data));
+  } catch {
+    // contextoOk fica false — não impede o fluxo principal
+  }
+
+  return { ok: true, templateOk: true, contextoOk, telefone };
 }
 
 // ─── Handler principal ────────────────────────────────────────────────────────
@@ -282,8 +379,22 @@ export async function POST(request: Request) {
   const resumo = buildResumo(data);
   const dataVencimento = getTaskDueDate();
 
+  // ── Camada 1: localiza Morgana por email — não por ID hardcoded ──────────────
+  // Se o usuário não for encontrado (email mudado), morganaId fica null e a Tarefa
+  // é criada sem responsável — o lead não é perdido, apenas fica sem dono.
+  const morgana = await prisma.usuario.findFirst({
+    where: { email: MORGANA_EMAIL, ativo: true },
+    select: { id: true },
+  });
+  const morganaId = morgana?.id ?? null;
+
+  if (!morganaId) {
+    console.warn(`[API_CONTATO_BOMBA] Usuário Morgana não encontrado (email: ${MORGANA_EMAIL}). Tarefa criada sem responsável.`);
+  }
+
   try {
-    await prisma.$transaction(async (tx) => {
+    // Transação principal — retorna IDs necessários para as etapas pós-transação
+    const { empresaId, pessoaId, tarefaId } = await prisma.$transaction(async (tx) => {
       // 1. Upsert Empresa (mínimo — sem poluir observacoes com diagnóstico)
       const empresaWhere = data.email
         ? {
@@ -370,7 +481,7 @@ export async function POST(request: Request) {
         },
       });
 
-      // 4. Tarefa de alerta para a equipe comercial
+      // 4. Tarefa de alerta — atribuída à Morgana (Camada 1)
       const prioridade =
         data.temperatura === "QUENTE"
           ? PrioridadeTarefa.URGENTE
@@ -378,9 +489,9 @@ export async function POST(request: Request) {
             ? PrioridadeTarefa.ALTA
             : PrioridadeTarefa.MEDIA;
 
-      await tx.tarefa.create({
+      const tarefa = await tx.tarefa.create({
         data: {
-          titulo: `[Bomba 68m] Lead: ${data.nome} — ${data.empresa} (${data.cidade}${data.uf ? `/${data.uf}` : ""})`,
+          titulo: `[Bomba 68m] Lead: ${data.nome} — ${empresaNome} (${data.cidade}${data.uf ? `/${data.uf}` : ""})`,
           descricao: [
             `Score: ${data.score}/100 | ${data.classificacao ?? data.temperatura}`,
             data.desafio ? `Desafio: ${data.desafio}` : null,
@@ -397,13 +508,50 @@ export async function POST(request: Request) {
           horaVencimento: dataVencimento.toTimeString().slice(0, 5),
           empresaId: empresa.id,
           pessoaId: pessoa.id,
+          responsavelId: morganaId, // Camada 1: Morgana é a responsável automática
           // oportunidadeId: null — sem oportunidade
         },
       });
+
+      return { empresaId: empresa.id, pessoaId: pessoa.id, tarefaId: tarefa.id };
     });
 
-    // WhatsApp: fora da transação (não bloqueia o salvamento se falhar)
-    await dispararWhatsApp(data);
+    // ── Camada 2: dispara WhatsApp e registra o resultado no histórico ─────────
+    const dataHora = new Date().toISOString();
+    const wapp = await dispararWhatsApp(data);
+
+    if (wapp.ok) {
+      // WhatsApp enviado — registra sucesso
+      await prisma.historicoContato.create({
+        data: {
+          tipo: TipoContato.WHATSAPP,
+          resumo: "[Bomba 68m] WhatsApp disparado ✅",
+          detalhes: buildDetalhesWhatsAppSucesso(data.nome, empresaNome, wapp.telefone, dataHora),
+          empresaId,
+          pessoaId,
+        },
+      }).catch((e) => console.error("[API_CONTATO_BOMBA] Erro ao criar HistoricoContato de sucesso:", e));
+    } else {
+      // WhatsApp falhou — registra falha e torna a Tarefa visualmente urgente
+      await prisma.historicoContato.create({
+        data: {
+          tipo: TipoContato.WHATSAPP,
+          resumo: "[Bomba 68m] WhatsApp falhou — contato manual necessário ⚠️",
+          detalhes: buildDetalhesWhatsAppFalha(data.nome, empresaNome, wapp.telefone || telefoneLimpo, dataHora, wapp.erro),
+          empresaId,
+          pessoaId,
+        },
+      }).catch((e) => console.error("[API_CONTATO_BOMBA] Erro ao criar HistoricoContato de falha:", e));
+
+      // Atualiza título da Tarefa para sinalizar contato manual necessário
+      await prisma.tarefa.update({
+        where: { id: tarefaId },
+        data: {
+          titulo: `⚠️ CONTATO MANUAL — Lead Bomba 68m: ${data.nome} (${empresaNome})`,
+          prioridade: PrioridadeTarefa.URGENTE,
+        },
+      }).catch((e) => console.error("[API_CONTATO_BOMBA] Erro ao atualizar título da Tarefa:", e));
+    }
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {

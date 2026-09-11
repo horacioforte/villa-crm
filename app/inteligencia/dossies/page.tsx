@@ -17,16 +17,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle,
-  Brain,
-  ChevronDown,
   Loader2,
   RefreshCw,
   Search,
-  ShieldCheck,
-  Target,
-  TrendingUp,
-  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -88,8 +81,18 @@ type Dossie = {
 
 // ─── Colunas do Kanban ────────────────────────────────────────────────────────
 
-// Ordem das 5 colunas no Kanban (Arquivado e Oportunidade ficam separados)
-const COLUNAS_KANBAN: NivelLabel[] = ["A", "B", "C", "PRONTO"];
+const COLUNAS_KANBAN: {
+  nivel: NivelLabel;
+  headerBg: string;
+  headerText: string;
+  colBorder: string;
+}[] = [
+  { nivel: "A",            headerBg: "bg-blue-50",    headerText: "text-blue-700",    colBorder: "border-blue-200"    },
+  { nivel: "B",            headerBg: "bg-amber-50",   headerText: "text-amber-700",   colBorder: "border-amber-200"   },
+  { nivel: "C",            headerBg: "bg-violet-50",  headerText: "text-violet-700",  colBorder: "border-violet-200"  },
+  { nivel: "PRONTO",       headerBg: "bg-emerald-50", headerText: "text-emerald-700", colBorder: "border-emerald-200" },
+  { nivel: "OPORTUNIDADE", headerBg: "bg-indigo-50",  headerText: "text-indigo-700",  colBorder: "border-indigo-200"  },
+];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -276,7 +279,6 @@ function CardDossie({
   onClick: () => void;
   onGerarOportunidade?: () => void;
 }) {
-  const cfg = NIVEL_CFG[nivel];
   const dias = diasDesde(dossie.updatedAt);
   const maturidade = dossie.maturidadeComercial ?? 0;
   const parado = dias > 7;
@@ -289,25 +291,29 @@ function CardDossie({
     <div
       onClick={onClick}
       className={cn(
-        "cursor-pointer border rounded-lg p-2.5 hover:shadow-md transition-all group space-y-1",
-        cfg.bgBorder,
-        parado && "border-red-200 ring-1 ring-red-100"
+        "cursor-pointer bg-white border border-slate-100 rounded-xl p-3 hover:shadow-md hover:border-indigo-200 transition-all group space-y-1.5",
+        parado && "ring-1 ring-red-100 border-red-200"
       )}
     >
-      {/* Título + Score */}
-      <div className="flex items-start justify-between gap-1.5">
-        <p className="text-xs font-semibold text-slate-800 leading-tight group-hover:text-blue-700 line-clamp-2">
-          {dossie.titulo}
-        </p>
+      {/* Score + dias */}
+      <div className="flex items-center justify-between gap-1">
         <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0", corScore(dossie.score))}>
           {dossie.score}
         </span>
+        <span className={cn("text-[10px] flex items-center gap-0.5 shrink-0", parado ? "text-red-500 font-semibold" : "text-slate-400")}>
+          {dias === 0 ? "hoje" : `${dias}d`}
+        </span>
       </div>
+
+      {/* Título */}
+      <p className="text-xs font-semibold text-slate-800 leading-snug group-hover:text-indigo-700 line-clamp-2 transition-colors">
+        {dossie.titulo}
+      </p>
 
       {/* Localização + Segmento */}
       {(dossie.cidade || dossie.estado || dossie.segmento) && (
-        <p className="text-[10px] text-slate-500 truncate">
-          {[dossie.cidade, dossie.estado].filter(Boolean).join("/")}
+        <p className="text-[10px] text-slate-400 truncate">
+          {[dossie.cidade, dossie.estado].filter(Boolean).join(" / ")}
           {dossie.segmento ? " · " + dossie.segmento : ""}
         </p>
       )}
@@ -316,26 +322,23 @@ function CardDossie({
       <BarraDupla completude={dossie.completude} maturidade={maturidade} />
 
       {/* Contadores */}
-      <div className="flex items-center justify-between text-[10px] text-slate-400">
-        <div className="flex gap-2">
+      {(dossie.totalDecisores > 0 || dossie.totalNoticias > 0) && (
+        <div className="flex gap-2 text-[10px] text-slate-400">
           {dossie.totalDecisores > 0 && <span>👤 {dossie.totalDecisores}</span>}
           {dossie.totalNoticias   > 0 && <span>📰 {dossie.totalNoticias}</span>}
         </div>
-        <span className={cn(parado ? "text-red-500 font-semibold" : "")}>
-          {dias === 0 ? "hoje" : `${dias}d`}
-        </span>
-      </div>
+      )}
 
       {/* Missão atual */}
       {dossie.missaoAtual && (
-        <div className="bg-white/60 border border-dashed border-slate-200 rounded px-2 py-1 border-l-2 border-l-blue-400">
+        <div className="border-l-2 border-blue-300 bg-blue-50/50 rounded-r px-2 py-1">
           <p className="text-[10px] text-slate-600 line-clamp-2">{dossie.missaoAtual}</p>
         </div>
       )}
 
       {/* Gates faltando (Nível C próximo de Pronto) */}
       {gates.length > 0 && (
-        <div className="bg-amber-50 border border-amber-100 rounded px-2 py-1 space-y-0.5">
+        <div className="bg-amber-50 border border-amber-100 rounded-lg px-2 py-1 space-y-0.5">
           <p className="text-[9px] font-semibold text-amber-700 uppercase tracking-wide">
             Falta para Pronto ({gates.length})
           </p>
@@ -347,7 +350,7 @@ function CardDossie({
 
       {/* Critérios para próximo nível (níveis A e B) */}
       {gates.length === 0 && criterios.length > 0 && nivel !== "C" && (
-        <div className="bg-slate-50 border border-slate-100 rounded px-2 py-1">
+        <div className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1">
           <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
             Próximo nível
           </p>
@@ -357,7 +360,7 @@ function CardDossie({
 
       {/* Parado */}
       {parado && (
-        <div className="bg-red-50 border border-red-100 rounded px-2 py-1">
+        <div className="bg-red-50 border border-red-100 rounded-lg px-2 py-1">
           <p className="text-[10px] text-red-600 font-medium">Sem atualização há {dias} dias</p>
         </div>
       )}
@@ -366,7 +369,7 @@ function CardDossie({
       {nivel === "PRONTO" && onGerarOportunidade && (
         <button
           onClick={e => { e.stopPropagation(); onGerarOportunidade(); }}
-          className="w-full text-[10px] py-1.5 rounded bg-indigo-600 text-white font-semibold hover:bg-indigo-700 active:scale-95 transition-all"
+          className="w-full text-[10px] py-1.5 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 active:scale-95 transition-all"
         >
           🚀 Gerar Oportunidade →
         </button>
@@ -382,7 +385,6 @@ export default function DossiesPage() {
   const [dossies, setDossies] = useState<Dossie[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
-  const [mostrarOportunidades, setMostrarOportunidades] = useState(false);
   const lastVisitRef = useRef<string | null>(null);
 
   async function gerarOportunidade(id: string) {
@@ -492,20 +494,11 @@ export default function DossiesPage() {
             <button onClick={() => setBusca("")} className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600">✕</button>
           )}
         </div>
-        <button
-          onClick={() => setMostrarOportunidades(v => !v)}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-2 text-xs border rounded-lg transition-colors text-slate-500 shrink-0",
-            mostrarOportunidades ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-white border-slate-200 hover:bg-slate-50"
-          )}
-        >
-          🟣 {mostrarOportunidades ? "Ocultar oportunidades" : "Ver oportunidades"}
-          {totalPorNivel.OPORTUNIDADE > 0 && (
-            <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 rounded-full">
-              {totalPorNivel.OPORTUNIDADE}
-            </span>
-          )}
-        </button>
+        {totalPorNivel.OPORTUNIDADE > 0 && (
+          <span className="flex items-center gap-1.5 px-3 py-2 text-xs border rounded-lg bg-indigo-50 border-indigo-100 text-indigo-600 shrink-0">
+            🟣 {totalPorNivel.OPORTUNIDADE} oportunidade{totalPorNivel.OPORTUNIDADE !== 1 ? "s" : ""} gerada{totalPorNivel.OPORTUNIDADE !== 1 ? "s" : ""}
+          </span>
+        )}
         {busca && (
           <span className="text-[11px] text-slate-400 shrink-0">
             {dossiesFiltrados.length} resultado{dossiesFiltrados.length !== 1 ? "s" : ""}
@@ -514,76 +507,48 @@ export default function DossiesPage() {
       </div>
 
       {/* Kanban */}
-      <div className="flex-1 overflow-auto p-3">
-        {/* 4 colunas principais */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4">
-          {COLUNAS_KANBAN.map(nivel => {
-            const cfg = NIVEL_CFG[nivel];
-            const lista = porNivel[nivel];
-            const totalGlobal = totalPorNivel[nivel];
+      <div className="flex-1 overflow-auto">
+        <div className="flex gap-3 p-4 min-w-max min-h-full items-start">
+          {COLUNAS_KANBAN.map(col => {
+            const cfg = NIVEL_CFG[col.nivel];
+            const lista = porNivel[col.nivel];
+            const totalGlobal = totalPorNivel[col.nivel];
             return (
-              <div key={nivel}>
+              <div
+                key={col.nivel}
+                className={cn("flex flex-col w-72 shrink-0 rounded-xl border", col.colBorder)}
+              >
                 {/* Cabeçalho da coluna */}
                 <div
                   title={cfg.descricao}
-                  className={cn("flex items-center gap-1.5 px-2 py-1.5 rounded-lg border mb-2 cursor-help", cfg.bgBorder)}
+                  className={cn("px-3 py-2.5 rounded-t-xl flex items-center justify-between cursor-help", col.headerBg)}
                 >
-                  <span className="text-sm">{cfg.emoji}</span>
-                  <span className={cn("text-[10px] font-semibold flex-1 leading-tight", cfg.textCor)}>
-                    {cfg.label}
+                  <span className={cn("text-xs font-bold", col.headerText)}>
+                    {cfg.emoji} {cfg.label}
                   </span>
-                  <span className={cn("text-[10px] font-bold", cfg.textCor)}>
+                  <span className={cn("text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/60", col.headerText)}>
                     {busca ? `${lista.length}/` : ""}{totalGlobal}
                   </span>
                 </div>
                 {/* Cards */}
-                <div className="space-y-2 min-h-12">
+                <div className="flex flex-col gap-2 p-2 flex-1">
                   {lista.map(d => (
                     <CardDossie
                       key={d.id}
                       dossie={d}
-                      nivel={nivel}
+                      nivel={col.nivel}
                       onClick={() => irPara(d.id)}
-                      onGerarOportunidade={nivel === "PRONTO" ? () => gerarOportunidade(d.id) : undefined}
+                      onGerarOportunidade={col.nivel === "PRONTO" ? () => gerarOportunidade(d.id) : undefined}
                     />
                   ))}
                   {lista.length === 0 && (
-                    <p className="text-[10px] text-slate-300 text-center py-3">—</p>
+                    <p className="text-[10px] text-slate-400 text-center py-4">Nenhuma aqui</p>
                   )}
                 </div>
               </div>
             );
           })}
         </div>
-
-        {/* Oportunidades Geradas (colapsável) */}
-        {mostrarOportunidades && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-indigo-500 uppercase tracking-wider">
-                🟣 Oportunidades Geradas
-              </span>
-              <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-bold">
-                {totalPorNivel.OPORTUNIDADE}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-              {porNivel.OPORTUNIDADE.map(d => (
-                <CardDossie
-                  key={d.id}
-                  dossie={d}
-                  nivel="OPORTUNIDADE"
-                  onClick={() => irPara(d.id)}
-                />
-              ))}
-              {porNivel.OPORTUNIDADE.length === 0 && (
-                <p className="text-[10px] text-slate-300 col-span-4 text-center py-4">
-                  Nenhuma oportunidade gerada ainda
-                </p>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -375,13 +375,13 @@ export function SolicitacoesView({
 
         {/* KANBAN */}
         {view === "kanban" && (
-          <div className="flex gap-3 p-4 min-w-max min-h-full items-start">
+          <div className="flex gap-3 p-4 h-full items-start">
             {COLUNAS.map(col => {
               const itens = porNivel[col.nivel] ?? [];
               return (
                 <div
                   key={col.nivel}
-                  className={cn("flex flex-col w-52 shrink-0 rounded-xl border", col.colBorder)}
+                  className={cn("flex flex-col flex-1 min-w-0 rounded-xl border", col.colBorder)}
                 >
                   {/* Header da coluna */}
                   <div className={cn("px-3 py-2.5 rounded-t-xl flex items-center justify-between", col.headerBg)}>

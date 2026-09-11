@@ -490,7 +490,7 @@ export default function DossiesPage() {
 
       {/* Kanban */}
       <div className="flex-1 overflow-auto">
-        <div className="flex gap-3 p-4 min-w-max min-h-full items-start">
+        <div className="flex gap-3 p-4 h-full items-start">
           {COLUNAS_KANBAN.map(col => {
             const cfg = NIVEL_CFG[col.nivel];
             const lista = porNivel[col.nivel];
@@ -498,7 +498,7 @@ export default function DossiesPage() {
             return (
               <div
                 key={col.nivel}
-                className={cn("flex flex-col w-52 shrink-0 rounded-xl border", col.colBorder)}
+                className={cn("flex flex-col flex-1 min-w-0 rounded-xl border", col.colBorder)}
               >
                 {/* Cabeçalho da coluna */}
                 <div

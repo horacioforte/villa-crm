@@ -35,8 +35,9 @@ export const VILLA_EQUIPAMENTOS = `
 Equipamentos disponíveis para locação e venda:
 
 1. BOMBA LANÇA (Auto Bomba de Concreto)
-   - Alcance: 28 a 58 metros (vertical e horizontal)
-   - Modelos: ABL 28 / 32 / 36 / 38 / 40 / 42-43 / 56-58
+   - Alcance: 28 a 68 metros (vertical)
+   - Modelos: ABL 28 / 32 / 36 / 38 / 40 / 42-43 / 56-58 + SANY SY68 RZR5 (68 m)
+   - Destaque: SANY SY68 RZR5 — maior bomba lança da Villa, 6 seções, conf. RZR, 67,3 m vertical
    - Uso: obras que exigem alcance em altura ou distância horizontal
    - Contrato fora de SP: mínimo 3 meses, modalidade mensal
 
@@ -210,34 +211,71 @@ Pilar 4 — PESSOAS:
 
 // ─── BOMBA LANÇA 68 M — SANY SY68 RZR5 ──────────────────────────────────────
 // Adicionado em 11/09/2026 após aprovação do conhecimento comercial.
+// Expandido em 12/09/2026 com base na base de conhecimento oficial completa.
 // REGRA: nunca remover. Apenas acrescentar.
 
 export const VILLA_BOMBA_68M = `
 EQUIPAMENTO ESPECIAL — BOMBA LANÇA 68 METROS
 Modelo: SANY SY68 RZR5
 Tipo: Bomba de concreto montada sobre caminhão (Bomba Lança)
-Destaque: a maior bomba de concreto com lança da Villa — e uma das maiores da América Latina.
+Nome comercial na Villa: Bomba Lança 68 m
 
-DADOS TÉCNICOS:
+DADOS TÉCNICOS OFICIAIS:
 - Número de seções da lança: 6
 - Sistema de dobragem: RZR
 - Alcance vertical: 67,3 m
 - Alcance horizontal: 62,2 m
-- Altura de abertura/desdobramento: 14,8 m
+- Altura necessária para desdobramento da lança: 14,8 m
 - Comprimento máximo da mangueira final: 3 m
 - Linha de bombeamento: DN 125
-- Capacidade máxima: 179 m³/h (efetividade depende das condições da obra)
+- Capacidade máxima informada pelo fabricante: 179 m³/h
 - Pressão de bombeamento: 85 bar
 - Número de golpes: 29
 - Cilindro de material: 260/1900 mm
 
-PERFIL DE OBRA COMPATÍVEL:
+ATENÇÃO — CAPACIDADE DE BOMBEAMENTO:
+179 m³/h é a especificação máxima do fabricante. NÃO é produtividade garantida em obra.
+A produtividade real varia conforme: tipo de concreto, logística da concreteira, alimentação
+da bomba, condições do canteiro, tubulação, posicionamento, ritmo de recebimento.
+João nunca deve apresentar 179 m³/h como garantia de produção em uma obra específica.
+
+ATENÇÃO — ALCANCE:
+Alcance vertical ≠ alcance horizontal.
+Alcance vertical: 67,3 m. Alcance horizontal: 62,2 m.
+A viabilidade de atingir um ponto específico da obra depende de posicionamento,
+geometria, obstáculos, acesso e planejamento operacional — João não deve garantir
+que a bomba "chega" a determinado ponto sem análise técnica da equipe.
+
+DIFERENCIAIS COMERCIAIS:
+- Grande alcance: 67,3 m vertical e 62,2 m horizontal
+- Flexibilidade: lança de 6 seções com configuração RZR
+- Alta capacidade: até 179 m³/h (condições ideais)
+- Acesso a pontos complexos: onde equipamentos de menor alcance têm limitações
+- Adequada para concretagens de grande porte com condições operacionais adequadas
+
+PERFIL DE OBRA COMPATÍVEL (exemplos — cada caso deve ser avaliado individualmente):
 - Obras que exigem alcance vertical acima de 60 m
-- Obras com pontos de concretagem de difícil acesso
-- Infraestrutura: pontes, viadutos, metrô, aeroportos, portos
-- Edifícios de grande altura (acima de 20 andares)
+- Grandes estruturas, pontes, viadutos, rodovias, ferrovias
+- Portos, aeroportos, metrô
+- Edifícios de grande altura
 - Data centers e plantas industriais de grande porte
 - Saneamento: adutoras, reservatórios elevados, ETA/ETE
+- Energia: obras de usinas, subestações, torres
+- Locais com dificuldade de aproximação ao ponto de lançamento
+- Obras com obstáculos que exijam grande alcance horizontal
+
+O QUE JOÃO NÃO SABE E NÃO DEVE INVENTAR:
+- Preço de locação ou por m³
+- Prazo de mobilização ou desmobilização
+- Disponibilidade de agenda do equipamento
+- Prazo mínimo de locação específico para este modelo
+- Condições comerciais personalizadas
+- Localização atual do equipamento
+- Peso do equipamento, dimensões do caminhão, configuração do cavalo
+- Produtividade real garantida em qualquer obra específica
+- Se a bomba "consegue atingir" determinado ponto de uma obra sem análise técnica
+
+Se uma informação não estiver nesta base: considerar NÃO CONFIRMADA e redirecionar para equipe.
 `.trim();
 
 // ─── EXPORT CONSOLIDADO ──────────────────────────────────────────────────────

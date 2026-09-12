@@ -111,6 +111,8 @@ export async function persistirMensagemCliente({
   messageType,
   texto,
   rawPayload,
+  mediaUrl,
+  mimeType,
 }: {
   canal: CanalWhatsapp;
   telefone: string;
@@ -119,6 +121,11 @@ export async function persistirMensagemCliente({
   messageType: string;
   texto: string;
   rawPayload: unknown;
+  // ACRESCENTADO — mídia recebida (imagem/áudio/vídeo/documento) já resolvida pelo
+  // webhook via Evolution (base64 decodificado) ou ausente quando não foi possível obter.
+  // Opcionais e aditivos: nunca quebram o fluxo de texto puro existente.
+  mediaUrl?: string | null;
+  mimeType?: string | null;
 }) {
   const conversa = await encontrarOuCriarConversa({ canal, telefone, nomeContato });
 
@@ -135,6 +142,8 @@ export async function persistirMensagemCliente({
         messageType,
         rawPayload: rawPayload as Prisma.InputJsonValue,
         receivedAt: new Date(),
+        mediaUrl: mediaUrl ?? undefined,
+        mimeType: mimeType ?? undefined,
       },
     });
   } catch (err) {
@@ -167,6 +176,8 @@ export async function reconciliarOuCriarMensagemHumana({
   messageType,
   texto,
   rawPayload,
+  mediaUrl,
+  mimeType,
 }: {
   canal: CanalWhatsapp;
   telefone: string;
@@ -175,6 +186,10 @@ export async function reconciliarOuCriarMensagemHumana({
   messageType: string;
   texto: string;
   rawPayload: unknown;
+  // ACRESCENTADO — mesma extensão aditiva de persistirMensagemCliente, para o caso de
+  // a própria Morgana mandar mídia direto pelo celular (fora da Central).
+  mediaUrl?: string | null;
+  mimeType?: string | null;
 }) {
   // Já reconciliada/gravada antes (reentrega do mesmo evento) — nada a fazer.
   const jaProcessada = await mensagemJaProcessada({ canal, externalMessageId });
@@ -237,6 +252,8 @@ export async function reconciliarOuCriarMensagemHumana({
         messageType,
         rawPayload: rawPayload as Prisma.InputJsonValue,
         receivedAt: new Date(),
+        mediaUrl: mediaUrl ?? undefined,
+        mimeType: mimeType ?? undefined,
       },
     });
   } catch (err) {

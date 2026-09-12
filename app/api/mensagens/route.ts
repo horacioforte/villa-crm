@@ -128,6 +128,12 @@ export async function POST(req: NextRequest) {
   const token = getEvolutionToken(conversa.instanceName);
 
   let waMessageId: string | undefined;
+  // ACRESCENTADO — mesmo diagnóstico de falha silenciosa aplicado em
+  // /api/mensagens/midia: antes, uma resposta não-OK da Evolution aqui não gerava nem
+  // log nem registro do motivo — a mensagem virava ERRO sem explicação nenhuma. Agora o
+  // motivo (status HTTP + corpo, ou erro de rede) é guardado em errorCode/errorMessage.
+  let erroEnvioCodigo: string | undefined;
+  let erroEnvioMensagem: string | undefined;
 
   try {
     const resp = await fetch(
@@ -148,8 +154,14 @@ export async function POST(req: NextRequest) {
     if (resp.ok) {
       const data = await resp.json();
       waMessageId = data?.key?.id;
+    } else {
+      const corpo = await resp.text().catch(() => "");
+      erroEnvioCodigo = String(resp.status);
+      erroEnvioMensagem = corpo.slice(0, 500) || `HTTP ${resp.status} sem corpo de resposta.`;
+      console.error("[api/mensagens] Evolution respondeu:", resp.status, corpo);
     }
   } catch (err) {
+    erroEnvioMensagem = err instanceof Error ? err.message : "Erro desconhecido ao chamar a Evolution API.";
     console.error("[api/mensagens] Erro ao enviar via Evolution API:", err);
     // Continua para salvar no banco mesmo se a API falhar
   }
@@ -170,6 +182,8 @@ export async function POST(req: NextRequest) {
       status: waMessageId ? "ENVIADA" : "ERRO",
       canalWhatsappId: conversa.canalWhatsappId,
       externalMessageId: waMessageId,
+      errorCode: erroEnvioCodigo,
+      errorMessage: erroEnvioMensagem,
     },
   });
 

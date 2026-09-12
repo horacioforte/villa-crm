@@ -124,6 +124,13 @@ export async function POST(req: NextRequest) {
   const base64 = buffer.toString("base64");
 
   let waMessageId: string | undefined;
+  // ACRESCENTADO — diagnóstico de falha silenciosa: antes, um erro da Evolution aqui só
+  // ia pro console do servidor e a mensagem ficava com status ERRO sem nenhum motivo
+  // registrado nem indicação visual no Workspace (parecia enviada com sucesso). Agora o
+  // motivo real (status HTTP + corpo da resposta, ou erro de rede) é guardado nas colunas
+  // já existentes errorCode/errorMessage, e o Workspace passa a exibir isso (ver page.tsx).
+  let erroEnvioCodigo: string | undefined;
+  let erroEnvioMensagem: string | undefined;
   try {
     const resp = await fetch(`${apiUrl}/message/sendMedia/${conversa.instanceName}`, {
       method: "POST",
@@ -131,19 +138,32 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         number: conversa.telefone,
         mediatype: tipo,
-        media: `data:${mimeType};base64,${base64}`,
+        // CORRIGIDO — a Evolution API rejeitava toda mídia com "Owned media must be a url
+        // or base64" porque estávamos mandando uma data URI completa (data:<mime>;base64,...).
+        // O campo `media` espera SÓ o base64 puro (ou uma URL) — sem o prefixo data:.
+        media: base64,
+        mimetype: mimeType,
         ...(caption ? { caption } : {}),
         ...(tipo === "document" ? { fileName: nomeArquivo } : {}),
       }),
     });
 
+    const corpoBruto = await resp.text();
+
     if (resp.ok) {
-      const data = await resp.json();
+      const data = JSON.parse(corpoBruto);
       waMessageId = data?.key?.id;
+      if (!waMessageId) {
+        erroEnvioCodigo = String(resp.status);
+        erroEnvioMensagem = JSON.stringify(data).slice(0, 500);
+      }
     } else {
-      console.error("[api/mensagens/midia] Evolution respondeu:", resp.status, await resp.text().catch(() => ""));
+      erroEnvioCodigo = String(resp.status);
+      erroEnvioMensagem = corpoBruto.slice(0, 500) || `HTTP ${resp.status} sem corpo de resposta.`;
+      console.error("[api/mensagens/midia] Evolution respondeu:", resp.status, corpoBruto);
     }
   } catch (err) {
+    erroEnvioMensagem = err instanceof Error ? err.message : "Erro desconhecido ao chamar a Evolution API.";
     console.error("[api/mensagens/midia] Erro Evolution:", err);
   }
 
@@ -160,6 +180,8 @@ export async function POST(req: NextRequest) {
       canalWhatsappId: conversa.canalWhatsappId,
       externalMessageId: waMessageId,
       messageType: tipo,
+      errorCode: erroEnvioCodigo,
+      errorMessage: erroEnvioMensagem,
     },
   });
 

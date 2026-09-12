@@ -27,6 +27,13 @@ export async function GET(
           direcao: true,
           autor: true,
           createdAt: true,
+          // ACRESCENTADO — necessário para o Workspace exibir mídia recebida/enviada
+          // e sinalizar mensagens que falharam no envio (ver diagnóstico de status ERRO).
+          status: true,
+          mediaUrl: true,
+          mimeType: true,
+          messageType: true,
+          errorMessage: true,
         },
       },
       atendidoPor: { select: { nome: true } },

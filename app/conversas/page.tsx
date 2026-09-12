@@ -41,6 +41,11 @@ type Mensagem = {
   status: string;
   createdAt: string;
   autorUsuario?: { nome: string } | null;
+  // ACRESCENTADO — mídia (recebida ou enviada) e motivo de falha de envio, quando houver.
+  mediaUrl?: string | null;
+  mimeType?: string | null;
+  messageType?: string | null;
+  errorMessage?: string | null;
 };
 
 type Conversa = {
@@ -311,6 +316,23 @@ function ConversasPage() {
     const timer = setInterval(() => forcarRecalculoTempo((t) => t + 1), 30_000);
     return () => clearInterval(timer);
   }, []);
+
+  // Polling da lista — atualiza a cada 10s para capturar mensagens recebidas de outras
+  // conversas e reordenar pelo ultimaMensagemEm (conversa com mensagem nova sobe ao topo).
+  // Não mostra spinner (não usa setCarregando) para não piscar a UI.
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      const params = new URLSearchParams();
+      if (filtroStatus) params.set("status", filtroStatus);
+      if (filtroInstance) params.set("instance", filtroInstance);
+      if (filtroResponsavel === "SEM") params.set("semResponsavel", "1");
+      else if (filtroResponsavel) params.set("responsavelId", filtroResponsavel);
+      if (busca) params.set("busca", busca);
+      const resp = await fetch(`/api/conversas?${params}`).catch(() => null);
+      if (resp?.ok) setConversas(await resp.json());
+    }, 10_000);
+    return () => clearInterval(timer);
+  }, [filtroStatus, filtroInstance, filtroResponsavel, busca]);
 
   // Carrega lista de usuários para filtro e transferência
   useEffect(() => {
@@ -1181,7 +1203,41 @@ function ConversasPage() {
                                 IA · {INSTANCE_LABELS[conversaAtiva.instanceName]?.label}
                               </p>
                             )}
+                            {/* ACRESCENTADO — exibição de mídia (recebida ou enviada) quando a
+                                mensagem tiver mediaUrl. Imagem é exibida inline; qualquer outro
+                                tipo (documento, áudio, vídeo) vira um link pra abrir/baixar. */}
+                            {msg.mediaUrl && msg.mimeType?.startsWith("image/") && (
+                              <img
+                                src={msg.mediaUrl}
+                                alt={msg.conteudo || "Imagem"}
+                                className="mb-1.5 max-h-64 rounded-xl object-contain"
+                              />
+                            )}
+                            {msg.mediaUrl && !msg.mimeType?.startsWith("image/") && (
+                              <a
+                                href={msg.mediaUrl}
+                                download
+                                className={cn(
+                                  "mb-1.5 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium hover:underline",
+                                  isSaida ? "border-white/20 text-white" : "border-[#D7DEEA] text-[#1A2E5A]"
+                                )}
+                              >
+                                <FileText className="size-3.5 shrink-0" />
+                                Abrir arquivo
+                              </a>
+                            )}
                             <p className="whitespace-pre-wrap">{msg.conteudo}</p>
+                            {/* ACRESCENTADO — antes uma mensagem com status ERRO (falha real no
+                                envio pela Evolution) aparecia idêntica a uma enviada com sucesso,
+                                sem nenhum aviso. */}
+                            {msg.status === "ERRO" && (
+                              <p
+                                className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-red-400"
+                                title={msg.errorMessage || "Falha ao enviar esta mensagem — não chegou ao destinatário."}
+                              >
+                                ⚠ Falha no envio — não chegou ao destinatário
+                              </p>
+                            )}
                             <p
                               className={cn(
                                 "mt-1 text-right text-[10px]",

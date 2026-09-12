@@ -34,6 +34,19 @@ const INSTANCE_NAME = "morgana-villa";
 type EvolutionMessageBody = {
   conversation?: string;
   extendedTextMessage?: { text?: string };
+  // ACRESCENTADO — tipos de mídia. Antes só texto era reconhecido; qualquer mídia
+  // (imagem/áudio/vídeo/documento) virava um rótulo genérico sem conteúdo nenhum
+  // salvo (ver getMediaMeta abaixo e buscarMidiaBase64).
+  imageMessage?: { mimetype?: string; caption?: string; fileLength?: { low?: number } | number | string };
+  videoMessage?: { mimetype?: string; caption?: string; fileLength?: { low?: number } | number | string };
+  audioMessage?: { mimetype?: string; fileLength?: { low?: number } | number | string };
+  documentMessage?: {
+    mimetype?: string;
+    caption?: string;
+    fileName?: string;
+    title?: string;
+    fileLength?: { low?: number } | number | string;
+  };
 };
 
 type EvolutionMessage = {
@@ -65,7 +78,16 @@ function normalizeEvolutionMessage(payload: EvolutionWebhookPayload): EvolutionM
 }
 
 function getTextMessage(msg: EvolutionMessage | undefined): string {
-  return (msg?.message?.conversation ?? msg?.message?.extendedTextMessage?.text ?? "").trim();
+  const m = msg?.message;
+  return (
+    m?.conversation ??
+    m?.extendedTextMessage?.text ??
+    // ACRESCENTADO — legenda de imagem/vídeo/documento, quando houver.
+    m?.imageMessage?.caption ??
+    m?.videoMessage?.caption ??
+    m?.documentMessage?.caption ??
+    ""
+  ).trim();
 }
 
 function getWhatsappNumber(msg: EvolutionMessage | undefined): string | null {
@@ -74,6 +96,71 @@ function getWhatsappNumber(msg: EvolutionMessage | undefined): string | null {
   const [number] = remoteJid.split("@");
   const digits = number?.replace(/\D/g, "");
   return digits || null;
+}
+
+// ─── ACRESCENTADO — resolução de mídia recebida ──────────────────────────────
+// Antes, qualquer mídia (imagem/áudio/vídeo/documento) só virava um rótulo genérico
+// (ex.: "[documentMessage]") sem o arquivo em si ser salvo — o link que a Evolution
+// devolve no payload (msg.message.<tipo>.url) é um link criptografado do WhatsApp, não
+// dá pra abrir direto num <img>/<a>. A Evolution API tem um endpoint próprio que já
+// descriptografa e devolve o conteúdo em base64, usando o mesmo key.id do evento —
+// buscarMidiaBase64 chama esse endpoint. Tudo aqui é best-effort e aditivo: se falhar
+// por qualquer motivo (rede, token, arquivo grande, endpoint indisponível), a mensagem
+// continua sendo salva normalmente do jeito que já era antes, só sem mídia anexada.
+
+const MAX_MEDIA_BYTES = 15 * 1024 * 1024; // limite de segurança — arquivo maior não é embutido
+
+function getFileLengthBytes(fileLength: { low?: number } | number | string | undefined): number | null {
+  if (fileLength == null) return null;
+  if (typeof fileLength === "number") return fileLength;
+  if (typeof fileLength === "string") return Number(fileLength) || null;
+  if (typeof fileLength === "object" && typeof fileLength.low === "number") return fileLength.low;
+  return null;
+}
+
+function getMediaMeta(msg: EvolutionMessage | undefined): { mimetype?: string; fileLength: number | null } | null {
+  const m = msg?.message;
+  if (!m) return null;
+  if (m.documentMessage) return { mimetype: m.documentMessage.mimetype, fileLength: getFileLengthBytes(m.documentMessage.fileLength) };
+  if (m.imageMessage) return { mimetype: m.imageMessage.mimetype, fileLength: getFileLengthBytes(m.imageMessage.fileLength) };
+  if (m.videoMessage) return { mimetype: m.videoMessage.mimetype, fileLength: getFileLengthBytes(m.videoMessage.fileLength) };
+  if (m.audioMessage) return { mimetype: m.audioMessage.mimetype, fileLength: getFileLengthBytes(m.audioMessage.fileLength) };
+  return null;
+}
+
+async function buscarMidiaBase64(externalMessageId: string): Promise<{ mediaUrl: string; mimeType?: string } | null> {
+  const apiUrl = process.env.EVOLUTION_API_URL?.replace(/\/+$/, "");
+  const token = process.env.MORGANA_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY ?? "";
+  if (!apiUrl || !token) return null;
+
+  try {
+    const resp = await fetch(`${apiUrl}/chat/getBase64FromMediaMessage/${INSTANCE_NAME}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: token },
+      body: JSON.stringify({ message: { key: { id: externalMessageId } }, convertToMp4: false }),
+    });
+
+    if (!resp.ok) {
+      console.warn("[morgana/webhook] Falha ao buscar mídia na Evolution:", resp.status, await resp.text().catch(() => ""));
+      return null;
+    }
+
+    const data = await resp.json();
+    const base64: string | undefined = data?.base64 ?? data?.media;
+    const mimetype: string | undefined = data?.mimetype;
+    if (!base64) return null;
+
+    const bytesAproximados = Math.floor((base64.length * 3) / 4);
+    if (bytesAproximados > MAX_MEDIA_BYTES) {
+      console.warn("[morgana/webhook] Mídia maior que o limite de segurança — não embutida.", { externalMessageId, bytesAproximados });
+      return null;
+    }
+
+    return { mediaUrl: `data:${mimetype ?? "application/octet-stream"};base64,${base64}`, mimeType: mimetype };
+  } catch (err) {
+    console.warn("[morgana/webhook] Erro ao buscar mídia na Evolution:", err);
+    return null;
+  }
 }
 
 // ─── POST — recebimento de eventos Evolution ─────────────────────────────────
@@ -132,6 +219,12 @@ export async function POST(request: Request) {
   const nomeContato = msg.pushName?.trim() || "Cliente";
   const canal = await getCanalMorgana();
 
+  // ACRESCENTADO — busca best-effort do arquivo real quando a mensagem é de mídia.
+  // Nunca bloqueia nem derruba o processamento do evento: se falhar, mediaResolvida
+  // fica null e a mensagem é salva exatamente como já era antes desta mudança.
+  const mediaMeta = getMediaMeta(msg);
+  const mediaResolvida = mediaMeta ? await buscarMidiaBase64(externalMessageId) : null;
+
   if (!canal) {
     console.warn("[morgana/webhook] CanalWhatsapp 'morgana-villa' não encontrado — evento ignorado.");
     return NextResponse.json({ ok: true });
@@ -154,6 +247,8 @@ export async function POST(request: Request) {
         messageType,
         texto,
         rawPayload: msg,
+        mediaUrl: mediaResolvida?.mediaUrl,
+        mimeType: mediaResolvida?.mimeType ?? mediaMeta?.mimetype,
       });
     } else {
       // Mensagem de cliente real — só persiste, nenhuma resposta automática é gerada.
@@ -171,6 +266,8 @@ export async function POST(request: Request) {
         messageType,
         texto,
         rawPayload: msg,
+        mediaUrl: mediaResolvida?.mediaUrl,
+        mimeType: mediaResolvida?.mimeType ?? mediaMeta?.mimetype,
       });
     }
   } catch (err) {

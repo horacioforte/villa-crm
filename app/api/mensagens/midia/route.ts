@@ -180,6 +180,13 @@ export async function POST(req: NextRequest) {
       canalWhatsappId: conversa.canalWhatsappId,
       externalMessageId: waMessageId,
       messageType: tipo,
+      // ACRESCENTADO — sem isso, a mensagem enviada pelo Workspace ficava só com o
+      // texto "[image: nome-do-arquivo.jpg]" na bolha, sem nenhuma pré-visualização —
+      // era preciso abrir o arquivo em outro lugar pra ver o que tinha sido mandado.
+      // Guardamos o mesmo base64 já usado no envio, igual já fazemos para mídia
+      // recebida (ver webhook/whatsapp/morgana/route.ts).
+      mediaUrl: `data:${mimeType};base64,${base64}`,
+      mimeType,
       errorCode: erroEnvioCodigo,
       errorMessage: erroEnvioMensagem,
     },

@@ -85,6 +85,8 @@ async function criarOuReaproveitarMensagemPendente({
   autorUsuarioId,
   replyToMensagemId,
   retryMensagemId,
+  mediaUrl,
+  mimeType,
 }: {
   conversaId: string;
   canal: CanalAtivoMeta;
@@ -93,6 +95,11 @@ async function criarOuReaproveitarMensagemPendente({
   autorUsuarioId?: string | null;
   replyToMensagemId?: string | null;
   retryMensagemId?: string;
+  // ACRESCENTADO — mesma correção aplicada no envio via Evolution API: sem isso, uma
+  // mídia enviada pelo Workspace via Meta Cloud API ficava sem pré-visualização no
+  // CRM (só o texto "[image: nome-do-arquivo.jpg]"), igual acontecia com Evolution.
+  mediaUrl?: string;
+  mimeType?: string;
 }) {
   const conversa = await prisma.conversa.findUnique({
     where: { id: conversaId },
@@ -135,6 +142,8 @@ async function criarOuReaproveitarMensagemPendente({
       messageType,
       autorUsuarioId: autorUsuarioId ?? undefined,
       replyToMensagemId: replyToMensagemId ?? undefined,
+      mediaUrl: mediaUrl ?? undefined,
+      mimeType: mimeType ?? undefined,
     },
   });
 }
@@ -347,6 +356,11 @@ export async function enviarMidiaMeta({
     conteudo: conteudoRegistro,
     messageType: tipo,
     autorUsuarioId,
+    // ACRESCENTADO — guarda o próprio arquivo (mesmo buffer que já foi enviado à
+    // Meta) como data URI, pro Workspace exibir a pré-visualização igual já faz com
+    // mídia recebida e com o envio via Evolution.
+    mediaUrl: `data:${mimeType};base64,${arquivo.toString("base64")}`,
+    mimeType,
   });
 
   // 4. Envia via Graph API

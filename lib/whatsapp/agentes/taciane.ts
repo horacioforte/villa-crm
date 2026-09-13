@@ -96,6 +96,8 @@ export async function persistirMensagemCliente({
   messageType,
   texto,
   rawPayload,
+  mediaUrl,
+  mimeType,
 }: {
   canal: CanalWhatsapp;
   telefone: string;
@@ -104,6 +106,11 @@ export async function persistirMensagemCliente({
   messageType: string;
   texto: string;
   rawPayload: unknown;
+  // ACRESCENTADO — mídia recebida (imagem/áudio/vídeo/documento) já resolvida pelo
+  // webhook via Meta Graph API, ou ausente quando não foi possível obter. Opcionais e
+  // aditivos: nunca quebram o fluxo de texto puro existente.
+  mediaUrl?: string | null;
+  mimeType?: string | null;
 }) {
   const conversa = await encontrarOuCriarConversa({ canal, telefone, nomeContato });
 
@@ -120,6 +127,8 @@ export async function persistirMensagemCliente({
         messageType,
         rawPayload: rawPayload as Prisma.InputJsonValue,
         receivedAt: new Date(),
+        mediaUrl: mediaUrl ?? undefined,
+        mimeType: mimeType ?? undefined,
       },
     });
   } catch (err) {

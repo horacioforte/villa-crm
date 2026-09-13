@@ -44,6 +44,73 @@ export class EnvioMetaError extends Error {
   }
 }
 
+// ACRESCENTADO — busca de mídia recebida (imagem/áudio/vídeo/documento) via webhook.
+// Fluxo oficial da Meta Cloud API: 1) GET /{media-id} com Bearer token retorna um objeto
+// com uma URL de download temporária; 2) essa URL também exige o MESMO Bearer token
+// (não é pública/CDN aberta). Best-effort e aditivo: qualquer falha (token errado,
+// mídia expirada, arquivo grande demais) retorna null e quem chamou simplesmente segue
+// sem anexar mídia — nunca interrompe o processamento do evento nem o fluxo comercial.
+const MAX_MEDIA_BYTES_INBOUND = 15 * 1024 * 1024;
+
+export type MidiaMetaResolvida = { mediaUrl: string; mimeType?: string };
+
+export async function buscarMidiaMeta({
+  mediaId,
+  accessToken,
+}: {
+  mediaId: string;
+  accessToken: string;
+}): Promise<MidiaMetaResolvida | null> {
+  if (!mediaId || !accessToken) return null;
+
+  try {
+    const metaResp = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${mediaId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!metaResp.ok) {
+      console.warn(
+        "[meta-client] Falha ao resolver metadados de mídia recebida:",
+        metaResp.status,
+        await metaResp.text().catch(() => ""),
+      );
+      return null;
+    }
+
+    const metaData = (await metaResp.json()) as { url?: string; mime_type?: string; file_size?: number };
+    if (!metaData.url) return null;
+    if (metaData.file_size && metaData.file_size > MAX_MEDIA_BYTES_INBOUND) {
+      console.warn("[meta-client] Mídia recebida maior que o limite de segurança — não embutida.", {
+        mediaId,
+        fileSize: metaData.file_size,
+      });
+      return null;
+    }
+
+    const arquivoResp = await fetch(metaData.url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!arquivoResp.ok) {
+      console.warn("[meta-client] Falha ao baixar mídia recebida:", arquivoResp.status);
+      return null;
+    }
+
+    const buffer = Buffer.from(await arquivoResp.arrayBuffer());
+    if (buffer.byteLength > MAX_MEDIA_BYTES_INBOUND) {
+      console.warn("[meta-client] Mídia recebida (baixada) maior que o limite de segurança — não embutida.", {
+        mediaId,
+        bytes: buffer.byteLength,
+      });
+      return null;
+    }
+
+    const mimetype = metaData.mime_type ?? "application/octet-stream";
+    return { mediaUrl: `data:${mimetype};base64,${buffer.toString("base64")}`, mimeType: mimetype };
+  } catch (err) {
+    console.warn("[meta-client] Erro ao buscar mídia recebida da Meta:", err);
+    return null;
+  }
+}
+
 type CanalAtivoMeta = Awaited<ReturnType<typeof buscarCanalAtivoMeta>>;
 
 async function buscarCanalAtivoMeta(canalId: string) {

@@ -25,6 +25,7 @@ import { auditLog } from "@/lib/audit";
 import { resolveWhatsappEnvVar } from "@/lib/whatsapp/env-allowlist";
 import { verificarAssinaturaMeta } from "@/lib/whatsapp/verify-signature";
 import { getCanalTaciane, mensagemJaProcessada, persistirMensagemCliente } from "@/lib/whatsapp/agentes/taciane";
+import { buscarMidiaMeta } from "@/lib/whatsapp/meta-client";
 import type { CanalWhatsapp } from "@/app/generated/prisma/client";
 
 export const maxDuration = 30;
@@ -43,6 +44,12 @@ type MetaMessage = {
   timestamp: string;
   type: "text" | "image" | "audio" | "document" | "sticker" | "reaction" | string;
   text?: { body: string };
+  // ACRESCENTADO — mídia recebida. Formato oficial da Meta Cloud API: cada tipo traz
+  // um objeto com `id` (usado para buscar o conteúdo real via Graph API) e `mime_type`.
+  image?: { id: string; mime_type?: string; caption?: string };
+  video?: { id: string; mime_type?: string; caption?: string };
+  audio?: { id: string; mime_type?: string };
+  document?: { id: string; mime_type?: string; caption?: string; filename?: string };
 };
 
 type MetaContact = { profile: { name: string }; wa_id: string };
@@ -59,6 +66,16 @@ type MetaWebhookPayload = {
   object: string;
   entry: Array<{ id: string; changes: Array<{ value: MetaValue; field: string }> }>;
 };
+
+// ACRESCENTADO — identifica mídia recebida (imagem/áudio/vídeo/documento), retornando
+// o media id (usado para buscar o conteúdo via buscarMidiaMeta) e o mimetype declarado.
+function getMediaMeta(msg: MetaMessage): { mediaId: string; mimetype?: string } | null {
+  if (msg.image) return { mediaId: msg.image.id, mimetype: msg.image.mime_type };
+  if (msg.video) return { mediaId: msg.video.id, mimetype: msg.video.mime_type };
+  if (msg.audio) return { mediaId: msg.audio.id, mimetype: msg.audio.mime_type };
+  if (msg.document) return { mediaId: msg.document.id, mimetype: msg.document.mime_type };
+  return null;
+}
 
 // ─── GET — verificação do webhook pela Meta ──────────────────────────────────
 
@@ -206,7 +223,26 @@ async function processarMensagem({
   if (!telefone) return;
 
   const nomeContato = contacts.find((c) => c.wa_id === telefone)?.profile?.name?.trim() || "Cliente";
-  const texto = msg.type === "text" ? (msg.text?.body?.trim() ?? "") : "";
+  const texto =
+    msg.type === "text"
+      ? (msg.text?.body?.trim() ?? "")
+      : (msg.image?.caption ?? msg.video?.caption ?? msg.document?.caption ?? "").trim();
+
+  // ACRESCENTADO — busca best-effort do arquivo real quando a mensagem é de mídia.
+  // Nunca bloqueia o processamento: se falhar (token, rede, arquivo grande), a
+  // mensagem é salva normalmente do jeito que já era antes, só sem mídia anexada.
+  const mediaMeta = getMediaMeta(msg);
+  let mediaResolvida: { mediaUrl: string; mimeType?: string } | null = null;
+  if (mediaMeta) {
+    try {
+      const accessToken = await resolveWhatsappEnvVar(canal.accessTokenEnvVar as string, "access_token", {
+        canalId: canal.id,
+      });
+      mediaResolvida = await buscarMidiaMeta({ mediaId: mediaMeta.mediaId, accessToken });
+    } catch (err) {
+      console.warn("[taciane/webhook] Não foi possível resolver token para buscar mídia:", err);
+    }
+  }
 
   await persistirMensagemCliente({
     canal,
@@ -216,5 +252,7 @@ async function processarMensagem({
     messageType: msg.type,
     texto,
     rawPayload: msg,
+    mediaUrl: mediaResolvida?.mediaUrl,
+    mimeType: mediaResolvida?.mimeType ?? mediaMeta?.mimetype,
   });
 }

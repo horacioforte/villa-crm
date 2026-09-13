@@ -19,7 +19,8 @@ import {
   StatusMensagem,
   type CanalWhatsapp,
 } from "@/app/generated/prisma/client";
-import { enviarTextoMeta } from "../meta-client";
+import { enviarTextoMeta, buscarMidiaMeta } from "../meta-client";
+import { resolveWhatsappEnvVar } from "../env-allowlist";
 import { adquirirParaProcessamento, marcarErroProcessamento, marcarProcessada } from "../processamento-mensagem";
 import { getContextoJoao } from "@/lib/agentes/joao/contexto";
 import { analisarMensagemJoao } from "@/lib/agentes/joao/handler";
@@ -41,6 +42,11 @@ export type MetaMessage = {
   timestamp: string;
   type: "text" | "image" | "audio" | "document" | "sticker" | "reaction" | string;
   text?: { body: string };
+  // ACRESCENTADO — mídia recebida (mesmo formato usado pelo webhook da Taciane).
+  image?: { id: string; mime_type?: string; caption?: string };
+  video?: { id: string; mime_type?: string; caption?: string };
+  audio?: { id: string; mime_type?: string };
+  document?: { id: string; mime_type?: string; caption?: string; filename?: string };
 };
 
 export type MetaContact = { profile: { name: string }; wa_id: string };
@@ -67,6 +73,15 @@ export type MetaWebhookPayload = {
 };
 
 const INSTANCE_NAME = "joao-villa";
+
+// ACRESCENTADO — identifica mídia recebida (mesma lógica do webhook da Taciane).
+function getMediaMeta(msg: MetaMessage): { mediaId: string; mimetype?: string } | null {
+  if (msg.image) return { mediaId: msg.image.id, mimetype: msg.image.mime_type };
+  if (msg.video) return { mediaId: msg.video.id, mimetype: msg.video.mime_type };
+  if (msg.audio) return { mediaId: msg.audio.id, mimetype: msg.audio.mime_type };
+  if (msg.document) return { mediaId: msg.document.id, mimetype: msg.document.mime_type };
+  return null;
+}
 
 // ─── API pública — chamada pelo adaptador legado e pelo roteador unificado ────
 
@@ -218,7 +233,26 @@ async function processarMensagemRecebida({
   }
 
   const nomeContato = contacts.find((c) => c.wa_id === telefone)?.profile?.name?.trim() || "Cliente";
-  const texto = msg.type === "text" ? msg.text?.body ?? "" : "";
+  const texto =
+    msg.type === "text"
+      ? msg.text?.body ?? ""
+      : (msg.image?.caption ?? msg.video?.caption ?? msg.document?.caption ?? "");
+
+  // ACRESCENTADO — busca best-effort do arquivo real quando a mensagem é de mídia.
+  // Nunca bloqueia o processamento do evento: se falhar, a mensagem é salva
+  // normalmente do jeito que já era antes, só sem mídia anexada.
+  const mediaMeta = getMediaMeta(msg);
+  let mediaResolvida: { mediaUrl: string; mimeType?: string } | null = null;
+  if (mediaMeta) {
+    try {
+      const accessToken = await resolveWhatsappEnvVar("META_JOAO_ACCESS_TOKEN", "access_token", {
+        canalId: canal.id,
+      });
+      mediaResolvida = await buscarMidiaMeta({ mediaId: mediaMeta.mediaId, accessToken });
+    } catch (err) {
+      console.warn("[agentes/joao] Não foi possível resolver token para buscar mídia:", err);
+    }
+  }
 
   const conversa = await encontrarOuCriarConversa({ canal, telefone, nomeContato });
 
@@ -239,6 +273,8 @@ async function processarMensagemRecebida({
         // Mensagem de cliente em canal com IA nasce PENDENTE — nunca NAO_APLICAVEL
         // (esse é o default do schema, usado só por mensagens de saída ou sem IA).
         processamentoStatus: ProcessamentoMensagemStatus.PENDENTE,
+        mediaUrl: mediaResolvida?.mediaUrl,
+        mimeType: mediaResolvida?.mimeType ?? mediaMeta?.mimetype,
       },
     });
   } catch (err) {

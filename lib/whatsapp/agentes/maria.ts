@@ -49,6 +49,74 @@ export async function mensagemJaProcessada({
   return Boolean(existente);
 }
 
+/**
+ * ACRESCENTADO — persistência de mensagem de mídia (imagem/áudio/vídeo/documento)
+ * recebida pelo número da Maria. Diferente de persistirConversaMaria, esta função
+ * NUNCA aciona IA nem envia resposta — só guarda o evento no Workspace, exatamente
+ * como já é feito para texto no fluxo comercial (que continua 100% inalterado). Usada
+ * quando a mensagem recebida não é do tipo "text" (a IA da Maria não tenta responder
+ * mídia — isso nunca mudou; só passamos a guardar o arquivo em vez de ignorá-lo).
+ */
+export async function persistirMensagemMidiaCliente({
+  canal,
+  telefone,
+  nomeContato,
+  externalMessageId,
+  messageType,
+  texto,
+  rawPayload,
+  mediaUrl,
+  mimeType,
+}: {
+  canal: CanalWhatsapp;
+  telefone: string;
+  nomeContato: string;
+  externalMessageId: string;
+  messageType: string;
+  texto: string;
+  rawPayload: unknown;
+  mediaUrl?: string | null;
+  mimeType?: string | null;
+}) {
+  const conversa = await encontrarOuCriarConversa({ canal, telefone, nomeContato });
+
+  try {
+    await prisma.mensagem.create({
+      data: {
+        conversaId: conversa.id,
+        conteudo: texto || `[${messageType}]`,
+        direcao: DirecaoMensagem.ENTRADA,
+        autor: AutorMensagem.CLIENTE,
+        status: StatusMensagem.RECEBIDA,
+        canalWhatsappId: canal.id,
+        externalMessageId,
+        messageType,
+        rawPayload: rawPayload as Prisma.InputJsonValue,
+        receivedAt: new Date(),
+        processamentoStatus: ProcessamentoMensagemStatus.NAO_APLICAVEL,
+        mediaUrl: mediaUrl ?? undefined,
+        mimeType: mimeType ?? undefined,
+      },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      console.info("[agentes/maria] Corrida concorrente detectada (mídia) — já inserida por outra requisição.", {
+        externalMessageId,
+      });
+      return conversa;
+    }
+    throw err;
+  }
+
+  const novoStatus = statusAposNovaMensagemCliente(conversa.status);
+  await prisma.conversa.update({
+    where: { id: conversa.id },
+    data: { ultimaMensagemEm: new Date(), ...(novoStatus ? { status: novoStatus } : {}) },
+  });
+
+  return conversa;
+}
+
 async function encontrarOuCriarConversa({
   canal,
   telefone,

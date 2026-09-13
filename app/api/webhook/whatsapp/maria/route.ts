@@ -22,8 +22,27 @@ import {
   registrarLeadQualificado,
   registrarInteracaoParcial,
 } from "@/lib/agentes/maria/crm";
-import { getCanalMaria, mensagemJaProcessada, persistirConversaMaria } from "@/lib/whatsapp/agentes/maria";
+import { getCanalMaria, mensagemJaProcessada, persistirConversaMaria, persistirMensagemMidiaCliente } from "@/lib/whatsapp/agentes/maria";
+import { buscarMidiaMeta } from "@/lib/whatsapp/meta-client";
+import { resolveWhatsappEnvVar } from "@/lib/whatsapp/env-allowlist";
 import type { CanalWhatsapp } from "@/app/generated/prisma/client";
+
+// ACRESCENTADO — identifica mídia recebida (imagem/áudio/vídeo/documento). Mesmo
+// formato usado pelos webhooks da Taciane e do João (Meta Cloud API).
+function getMediaMeta(message: Record<string, unknown>): { mediaId: string; mimetype?: string; caption?: string } | null {
+  const tipos = ["image", "video", "audio", "document"] as const;
+  for (const tipo of tipos) {
+    const obj = message[tipo] as Record<string, unknown> | undefined;
+    if (obj?.id) {
+      return {
+        mediaId: obj.id as string,
+        mimetype: obj.mime_type as string | undefined,
+        caption: obj.caption as string | undefined,
+      };
+    }
+  }
+  return null;
+}
 
 export const maxDuration = 90;
 
@@ -108,26 +127,33 @@ export async function POST(request: NextRequest) {
         // Ignora mensagens enviadas por nós
         if ((message.from as string) === process.env.MARIA_META_PHONE_NUMBER_ID) continue;
 
-        // Só processa mensagens de texto
-        if (message.type !== "text") continue;
-
-        const texto = ((message.text as Record<string, unknown>)?.body as string)?.trim();
-        if (!texto) continue;
-
         const telefone = message.from as string;
         if (!telefone) continue;
 
-        // Nome do contato
         const contact = contacts.find(
           (c) => (c.wa_id as string) === telefone
         );
         const nomeContato =
           ((contact?.profile as Record<string, unknown>)?.name as string)?.trim() || "Cliente";
-
-        // Usado só pela persistência adicional (Workspace) — nunca inventado; se
-        // ausente, a persistência adicional é pulada para este evento (ver abaixo).
         const messageId = (message.id as string | undefined) ?? null;
         const messageType = (message.type as string | undefined) ?? "text";
+
+        // ACRESCENTADO — mídia recebida (imagem/áudio/vídeo/documento): a IA da Maria
+        // nunca respondeu isso (comportamento inalterado) — antes, a mensagem era
+        // simplesmente ignorada; agora só passamos a guardá-la no Workspace, sem
+        // acionar IA nem enviar nenhuma resposta.
+        if (message.type !== "text") {
+          const mediaMeta = getMediaMeta(message);
+          if (!mediaMeta || !messageId) continue;
+
+          await processarMensagemMidiaMaria({ telefone, nomeContato, messageId, messageType, mediaMeta, rawMessage: message }).catch((err) => {
+            console.error("[maria/meta-webhook] Erro ao processar mídia recebida:", err);
+          });
+          continue;
+        }
+
+        const texto = ((message.text as Record<string, unknown>)?.body as string)?.trim();
+        if (!texto) continue;
 
         // Aguarda o processamento antes de retornar (Vercel mata execução ao retornar 200)
         await processarMensagemMaria({ telefone, nomeContato, texto, messageId, messageType, rawMessage: message }).catch((err) => {
@@ -138,6 +164,59 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+// ACRESCENTADO — processamento de mídia recebida: só persiste no Workspace (Conversa/
+// Mensagem), atrás da mesma feature flag WHATSAPP_MARIA_CONVERSAS_V2. Nunca chama IA,
+// nunca envia WhatsApp — o fluxo comercial da Maria continua 100% inalterado.
+async function processarMensagemMidiaMaria({
+  telefone,
+  nomeContato,
+  messageId,
+  messageType,
+  mediaMeta,
+  rawMessage,
+}: {
+  telefone: string;
+  nomeContato: string;
+  messageId: string;
+  messageType: string;
+  mediaMeta: { mediaId: string; mimetype?: string; caption?: string };
+  rawMessage: unknown;
+}) {
+  if (process.env.WHATSAPP_MARIA_CONVERSAS_V2 !== "true") return;
+
+  const canal = await getCanalMaria();
+  if (!canal) {
+    console.warn("[maria/meta-webhook] CanalWhatsapp 'maria-villa' não encontrado — mídia recebida ignorada.");
+    return;
+  }
+
+  const jaProcessada = await mensagemJaProcessada({ canal, externalMessageId: messageId });
+  if (jaProcessada) {
+    console.info("[maria/meta-webhook] Evento de mídia duplicado (reentrega da Meta) — ignorado.", { messageId });
+    return;
+  }
+
+  let mediaResolvida: { mediaUrl: string; mimeType?: string } | null = null;
+  try {
+    const accessToken = await resolveWhatsappEnvVar("MARIA_META_ACCESS_TOKEN", "access_token", { canalId: canal.id });
+    mediaResolvida = await buscarMidiaMeta({ mediaId: mediaMeta.mediaId, accessToken });
+  } catch (err) {
+    console.warn("[maria/meta-webhook] Não foi possível resolver token para buscar mídia:", err);
+  }
+
+  await persistirMensagemMidiaCliente({
+    canal,
+    telefone,
+    nomeContato,
+    externalMessageId: messageId,
+    messageType,
+    texto: mediaMeta.caption ?? "",
+    rawPayload: rawMessage,
+    mediaUrl: mediaResolvida?.mediaUrl,
+    mimeType: mediaResolvida?.mimeType ?? mediaMeta.mimetype,
+  });
 }
 
 // ─── Processamento assíncrono ─────────────────────────────────────────────────

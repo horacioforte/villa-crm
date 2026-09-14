@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Scripts/exports avulsos e temporarios de agentes de IA (nunca fazem parte do CRM)
+_to_delete/

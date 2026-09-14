@@ -26,12 +26,13 @@ import {
 import { cn } from "@/lib/utils";
 
 // Itens primários — sempre visíveis
+// Ordem atualizada em 14/09/2026: Mídias Sociais movida para 2ª posição (lado esquerdo)
 const primaryItems = [
   { label: "Relatórios", href: "/relatorios", icon: BarChart2 },
+  { label: "Mídias Sociais", href: "/midias-sociais", icon: Megaphone },
   { label: "Saúde Comercial", href: "/saude-comercial", icon: Activity },
   { label: "Oportunidades", href: "/oportunidades", icon: ClipboardList },
   { label: "Contratos", href: "/contratos", icon: FileText },
-  { label: "Mídias Sociais", href: "/midias-sociais", icon: Megaphone },
   { label: "Conversas", href: "/conversas", icon: MessageCircle },
   { label: "Inteligência", href: "/inteligencia", icon: Brain },
   { label: "Agenda", href: "/tarefas", icon: CalendarCheck },

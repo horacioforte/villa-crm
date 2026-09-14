@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { CanalWhatsappTipo } from "@/app/generated/prisma/client";
-import { enviarTextoMeta, CanalInvalidoError, EnvioMetaError } from "@/lib/whatsapp/meta-client";
+import { enviarTextoMeta, enviarTemplateMeta, CanalInvalidoError, EnvioMetaError } from "@/lib/whatsapp/meta-client";
 
 const INSTANCES_VALIDAS = ["maria-villa", "joao-villa", "morgana-villa", "taciane-villa"];
 
@@ -31,17 +31,44 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const { telefone, mensagem, nomeContato, oportunidadeId, pessoaId, instanceName: rawInstance } = body as {
+  const {
+    telefone,
+    mensagem,
+    nomeContato,
+    oportunidadeId,
+    pessoaId,
+    instanceName: rawInstance,
+    // ACRESCENTADO — inicia conversa com um modelo (template) aprovado pela Meta, para
+    // quando o cliente nunca falou com a gente antes (não existe janela de 24h aberta e
+    // uma mensagem de texto livre seria rejeitada pela Meta). Ver enviarTemplateMeta em
+    // lib/whatsapp/meta-client.ts — já existia pronto, só nunca tinha sido chamado por
+    // nenhuma rota/tela do Workspace.
+    usarTemplate,
+    templateName,
+    templateIdioma,
+    templateParametros,
+  } = body as {
     telefone?: string;
     mensagem?: string;
     nomeContato?: string;
     oportunidadeId?: string;
     pessoaId?: string;
     instanceName?: string;
+    usarTemplate?: boolean;
+    templateName?: string;
+    templateIdioma?: string;
+    templateParametros?: string[];
   };
 
-  if (!telefone || !mensagem) {
-    return NextResponse.json({ error: "telefone e mensagem são obrigatórios." }, { status: 400 });
+  if (!telefone) {
+    return NextResponse.json({ error: "telefone é obrigatório." }, { status: 400 });
+  }
+  if (usarTemplate) {
+    if (!templateName) {
+      return NextResponse.json({ error: "templateName é obrigatório ao usar um modelo." }, { status: 400 });
+    }
+  } else if (!mensagem) {
+    return NextResponse.json({ error: "mensagem é obrigatória." }, { status: 400 });
   }
 
   const INSTANCE_NAME = INSTANCES_VALIDAS.includes(rawInstance ?? "")
@@ -58,6 +85,17 @@ export async function POST(req: NextRequest) {
   });
 
   const ehMeta = canal?.tipo === CanalWhatsappTipo.META_CLOUD_API;
+
+  // ACRESCENTADO — modelo (template) só existe no mundo Meta Cloud API; Evolution/
+  // Baileys não tem essa restrição de janela de 24h, então não faz sentido pedir um
+  // template lá. Falha cedo com uma mensagem clara em vez de silenciosamente cair no
+  // fluxo de texto livre sem mensagem nenhuma.
+  if (usarTemplate && !ehMeta) {
+    return NextResponse.json(
+      { error: "Modelos (templates) só se aplicam a canais Meta Cloud API." },
+      { status: 422 },
+    );
+  }
 
   // Tenta vincular a Pessoa pelo telefone (ignora DDI 55 — tanto faz ter 55 ou não).
   // Lookup por DDD+número (telSem55) cobre casos com e sem o prefixo no banco.
@@ -105,12 +143,41 @@ export async function POST(req: NextRequest) {
 
   // ─── Envio via Meta Cloud API ────────────────────────────────────────────
   if (ehMeta && canal) {
+    // ACRESCENTADO — modelo (template) só existe/faz sentido em canais Meta Cloud API
+    // (é uma regra da própria Meta; Evolution/Baileys não tem essa restrição de janela
+    // de 24h). Fora daqui, o fluxo de texto livre abaixo continua 100% inalterado.
+    if (usarTemplate) {
+      try {
+        await enviarTemplateMeta({
+          canalId: canal.id,
+          conversaId: conversa.id,
+          telefone: telFull,
+          templateName: templateName as string,
+          idiomaCode: templateIdioma || "pt_BR",
+          parametros: templateParametros ?? [],
+          autorUsuarioId: user.id,
+        });
+        await prisma.conversa.update({
+          where: { id: conversa.id },
+          data: { ultimaMensagemEm: new Date(), atendidoPorId: user.id },
+        });
+        return NextResponse.json({ conversaId: conversa.id });
+      } catch (err) {
+        const msg =
+          err instanceof CanalInvalidoError || err instanceof EnvioMetaError
+            ? err.message
+            : "Erro ao enviar o modelo via Meta Cloud API.";
+        console.error("[api/conversas/nova] Erro ao enviar template Meta", err);
+        return NextResponse.json({ error: msg }, { status: 502 });
+      }
+    }
+
     try {
       await enviarTextoMeta({
         canalId: canal.id,
         conversaId: conversa.id,
         telefone: telFull,
-        texto: mensagem,
+        texto: mensagem as string,
         autorUsuarioId: user.id,
       });
       await prisma.conversa.update({
@@ -146,7 +213,9 @@ export async function POST(req: NextRequest) {
     const resp = await fetch(`${apiUrl}/message/sendText/${INSTANCE_NAME}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: apiKey },
-      body: JSON.stringify({ number: telFull, text: mensagem }),
+      // usarTemplate já é rejeitado antes de chegar aqui quando o canal não é Meta
+      // (ver checagem acima) — chegando neste ponto, mensagem é sempre string.
+      body: JSON.stringify({ number: telFull, text: mensagem as string }),
     });
     if (resp.ok) {
       const data = await resp.json().catch(() => ({}));
@@ -162,7 +231,7 @@ export async function POST(req: NextRequest) {
   await prisma.mensagem.create({
     data: {
       conversaId: conversa.id,
-      conteudo: mensagem,
+      conteudo: mensagem as string,
       direcao: "SAIDA",
       autor: "HUMANO",
       autorUsuarioId: user.id,

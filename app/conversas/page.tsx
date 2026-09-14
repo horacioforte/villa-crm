@@ -239,6 +239,11 @@ function ConversasPage() {
   const [novaConversaTel, setNovaConversaTel] = useState("");
   const [novaConversaMsg, setNovaConversaMsg] = useState("");
   const [novaConversaEnviando, setNovaConversaEnviando] = useState(false);
+  // ACRESCENTADO — inicia conversa com modelo (template) aprovado pela Meta, para
+  // cliente que nunca falou com a gente antes (sem janela de 24h aberta). Só faz
+  // sentido em canais Meta Cloud API — ver /api/conversas/nova.
+  const [novaConversaUsarTemplate, setNovaConversaUsarTemplate] = useState(false);
+  const [novaConversaNomeTemplate, setNovaConversaNomeTemplate] = useState("");
   // Anexo de mídia
   const [arquivoAnexo, setArquivoAnexo] = useState<File | null>(null);
   const [enviandoMidia, setEnviandoMidia] = useState(false);
@@ -275,7 +280,9 @@ function ConversasPage() {
   }, [novaParam, novaParamTel]);
 
   async function iniciarNovaConversa() {
-    if (novaConversaEnviando || !novaConversaTel.trim() || !novaConversaMsg.trim()) return;
+    const precisaMsg = !novaConversaUsarTemplate && !novaConversaMsg.trim();
+    const precisaNomeTemplate = novaConversaUsarTemplate && !novaConversaNomeTemplate.trim();
+    if (novaConversaEnviando || !novaConversaTel.trim() || precisaMsg || precisaNomeTemplate) return;
     setNovaConversaEnviando(true);
     const instance = filtroInstance || "maria-villa";
     try {
@@ -284,8 +291,18 @@ function ConversasPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           telefone: novaConversaTel.trim(),
-          mensagem: novaConversaMsg.trim(),
           instanceName: instance,
+          ...(novaConversaUsarTemplate
+            ? {
+                usarTemplate: true,
+                // ACRESCENTADO — nome do modelo aprovado na Meta para a Taciane. Único
+                // existente por enquanto; se novos modelos forem aprovados, isso pode
+                // virar um seletor.
+                templateName: "primeiro_contato_villa",
+                templateIdioma: "pt_BR",
+                templateParametros: [novaConversaNomeTemplate.trim()],
+              }
+            : { mensagem: novaConversaMsg.trim() }),
         }),
       });
       const data = await res.json();
@@ -293,6 +310,8 @@ function ConversasPage() {
         setShowNovaConversa(false);
         setNovaConversaTel("");
         setNovaConversaMsg("");
+        setNovaConversaUsarTemplate(false);
+        setNovaConversaNomeTemplate("");
         // Recarrega lista e abre a conversa criada
         await carregarConversas();
         const nova = { id: data.conversaId } as Conversa;
@@ -899,15 +918,40 @@ function ConversasPage() {
                   onChange={(e) => setNovaConversaTel(e.target.value)}
                   className="w-full rounded-lg border border-[#D7DEEA] bg-white px-2.5 py-1.5 text-[12px] outline-none focus:border-[#2A78D6]"
                 />
-                <textarea
-                  placeholder="Primeira mensagem..."
-                  value={novaConversaMsg}
-                  onChange={(e) => setNovaConversaMsg(e.target.value)}
-                  rows={2}
-                  className="w-full resize-none rounded-lg border border-[#D7DEEA] bg-white px-2.5 py-1.5 text-[12px] outline-none focus:border-[#2A78D6]"
-                />
+                {/* ACRESCENTADO — opção de iniciar com modelo aprovado pela Meta, para
+                    cliente que nunca falou com a gente antes (sem janela de 24h aberta).
+                    Só faz sentido em canais Meta Cloud API. */}
+                <label className="flex items-center gap-1.5 text-[11px] font-medium text-[#475467]">
+                  <input
+                    type="checkbox"
+                    checked={novaConversaUsarTemplate}
+                    onChange={(e) => setNovaConversaUsarTemplate(e.target.checked)}
+                  />
+                  Cliente nunca falou com a gente (usar modelo aprovado)
+                </label>
+                {novaConversaUsarTemplate ? (
+                  <input
+                    type="text"
+                    placeholder="Nome do contato (vai no lugar de {{1}} no modelo)"
+                    value={novaConversaNomeTemplate}
+                    onChange={(e) => setNovaConversaNomeTemplate(e.target.value)}
+                    className="w-full rounded-lg border border-[#D7DEEA] bg-white px-2.5 py-1.5 text-[12px] outline-none focus:border-[#2A78D6]"
+                  />
+                ) : (
+                  <textarea
+                    placeholder="Primeira mensagem..."
+                    value={novaConversaMsg}
+                    onChange={(e) => setNovaConversaMsg(e.target.value)}
+                    rows={2}
+                    className="w-full resize-none rounded-lg border border-[#D7DEEA] bg-white px-2.5 py-1.5 text-[12px] outline-none focus:border-[#2A78D6]"
+                  />
+                )}
                 <button
-                  disabled={!novaConversaTel.trim() || !novaConversaMsg.trim() || novaConversaEnviando}
+                  disabled={
+                    !novaConversaTel.trim() ||
+                    (novaConversaUsarTemplate ? !novaConversaNomeTemplate.trim() : !novaConversaMsg.trim()) ||
+                    novaConversaEnviando
+                  }
                   onClick={iniciarNovaConversa}
                   className="flex items-center justify-center gap-1.5 rounded-lg bg-[#1E4FAB] px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50 hover:bg-[#163B8A] transition-colors"
                 >

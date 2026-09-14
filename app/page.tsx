@@ -866,7 +866,7 @@ export default async function Home() {
     { label: "Mídias Sociais", icon: Megaphone, href: "/midias-sociais" },
     { label: "Conversas", icon: MessageCircle, href: "/conversas" },
     { label: "Inteligência", icon: Brain, href: "/inteligencia" },
-    { label: "Maria", icon: Sparkles, href: "/maria" },
+    { label: "Maria", icon: Sparkles, href: "/inteligencia/maria" },
     { label: "Equipamentos", icon: Truck, href: "/equipamentos" },
     { label: "Usuarios", icon: UserCog, href: "/usuarios" },
     { label: "Agentes", icon: Bot, href: "/admin/agentes", adminOnly: true },

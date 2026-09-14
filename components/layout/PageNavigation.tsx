@@ -34,7 +34,6 @@ const primaryItems = [
   { label: "Mídias Sociais", href: "/midias-sociais", icon: Megaphone },
   { label: "Conversas", href: "/conversas", icon: MessageCircle },
   { label: "Inteligência", href: "/inteligencia", icon: Brain },
-  { label: "Maria", href: "/maria", icon: Sparkles },
   { label: "Agenda", href: "/tarefas", icon: CalendarCheck },
 ];
 
@@ -46,6 +45,7 @@ const secondaryItems = [
   { label: "Feedback", href: "/feedback", icon: MessageSquarePlus },
   { label: "Equipamentos", href: "/equipamentos", icon: Truck },
   { label: "Usuarios", href: "/usuarios", icon: UserCog },
+  { label: "Maria", href: "/maria", icon: Sparkles },
   { label: "Campanhas", href: "/campanhas", icon: Bot },
   { label: "Agentes", href: "/admin/agentes", icon: Bot, adminOnly: true },
   {

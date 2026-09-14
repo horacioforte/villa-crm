@@ -398,3 +398,86 @@ export async function investigarConstrutora(
 
   return resultado;
 }
+
+// ─── investigarConstrutoraCombinado ──────────────────────────────────────────
+
+/**
+ * Roda Claude Haiku + GPT-4o em paralelo para investigar uma construtora.
+ * GPT-4o inclui busca LinkedIn para decisores.
+ * Mescla resultados: obras deduplicadas, melhor decisor, noticias combinadas.
+ * NÃO persiste nada — persistência feita pelo cron (salvarResultadoConstrutora).
+ */
+export async function investigarConstrutoraCombinado(
+  dossie: DossieParaInvestigacao,
+): Promise<ResultadoInvestigacaoConstrutora> {
+  const { investigarConstutoraOpenAI } = await import("./investigador-construtora-openai");
+
+  const [claudeRes, openaiRes] = await Promise.allSettled([
+    investigarConstrutora(dossie),
+    investigarConstutoraOpenAI(dossie),
+  ]);
+
+  const claude = claudeRes.status === "fulfilled" ? claudeRes.value : null;
+  const openai = openaiRes.status === "fulfilled" ? openaiRes.value : null;
+
+  if (!claude && !openai) {
+    return {
+      dossieId: dossie.id,
+      achou: false,
+      camposDossie: {},
+      obras: [],
+      decisor: null,
+      noticias: [],
+      proximaMissao: "",
+      resumoInvestigacao: "Ambos investigadores falharam.",
+      erro: "Claude e GPT-4o retornaram erro.",
+    };
+  }
+
+  const base = claude ?? openai!;
+  const outro = claude ? openai : null;
+
+  // Obras — deduplica por nome
+  const obrasBase = base.obras ?? [];
+  const obrasOutro = outro?.obras ?? [];
+  const nomesBase = new Set(obrasBase.map((o: ObraConstrutora) => o.nome.trim().toLowerCase()));
+  const obrasExtras = obrasOutro.filter((o: ObraConstrutora) => !nomesBase.has(o.nome.trim().toLowerCase()));
+  const obrasMescladas = [...obrasBase, ...obrasExtras];
+
+  // Decisor: prefere o que tem linkedin
+  const decisorClaude = claude?.decisor ?? null;
+  const decisorOpenai = openai?.decisor ?? null;
+  let decisorFinal = base.decisor;
+  if (decisorClaude && decisorOpenai) {
+    decisorFinal = decisorOpenai.linkedin ? decisorOpenai : decisorClaude;
+  } else if (decisorOpenai) {
+    decisorFinal = decisorOpenai;
+  } else if (decisorClaude) {
+    decisorFinal = decisorClaude;
+  }
+
+  // Noticias — combina sem duplicar
+  const noticiasClaude = claude?.noticias ?? [];
+  const noticiasOpenai = outro?.noticias ?? [];
+  const titulosBase = new Set(noticiasClaude.map((n: { titulo: string }) => n.titulo?.trim().toLowerCase()));
+  const noticiasExtras = noticiasOpenai.filter((n: { titulo: string }) => !titulosBase.has(n.titulo?.trim().toLowerCase()));
+
+  // camposDossie: Claude tem prioridade (fontes mais confiáveis)
+  const camposFinal = { ...(openai?.camposDossie ?? {}), ...(claude?.camposDossie ?? {}) };
+
+  const resumos: string[] = [];
+  if (claude?.resumoInvestigacao) resumos.push(`[Claude] ${claude.resumoInvestigacao}`);
+  if (openai?.resumoInvestigacao) resumos.push(`[GPT-4o] ${openai.resumoInvestigacao}`);
+
+  return {
+    dossieId: dossie.id,
+    achou: (claude?.achou ?? false) || (openai?.achou ?? false),
+    camposDossie: camposFinal,
+    obras: obrasMescladas,
+    decisor: decisorFinal,
+    noticias: [...noticiasClaude, ...noticiasExtras],
+    proximaMissao: claude?.proximaMissao || openai?.proximaMissao || "",
+    resumoInvestigacao: resumos.join(" | "),
+    ...(claude?.erro && openai?.erro ? { erro: `Claude: ${claude.erro} | GPT-4o: ${openai.erro}` } : {}),
+  };
+}

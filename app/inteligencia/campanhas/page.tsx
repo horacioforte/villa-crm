@@ -1,22 +1,17 @@
 // ARQUIVO: app/inteligencia/campanhas/page.tsx
-// Placeholder da aba Campanhas — passo 1 do roadmap da Central de Inteligência
-
-import Link from "next/link";
+// REGRA: nunca remover. Apenas acrescentar.
 import CampanhasClient from "@/components/inteligencia/CampanhasClient";
 
 export default function CampanhasPage() {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-4">Campanhas — Disparo</h1>
-      <p className="text-sm text-slate-600 mb-6">Módulo de campanhas standalone. Importe listas e dispare campanhas por Email/WhatsApp.</p>
-
-      <div className="bg-slate-50 p-4 rounded">
-        <CampanhasClient />
+    <div className="p-6 max-w-3xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-[#1A2E5A]">Campanhas de e-mail</h1>
+        <p className="text-sm text-[#667085] mt-1">
+          Disparo outbound do João — até 200 destinatários por campanha via Brevo.
+        </p>
       </div>
-
-      <div className="mt-6">
-        <Link href="/inteligencia" className="text-sm text-blue-600">← Voltar ao Radar</Link>
-      </div>
+      <CampanhasClient />
     </div>
   );
 }

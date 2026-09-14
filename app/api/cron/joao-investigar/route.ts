@@ -7,8 +7,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { investigarDossieCombinado, sanitizarDecimal } from "@/lib/agentes/joao/investigador-combinado";
-import { investigarConstrutora, faseParaTipoEvidencia, faseParaTipoMovimentacao, fasePossuiEvidenciaTemporal, calcularNovoStatusCarteira } from "@/lib/agentes/joao/investigador-construtora";
+import { investigarConstrutora, investigarConstrutoraCombinado, faseParaTipoEvidencia, faseParaTipoMovimentacao, fasePossuiEvidenciaTemporal, calcularNovoStatusCarteira } from "@/lib/agentes/joao/investigador-construtora";
 import type { ResultadoInvestigacaoConstrutora } from "@/lib/agentes/joao/investigador-construtora";
+import { investigarContatoCombinado } from "@/lib/agentes/joao/investigador-contato";
+import type { CarteiraContato, ResultadoInvestigacaoContato } from "@/lib/agentes/joao/investigador-contato";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
 import {
   exportarScoresJoaoParaPersistencia,
@@ -485,6 +487,108 @@ async function salvarResultadoConstrutora(
   };
 }
 
+// ─── salvarResultadoContato ───────────────────────────────────────────────────
+
+/**
+ * Persiste o resultado de investigação de contato no banco.
+ * - Upsert do decisor principal em DecisorDossie
+ * - Upsert de contatos adicionais em DecisorDossie
+ * - DossieMovimentacao: MUDANCA_EXECUTIVO se decisor encontrado, SINAL_DE_MERCADO se não
+ * - Atualiza DossieCarteira.status, ultimaInvestigacao, proximaAcao
+ * - Atualiza DossieComercial.missaoAtual, ultimaAtividade
+ */
+async function salvarResultadoContato(
+  dossieId: string,
+  resultado: ResultadoInvestigacaoContato,
+  carteira: CarteiraContato,
+): Promise<void> {
+  const agora = new Date();
+
+  // helper: cria ou atualiza decisor (sem upsert pois não há @@unique em (dossieId, nome))
+  const upsertDecisor = async (d: { nome: string; cargo?: string; telefone?: string; whatsapp?: string; email?: string; linkedin?: string; fonte?: string }) => {
+    const existente = await prisma.decisorDossie.findFirst({ where: { dossieId, nome: d.nome } });
+    if (existente) {
+      await prisma.decisorDossie.update({
+        where: { id: existente.id },
+        data: {
+          ...(d.cargo    ? { cargo: d.cargo }                        : {}),
+          ...(d.telefone ? { telefone: d.telefone }                  : {}),
+          ...(d.whatsapp && !d.telefone ? { telefone: d.whatsapp }   : {}),
+          ...(d.email    ? { email: d.email }                        : {}),
+          ...(d.linkedin ? { linkedin: d.linkedin }                  : {}),
+          ...(d.fonte    ? { fonte: d.fonte }                        : {}),
+        },
+      });
+    } else {
+      await prisma.decisorDossie.create({
+        data: {
+          dossieId,
+          nome: d.nome,
+          cargo: d.cargo,
+          telefone: d.telefone ?? d.whatsapp,
+          email: d.email,
+          linkedin: d.linkedin,
+          fonte: d.fonte ?? carteira,
+        },
+      });
+    }
+  };
+
+  // 1. Decisor principal
+  if (resultado.decisor?.nome) {
+    await upsertDecisor(resultado.decisor).catch(() => { /* ignora */ });
+  }
+
+  // 2. Contatos adicionais
+  for (const c of resultado.contatosAdicionais) {
+    if (!c.nome?.trim()) continue;
+    await upsertDecisor(c).catch(() => { /* ignora */ });
+  }
+
+  // 3. DossieMovimentacao
+  const tipoMov = resultado.decisor?.nome ? "MUDANCA_EXECUTIVO" : "SINAL_DE_MERCADO";
+  const tituloMov = resultado.decisor?.nome
+    ? `Decisor encontrado: ${resultado.decisor.nome}${resultado.decisor.cargo ? ` (${resultado.decisor.cargo})` : ""}`
+    : `Empresa investigada — ${carteira}`;
+  const descMov = resultado.resumoInvestigacao.slice(0, 300);
+
+  const hashMov = Buffer.from(`${dossieId}-${tipoMov}-${resultado.decisor?.nome ?? agora.toISOString().slice(0, 10)}`).toString("base64").slice(0, 40);
+
+  await prisma.dossieMovimentacao.upsert({
+    where: { hashUnico: hashMov },
+    create: {
+      dossieId,
+      tipo: tipoMov as "MUDANCA_EXECUTIVO" | "SINAL_DE_MERCADO",
+      titulo: tituloMov,
+      descricao: descMov,
+      momento: agora,
+      hashUnico: hashMov,
+    },
+    update: {},
+  }).catch(() => { /* idempotente */ });
+
+  // 4. Atualiza DossieCarteira
+  const novoStatus = resultado.decisor?.nome ? "DECISOR_ENCONTRADO" : "EM_INVESTIGACAO";
+  await prisma.dossieCarteira.updateMany({
+    where: { dossieId, carteira: carteira as unknown as CarteiraEstrategica },
+    data: {
+      status: novoStatus as "DECISOR_ENCONTRADO" | "EM_INVESTIGACAO",
+      ultimaInvestigacao: agora,
+      ...(resultado.proximaMissao ? { proximaAcao: resultado.proximaMissao.slice(0, 500) } : {}),
+    },
+  });
+
+  // 5. Atualiza DossieComercial
+  await prisma.dossieComercial.update({
+    where: { id: dossieId },
+    data: {
+      ultimaAtividade: agora,
+      ...(resultado.proximaMissao ? { missaoAtual: resultado.proximaMissao.slice(0, 500) } : {}),
+      ...(resultado.decisor?.nome ? { totalDecisores: { increment: 0 } } : {}),
+    },
+  });
+}
+
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -540,7 +644,7 @@ export async function GET(req: NextRequest) {
           console.log(`[cron/joao-investigar] Construtora: ${dossie.titulo}`);
           let resultado: ResultadoInvestigacaoConstrutora;
           try {
-            resultado = await investigarConstrutora(dossie as unknown as Parameters<typeof investigarConstrutora>[0]);
+            resultado = await investigarConstrutoraCombinado(dossie as unknown as Parameters<typeof investigarConstrutoraCombinado>[0]);
           } catch (e) {
             console.error(`[cron/joao-investigar] Falha construtora ${dossie.id}:`, e);
             resumosConstrutora.push({
@@ -606,6 +710,83 @@ export async function GET(req: NextRequest) {
       }
     }
     // ── Fim CONSTRUTORA_BRASIL ───────────────────────────────────────────────
+
+    // ── CARTEIRAS DE CONTATO: CONCRETEIRAS | PRE_MOLDADOS | MCMV | REVENDAS_CAMINHOES ──
+    // Objetivo: encontrar decisor, telefone, WhatsApp, email e LinkedIn para campanhas.
+    // NÃO busca obras — busca contato. Processados após CONSTRUTORA_BRASIL, antes da fila regular.
+    if (!dossieIdParam) {
+      const CARTEIRAS_CONTATO: CarteiraContato[] = ["CONCRETEIRAS", "PRE_MOLDADOS", "MCMV", "REVENDAS_CAMINHOES"];
+
+      const dossiesContato = await prisma.dossieComercial.findMany({
+        where: {
+          status: { in: ["INVESTIGANDO", "PEDIR_MAIS_PESQUISA"] },
+          carteiras: {
+            some: {
+              carteira: { in: CARTEIRAS_CONTATO as unknown as CarteiraEstrategica[] },
+            },
+          },
+        },
+        orderBy: { ultimaAtividade: "asc" },
+        take: 3,
+        select: {
+          ...selectDossie,
+          carteiras: {
+            where: { carteira: { in: CARTEIRAS_CONTATO as unknown as CarteiraEstrategica[] } },
+            select: { id: true, carteira: true, status: true, proximaAcao: true, ultimaInvestigacao: true },
+          },
+        },
+      });
+
+      if (dossiesContato.length > 0) {
+        const resumosContato: {
+          dossieId: string; titulo: string; carteira: string;
+          decisorEncontrado: boolean; contatosAdicionais: number; erro?: string;
+        }[] = [];
+
+        for (const dossie of dossiesContato) {
+          // Determina qual carteira de contato está ativa neste dossiê
+          const carteiraAtiva = (dossie.carteiras[0]?.carteira ?? "CONCRETEIRAS") as CarteiraContato;
+          console.log(`[cron/joao-investigar] Contato [${carteiraAtiva}]: ${dossie.titulo}`);
+
+          let resultado: ResultadoInvestigacaoContato;
+          try {
+            resultado = await investigarContatoCombinado(
+              dossie as unknown as Parameters<typeof investigarContatoCombinado>[0],
+              carteiraAtiva,
+            );
+          } catch (e) {
+            console.error(`[cron/joao-investigar] Falha contato ${dossie.id}:`, e);
+            resumosContato.push({
+              dossieId: dossie.id, titulo: dossie.titulo, carteira: carteiraAtiva,
+              decisorEncontrado: false, contatosAdicionais: 0, erro: String(e),
+            });
+            continue;
+          }
+
+          await salvarResultadoContato(dossie.id, resultado, carteiraAtiva);
+
+          resumosContato.push({
+            dossieId: dossie.id,
+            titulo: dossie.titulo,
+            carteira: carteiraAtiva,
+            decisorEncontrado: resultado.decisor !== null,
+            contatosAdicionais: resultado.contatosAdicionais.length,
+            ...(resultado.erro ? { erro: resultado.erro } : {}),
+          });
+        }
+
+        if (resumosContato.length > 0) {
+          return NextResponse.json({
+            sucesso: true,
+            processados: resumosContato.length,
+            modo: "contato",
+            detalhes: resumosContato,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+    }
+    // ── Fim CARTEIRAS DE CONTATO ─────────────────────────────────────────────
 
     // ── Modo direto: investigar um dossiê específico imediatamente ─────────────
     // Ativado via ?dossieId=xxx (usado pelo trigger automático pós-criação)

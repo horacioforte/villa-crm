@@ -28,6 +28,40 @@ type ConversaBoard = {
 
 type Usuario = { id: string; nome: string; email: string };
 
+// ─── Task #11: fila de alertas (coluna "Precisa de ação") ─────────────────────
+// Espelha o contrato de GET /api/conversas/alertas (lib/conversas/alertas.ts) — só o
+// que este componente consome. Motivos e severidade já vêm calculados e ordenados pelo
+// backend (nenhuma regra de SLA é recalculada aqui).
+type MotivoAlerta = "aguardando_urgente" | "sem_responsavel" | "tarefa_whatsapp_vencida" | "aguardando_atencao";
+
+type AlertaConversaApi = {
+  tipo: "conversa";
+  conversaId: string;
+  instanceName: string;
+  canalTipo: "IA" | "HUMANO" | "DESCONHECIDO";
+  nomeContato: string | null;
+  telefone: string | null;
+  motivos: MotivoAlerta[];
+  severidade: MotivoAlerta;
+  aguardandoRespostaDesde: string | null;
+  atendidoPorId: string | null;
+  atendidoPorNome: string | null;
+  empresaNome: string | null;
+  oportunidade: { id: string; titulo: string; valor: number | null } | null;
+  ultimaMensagem: { conteudo: string; direcao: string; createdAt: string } | null;
+};
+
+type AlertaTarefaApi = { tipo: "tarefa" };
+
+type AlertaApi = AlertaConversaApi | AlertaTarefaApi;
+
+const MOTIVO_LABEL: Record<MotivoAlerta, { label: string; cor: string }> = {
+  aguardando_urgente: { label: "Urgente", cor: "bg-red-100 text-red-700" },
+  sem_responsavel: { label: "Sem responsável", cor: "bg-amber-100 text-amber-700" },
+  tarefa_whatsapp_vencida: { label: "Tarefa vencida", cor: "bg-purple-100 text-purple-700" },
+  aguardando_atencao: { label: "Atenção", cor: "bg-amber-50 text-amber-600" },
+};
+
 interface Props {
   usuarios: Usuario[];
   onAbrirConversa: (conversa: ConversaBoard) => void;
@@ -99,10 +133,32 @@ function corTextoEspera(minutos: number): string {
   return "text-green-600 font-semibold";
 }
 
+// Converte um item da fila de alertas (Task #11) no formato ConversaBoard esperado por
+// onAbrirConversa — reaproveita o mesmo fluxo de abertura já usado pelos cards por canal.
+// status é um placeholder ("ABERTA"): carregarDetalhesConversa (no componente pai) refaz
+// o fetch por id assim que a conversa é aberta, então o valor real chega em seguida.
+function alertaParaConversaBoard(alerta: AlertaConversaApi): ConversaBoard {
+  return {
+    id: alerta.conversaId,
+    nomeContato: alerta.nomeContato,
+    telefone: alerta.telefone,
+    instanceName: alerta.instanceName,
+    status: "ABERTA",
+    aguardandoRespostaDesde: alerta.aguardandoRespostaDesde,
+    ultimaMensagemEm: alerta.ultimaMensagem?.createdAt ?? null,
+    atendidoPorId: alerta.atendidoPorId,
+    atendidoPor: alerta.atendidoPorNome ? { nome: alerta.atendidoPorNome } : null,
+    mensagens: alerta.ultimaMensagem
+      ? [{ conteudo: alerta.ultimaMensagem.conteudo, direcao: alerta.ultimaMensagem.direcao, createdAt: alerta.ultimaMensagem.createdAt }]
+      : [],
+  };
+}
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export function SupervisaoBoard({ usuarios, onAbrirConversa }: Props) {
   const [conversas, setConversas] = useState<ConversaBoard[]>([]);
+  const [alertas, setAlertas] = useState<AlertaConversaApi[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [assumirDropdownId, setAssumirDropdownId] = useState<string | null>(null);
   const [assumindo, setAssumindo] = useState<string | null>(null); // conversaId em transição
@@ -123,6 +179,17 @@ export function SupervisaoBoard({ usuarios, onAbrirConversa }: Props) {
         const data2: ConversaBoard[] = res2.ok ? await res2.json() : [];
         const ids = new Set(data.map((c) => c.id));
         setConversas([...data, ...data2.filter((c) => !ids.has(c.id))]);
+      }
+
+      // Task #11 — coluna "Precisa de ação": consome exclusivamente
+      // GET /api/conversas/alertas (nenhuma API nova, nenhuma regra de SLA recalculada
+      // aqui — ordenação e severidade já vêm prontas do backend). Itens tipo:"tarefa"
+      // (tarefa WhatsApp vencida sem conversa vinculada) ficam fora desta primeira
+      // versão: não há "conversa" para abrir/assumir, então não cabem neste card ainda.
+      const resAlertas = await fetch("/api/conversas/alertas");
+      if (resAlertas.ok) {
+        const dataAlertas: AlertaApi[] = await resAlertas.json();
+        setAlertas(dataAlertas.filter((item): item is AlertaConversaApi => item.tipo === "conversa"));
       }
     } finally {
       setCarregando(false);
@@ -252,8 +319,157 @@ export function SupervisaoBoard({ usuarios, onAbrirConversa }: Props) {
         </button>
       </div>
 
-      {/* ── 4 Colunas ── */}
+      {/* ── Coluna "Precisa de ação" (Task #11) + 4 colunas por canal ── */}
       <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto">
+        {/* Task #11 — consome exclusivamente GET /api/conversas/alertas. Um único card
+            por conversa mesmo com vários motivos (motivos[] já vem deduplicado do
+            backend); "pedir_humano" fica fora desta rodada (auditoria: sem fonte de
+            dado real ainda). Colunas por canal abaixo não foram alteradas. */}
+        <div className="flex min-h-0 w-[340px] shrink-0 flex-col gap-2">
+          <div className="flex shrink-0 items-center justify-between rounded-2xl border border-red-200 bg-red-50 px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <span aria-hidden className="text-sm leading-none">🔴</span>
+              <p className="text-xs font-bold text-red-700">Precisa de ação</p>
+            </div>
+            <span className={cn(
+              "rounded-full px-2 py-0.5 text-[10px] font-bold",
+              alertas.length > 0 ? "bg-red-100 text-red-700" : "bg-[#F4F6FA] text-[#98A2B3]"
+            )}>
+              {alertas.length}
+            </span>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pb-2 pr-0.5">
+            {alertas.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[#D7DEEA] bg-[#F4F6FA] px-3 py-6 text-center text-[11px] text-[#98A2B3]">
+                Nenhuma conversa precisa de ação agora
+              </div>
+            ) : (
+              alertas.map((alerta) => {
+                const minutosEspera = calcMinutos(alerta.aguardandoRespostaDesde);
+                return (
+                  <div
+                    key={alerta.conversaId}
+                    className="flex shrink-0 flex-col gap-2 rounded-2xl border border-red-100 bg-white p-3 border-l-4 border-l-red-400"
+                  >
+                    {/* Nome + tempo aguardando (só quando houver aguardandoRespostaDesde) */}
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="truncate text-xs font-bold text-[#1A2E5A]">
+                        {alerta.nomeContato ?? alerta.telefone ?? "Desconhecido"}
+                      </p>
+                      {minutosEspera >= 0 && (
+                        <span className={cn("shrink-0 text-[10px]", corTextoEspera(minutosEspera))}>
+                          {formatarEspera(minutosEspera)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Empresa — só quando a conversa já tem esse vínculo */}
+                    {alerta.empresaNome && (
+                      <p className="truncate text-[10px] text-[#667085]">{alerta.empresaNome}</p>
+                    )}
+
+                    {/* Todos os motivos, sem duplicar o card */}
+                    <div className="flex flex-wrap gap-1">
+                      {alerta.motivos.map((motivo) => (
+                        <span
+                          key={motivo}
+                          className={cn("rounded-md px-1.5 py-0.5 text-[9px] font-bold", MOTIVO_LABEL[motivo].cor)}
+                        >
+                          {MOTIVO_LABEL[motivo].label}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Canal + responsável */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                      <span className="rounded-md bg-[#F4F6FA] px-1.5 py-0.5 font-semibold text-[#667085]">
+                        {alerta.instanceName}
+                      </span>
+                      {alerta.atendidoPorNome ? (
+                        <span className="text-[#98A2B3]">
+                          Resp: <span className="font-semibold text-[#667085]">{alerta.atendidoPorNome}</span>
+                        </span>
+                      ) : (
+                        <span className="font-semibold text-amber-500">Sem responsável</span>
+                      )}
+                    </div>
+
+                    {/* Oportunidade/valor — só quando já disponível (sem API nova) */}
+                    {alerta.oportunidade && (
+                      <p className="truncate text-[10px] text-[#667085]">
+                        {alerta.oportunidade.titulo}
+                        {alerta.oportunidade.valor != null &&
+                          ` · ${alerta.oportunidade.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`}
+                      </p>
+                    )}
+
+                    {/* Última mensagem */}
+                    {alerta.ultimaMensagem && (
+                      <p className="line-clamp-2 text-[10px] leading-relaxed text-[#667085]">
+                        &quot;{alerta.ultimaMensagem.conteudo.slice(0, 100)}&quot;
+                      </p>
+                    )}
+
+                    {/* Ações — reaproveitam onAbrirConversa e assumirConversa já existentes */}
+                    <div
+                      className="relative flex gap-1.5"
+                      ref={assumirDropdownId === alerta.conversaId ? dropdownWrapRef : undefined}
+                    >
+                      <button
+                        onClick={() => onAbrirConversa(alertaParaConversaBoard(alerta))}
+                        className="flex-1 rounded-xl bg-[#1A2E5A] py-1.5 text-[10px] font-bold text-white transition hover:bg-[#1E4FAB]"
+                      >
+                        Abrir conversa
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          setAssumirDropdownId(assumirDropdownId === alerta.conversaId ? null : alerta.conversaId)
+                        }
+                        disabled={assumindo === alerta.conversaId}
+                        className="flex items-center gap-1 rounded-xl border border-[#2A78D6] px-2 py-1.5 text-[10px] font-bold text-[#2A78D6] transition hover:bg-[#E8EEFB] disabled:opacity-50"
+                      >
+                        Assumir
+                        <ChevronDown className={cn("size-3 transition-transform", assumirDropdownId === alerta.conversaId && "rotate-180")} />
+                      </button>
+
+                      {assumirDropdownId === alerta.conversaId && (
+                        <div className="absolute bottom-full left-0 z-50 mb-1 w-52 rounded-2xl border border-[#D7DEEA] bg-white shadow-lg">
+                          <div className="flex items-center justify-between border-b border-[#D7DEEA] px-3 py-2">
+                            <p className="text-[10px] font-bold text-[#1A2E5A]">Atribuir para</p>
+                            <button onClick={() => setAssumirDropdownId(null)}>
+                              <X className="size-3.5 text-[#98A2B3] hover:text-[#1A2E5A]" />
+                            </button>
+                          </div>
+                          <div className="py-1 max-h-48 overflow-y-auto">
+                            {usuarios.length === 0 ? (
+                              <p className="px-3 py-2 text-[10px] text-[#98A2B3]">Nenhum usuário disponível.</p>
+                            ) : (
+                              usuarios.map((u) => (
+                                <button
+                                  key={u.id}
+                                  onClick={() => assumirConversa(alerta.conversaId, u.id)}
+                                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition hover:bg-[#F4F6FA]"
+                                >
+                                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#E8EEFB] text-[9px] font-bold text-[#1E4FAB]">
+                                    {u.nome.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="text-[11px] font-semibold text-[#1A2E5A]">{u.nome}</span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
         {porCanal.map((canal) => (
           <div
             key={canal.instance}

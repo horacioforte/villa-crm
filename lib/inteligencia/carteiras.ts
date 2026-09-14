@@ -82,23 +82,27 @@ function extrairTrecho(text: string, palavras: string[]): string | null {
 }
 
 export function classificarDossieEmCarteiras(dossie: DossieCarteiraInput): Array<{ carteira: CarteiraEstrategica; evidencias: string[] }> {
-  const text = [
+  const entityText = [
     dossie.titulo,
-    dossie.resumo,
     dossie.segmento,
     dossie.clienteFinal,
     dossie.construtora,
     dossie.epc,
     dossie.epcm,
+    dossie.empresasRelacionadas?.map((empresa) => empresa.razaoSocial).join(" "),
+  ].filter(Boolean).join(" ");
+
+  const contextText = [
+    dossie.resumo,
     dossie.faseObra,
     dossie.proximaAcaoSugerida,
     dossie.equipamentosSugeridos,
     dossie.concorrentes,
     dossie.concreteiras,
-    dossie.empresasRelacionadas?.map((empresa) => empresa.razaoSocial).join(" "),
   ].filter(Boolean).join(" ");
 
-  const normalized = normalizarTexto(text);
+  const normalized = normalizarTexto(entityText);
+  const normalizedContext = normalizarTexto(contextText);
   const resultados: Array<{ carteira: CarteiraEstrategica; evidencias: string[] }> = [];
 
   const add = (carteira: CarteiraEstrategica, evidencias: string[]) => {
@@ -106,12 +110,9 @@ export function classificarDossieEmCarteiras(dossie: DossieCarteiraInput): Array
     resultados.push({ carteira, evidencias: [...new Set(evidencias)] });
   };
 
-  const hasGenericIndustrialNoise = /(porto|aeroporto|terminal|data center|biorrefinaria|automotiva|etanol|saneamento|usina|transportadora|logistica|obras|infraestrutura|pista|fundacao)/.test(normalized);
-
-  const mcmvSignals = /(mcmv|minha casa|minha casa minha vida|habitacao|habita[cç][aã]o|residencial|conjunto habitacional|empreendimento habitacional|unidades de moradia|unidades mcmv)/.test(normalized);
-  if (mcmvSignals && !hasGenericIndustrialNoise) {
-    add("MCMV", ["mcmv", "minha casa minha vida", "habitação", "residencial"]
-      .filter((item) => normalized.includes(normalizarTexto(item))));
+  const explicitMcmv = /(mcmv|minha casa minha vida|minha casa|habita[cç][aã]o de interesse social|interesse social|programa habitacional)/.test(normalized);
+  if (explicitMcmv) {
+    add("MCMV", ["mcmv", "minha casa minha vida", "habitação de interesse social", "interesse social"].filter((item) => normalized.includes(normalizarTexto(item))));
   }
 
   const construtoraBoa = /(incorporadora|incorpora[cç][aã]o|empreendimento|residencial|loteamento|condominio|condom[ií]nio|multifamiliar)/.test(normalized);
@@ -121,24 +122,25 @@ export function classificarDossieEmCarteiras(dossie: DossieCarteiraInput): Array
       .filter((item) => normalized.includes(normalizarTexto(item))));
   }
 
-  const concreteiraSignals = /(concreteira|central de concreto|central dosadora|betoneira|dosadora de concreto|concreto usinado|fornecedor de concreto|concreto.*(central|planta|usina)|planta.*concreto)/.test(normalized);
-  const concreteiraReject = /(automotiva|f[aá]brica.*(carro|ve[ií]culo)|biorrefinaria|porto|aeroporto|saneamento|etanol|construtora.*(n[aã]o|sem) concreto|data center|pista|terminal|logistica|transportadora)/.test(normalized);
-  if (concreteiraSignals && !concreteiraReject) {
-    add("CONCRETEIRAS", ["concreteira", "central de concreto", "betoneira", "concreto usinado", "planta de concreto", "dosadora de concreto"]
+  const concreteiraExplicit = /(concreteira|central de concreto|central dosadora|concreto usinado|fornecedora de concreto|fabricante de concreto|empresa.*concreto|planta.*concreto|dosadora de concreto|central.*dosadora)/.test(normalized);
+  const concreteiraReject = /(automotiva|f[aá]brica.*(carro|ve[ií]culo)|biorrefinaria|porto|aeroporto|saneamento|etanol|data center|pista|terminal|logistica|transportadora|obras.*(rodovi|porto|aeroporto))/i.test(normalizedContext);
+  if (concreteiraExplicit && !concreteiraReject) {
+    add("CONCRETEIRAS", ["concreteira", "central de concreto", "concreto usinado", "fornecedora de concreto", "central dosadora", "dosadora de concreto", "planta de concreto"]
       .filter((item) => normalized.includes(normalizarTexto(item))));
   }
 
-  const preMoldadoSignals = /(pre[- ]?moldado|pr[eé][- ]?moldado|pre[- ]?fabricado|pr[eé][- ]?fabricado|pilar|viga|laje|painel|bloco)/.test(normalized);
-  const preMoldadoReject = /(automotiva|porto|aeroporto|data center|usina|etanol|cimenteira|cimento|construtor|habita[cç][aã]o|mcmv|transportadora|logistica|f[aá]brica industrial)/.test(normalized);
-  if (preMoldadoSignals && !preMoldadoReject) {
-    add("PRE_MOLDADOS", ["pré-moldado", "pre moldado", "pré-fabricado", "pre fabricado", "pilar", "painel", "viga", "laje", "bloco"]
+  const preMoldadoExplicit = /(fabricante.*pre[- ]?moldad[oa]s?|f[aá]brica.*pre[- ]?moldad[oa]s?|pre[- ]?moldad[oa]s?.*(concreto|construcao)|prefabricad[oa].*concreto|produtora.*(viga|pilar|laje|painel)|vigas.*pre[- ]?moldad[oa]s?|pilares.*pre[- ]?moldad[oa]s?|lajes.*pre[- ]?moldad[oa]s?|paineis.*pre[- ]?moldad[oa]s?|elementos.*pre[- ]?moldad[oa]s?|sistema.*pre[- ]?moldad[oa])/.test(normalized);
+  const preMoldadoReject = /(automotiva|porto|aeroporto|data center|usina|etanol|cimenteira|cimento|habitacao|mcmv|transportadora|logistica|f[aá]brica industrial|obras.*(pilar|viga|laje|painel|bloco))/i.test(normalizedContext);
+  if (preMoldadoExplicit && !preMoldadoReject) {
+    add("PRE_MOLDADOS", ["pré-moldado", "pre moldado", "pré-moldados", "pre moldados", "pré-fabricado", "pre fabricado", "vigas pré-moldadas", "pilares pré-moldados", "painéis pré-moldados", "elementos pré-moldados"]
       .filter((item) => normalized.includes(normalizarTexto(item))));
   }
 
-  const agenciaSignals = /(concession[aá]ria|revenda|revendedora|multimarcas|ve[ií]culo pesado|caminh[aã]o|caminh[oõ]es|frota|truck|trucks|distribuidora.*caminh[aã]o|ve[ií]culos pesados)/.test(normalized);
-  const agenciaReject = /(porto|aeroporto|logistica|transportadora|obra|construtora|data center|hidro|automotiva|industrial|terminal|pista|biorrefinaria|etanol)/.test(normalized);
-  if (agenciaSignals && !agenciaReject) {
-    add("REVENDAS_CAMINHOES", ["revenda", "concessionária", "caminhão", "veículo pesado", "frota", "truck"]
+  const agenciaExplicit = /(concession[aá]ria|revenda|revendedora|distribuidor autorizado|grupo de concession[aá]rias|multimarcas).*?(caminh[aã]o|caminh[oõ]es|volvo|scania|da[f|f]|iveco|mercedes|mercedes-benz|volkswagen)/.test(normalized);
+  const agenciaPlain = /(concession[aá]ria|revenda|revendedora).*caminh[aã]o/.test(normalized);
+  const agenciaReject = /(porto|aeroporto|logistica.*(sem|sem revenda)|transportadora.*(sem|sem revenda)|operador de frota|usuario de caminh[oõ]es|obras|infraestrutura|data center|hidro|automotiva|industrial|terminal|pista|biorrefinaria|etanol)/.test(normalizedContext);
+  if ((agenciaExplicit || agenciaPlain) && !agenciaReject) {
+    add("REVENDAS_CAMINHOES", ["revenda", "concessionária", "revendedora", "distribuidor autorizado", "volvo", "scania", "daf", "iveco", "mercedes", "volkswagen", "caminhão"]
       .filter((item) => normalized.includes(normalizarTexto(item))));
   }
 
@@ -199,6 +201,93 @@ export function buildCarteiraExtras(dossie: DossieCarteiraInput, carteira: Carte
   }
 
   return extras.filter((extra) => extra.value && extra.value.length > 0);
+}
+
+export type CandidatoDescobertaInput = {
+  nome?: string | null;
+  cidade?: string | null;
+  estado?: string | null;
+  segmento?: string | null;
+  resumo?: string | null;
+  url?: string | null;
+  fonte?: string | null;
+};
+
+export type CandidatoDescobertaResultado = {
+  carteira?: CarteiraEstrategica;
+  valido: boolean;
+  score: number;
+  razoes: string[];
+  evidencias: string[];
+};
+
+export function qualificarCandidatoDescoberta(input: CandidatoDescobertaInput): CandidatoDescobertaResultado {
+  const nome = (input.nome ?? "").trim();
+  const resumo = (input.resumo ?? "").trim();
+  const segmento = (input.segmento ?? "").trim();
+  const cidade = (input.cidade ?? "").trim();
+  const estado = (input.estado ?? "").trim();
+  const url = (input.url ?? "").trim();
+  const fonte = (input.fonte ?? "").trim();
+  const textoBase = [nome, segmento, resumo, cidade, estado].join(" ");
+  const razoes: string[] = [];
+  const evidencias: string[] = [];
+
+  let score = 0;
+
+  if (!nome || nome.length < 4) {
+    razoes.push("Nome do candidato ausente ou muito genérico.");
+  } else {
+    score += 20;
+    if (/(obra|projeto|empreendimento|fabrica|fábrica|industrial|construcao|construção)/i.test(nome) && !/(mcmv|minha casa|minha casa minha vida|concreteira|revenda|concessionaria|pré-moldado|pre moldado|prefabricado|automotiva)/i.test(nome)) {
+      razoes.push("Nome parece genérico de obra ou projeto e não identifica a empresa/entidade real.");
+    } else {
+      score += 10;
+    }
+  }
+
+  const classificado = classificarDossieEmCarteiras({
+    titulo: nome,
+    resumo,
+    segmento,
+    cidade,
+    estado,
+  });
+
+  const carteira = classificado[0]?.carteira;
+  if (!carteira) {
+    razoes.push("Sem carteira explícita detectada pelo critério de João.");
+  } else {
+    score += 40;
+    evidencias.push(...classificado[0].evidencias);
+  }
+
+  if (textoBase.length < 18) {
+    razoes.push("Contexto comercial insuficiente para qualificar a descoberta.");
+  } else {
+    score += 10;
+  }
+
+  if (!url && !fonte) {
+    razoes.push("Falta URL ou fonte de descoberta para validar a origem.");
+  } else {
+    score += 15;
+  }
+
+  if (score >= 75 && razoes.length === 0) {
+    return { carteira, valido: true, score: Math.min(score, 100), razoes, evidencias };
+  }
+
+  return { carteira, valido: false, score: Math.min(score, 100), razoes, evidencias };
+}
+
+export function filtrarCandidatosDescoberta(candidatos: CandidatoDescobertaInput[]): Array<CandidatoDescobertaResultado & { nome?: string | null }> {
+  return candidatos
+    .map((candidato) => ({
+      nome: candidato.nome,
+      ...qualificarCandidatoDescoberta(candidato),
+    }))
+    .filter((resultado) => resultado.valido);
 }
 
 export const CARTEIRAS_DISPONIVEIS = CARTEIRAS;

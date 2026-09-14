@@ -5,6 +5,7 @@
 // Envolve todas as rotas sob /inteligencia/* automaticamente (Next.js App Router).
 
 import { InteligenciaSidebar } from "@/components/inteligencia/InteligenciaSidebar";
+import { InteligenciaTabs } from "@/components/inteligencia/InteligenciaTabs";
 
 export default function InteligenciaLayout({
   children,
@@ -18,6 +19,8 @@ export default function InteligenciaLayout({
 
       {/* Área de conteúdo principal */}
       <div className="flex-1 overflow-hidden flex flex-col">
+        {/* Abas João / Maria — adicionadas em 14/09/2026 */}
+        <InteligenciaTabs />
         {children}
       </div>
     </div>

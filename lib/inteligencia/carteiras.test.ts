@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CARTEIRAS_JOAO, buildCarteiraExtras, classificarDossieEmCarteiras } from "./carteiras";
+import { CARTEIRAS_JOAO, buildCarteiraExtras, classificarDossieEmCarteiras, qualificarCandidatoDescoberta } from "./carteiras";
 
 describe("classificação real das carteiras", () => {
   it("classifica um dossiê com evidência forte em mais de uma carteira", () => {
@@ -63,7 +63,7 @@ describe("classificação real das carteiras", () => {
     expect(classificarDossieEmCarteiras(dossie)).toEqual([]);
   });
 
-  it("aceita concreteira verdadeira e rejeita fábrica automotiva e usina de biocombustível", () => {
+  it("aceita concreteira verdadeira e rejeita fábrica automotiva, usina e obra com betoneira contextual", () => {
     const concreteira = {
       titulo: "Central de Concreto Norte — Planta de concreto usinado em Recife",
       segmento: "Concreteira",
@@ -90,12 +90,21 @@ describe("classificação real das carteiras", () => {
       resumo: "Planta industrial de biocombustível e ampliação de capacidade",
     };
 
+    const rodovia = {
+      titulo: "EPR Iguaçu — duplicação rodoviária com betoneira e concreto",
+      segmento: "Rodovias",
+      cidade: "Paraná",
+      estado: "PR",
+      resumo: "Obra de duplicação rodoviária com mobilização, betoneira e concreto para pilares e lajes",
+    };
+
     expect(classificarDossieEmCarteiras(concreteira).map((item) => item.carteira)).toContain("CONCRETEIRAS");
     expect(classificarDossieEmCarteiras(gmw).map((item) => item.carteira)).not.toContain("CONCRETEIRAS");
     expect(classificarDossieEmCarteiras(inpasa).map((item) => item.carteira)).not.toContain("CONCRETEIRAS");
+    expect(classificarDossieEmCarteiras(rodovia).map((item) => item.carteira)).not.toContain("CONCRETEIRAS");
   });
 
-  it("aceita pré-moldados reais e rejeita indústria genérica com fábrica", () => {
+  it("aceita pré-moldados reais e rejeita obra que menciona pilares/lajes sem fabricante explícito", () => {
     const real = {
       titulo: "Fábrica de pré-moldados de concreto em Jaboatão",
       segmento: "Pré-moldados",
@@ -112,11 +121,20 @@ describe("classificação real das carteiras", () => {
       resumo: "Nova unidade industrial focada em produção de insumos, sem pré-moldado ou elementos estruturais",
     };
 
+    const obra = {
+      titulo: "Ponte Salvador-Itaparica — estrutura com pilares e lajes pré-moldadas",
+      segmento: "Rodovias",
+      cidade: "Salvador",
+      estado: "BA",
+      resumo: "Obra de infraestrutura com pilares e lajes pré-moldadas em execução, sem fabricante de elementos estruturais",
+    };
+
     expect(classificarDossieEmCarteiras(real).map((item) => item.carteira)).toContain("PRE_MOLDADOS");
     expect(classificarDossieEmCarteiras(genérica).map((item) => item.carteira)).not.toContain("PRE_MOLDADOS");
+    expect(classificarDossieEmCarteiras(obra).map((item) => item.carteira)).not.toContain("PRE_MOLDADOS");
   });
 
-  it("aceita concessionária real de caminhões e rejeita infraestrutura e porto", () => {
+  it("aceita concessionária real de caminhões e rejeita porto, aeroporto, transporte e logística", () => {
     const revenda = {
       titulo: "Concessionária Volvo Caminhões e Ônibus em Recife",
       segmento: "Revenda",
@@ -141,12 +159,21 @@ describe("classificação real das carteiras", () => {
       resumo: "Ampliação de pista e terminal aeroportuário em obra",
     };
 
+    const transportadora = {
+      titulo: "Transportadora Pesada Nordeste",
+      segmento: "Logística",
+      cidade: "Recife",
+      estado: "PE",
+      resumo: "Operação de transporte de cargas com frota de caminhões, sem revenda autorizada",
+    };
+
     expect(classificarDossieEmCarteiras(revenda).map((item) => item.carteira)).toContain("REVENDAS_CAMINHOES");
     expect(classificarDossieEmCarteiras(porto).map((item) => item.carteira)).not.toContain("REVENDAS_CAMINHOES");
     expect(classificarDossieEmCarteiras(aeroporto).map((item) => item.carteira)).not.toContain("REVENDAS_CAMINHOES");
+    expect(classificarDossieEmCarteiras(transportadora).map((item) => item.carteira)).not.toContain("REVENDAS_CAMINHOES");
   });
 
-  it("aceita empreendimento MCMV real e rejeita projeto sem vínculo habitacional", () => {
+  it("aceita empreendimento MCMV real e rejeita residencial sem vínculo explícito com programa habitacional", () => {
     const mcmv = {
       titulo: "Residencial Parque do Sol — MCMV em Recife",
       segmento: "Habitação",
@@ -165,8 +192,17 @@ describe("classificação real das carteiras", () => {
       resumo: "Obra de infraestrutura portuária e mobilização sem vínculo com MCMV",
     };
 
+    const residencial = {
+      titulo: "Residencial Atlântico",
+      segmento: "Residencial",
+      cidade: "Recife",
+      estado: "PE",
+      resumo: "Empreendimento residencial de alto padrão com edificações e apartamentos",
+    };
+
     expect(classificarDossieEmCarteiras(mcmv).map((item) => item.carteira)).toContain("MCMV");
     expect(classificarDossieEmCarteiras(infra).map((item) => item.carteira)).not.toContain("MCMV");
+    expect(classificarDossieEmCarteiras(residencial).map((item) => item.carteira)).not.toContain("MCMV");
   });
 
   it("monta campos extras somente com dados reais para MCMV", () => {
@@ -191,5 +227,30 @@ describe("classificação real das carteiras", () => {
       ]),
     );
     expect(extras.some((item) => item.label === "Unidades")).toBe(false);
+  });
+
+  it("qualifica candidato real de revenda e rejeita nome genérico de obra", () => {
+    const valido = qualificarCandidatoDescoberta({
+      nome: "Concessionária Volvo Caminhões e Ônibus Recife",
+      segmento: "Revenda",
+      cidade: "Recife",
+      estado: "PE",
+      resumo: "Concessionária autorizada de caminhões pesados e frota em operação.",
+      fonte: "LinkedIn — Volvo Brasil",
+      url: "https://example.com/volvo-recife",
+    });
+
+    const invalido = qualificarCandidatoDescoberta({
+      nome: "Obra em andamento",
+      cidade: "Recife",
+      estado: "PE",
+      resumo: "Projeto comercial sem empresa clara ou segmento definido.",
+    });
+
+    expect(valido.valido).toBe(true);
+    expect(valido.carteira).toBe("REVENDAS_CAMINHOES");
+    expect(valido.score).toBeGreaterThanOrEqual(75);
+    expect(invalido.valido).toBe(false);
+    expect(invalido.razoes.length).toBeGreaterThan(0);
   });
 });

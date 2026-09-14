@@ -125,6 +125,20 @@ export function CrmIaChat() {
   }, [mensagens]);
 
   useEffect(() => {
+    const handleOpen = (event: Event) => {
+      const detail = (event as CustomEvent<{ text?: string }>).detail ?? {};
+      setAberto(true);
+      if (detail.text) {
+        setInput(detail.text);
+        requestAnimationFrame(() => inputRef.current?.focus());
+      }
+    };
+
+    window.addEventListener("crm-ia-open", handleOpen);
+    return () => window.removeEventListener("crm-ia-open", handleOpen);
+  }, []);
+
+  useEffect(() => {
     if (aberto) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
       inputRef.current?.focus();

@@ -48,6 +48,10 @@ export async function POST(req: NextRequest) {
     templateName,
     templateIdioma,
     templateParametros,
+    // ACRESCENTADO — quando a conversa é iniciada a partir do botão "Abrir no
+    // WhatsApp" de uma tarefa, vincula a conversa (nova ou reaproveitada) a essa
+    // tarefa de origem. Puramente opcional — sem isso, tudo continua como antes.
+    tarefaId,
   } = body as {
     telefone?: string;
     mensagem?: string;
@@ -59,6 +63,7 @@ export async function POST(req: NextRequest) {
     templateName?: string;
     templateIdioma?: string;
     templateParametros?: string[];
+    tarefaId?: string;
   };
 
   if (!telefone) {
@@ -142,8 +147,16 @@ export async function POST(req: NextRequest) {
         pessoaId: pessoaId ?? pessoaEncontrada?.id ?? null,
         atendidoPorId: user.id,
         ultimaMensagemEm: new Date(),
+        tarefaAtualId: tarefaId ?? null,
       },
       select: { id: true, telefone: true, canalWhatsappId: true },
+    });
+  } else if (tarefaId) {
+    // ACRESCENTADO — conversa já existia (reaproveitada); ainda assim vincula a
+    // tarefa de origem, para o atalho de concluir aparecer na Central de Atendimento.
+    await prisma.conversa.update({
+      where: { id: conversa.id },
+      data: { tarefaAtualId: tarefaId },
     });
   }
 

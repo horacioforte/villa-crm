@@ -513,10 +513,18 @@ export function TarefaModal({
 
       onFechar(); // fecha o modal antes de navegar
 
+      // ACRESCENTADO — leva o id da tarefa junto na navegacao, para a Central de
+      // Atendimento conseguir vincular a conversa a esta tarefa e oferecer o atalho de
+      // concluir sem precisar voltar para a tela de Tarefas.
+      const tarefaIdAtual = tarefa?.id;
       if (data.encontrada && data.conversaId) {
-        router.push(`/conversas?abrir=${data.conversaId}`);
+        const params = new URLSearchParams({ abrir: data.conversaId });
+        if (tarefaIdAtual) params.set("tarefaId", tarefaIdAtual);
+        router.push(`/conversas?${params.toString()}`);
       } else if (data.telefone) {
-        router.push(`/conversas?nova=1&telefone=${encodeURIComponent(data.telefone)}`);
+        const params = new URLSearchParams({ nova: "1", telefone: data.telefone });
+        if (tarefaIdAtual) params.set("tarefaId", tarefaIdAtual);
+        router.push(`/conversas?${params.toString()}`);
       } else {
         toast.error("Contato sem telefone cadastrado. Adicione o WhatsApp do contato primeiro.");
       }

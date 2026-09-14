@@ -30,6 +30,8 @@ import { buildMelhorProximaAcao, buildTarefaPayloadFromRecomendacao } from "@/li
 import { getPrioridadeAguardando, ordenarConversasPorPrioridade } from "@/lib/conversas/prioridade";
 import { formatarTempoDecorrido } from "@/lib/conversas/aguardando-resposta";
 import { SupervisaoBoard } from "@/components/conversas/SupervisaoBoard";
+import { ConcluirTarefaDialog } from "@/components/tarefas/ConcluirTarefaDialog";
+import type { TipoAtividade } from "@/app/generated/prisma/client";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -115,6 +117,20 @@ type ConversaContexto = {
   empresa?: { id: string; razaoSocial: string | null; nomeFantasia: string | null } | null;
   pessoa?: { id: string; nome: string | null; telefone: string | null; cargo: string | null } | null;
   oportunidade?: OportunidadeResumo | null;
+  // ACRESCENTADO — tarefa de origem vinculada a esta conversa (ver botao "Abrir no
+  // WhatsApp" das tarefas), usada so para oferecer o atalho de concluir sem sair da
+  // Central de Atendimento.
+  tarefaAtual?: {
+    id: string;
+    titulo: string;
+    tipo: TipoAtividade;
+    status: string;
+    oportunidadeId: string | null;
+    empresaId: string | null;
+    pessoaId: string | null;
+    obraId: string | null;
+    responsavelId: string | null;
+  } | null;
 };
 
 type HistoricoRecomendacao = {
@@ -258,6 +274,11 @@ function ConversasPage() {
   const buscaParam = searchParams.get("busca");
   const novaParam = searchParams.get("nova");
   const novaParamTel = searchParams.get("telefone");
+  // ACRESCENTADO — id da tarefa de origem (ver botao "Abrir no WhatsApp" das
+  // tarefas), usado so para vincular a conversa a tarefa e oferecer o atalho de
+  // concluir sem sair da Central de Atendimento.
+  const tarefaIdParam = searchParams.get("tarefaId");
+  const [concluirTarefaOpen, setConcluirTarefaOpen] = useState(false);
 
   // Pré-preenche o campo de busca quando vem de ?busca=TELEFONE (ex: da página Maria).
   // Limpa o filtro de status para buscar em TODAS as conversas (Abertas + Concluídas etc.)
@@ -303,6 +324,9 @@ function ConversasPage() {
                 templateParametros: [novaConversaNomeTemplate.trim()],
               }
             : { mensagem: novaConversaMsg.trim() }),
+          // ACRESCENTADO — quando veio do botão "Abrir no WhatsApp" de uma tarefa,
+          // leva o id dela para o backend já vincular a conversa criada.
+          ...(tarefaIdParam ? { tarefaId: tarefaIdParam } : {}),
         }),
       });
       const data = await res.json();
@@ -423,6 +447,21 @@ function ConversasPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abrirConversaId, conversas]);
+
+  // ACRESCENTADO — vincula a conversa (já existente) à tarefa de origem quando chega
+  // de ?abrir=ID&tarefaId=XXX (botão "Abrir no WhatsApp" da tarefa). No caminho de
+  // "Nova conversa" esse vínculo já é feito direto no POST /api/conversas/nova.
+  useEffect(() => {
+    if (!tarefaIdParam || !abrirConversaId || !conversaAtiva || conversaAtiva.id !== abrirConversaId) return;
+    fetch(`/api/conversas/${conversaAtiva.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tarefaAtualId: tarefaIdParam }),
+    })
+      .then(() => carregarDetalhesConversa(conversaAtiva))
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tarefaIdParam, abrirConversaId, conversaAtiva]);
 
   // Carrega contexto e mensagens da conversa ativa
   const carregarDetalhesConversa = useCallback(async (conversa: Conversa) => {
@@ -1207,6 +1246,26 @@ function ConversasPage() {
                   </div>
                 </div>
 
+                {/* ACRESCENTADO — quando esta conversa foi aberta a partir de uma
+                    tarefa (botão "Abrir no WhatsApp"), mostra um atalho pra concluir
+                    aquela tarefa sem precisar sair da Central de Atendimento. Só
+                    aparece enquanto a tarefa ainda não está concluída. */}
+                {conversaContexto?.id === conversaAtiva.id &&
+                  conversaContexto.tarefaAtual &&
+                  conversaContexto.tarefaAtual.status !== "CONCLUIDA" && (
+                    <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-6 py-2 text-xs">
+                      <span className="text-amber-800">
+                        Vinculada à tarefa <strong>{conversaContexto.tarefaAtual.titulo}</strong>
+                      </span>
+                      <button
+                        onClick={() => setConcluirTarefaOpen(true)}
+                        className="shrink-0 rounded-lg bg-amber-600 px-3 py-1 font-semibold text-white hover:bg-amber-700"
+                      >
+                        Concluir tarefa
+                      </button>
+                    </div>
+                  )}
+
                 {/* Mensagens */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-3" onClick={() => setShowTransferir(false)}>
                   {mensagens.length === 0 ? (
@@ -1522,6 +1581,30 @@ function ConversasPage() {
           )}
         </div>
       </div>
+
+      {/* ACRESCENTADO — mesmo dialogo de conclusao usado na tela de Tarefas (com toda
+          a logica de cadencia/proxima acao), aberto aqui pelo atalho "Concluir tarefa"
+          quando a conversa esta vinculada a uma tarefa de origem. */}
+      {conversaContexto?.tarefaAtual && (
+        <ConcluirTarefaDialog
+          aberto={concluirTarefaOpen}
+          tarefa={{
+            id: conversaContexto.tarefaAtual.id,
+            titulo: conversaContexto.tarefaAtual.titulo,
+            tipo: conversaContexto.tarefaAtual.tipo,
+            oportunidadeId: conversaContexto.tarefaAtual.oportunidadeId,
+            empresaId: conversaContexto.tarefaAtual.empresaId,
+            pessoaId: conversaContexto.tarefaAtual.pessoaId,
+            obraId: conversaContexto.tarefaAtual.obraId,
+            responsavelId: conversaContexto.tarefaAtual.responsavelId,
+          }}
+          onFechar={() => setConcluirTarefaOpen(false)}
+          onConcluido={() => {
+            setConcluirTarefaOpen(false);
+            if (conversaAtiva) carregarDetalhesConversa(conversaAtiva);
+          }}
+        />
+      )}
     </div>
   );
 }

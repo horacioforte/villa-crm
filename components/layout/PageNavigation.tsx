@@ -26,7 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 
 // Itens primários — sempre visíveis
-// Ordem atualizada em 14/09/2026: Mídias Sociais movida para 2ª posição (lado esquerdo)
+// Ordem atualizada em 14/09/2026: Mídias Sociais na 2ª posição; Inteligência virou dropdown
 const primaryItems = [
   { label: "Relatórios", href: "/relatorios", icon: BarChart2 },
   { label: "Mídias Sociais", href: "/midias-sociais", icon: Megaphone },
@@ -34,7 +34,6 @@ const primaryItems = [
   { label: "Oportunidades", href: "/oportunidades", icon: ClipboardList },
   { label: "Contratos", href: "/contratos", icon: FileText },
   { label: "Conversas", href: "/conversas", icon: MessageCircle },
-  { label: "Inteligência", href: "/inteligencia", icon: Brain },
   { label: "Agenda", href: "/tarefas", icon: CalendarCheck },
 ];
 
@@ -70,7 +69,9 @@ export function PageNavigation({
   const [isAdmin, setIsAdmin] = useState(false);
   const [papel, setPapel] = useState<string | null>(null);
   const [maisAberto, setMaisAberto] = useState(false);
+  const [inteligenciaAberto, setInteligenciaAberto] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const inteligenciaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadTarefasAtrasadas() {
@@ -94,11 +95,14 @@ export function PageNavigation({
     loadSession();
   }, []);
 
-  // Fecha dropdown ao clicar fora
+  // Fecha dropdowns ao clicar fora
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setMaisAberto(false);
+      }
+      if (inteligenciaRef.current && !inteligenciaRef.current.contains(e.target as Node)) {
+        setInteligenciaAberto(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -165,6 +169,52 @@ export function PageNavigation({
               </Link>
             );
           })}
+
+          {/* Dropdown "Inteligência ▾" — João e Maria — adicionado 14/09/2026 */}
+          <div className="relative" ref={inteligenciaRef}>
+            <button
+              onClick={() => { setInteligenciaAberto(v => !v); setMaisAberto(false); }}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm font-semibold transition",
+                currentHref?.startsWith("/inteligencia")
+                  ? "bg-[#1A2E5A] text-white"
+                  : "bg-[#F4F6FA] text-[#1A2E5A] hover:bg-[#E8EEFB]",
+              )}
+            >
+              <Brain className="size-4" />
+              Inteligência
+              <ChevronDown className={cn("size-3.5 transition-transform", inteligenciaAberto && "rotate-180")} />
+            </button>
+
+            {inteligenciaAberto && (
+              <div className="absolute left-0 top-full z-50 mt-2 w-44 rounded-2xl border border-[#D7DEEA] bg-white py-2 shadow-lg">
+                <Link
+                  href="/inteligencia"
+                  onClick={() => setInteligenciaAberto(false)}
+                  className={cn(
+                    "flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition",
+                    currentHref?.startsWith("/inteligencia") && !currentHref?.startsWith("/inteligencia/maria")
+                      ? "bg-[#E8EEFB] text-[#1A2E5A]"
+                      : "text-[#1A2E5A] hover:bg-[#F4F6FA]",
+                  )}
+                >
+                  <span className="text-base">🤖</span> João
+                </Link>
+                <Link
+                  href="/inteligencia/maria"
+                  onClick={() => setInteligenciaAberto(false)}
+                  className={cn(
+                    "flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition",
+                    currentHref?.startsWith("/inteligencia/maria")
+                      ? "bg-[#E8EEFB] text-[#1A2E5A]"
+                      : "text-[#1A2E5A] hover:bg-[#F4F6FA]",
+                  )}
+                >
+                  <span className="text-base">✦</span> Maria
+                </Link>
+              </div>
+            )}
+          </div>
 
           {/* Dropdown "Mais ▾" */}
           {filteredSecondary.length > 0 && (

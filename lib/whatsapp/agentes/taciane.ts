@@ -27,6 +27,7 @@ import {
   type CanalWhatsapp,
 } from "@/app/generated/prisma/client";
 import { statusAposNovaMensagemCliente } from "@/lib/conversas/reabertura";
+import { variantesTelefoneBR } from "@/lib/whatsapp/telefone";
 
 const INSTANCE_NAME = "taciane-villa";
 
@@ -62,7 +63,7 @@ async function encontrarOuCriarConversa({
   nomeContato: string;
 }) {
   const existente = await prisma.conversa.findFirst({
-    where: { telefone, instanceName: INSTANCE_NAME },
+    where: { telefone: { in: variantesTelefoneBR(telefone) }, instanceName: INSTANCE_NAME },
     orderBy: { updatedAt: "desc" },
   });
 

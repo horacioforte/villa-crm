@@ -33,6 +33,7 @@ import {
   montarMensagemPendingMorgana,
 } from "@/lib/agentes/joao/crm";
 import { statusAposNovaMensagemCliente } from "@/lib/conversas/reabertura";
+import { variantesTelefoneBR } from "@/lib/whatsapp/telefone";
 
 // ─── Tipos do payload Meta Cloud API (usados também pelo roteador unificado) ──
 
@@ -116,7 +117,7 @@ async function encontrarOuCriarConversa({
   nomeContato: string;
 }) {
   const existente = await prisma.conversa.findFirst({
-    where: { telefone, instanceName: INSTANCE_NAME },
+    where: { telefone: { in: variantesTelefoneBR(telefone) }, instanceName: INSTANCE_NAME },
     orderBy: { updatedAt: "desc" },
   });
 

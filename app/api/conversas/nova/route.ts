@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { CanalWhatsappTipo } from "@/app/generated/prisma/client";
 import { enviarTextoMeta, enviarTemplateMeta, CanalInvalidoError, EnvioMetaError } from "@/lib/whatsapp/meta-client";
+import { variantesTelefoneBR } from "@/lib/whatsapp/telefone";
 
 const INSTANCES_VALIDAS = ["maria-villa", "joao-villa", "morgana-villa", "taciane-villa"];
 
@@ -119,6 +120,11 @@ export async function POST(req: NextRequest) {
       OR: [
         { telefone: { contains: telSem55 } },
         { telefone: { contains: telFull } },
+        // ACRESCENTADO — cobre a ambiguidade do "nono dígito" de celulares BR: o
+        // WhatsApp/Meta às vezes reporta o mesmo contato com ou sem esse dígito
+        // extra, o que fazia uma conversa iniciada pelo CRM não ser reconhecida
+        // quando o cliente respondia de verdade, criando uma conversa duplicada.
+        { telefone: { in: variantesTelefoneBR(telFull) } },
       ],
     },
     orderBy: { ultimaMensagemEm: "desc" },

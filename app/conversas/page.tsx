@@ -249,6 +249,8 @@ function ConversasPage() {
   const [criandoTarefa, setCriandoTarefa] = useState(false);
   const [criandoFollowUp, setCriandoFollowUp] = useState(false);
   const [feedbackAcao, setFeedbackAcao] = useState<string | null>(null);
+  // ACRESCENTADO — estado do botão "Recontato WhatsApp" (template villa_maria_recontato)
+  const [recontatoWaStatus, setRecontatoWaStatus] = useState<"idle" | "loading" | "sucesso" | "erro">("idle");
   const [alterandoStatus, setAlterandoStatus] = useState(false);
   // Nova Conversa — modal inline na sidebar
   const [showNovaConversa, setShowNovaConversa] = useState(false);
@@ -476,6 +478,8 @@ function ConversasPage() {
 
   useEffect(() => {
     if (conversaAtiva) carregarDetalhesConversa(conversaAtiva);
+    // Reset do botão de recontato ao trocar de conversa
+    setRecontatoWaStatus("idle");
   }, [conversaAtiva, carregarDetalhesConversa]);
 
   // Sprint UX de segurança — item 4: mesmo contato em outros canais. Busca sem os
@@ -778,6 +782,34 @@ function ConversasPage() {
       router.push(`/contatos/${conversaContexto.pessoa.id}`);
     } else {
       setFeedbackAcao("Vincule uma empresa ou pessoa à conversa para criar a proposta.");
+    }
+  }
+
+  // ─── Botão Recontato WhatsApp: dispara template villa_maria_recontato ────────
+  // Usado quando a janela de 24h do WhatsApp está fechada e é preciso reabri-la.
+  // Requer template aprovado pela Meta (villa_maria_recontato).
+  async function dispararRecontatoWa() {
+    if (!conversaAtiva?.telefone || recontatoWaStatus === "loading") return;
+    setRecontatoWaStatus("loading");
+    setFeedbackAcao(null);
+    try {
+      const nome = conversaAtiva.nomeContato ?? conversaContexto?.pessoa?.nome ?? undefined;
+      const res = await fetch("/api/whatsapp/recontato", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversaId: conversaAtiva.id, nome }),
+      });
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; erro?: string };
+      if (res.ok && data.ok) {
+        setRecontatoWaStatus("sucesso");
+        setFeedbackAcao("✅ Template de recontato enviado com sucesso!");
+      } else {
+        setRecontatoWaStatus("erro");
+        setFeedbackAcao(`⚠️ Falha no recontato: ${data.erro ?? "Erro desconhecido"}`);
+      }
+    } catch {
+      setRecontatoWaStatus("erro");
+      setFeedbackAcao("⚠️ Erro de conexão ao tentar enviar o recontato.");
     }
   }
 
@@ -1537,6 +1569,37 @@ function ConversasPage() {
                   >
                     📄 Proposta
                   </button>
+
+                  {/* ACRESCENTADO — Recontato WhatsApp: dispara template villa_maria_recontato
+                      para reabrir a janela de 24h quando o lead está frio/sem resposta.
+                      Só aparece quando a conversa tem telefone. */}
+                  {conversaAtiva?.telefone && (
+                    <button
+                      onClick={dispararRecontatoWa}
+                      disabled={recontatoWaStatus === "loading" || recontatoWaStatus === "sucesso"}
+                      title={
+                        recontatoWaStatus === "sucesso"
+                          ? "Template já enviado nesta sessão"
+                          : "Envia o template villa_maria_recontato para reabrir a conversa WhatsApp"
+                      }
+                      className={cn(
+                        "rounded-xl border px-2.5 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
+                        recontatoWaStatus === "sucesso"
+                          ? "border-green-200 bg-green-50 text-green-700"
+                          : recontatoWaStatus === "erro"
+                          ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                          : "border-[#2A78D6] bg-white text-[#1E4FAB] hover:bg-[#E8EEFB]"
+                      )}
+                    >
+                      {recontatoWaStatus === "loading"
+                        ? "📲 Enviando…"
+                        : recontatoWaStatus === "sucesso"
+                        ? "✅ Recontato enviado"
+                        : recontatoWaStatus === "erro"
+                        ? "⚠️ Tentar novamente"
+                        : "📲 Recontato WhatsApp"}
+                    </button>
+                  )}
                 </div>
 
                 {feedbackAcao && (

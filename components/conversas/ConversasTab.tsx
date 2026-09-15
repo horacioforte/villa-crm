@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, ChevronRight, Loader2, MessageSquare, User } from "lucide-react";
+import { Bot, ChevronRight, Loader2, MessageSquare, RefreshCw, Send, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -91,6 +91,10 @@ export function ConversasTab({ empresaId, pessoaId, oportunidadeId }: ConversasT
   const [conversaSelecionada, setConversaSelecionada] = useState<ConversaDetalhe | null>(null);
   const [isLoadingMensagens, setIsLoadingMensagens] = useState(false);
 
+  // Estado do botão Recontato WhatsApp
+  const [recontatoStatus, setRecontatoStatus] = useState<"idle" | "loading" | "sucesso" | "erro">("idle");
+  const [recontatoErro, setRecontatoErro] = useState<string | null>(null);
+
   // Carrega lista de conversas
   useEffect(() => {
     async function load() {
@@ -118,6 +122,8 @@ export function ConversasTab({ empresaId, pessoaId, oportunidadeId }: ConversasT
   async function abrirConversa(conversa: Conversa) {
     setIsLoadingMensagens(true);
     setConversaSelecionada({ ...conversa, mensagens: [] });
+    setRecontatoStatus("idle");
+    setRecontatoErro(null);
     try {
       const res = await fetch(`/api/conversas/${conversa.id}`);
       if (!res.ok) throw new Error();
@@ -127,6 +133,33 @@ export function ConversasTab({ empresaId, pessoaId, oportunidadeId }: ConversasT
       // mantém conversa selecionada com mensagens vazias
     } finally {
       setIsLoadingMensagens(false);
+    }
+  }
+
+  // Dispara o template villa_maria_recontato para re-engajar o lead
+  async function dispararRecontato() {
+    if (!conversaSelecionada?.telefone) return;
+    setRecontatoStatus("loading");
+    setRecontatoErro(null);
+    try {
+      const res = await fetch("/api/whatsapp/recontato", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversaId: conversaSelecionada.id,
+          nome: conversaSelecionada.nomeContato ?? undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; erro?: string };
+      if (res.ok && data.ok) {
+        setRecontatoStatus("sucesso");
+      } else {
+        setRecontatoStatus("erro");
+        setRecontatoErro(data.erro ?? "Falha no envio. Tente novamente.");
+      }
+    } catch {
+      setRecontatoStatus("erro");
+      setRecontatoErro("Erro de conexão. Verifique e tente novamente.");
     }
   }
 
@@ -172,6 +205,45 @@ export function ConversasTab({ empresaId, pessoaId, oportunidadeId }: ConversasT
             <Badge className="bg-indigo-100 text-indigo-700 border-0 text-xs">
               Humano: {conversaSelecionada.atendidoPor.nome}
             </Badge>
+          )}
+
+          {/* ── Botão Recontato WhatsApp ── */}
+          {conversaSelecionada.telefone && (
+            <div className="ml-auto flex items-center gap-2">
+              {recontatoStatus === "sucesso" && (
+                <span className="text-xs font-semibold text-green-600">✅ Template enviado!</span>
+              )}
+              {recontatoStatus === "erro" && recontatoErro && (
+                <span className="text-xs text-red-500" title={recontatoErro}>⚠️ Falha</span>
+              )}
+              <button
+                onClick={dispararRecontato}
+                disabled={recontatoStatus === "loading" || recontatoStatus === "sucesso"}
+                title={
+                  recontatoStatus === "sucesso"
+                    ? "Template já enviado nesta sessão"
+                    : "Enviar template villa_maria_recontato para reabrir conversa WhatsApp"
+                }
+                className="flex items-center gap-1.5 rounded-xl border border-[#2A78D6] px-3 py-1.5 text-xs font-semibold text-[#2A78D6] transition hover:bg-[#E8EEFB] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {recontatoStatus === "loading" ? (
+                  <>
+                    <RefreshCw className="size-3.5 animate-spin" />
+                    Enviando…
+                  </>
+                ) : recontatoStatus === "sucesso" ? (
+                  <>
+                    <Send className="size-3.5" />
+                    Enviado
+                  </>
+                ) : (
+                  <>
+                    <Send className="size-3.5" />
+                    Recontato WhatsApp
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
 

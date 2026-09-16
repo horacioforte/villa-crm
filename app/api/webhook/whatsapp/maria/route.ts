@@ -22,7 +22,7 @@ import {
   registrarLeadQualificado,
   registrarInteracaoParcial,
 } from "@/lib/agentes/maria/crm";
-import { getCanalMaria, mensagemJaProcessada, persistirConversaMaria, persistirMensagemMidiaCliente } from "@/lib/whatsapp/agentes/maria";
+import { getCanalMaria, mensagemJaProcessada, persistirConversaMaria, persistirMensagemMidiaCliente, processarStatusRecebido } from "@/lib/whatsapp/agentes/maria";
 import { buscarMidiaMeta } from "@/lib/whatsapp/meta-client";
 import { resolveWhatsappEnvVar } from "@/lib/whatsapp/env-allowlist";
 import type { CanalWhatsapp } from "@/app/generated/prisma/client";
@@ -122,6 +122,16 @@ export async function POST(request: NextRequest) {
 
       const messages = (value.messages as Record<string, unknown>[] | undefined) ?? [];
       const contacts = (value.contacts as Record<string, unknown>[] | undefined) ?? [];
+
+      // ACRESCENTADO — recibos de entrega/leitura/falha das mensagens que a Maria
+      // enviou (ver processarStatusRecebido em lib/whatsapp/agentes/maria.ts). Nunca
+      // aciona IA nem envia nada — só atualiza o status da Mensagem já gravada.
+      const statuses = (value.statuses as Array<{ id: string; status: string; timestamp: string; recipient_id: string; errors?: Array<{ code: number; title: string }> }> | undefined) ?? [];
+      for (const status of statuses) {
+        await processarStatusRecebido(status).catch((err) => {
+          console.error("[maria/meta-webhook] Erro ao processar status recebido:", err);
+        });
+      }
 
       for (const message of messages) {
         // Ignora mensagens enviadas por nós

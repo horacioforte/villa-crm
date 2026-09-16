@@ -236,3 +236,54 @@ export async function persistirConversaMaria({
 
   return conversa;
 }
+
+// ─── Status recebido (delivered/read/failed de mensagens que ENVIAMOS) ────────
+// ACRESCENTADO — sem isso, uma mensagem que a Meta rejeitou depois de aceitar a
+// chamada inicial (ex.: cliente sem opt-in, número inválido, janela de 24h fechada
+// para mensagem livre, etc.) ficava para sempre com status ENVIADA no CRM, sem
+// nenhum jeito de saber que a resposta da IA na verdade não chegou ao cliente. Não
+// mexe em nada do fluxo comercial/IA — só atualiza o status da Mensagem já gravada.
+// Mesmo padrão já usado em lib/whatsapp/agentes/joao.ts e agentes/taciane.ts.
+export type MetaStatus = {
+  id: string;
+  status: string;
+  timestamp: string;
+  recipient_id: string;
+  errors?: Array<{ code: number; title: string }>;
+};
+
+export async function processarStatusRecebido(status: MetaStatus) {
+  const mensagem = await prisma.mensagem.findFirst({ where: { externalMessageId: status.id } });
+  if (!mensagem) return; // Pode ser status de mensagem enviada fora deste fluxo — sem correspondência, ignora.
+
+  if (status.status === "delivered") {
+    await prisma.mensagem.update({
+      where: { id: mensagem.id },
+      data: { status: StatusMensagem.ENTREGUE, deliveredAt: new Date() },
+    });
+    return;
+  }
+
+  if (status.status === "read") {
+    await prisma.mensagem.update({
+      where: { id: mensagem.id },
+      data: { status: StatusMensagem.LIDA, readAt: new Date() },
+    });
+    return;
+  }
+
+  if (status.status === "failed") {
+    const erro = status.errors?.[0];
+    await prisma.mensagem.update({
+      where: { id: mensagem.id },
+      data: {
+        status: StatusMensagem.ERRO,
+        errorCode: erro?.code !== undefined ? String(erro.code) : "FAILED",
+        errorMessage: erro?.title ?? "Falha reportada pela Meta.",
+      },
+    });
+  }
+
+  // "sent" já é refletido no momento do envio (meta-client marca ENVIADA); outros
+  // valores de status não mapeados são ignorados silenciosamente.
+}

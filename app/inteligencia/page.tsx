@@ -1134,38 +1134,56 @@ export default function CockpitPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-[#D7DEEA] bg-[#1A2E5A] p-4 text-white shadow-sm">
-              <div className="mb-3 flex items-center gap-2">
-                <Bot className="h-5 w-5 text-blue-200" />
-                <h2 className="text-lg font-semibold">Pergunte ao João</h2>
-              </div>
-              <p className="text-sm text-blue-100">
-                Use linguagem natural para analisar o mercado, encontrar empresas ou tirar dúvidas.
-              </p>
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
-                <textarea
-                  readOnly
-                  value="Ex: Quais são as melhores oportunidades em Pernambuco hoje?"
-                  className="h-16 w-full resize-none border-none bg-transparent text-sm text-blue-100 placeholder:text-blue-200 focus:outline-none"
-                />
+            <div className="flex flex-col gap-4">
+              {/* Pergunte ao João — BI / mercado */}
+              <div className="rounded-3xl border border-[#D7DEEA] bg-[#1A2E5A] p-4 text-white shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <Bot className="h-5 w-5 text-blue-200" />
+                  <h2 className="text-lg font-semibold">Pergunte ao João</h2>
+                </div>
+                <p className="text-sm text-blue-100">
+                  Use linguagem natural para analisar o mercado, encontrar empresas ou tirar dúvidas.
+                </p>
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <textarea
+                    readOnly
+                    value="Ex: Quais são as melhores oportunidades em Pernambuco hoje?"
+                    className="h-16 w-full resize-none border-none bg-transparent text-sm text-blue-100 placeholder:text-blue-200 focus:outline-none"
+                  />
+                </div>
+                <div className="mt-4 space-y-2">
+                  {[
+                    "O que mudou hoje?",
+                    "Onde devo atuar?",
+                    "Quais obras estão entrando em concretagem?",
+                    "Quais empresas precisam de investigação?",
+                  ].map((prompt) => (
+                    <button
+                      key={prompt}
+                      onClick={() => openCrmIa(prompt)}
+                      className="block w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-blue-50 transition hover:bg-white/10"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="mt-4 space-y-2">
-                {[
-                  "O que mudou hoje?",
-                  "Onde devo atuar?",
-                  "Quais obras estão entrando em concretagem?",
-                  "Quais empresas precisam de investigação?",
-                ].map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() => openCrmIa(prompt)}
-                    className="block w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-blue-50 transition hover:bg-white/10"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
+              {/* Falar com João — chat de gestão interna */}
+              <ChatComAgente config={{
+                apiRoute: "/api/joao/chat-gestao",
+                nome: "João",
+                inicial: "J",
+                subtitulo: "Como foi sua prospecção? O que encontrou hoje?",
+                placeholder: "Ex.: Que obras você encontrou? Alguém respondeu? O que está quente?",
+                boasVindas: "Selecione os contextos e me pergunte sobre minha prospecção — que obras encontrei, com quem conversei, o que ficou em aberto.",
+                avatarGradiente: "from-purple-500 to-[#1A2E5A]",
+                chips: [
+                  { id: "conversas", label: "💬 Conversas", descricao: "Mensagens reais das abordagens outbound", defaultAtivo: true },
+                  { id: "prospects", label: "🏗️ Prospectos", descricao: "Pipeline de prospectos do João", defaultAtivo: true },
+                  { id: "tarefas", label: "✅ Follow-ups", descricao: "Tarefas e follow-ups pendentes" },
+                ],
+              }} />
             </div>
           </section>
 
@@ -1238,33 +1256,6 @@ export default function CockpitPage() {
             </div>
           </section>
 
-          {/* ── Falar com João — Chat de Gestão Interna ── */}
-          <section id="falar-com-joao" className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <Bot className="h-5 w-5 text-[#1E4FAB]" />
-              <h2 className="text-xl font-semibold text-slate-900">Falar com João</h2>
-              <span className="ml-2 rounded-full bg-[#E8EEFB] px-2.5 py-0.5 text-[11px] font-semibold text-[#1E4FAB]">
-                Modo interno
-              </span>
-            </div>
-            <p className="mb-4 text-sm text-slate-500">
-              Pergunte ao João sobre sua prospecção — quem ele abordou, o que encontrou, o que está quente. Ele responde como colega, não como BI.
-            </p>
-            <ChatComAgente config={{
-              apiRoute: "/api/joao/chat-gestao",
-              nome: "João",
-              inicial: "J",
-              subtitulo: "Hunter outbound — conta sobre sua prospecção e abordagens do dia",
-              placeholder: "Ex.: Como foi hoje, João? Que obras você encontrou? Alguém respondeu?",
-              boasVindas: "Selecione os contextos acima e me pergunte sobre minha prospecção — que obras encontrei, com quem conversei, o que ficou em aberto.",
-              avatarGradiente: "from-purple-500 to-[#1A2E5A]",
-              chips: [
-                { id: "conversas", label: "💬 Conversas", descricao: "Mensagens reais das abordagens outbound", defaultAtivo: true },
-                { id: "prospects", label: "🏗️ Prospectos", descricao: "Pipeline de prospectos do João", defaultAtivo: true },
-                { id: "tarefas", label: "✅ Follow-ups", descricao: "Tarefas e follow-ups pendentes" },
-              ],
-            }} />
-          </section>
         </div>
       </main>
     </div>

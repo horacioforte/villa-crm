@@ -222,6 +222,12 @@ export async function sincronizarConteudos(
         buscarInsightsMedia(redeSocialContaId, media.id, metricas),
       );
 
+      // thumbnail_url só vem preenchido pela Meta para mídia do tipo
+      // VIDEO. Para IMAGE e CAROUSEL_ALBUM, quem carrega a imagem é
+      // media_url — sem esse fallback, todo post de imagem ficava sem
+      // prévia no CRM.
+      const thumbnailUrl = media.thumbnail_url ?? media.media_url;
+
       await prisma.conteudoSocial.upsert({
         where: { rede_externalMediaId: { rede: conta.rede, externalMediaId: media.id } },
         create: {
@@ -232,7 +238,7 @@ export async function sincronizarConteudos(
           publicadoEm: new Date(media.timestamp),
           legenda: media.caption,
           url: media.permalink,
-          thumbnailUrl: media.thumbnail_url,
+          thumbnailUrl,
           alcance: valorInsight(insights, "reach"),
           interacoes: valorInsight(insights, "total_interactions"),
           curtidas: valorInsight(insights, "likes"),
@@ -245,6 +251,7 @@ export async function sincronizarConteudos(
           ultimaSincronizacaoEm: new Date(),
         },
         update: {
+          thumbnailUrl,
           alcance: valorInsight(insights, "reach"),
           interacoes: valorInsight(insights, "total_interactions"),
           curtidas: valorInsight(insights, "likes"),

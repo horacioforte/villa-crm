@@ -11,6 +11,7 @@ import {
   History,
   Loader2,
   Plus,
+  Search,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +39,7 @@ import {
 import { temCadencia } from "@/lib/tarefas/cadencia";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Card,
   CardContent,
@@ -228,6 +230,8 @@ export default function TarefasPage() {
     "todas",
   );
   const [tipo, setTipo] = useState<TipoAtividade | "todas">("todas");
+  // Campo de busca — adicionado 16/09/2026
+  const [busca, setBusca] = useState("");
 
   async function loadTarefas() {
     setIsLoading(true);
@@ -411,10 +415,21 @@ export default function TarefasPage() {
         if (tipo !== "todas" && tarefa.tipo !== tipo) {
           return false;
         }
+        if (busca.trim()) {
+          const q = busca.trim().toLowerCase();
+          const titulo = tarefa.titulo?.toLowerCase() ?? "";
+          const empresa = (tarefa.empresa?.nomeFantasia ?? tarefa.empresa?.razaoSocial ?? "").toLowerCase();
+          const oportunidade = tarefa.oportunidade?.titulo?.toLowerCase() ?? "";
+          const pessoa = tarefa.pessoa?.nome?.toLowerCase() ?? "";
+          if (!titulo.includes(q) && !empresa.includes(q) && !oportunidade.includes(q) && !pessoa.includes(q)) {
+            return false;
+          }
+        }
 
         return true;
       }),
     [
+      busca,
       empresaId,
       oportunidadeId,
       periodo,
@@ -620,6 +635,27 @@ export default function TarefasPage() {
               ))}
             </div>
 
+            {/* Campo de busca — adicionado 16/09/2026 */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#98A2B3]" />
+              <input
+                type="text"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar por tarefa, empresa, oportunidade ou contato…"
+                className="w-full rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] py-2.5 pl-9 pr-4 text-sm text-[#1A2E5A] placeholder-[#98A2B3] outline-none focus:border-[#1E4FAB] focus:ring-1 focus:ring-[#1E4FAB]"
+              />
+              {busca && (
+                <button
+                  type="button"
+                  onClick={() => setBusca("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#98A2B3] hover:text-[#1A2E5A]"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
             <details className="rounded-2xl border border-[#D7DEEA] bg-[#F4F6FA] p-4">
               <summary className="flex cursor-pointer items-center gap-2 font-semibold text-[#1A2E5A]">
                 <ChevronDown className="size-4" />
@@ -627,57 +663,42 @@ export default function TarefasPage() {
               </summary>
               <div className="mt-4 grid gap-3 md:grid-cols-5">
                 {canFiltrarResponsavel ? (
-                  <Select
+                  <Combobox
+                    options={[
+                      { value: "todas", label: "Toda a equipe" },
+                      ...filtroOptions.responsaveis.map((item) => ({ value: item.id, label: item.label })),
+                    ]}
                     value={responsavelId}
-                    onValueChange={(value) => setResponsavelId(value ?? "todas")}
-                  >
-                    <SelectTrigger className="rounded-2xl">
-                      <SelectValue placeholder="Responsavel" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todas">Toda a equipe</SelectItem>
-                      {filtroOptions.responsaveis.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(v) => setResponsavelId(v || "todas")}
+                    placeholder="Responsável"
+                    searchPlaceholder="Buscar responsável…"
+                    emptyMessage="Nenhum responsável encontrado."
+                  />
                 ) : null}
 
-                <Select
+                <Combobox
+                  options={[
+                    { value: "todas", label: "Empresa" },
+                    ...filtroOptions.empresas.map((item) => ({ value: item.id, label: item.label })),
+                  ]}
                   value={empresaId}
-                  onValueChange={(value) => setEmpresaId(value ?? "todas")}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Empresa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Empresa</SelectItem>
-                    {filtroOptions.empresas.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => setEmpresaId(v || "todas")}
+                  placeholder="Empresa"
+                  searchPlaceholder="Buscar empresa…"
+                  emptyMessage="Nenhuma empresa encontrada."
+                />
 
-                <Select
+                <Combobox
+                  options={[
+                    { value: "todas", label: "Oportunidade" },
+                    ...filtroOptions.oportunidades.map((item) => ({ value: item.id, label: item.label })),
+                  ]}
                   value={oportunidadeId}
-                  onValueChange={(value) => setOportunidadeId(value ?? "todas")}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Oportunidade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Oportunidade</SelectItem>
-                    {filtroOptions.oportunidades.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => setOportunidadeId(v || "todas")}
+                  placeholder="Oportunidade"
+                  searchPlaceholder="Buscar oportunidade…"
+                  emptyMessage="Nenhuma oportunidade encontrada."
+                />
 
                 <Select
                   value={prioridade}

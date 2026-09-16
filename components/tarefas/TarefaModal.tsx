@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, MessageCircle } from "lucide-react";
+import { Loader2, MessageCircle, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -193,6 +193,11 @@ export function TarefaModal({
   const [delegando, setDelegando] = useState(false);
   const [temperatura, setTemperatura] = useState<string>("");
   const router = useRouter();
+
+  // Mini-form de criação rápida de oportunidade — adicionado 16/09/2026
+  const [criandoOportunidade, setCriandoOportunidade] = useState(false);
+  const [novaOp, setNovaOp] = useState({ titulo: "", tipo: "LOCACAO" as "LOCACAO" | "EQUIPAMENTO_USADO", valorPotencial: "" });
+  const [criandoOpLoading, setCriandoOpLoading] = useState(false);
 
   const isEditing = Boolean(tarefa?.id);
   const hasContextoOportunidade = Boolean(contextoEfetivo.oportunidadeId);
@@ -535,6 +540,51 @@ export function TarefaModal({
     }
   }
 
+  async function handleCriarOportunidade() {
+    const empresaIdEfetivo = normalizeRelation(form.empresaId);
+    if (!empresaIdEfetivo) {
+      toast.error("Selecione a empresa antes de criar a oportunidade.");
+      return;
+    }
+    if (!novaOp.titulo.trim()) {
+      toast.error("Informe o título da oportunidade.");
+      return;
+    }
+    setCriandoOpLoading(true);
+    try {
+      const payload: Record<string, unknown> = {
+        titulo: novaOp.titulo.trim(),
+        tipo: novaOp.tipo,
+        empresaId: empresaIdEfetivo,
+      };
+      if (novaOp.valorPotencial) {
+        const v = parseFloat(novaOp.valorPotencial.replace(",", "."));
+        if (!isNaN(v)) payload.valorPotencial = v;
+      }
+      const res = await fetch("/api/oportunidades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.message ?? "Falha ao criar oportunidade.");
+      }
+      const criada = await res.json() as { id: string; titulo: string; empresa?: { id: string } | null };
+      // Adiciona à lista local e auto-seleciona
+      const nova: Option = { id: criada.id, label: criada.titulo, empresaId: criada.empresa?.id };
+      setOportunidades((prev) => [nova, ...prev]);
+      handleOportunidadeChange(criada.id);
+      setCriandoOportunidade(false);
+      setNovaOp({ titulo: "", tipo: "LOCACAO", valorPotencial: "" });
+      toast.success(`Oportunidade "${criada.titulo}" criada e vinculada.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao criar oportunidade.");
+    } finally {
+      setCriandoOpLoading(false);
+    }
+  }
+
   return (
     <Dialog open={aberto} onOpenChange={(open) => !open && onFechar()}>
       <DialogContent className="max-h-[92vh] overflow-y-auto rounded-3xl sm:max-w-2xl">
@@ -584,14 +634,89 @@ export function TarefaModal({
                   options={obraOptions}
                   onChange={(value) => update("obraId", value)}
                 />
-                <AdvancedSelect
-                  label="Oportunidade"
-                  value={form.oportunidadeId}
-                  placeholder="Sem oportunidade"
-                  options={oportunidades}
-                  onChange={handleOportunidadeChange}
-                />
+                <div className="space-y-1.5">
+                  <AdvancedSelect
+                    label="Oportunidade"
+                    value={form.oportunidadeId}
+                    placeholder="Sem oportunidade"
+                    options={oportunidades}
+                    onChange={handleOportunidadeChange}
+                  />
+                  {!criandoOportunidade && (
+                    <button
+                      type="button"
+                      onClick={() => setCriandoOportunidade(true)}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-[#1E4FAB] hover:underline"
+                    >
+                      <Plus className="size-3" /> Nova oportunidade
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Mini-form de criação rápida de oportunidade */}
+              {criandoOportunidade && (
+                <div className="mt-2 rounded-2xl border border-[#1E4FAB]/30 bg-[#E8EEFB] p-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-[#1A2E5A] uppercase tracking-wide">Nova oportunidade</p>
+                    <button
+                      type="button"
+                      onClick={() => { setCriandoOportunidade(false); setNovaOp({ titulo: "", tipo: "LOCACAO", valorPotencial: "" }); }}
+                      className="text-[#667085] hover:text-[#1A2E5A]"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-[#667085]">Título*</label>
+                    <Input
+                      value={novaOp.titulo}
+                      onChange={(e) => setNovaOp((p) => ({ ...p, titulo: e.target.value }))}
+                      placeholder="Ex: Locação bomba para obra XYZ"
+                      className="h-9 rounded-xl bg-white text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-[#667085]">Tipo*</label>
+                    <div className="flex gap-2">
+                      {(["LOCACAO", "EQUIPAMENTO_USADO"] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setNovaOp((p) => ({ ...p, tipo: t }))}
+                          className={cn(
+                            "flex-1 rounded-xl border px-2 py-1.5 text-xs font-semibold transition",
+                            novaOp.tipo === t
+                              ? "border-[#1E4FAB] bg-[#1E4FAB] text-white"
+                              : "border-[#D7DEEA] bg-white text-[#1A2E5A] hover:border-[#1E4FAB]"
+                          )}
+                        >
+                          {t === "LOCACAO" ? "🏗️ Locação" : "🚛 Equip. usado"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-[#667085]">Valor potencial (opcional)</label>
+                    <Input
+                      value={novaOp.valorPotencial}
+                      onChange={(e) => setNovaOp((p) => ({ ...p, valorPotencial: e.target.value }))}
+                      placeholder="Ex: 15000"
+                      type="number"
+                      min="0"
+                      className="h-9 rounded-xl bg-white text-sm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCriarOportunidade}
+                    disabled={criandoOpLoading}
+                    className="w-full rounded-xl bg-[#1A2E5A] py-2 text-sm font-bold text-white transition hover:bg-[#1E4FAB] disabled:opacity-60"
+                  >
+                    {criandoOpLoading ? "Criando…" : "✓ Criar e vincular"}
+                  </button>
+                </div>
+              )}
             </section>
           )}
 

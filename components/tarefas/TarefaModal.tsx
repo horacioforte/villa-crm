@@ -629,7 +629,7 @@ export function TarefaModal({
       const res = await fetch("/api/obras", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: novaObra.nome.trim(), empresaId: empresaIdEfetivo }),
+        body: JSON.stringify({ nome: novaObra.nome.trim(), empresaId: empresaIdEfetivo, status: "PLANEJADA" }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => null);

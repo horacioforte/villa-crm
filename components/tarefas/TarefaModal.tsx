@@ -199,6 +199,11 @@ export function TarefaModal({
   const [novaOp, setNovaOp] = useState({ titulo: "", tipo: "LOCACAO" as "LOCACAO" | "EQUIPAMENTO_USADO", valorPotencial: "" });
   const [criandoOpLoading, setCriandoOpLoading] = useState(false);
 
+  // Mini-form de criação rápida de obra — adicionado 16/09/2026
+  const [criandoObra, setCriandoObra] = useState(false);
+  const [novaObra, setNovaObra] = useState({ nome: "" });
+  const [criandoObraLoading, setCriandoObraLoading] = useState(false);
+
   const isEditing = Boolean(tarefa?.id);
   const hasContextoOportunidade = Boolean(contextoEfetivo.oportunidadeId);
 
@@ -497,14 +502,22 @@ export function TarefaModal({
     }
   }
 
-  // Botão "Abrir no WhatsApp" — visível só quando tipo=WHATSAPP e editando tarefa
-  // com um contato vinculado. Busca a conversa existente ou redireciona para nova.
+  // Botão "Abrir no WhatsApp" — sempre visível quando tipo=WHATSAPP.
+  // Com contato vinculado: abre a conversa no Chatwoot (/conversas).
+  // Sem contato: abre WhatsApp Web com a mensagem pré-preenchida (usuário escolhe o contato).
   async function handleAbrirWhatsapp() {
     const pessoaIdEfetivo = normalizeRelation(form.pessoaId) ?? tarefa?.pessoaId ?? null;
+    const mensagem = form.proximaAcao.trim();
+
+    // Sem contato vinculado — abre WhatsApp Web com texto pré-preenchido
     if (!pessoaIdEfetivo) {
-      toast.error("Esta tarefa não tem um contato vinculado. Associe um contato para abrir a conversa.");
+      const url = mensagem
+        ? `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`
+        : "https://web.whatsapp.com";
+      window.open(url, "_blank", "noopener,noreferrer");
       return;
     }
+
     setIsAbrindoWpp(true);
     try {
       const res = await fetch(`/api/conversas/por-contato?pessoaId=${pessoaIdEfetivo}`);
@@ -515,6 +528,16 @@ export function TarefaModal({
         telefone: string | null;
         nome: string;
       };
+
+      // Contato sem telefone no Chatwoot — tenta wa.me direto se tiver mensagem
+      if (!data.encontrada && !data.telefone) {
+        if (mensagem) {
+          window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`, "_blank", "noopener,noreferrer");
+        } else {
+          toast.error("Contato sem telefone cadastrado. Adicione o WhatsApp do contato primeiro.");
+        }
+        return;
+      }
 
       onFechar(); // fecha o modal antes de navegar
 
@@ -530,14 +553,20 @@ export function TarefaModal({
         const params = new URLSearchParams({ nova: "1", telefone: data.telefone });
         if (tarefaIdAtual) params.set("tarefaId", tarefaIdAtual);
         router.push(`/conversas?${params.toString()}`);
-      } else {
-        toast.error("Contato sem telefone cadastrado. Adicione o WhatsApp do contato primeiro.");
       }
     } catch {
       toast.error("Não foi possível abrir a conversa. Tente novamente.");
     } finally {
       setIsAbrindoWpp(false);
     }
+  }
+
+  // Botão "Enviar e-mail agora" — visível quando tipo=EMAIL.
+  // Abre o cliente de e-mail padrão com o conteúdo da tarefa pré-preenchido.
+  function handleAbrirEmail() {
+    const assunto = encodeURIComponent(form.proximaAcao.trim() || "Contato Villa Empreendimentos");
+    const corpo = encodeURIComponent(form.proximaAcao.trim());
+    window.open(`mailto:?subject=${assunto}&body=${corpo}`, "_blank");
   }
 
   async function handleCriarOportunidade() {
@@ -585,6 +614,41 @@ export function TarefaModal({
     }
   }
 
+  async function handleCriarObra() {
+    const empresaIdEfetivo = normalizeRelation(form.empresaId);
+    if (!empresaIdEfetivo) {
+      toast.error("Selecione a empresa antes de criar a obra.");
+      return;
+    }
+    if (!novaObra.nome.trim()) {
+      toast.error("Informe o nome da obra.");
+      return;
+    }
+    setCriandoObraLoading(true);
+    try {
+      const res = await fetch("/api/obras", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: novaObra.nome.trim(), empresaId: empresaIdEfetivo }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.message ?? "Falha ao criar obra.");
+      }
+      const criada = await res.json() as { id: string; nome: string; empresaId?: string | null };
+      const nova: Option = { id: criada.id, label: criada.nome, empresaId: criada.empresaId };
+      setObras((prev) => [nova, ...prev]);
+      update("obraId", criada.id);
+      setCriandoObra(false);
+      setNovaObra({ nome: "" });
+      toast.success(`Obra "${criada.nome}" criada e vinculada.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao criar obra.");
+    } finally {
+      setCriandoObraLoading(false);
+    }
+  }
+
   return (
     <Dialog open={aberto} onOpenChange={(open) => !open && onFechar()}>
       <DialogContent className="max-h-[92vh] overflow-y-auto rounded-3xl sm:max-w-2xl">
@@ -627,13 +691,24 @@ export function TarefaModal({
                   options={empresas}
                   onChange={(value) => update("empresaId", value)}
                 />
-                <AdvancedSelect
-                  label="Obra"
-                  value={form.obraId}
-                  placeholder="Sem obra"
-                  options={obraOptions}
-                  onChange={(value) => update("obraId", value)}
-                />
+                <div className="space-y-1.5">
+                  <AdvancedSelect
+                    label="Obra"
+                    value={form.obraId}
+                    placeholder="Sem obra"
+                    options={obraOptions}
+                    onChange={(value) => update("obraId", value)}
+                  />
+                  {!criandoObra && (
+                    <button
+                      type="button"
+                      onClick={() => setCriandoObra(true)}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-[#1E4FAB] hover:underline"
+                    >
+                      <Plus className="size-3" /> Nova obra
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-1.5">
                   <AdvancedSelect
                     label="Oportunidade"
@@ -714,6 +789,40 @@ export function TarefaModal({
                     className="w-full rounded-xl bg-[#1A2E5A] py-2 text-sm font-bold text-white transition hover:bg-[#1E4FAB] disabled:opacity-60"
                   >
                     {criandoOpLoading ? "Criando…" : "✓ Criar e vincular"}
+                  </button>
+                </div>
+              )}
+
+              {/* Mini-form de criação rápida de obra */}
+              {criandoObra && (
+                <div className="mt-2 rounded-2xl border border-[#1E4FAB]/30 bg-[#E8EEFB] p-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-[#1A2E5A] uppercase tracking-wide">Nova obra</p>
+                    <button
+                      type="button"
+                      onClick={() => { setCriandoObra(false); setNovaObra({ nome: "" }); }}
+                      className="text-[#667085] hover:text-[#1A2E5A]"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-[#667085]">Nome da obra*</label>
+                    <Input
+                      value={novaObra.nome}
+                      onChange={(e) => setNovaObra({ nome: e.target.value })}
+                      placeholder="Ex: Obra Residencial Parque das Flores"
+                      className="h-9 rounded-xl bg-white text-sm"
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCriarObra}
+                    disabled={criandoObraLoading}
+                    className="w-full rounded-xl bg-[#1A2E5A] py-2 text-sm font-bold text-white transition hover:bg-[#1E4FAB] disabled:opacity-60"
+                  >
+                    {criandoObraLoading ? "Criando…" : "✓ Criar e vincular"}
                   </button>
                 </div>
               )}
@@ -966,8 +1075,8 @@ export function TarefaModal({
                 {modoAvancado ? "Menos opcoes" : "+ Mais opcoes"}
               </button>
 
-              {/* Botão WhatsApp — visível apenas quando tipo=WHATSAPP e há pessoaId */}
-              {form.tipo === "WHATSAPP" && (normalizeRelation(form.pessoaId) ?? tarefa?.pessoaId) ? (
+              {/* Botão WhatsApp — visível sempre que tipo=WHATSAPP */}
+              {form.tipo === "WHATSAPP" ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -980,7 +1089,22 @@ export function TarefaModal({
                   ) : (
                     <MessageCircle className="size-4" />
                   )}
-                  Abrir no WhatsApp
+                  {(normalizeRelation(form.pessoaId) ?? tarefa?.pessoaId)
+                    ? "Abrir no WhatsApp"
+                    : "Enviar WPP agora"}
+                </Button>
+              ) : null}
+
+              {/* Botão Email — visível quando tipo=EMAIL */}
+              {form.tipo === "EMAIL" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAbrirEmail}
+                  className="rounded-2xl border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                >
+                  <MessageCircle className="size-4" />
+                  Abrir e-mail agora
                 </Button>
               ) : null}
             </div>

@@ -119,20 +119,37 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
+// Retorna a data no formato YYYY-MM-DD no fuso horário local do browser.
+// O banco guarda datas como UTC midnight ("2026-09-16T00:00:00.000Z"), por isso
+// não podemos usar toDateString() diretamente (em UTC-3 isso daria "Sep 15").
+// Para strings ISO do banco basta pegar os 10 primeiros chars; para objetos Date
+// subtraímos o offset para obter a hora local em UTC e pegamos os 10 primeiros chars.
+function getLocalDateStr(value: string | Date): string {
+  if (typeof value === "string") return value.slice(0, 10);
+  return new Date(value.getTime() - value.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 10);
+}
+
 function isSameDay(value: string | Date, reference = new Date()) {
-  const date = new Date(value);
-  return date.toDateString() === reference.toDateString();
+  const refStr = new Date(
+    reference.getTime() - reference.getTimezoneOffset() * 60000,
+  )
+    .toISOString()
+    .slice(0, 10);
+  return getLocalDateStr(value) === refStr;
 }
 
 function isThisWeek(value: string | Date) {
-  const date = new Date(value);
+  // Parse a data como hora local para evitar desvio de fuso
+  const d = new Date(getLocalDateStr(value) + "T00:00:00");
   const today = startOfToday();
   const day = today.getDay() || 7;
   const weekStart = addDays(today, 1 - day);
   const weekEnd = addDays(weekStart, 6);
   weekEnd.setHours(23, 59, 59, 999);
 
-  return date >= weekStart && date <= weekEnd;
+  return d >= weekStart && d <= weekEnd;
 }
 
 function formatDate(value: string | Date) {
@@ -147,13 +164,14 @@ function corPrazo(dataVencimento: string | Date, status: StatusTarefa) {
     return "text-emerald-600";
   }
 
-  const vencimento = new Date(dataVencimento);
+  // Compara por data local (YYYY-MM-DD) para evitar desvio de fuso
+  const d = new Date(getLocalDateStr(dataVencimento) + "T00:00:00");
 
-  if (vencimento < startOfToday()) {
+  if (d < startOfToday()) {
     return "font-bold text-red-600";
   }
 
-  if (isSameDay(vencimento)) {
+  if (isSameDay(dataVencimento)) {
     return "font-medium text-amber-600";
   }
 

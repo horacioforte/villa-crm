@@ -204,6 +204,11 @@ export function TarefaModal({
   const [novaObra, setNovaObra] = useState({ nome: "" });
   const [criandoObraLoading, setCriandoObraLoading] = useState(false);
 
+  // Mini-form de criação rápida de contato — adicionado 16/09/2026
+  const [criandoContato, setCriandoContato] = useState(false);
+  const [novoContato, setNovoContato] = useState({ nome: "", telefone: "" });
+  const [criandoContatoLoading, setCriandoContatoLoading] = useState(false);
+
   const isEditing = Boolean(tarefa?.id);
   const hasContextoOportunidade = Boolean(contextoEfetivo.oportunidadeId);
 
@@ -502,6 +507,48 @@ export function TarefaModal({
     }
   }
 
+  async function handleCriarContato() {
+    const empresaIdEfetivo = normalizeRelation(form.empresaId);
+    if (!novoContato.nome.trim()) {
+      toast.error("Informe o nome do contato.");
+      return;
+    }
+    if (!empresaIdEfetivo) {
+      toast.error("Selecione a empresa antes de criar o contato.");
+      return;
+    }
+    setCriandoContatoLoading(true);
+    try {
+      const payload: Record<string, unknown> = {
+        nome: novoContato.nome.trim(),
+        empresaId: empresaIdEfetivo,
+      };
+      if (novoContato.telefone.trim()) {
+        payload.telefone = novoContato.telefone.trim();
+      }
+      const res = await fetch("/api/contatos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.message ?? "Falha ao criar contato.");
+      }
+      const criado = await res.json() as { id: string; nome: string };
+      const nova: Option = { id: criado.id, label: criado.nome };
+      setPessoas((prev) => [nova, ...prev]);
+      update("pessoaId", criado.id);
+      setCriandoContato(false);
+      setNovoContato({ nome: "", telefone: "" });
+      toast.success(`Contato "${criado.nome}" criado e vinculado.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao criar contato.");
+    } finally {
+      setCriandoContatoLoading(false);
+    }
+  }
+
   // Botão "Abrir no WhatsApp" — sempre visível quando tipo=WHATSAPP.
   // Com contato vinculado: abre a conversa no Chatwoot (/conversas).
   // Sem contato: abre WhatsApp Web com a mensagem pré-preenchida (usuário escolhe o contato).
@@ -509,12 +556,10 @@ export function TarefaModal({
     const pessoaIdEfetivo = normalizeRelation(form.pessoaId) ?? tarefa?.pessoaId ?? null;
     const mensagem = form.proximaAcao.trim();
 
-    // Sem contato vinculado — abre WhatsApp Web com texto pré-preenchido
+    // Sem contato vinculado — vai para a Central de Atendimento
     if (!pessoaIdEfetivo) {
-      const url = mensagem
-        ? `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`
-        : "https://web.whatsapp.com";
-      window.open(url, "_blank", "noopener,noreferrer");
+      onFechar();
+      router.push("/conversas");
       return;
     }
 
@@ -529,13 +574,9 @@ export function TarefaModal({
         nome: string;
       };
 
-      // Contato sem telefone no Chatwoot — tenta wa.me direto se tiver mensagem
+      // Contato sem telefone no Chatwoot — vai para a Central de Atendimento
       if (!data.encontrada && !data.telefone) {
-        if (mensagem) {
-          window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`, "_blank", "noopener,noreferrer");
-        } else {
-          toast.error("Contato sem telefone cadastrado. Adicione o WhatsApp do contato primeiro.");
-        }
+        toast.error("Contato sem telefone cadastrado. Adicione o WhatsApp do contato primeiro.");
         return;
       }
 
@@ -1032,13 +1073,24 @@ export function TarefaModal({
                   )
                 ) : null}
                 {!contextoEfetivo.pessoaId ? (
-                  <AdvancedSelect
-                    label="Contato"
-                    value={form.pessoaId}
-                    placeholder="Sem contato"
-                    options={pessoas}
-                    onChange={(value) => update("pessoaId", value)}
-                  />
+                  <div className="space-y-1.5">
+                    <AdvancedSelect
+                      label="Contato"
+                      value={form.pessoaId}
+                      placeholder="Sem contato"
+                      options={pessoas}
+                      onChange={(value) => update("pessoaId", value)}
+                    />
+                    {!criandoContato && (
+                      <button
+                        type="button"
+                        onClick={() => setCriandoContato(true)}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-[#1E4FAB] hover:underline"
+                      >
+                        <Plus className="size-3" /> Novo contato
+                      </button>
+                    )}
+                  </div>
                 ) : null}
                 {!contextoEfetivo.propostaId ? (
                   <AdvancedSelect
@@ -1050,6 +1102,52 @@ export function TarefaModal({
                   />
                 ) : null}
               </div>
+
+              {/* Mini-form de criação rápida de contato */}
+              {criandoContato && (
+                <div className="rounded-2xl border border-[#1E4FAB]/30 bg-[#E8EEFB] p-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-[#1A2E5A] uppercase tracking-wide">Novo contato</p>
+                    <button
+                      type="button"
+                      onClick={() => { setCriandoContato(false); setNovoContato({ nome: "", telefone: "" }); }}
+                      className="text-[#667085] hover:text-[#1A2E5A]"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-[#667085]">Nome*</label>
+                      <Input
+                        value={novoContato.nome}
+                        onChange={(e) => setNovoContato((p) => ({ ...p, nome: e.target.value }))}
+                        placeholder="Ex: João Silva"
+                        className="h-9 rounded-xl bg-white text-sm"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-[#667085]">WhatsApp</label>
+                      <Input
+                        value={novoContato.telefone}
+                        onChange={(e) => setNovoContato((p) => ({ ...p, telefone: e.target.value }))}
+                        placeholder="(XX) XXXXX-XXXX"
+                        className="h-9 rounded-xl bg-white text-sm"
+                        type="tel"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCriarContato}
+                    disabled={criandoContatoLoading}
+                    className="w-full rounded-xl bg-[#1A2E5A] py-2 text-sm font-bold text-white transition hover:bg-[#1E4FAB] disabled:opacity-60"
+                  >
+                    {criandoContatoLoading ? "Criando…" : "✓ Criar e vincular"}
+                  </button>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="observacoes">Observacoes internas</Label>
@@ -1077,22 +1175,26 @@ export function TarefaModal({
 
               {/* Botão WhatsApp — visível sempre que tipo=WHATSAPP */}
               {form.tipo === "WHATSAPP" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleAbrirWhatsapp}
-                  disabled={isAbrindoWpp}
-                  className="rounded-2xl border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
-                >
-                  {isAbrindoWpp ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <MessageCircle className="size-4" />
-                  )}
-                  {(normalizeRelation(form.pessoaId) ?? tarefa?.pessoaId)
-                    ? "Abrir no WhatsApp"
-                    : "Enviar WPP agora"}
-                </Button>
+                (normalizeRelation(form.pessoaId) ?? tarefa?.pessoaId) ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAbrirWhatsapp}
+                    disabled={isAbrindoWpp}
+                    className="rounded-2xl border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
+                  >
+                    {isAbrindoWpp ? <Loader2 className="size-4 animate-spin" /> : <MessageCircle className="size-4" />}
+                    Abrir no WhatsApp
+                  </Button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setModoAvancado(true); setCriandoContato(true); }}
+                    className="text-sm font-semibold text-green-700 underline-offset-2 hover:underline"
+                  >
+                    + Cadastrar contato para enviar WPP
+                  </button>
+                )
               ) : null}
 
               {/* Botão Email — visível quando tipo=EMAIL */}

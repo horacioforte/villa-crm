@@ -4,7 +4,7 @@ import { Bot, Flame, PhoneCall, RefreshCw, Send, MessageCircle } from "lucide-re
 import { PageNavigation } from "@/components/layout/PageNavigation";
 import { OrigemLeadsDonut } from "@/components/maria/OrigemLeadsDonut";
 import { MetricCardExpandable } from "@/components/maria/MetricCardExpandable";
-import { ChatComMaria } from "@/components/maria/ChatComMaria";
+import { ChatComAgente } from "@/components/agentes/ChatComAgente";
 import { Card } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
 import { can } from "@/lib/auth/permissions";
@@ -366,7 +366,21 @@ export default async function MariaPage() {
         {/* Falar com Maria — Chat de Gestão Interna */}
         <div className="mt-6">
           <h2 className="mb-3 text-[17px] font-bold text-[#1A2E5A]">Falar com Maria</h2>
-          <ChatComMaria />
+          <ChatComAgente config={{
+            apiRoute: "/api/maria/chat-gestao",
+            nome: "Maria",
+            inicial: "M",
+            subtitulo: "SDR inbound — conta sobre seus leads e conversas do dia",
+            placeholder: "Ex.: Como foi hoje? Quem está mais quente? Alguma conversa te preocupou?",
+            boasVindas: "Selecione os contextos acima e me pergunte qualquer coisa sobre meu dia — quem eu falei, o que ficou em aberto, o que está me preocupando.",
+            avatarGradiente: "from-[#2A78D6] to-[#1A2E5A]",
+            chips: [
+              { id: "conversas", label: "💬 Conversas", descricao: "Mensagens reais das conversas de hoje", defaultAtivo: true },
+              { id: "leads", label: "🔥 Leads", descricao: "Fila inteligente e recomendações de ação", defaultAtivo: true },
+              { id: "tarefas", label: "✅ Follow-ups", descricao: "Tarefas e follow-ups pendentes" },
+              { id: "metricas", label: "📊 Números", descricao: "Visão geral do dia em números" },
+            ],
+          }} />
         </div>
 
         {/* Rodapé */}

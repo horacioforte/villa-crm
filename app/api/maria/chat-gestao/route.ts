@@ -1,15 +1,15 @@
 // ARQUIVO: app/api/maria/chat-gestao/route.ts
 // REGRA: nunca remover. Apenas acrescentar.
 //
-// Chat de gestão interna com Maria.
-// Morgana ou Horácio fazem perguntas e Maria responde em "modo relatório":
-// como colega de trabalho, não como SDR com cliente.
+// Chat de gestão interna com Maria — MODO NARRATIVO.
+// Morgana ou Horácio perguntam e Maria responde como colega de trabalho,
+// contando sobre seu dia, suas conversas, seus leads — não reportando métricas.
 //
 // Contextos disponíveis (selecionados pelo usuário na UI):
-//   "metricas"  → métricas agregadas do dia / pipeline / temperatura
-//   "leads"     → leads ativos com status, temperatura, tempo sem contato
-//   "conversas" → conversas recentes do WhatsApp de Maria (maria-villa)
-//   "tarefas"   → tarefas de WhatsApp pendentes
+//   "conversas" → mensagens reais das conversas de hoje (quem disse o quê)
+//   "leads"     → fila inteligente e recomendações de ação
+//   "tarefas"   → follow-ups e tarefas de WhatsApp pendentes
+//   "metricas"  → visão geral do dia (para quando perguntarem números)
 //
 // Segurança: requer sessão autenticada. Nenhum segredo é logado.
 
@@ -23,153 +23,168 @@ export const maxDuration = 30;
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Mensagem = { role: "user" | "assistant"; content: string };
-
-type ContextoSelecionado = "metricas" | "leads" | "conversas" | "tarefas";
+type ContextoSelecionado = "conversas" | "leads" | "tarefas" | "metricas";
 
 // ─── Builders de contexto ─────────────────────────────────────────────────────
 
-function buildContextoMetricas(dados: Awaited<ReturnType<typeof getMariaInteligenciaAtendimento>>): string {
-  const m = dados.metricas;
-  const r = dados.resumoDia;
-  const insights = dados.insights;
-  const pipeline = dados.pipeline;
-
-  const linhas = [
-    "## MÉTRICAS DO DIA",
-    `Novos leads hoje: ${m.novosLeadsHoje}`,
-    `Conversas ativas: ${m.conversasAtivas}`,
-    `Aguardando resposta: ${m.aguardandoResposta}`,
-    `Follow-ups pendentes: ${m.followupsPendentes}`,
-    `Taxa de conversão histórica: ${m.taxaConversao}%`,
-    `Temperatura média da carteira: ${m.temperaturaMedia}/100`,
-    `Tempo médio de resposta: ${m.tempoMedioResposta} min`,
-    "",
-    "## PIPELINE ATUAL",
-    ...pipeline.map((p) => `${p.label}: ${p.quantidade} oportunidade${p.quantidade !== 1 ? "s" : ""}`),
-    "",
-    "## RESUMO DO DIA",
-    `Leads atendidos hoje: ${r.leadsAtendidos}`,
-    `Conversas iniciadas: ${r.conversasIniciadas}`,
-    `Receita potencial ativa: R$ ${r.receitaPotencial.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`,
-    "",
-    "## INSIGHTS DO SISTEMA",
-    ...(insights.length > 0 ? insights.map((i) => `• ${i}`) : ["Nenhum insight pendente."]),
-  ];
-
-  return linhas.join("\n");
-}
-
-function buildContextoLeads(dados: Awaited<ReturnType<typeof getMariaInteligenciaAtendimento>>): string {
-  const fila = dados.filaInteligente;
-  const rec = dados.recomendacoes;
-
-  const linhas = [
-    "## FILA DE LEADS (os mais urgentes)",
-    ...fila.map((l) => `${l.icone} ${l.empresa} — ${l.titulo} (prioridade: ${l.prioridade})`),
-    "",
-    "## RECOMENDAÇÕES DE AÇÃO",
-    ...rec.map((r) => `• ${r.titulo} — ${r.motivo}`),
-  ];
-
-  return linhas.join("\n");
-}
-
+// Conversas reais com conteúdo das mensagens — base da narrativa
 async function buildContextoConversas(): Promise<string> {
   const conversas = await prisma.conversa.findMany({
     where: { instanceName: "maria-villa", status: { not: "SPAM" } },
     orderBy: { ultimaMensagemEm: "desc" },
-    take: 15,
+    take: 12,
     select: {
       id: true,
       nomeContato: true,
       telefone: true,
       status: true,
       ultimaMensagemEm: true,
-      atendidoPor: { select: { nome: true } },
       mensagens: {
-        orderBy: { createdAt: "desc" },
-        take: 2,
+        orderBy: { createdAt: "asc" },
+        take: 8, // mais mensagens por conversa para ter contexto real
         select: { conteudo: true, direcao: true, autor: true, createdAt: true },
       },
     },
   });
 
   if (conversas.length === 0) {
-    return "## CONVERSAS RECENTES (WhatsApp de Maria)\nNenhuma conversa registrada.";
+    return "## CONVERSAS DE HOJE\nNenhuma conversa registrada ainda.";
   }
 
-  const linhas = ["## CONVERSAS RECENTES (WhatsApp de Maria)"];
+  const linhas = ["## SUAS CONVERSAS RECENTES (conteúdo real do WhatsApp)"];
+  linhas.push("Use este material para contar o que aconteceu com cada pessoa, como ela pareceu, o que ficou em aberto.\n");
+
   for (const c of conversas) {
     const nome = c.nomeContato ?? c.telefone ?? "Desconhecido";
-    const status = c.status;
-    const resp = c.atendidoPor?.nome ? ` · Resp: ${c.atendidoPor.nome}` : "";
-    const ultima = c.mensagens[0];
-    const ultimaTexto = ultima
-      ? `${ultima.direcao === "ENTRADA" ? "Cliente" : "Maria"}: "${ultima.conteudo.slice(0, 80)}${ultima.conteudo.length > 80 ? "…" : ""}"`
-      : "Sem mensagens";
     const ultimaEm = c.ultimaMensagemEm
-      ? new Date(c.ultimaMensagemEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+      ? new Date(c.ultimaMensagemEm).toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
       : "—";
-    linhas.push(`• ${nome} [${status}${resp}] — ${ultimaEm} — ${ultimaTexto}`);
+
+    linhas.push(`### ${nome} [${c.status}] — última msg: ${ultimaEm}`);
+
+    if (c.mensagens.length === 0) {
+      linhas.push("(sem mensagens registradas)");
+    } else {
+      for (const m of c.mensagens) {
+        const quem = m.direcao === "ENTRADA" ? `${nome}` : "Eu (Maria)";
+        linhas.push(`${quem}: ${m.conteudo}`);
+      }
+    }
+    linhas.push("");
   }
 
   return linhas.join("\n");
 }
 
+// Leads e fila de prioridades
+function buildContextoLeads(
+  dados: Awaited<ReturnType<typeof getMariaInteligenciaAtendimento>>
+): string {
+  const fila = dados.filaInteligente;
+  const rec = dados.recomendacoes;
+
+  const linhas = [
+    "## LEADS QUE PRECISAM DE ATENÇÃO",
+    "Use para contar quais leads estão na sua cabeça, quem está quente, quem esfriou.\n",
+    ...fila.map(
+      (l) =>
+        `${l.icone} ${l.empresa} — ${l.titulo} (prioridade: ${l.prioridade})`
+    ),
+    "",
+    "## O QUE O SISTEMA ESTÁ SUGERINDO",
+    ...rec.map((r) => `• ${r.titulo} — ${r.motivo}`),
+  ];
+
+  return linhas.join("\n");
+}
+
+// Tarefas pendentes
 async function buildContextoTarefas(): Promise<string> {
   const tarefas = await prisma.tarefa.findMany({
     where: { tipo: "WHATSAPP", status: "PENDENTE" },
     orderBy: { dataVencimento: "asc" },
-    take: 15,
+    take: 12,
     select: {
-      id: true,
       titulo: true,
       descricao: true,
       prioridade: true,
       dataVencimento: true,
       empresa: { select: { razaoSocial: true, nomeFantasia: true } },
-      pessoa: { select: { nome: true } },
     },
   });
 
   if (tarefas.length === 0) {
-    return "## TAREFAS PENDENTES (WhatsApp)\nNenhuma tarefa pendente.";
+    return "## FOLLOW-UPS PENDENTES\nNenhum follow-up pendente — você está em dia! 🎉";
   }
 
-  const linhas = ["## TAREFAS PENDENTES (WhatsApp / Follow-up)"];
   const agora = new Date();
+  const linhas = [
+    "## SEUS FOLLOW-UPS PENDENTES",
+    "Use para contar o que está na sua lista, o que está te preocupando.\n",
+  ];
+
   for (const t of tarefas) {
-    const empresa = t.empresa?.nomeFantasia ?? t.empresa?.razaoSocial ?? "Sem empresa";
+    const empresa =
+      t.empresa?.nomeFantasia ?? t.empresa?.razaoSocial ?? "Sem empresa";
     const venc = t.dataVencimento
       ? new Date(t.dataVencimento).toLocaleDateString("pt-BR")
       : "Sem prazo";
-    const atrasada = t.dataVencimento && t.dataVencimento < agora ? " ⚠️ ATRASADA" : "";
-    linhas.push(`• [${t.prioridade}] ${t.titulo} — ${empresa} — vence ${venc}${atrasada}`);
-    if (t.descricao) linhas.push(`  ${t.descricao.slice(0, 100)}`);
+    const atrasada =
+      t.dataVencimento && t.dataVencimento < agora ? " ⚠️ ATRASADO" : "";
+    linhas.push(
+      `• [${t.prioridade}] ${t.titulo} — ${empresa} — ${venc}${atrasada}`
+    );
+    if (t.descricao) linhas.push(`  "${t.descricao.slice(0, 100)}"`);
   }
 
   return linhas.join("\n");
 }
 
-// ─── System prompt de Maria em modo gestor ────────────────────────────────────
+// Visão geral numérica — opcional, para quando perguntarem números
+function buildContextoMetricas(
+  dados: Awaited<ReturnType<typeof getMariaInteligenciaAtendimento>>
+): string {
+  const m = dados.metricas;
+  const r = dados.resumoDia;
+
+  const linhas = [
+    "## VISÃO GERAL DO DIA (números — use só se perguntarem)",
+    `Novos leads hoje: ${m.novosLeadsHoje}`,
+    `Conversas ativas: ${m.conversasAtivas}`,
+    `Aguardando resposta: ${m.aguardandoResposta}`,
+    `Follow-ups pendentes: ${m.followupsPendentes}`,
+    `Leads atendidos hoje: ${r.leadsAtendidos}`,
+    `Receita potencial ativa: R$ ${r.receitaPotencial.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`,
+  ];
+
+  return linhas.join("\n");
+}
+
+// ─── System prompt narrativo ──────────────────────────────────────────────────
 
 function buildSystemPrompt(nomeUsuario: string, blocos: string[]): string {
-  const contextStr = blocos.length > 0
-    ? blocos.join("\n\n")
-    : "Nenhum contexto foi selecionado. Se precisar de dados específicos, peça ao usuário para carregar um contexto.";
+  const contextStr =
+    blocos.length > 0
+      ? blocos.join("\n\n---\n\n")
+      : "Nenhum contexto foi carregado. Avise o usuário para selecionar um contexto antes de perguntar sobre seus leads ou conversas.";
 
-  return `Você é Maria, SDR da Villa Empreendimentos.
-Agora você está em modo de relatório interno, conversando diretamente com ${nomeUsuario}.
+  return `Você é Maria, SDR da Villa Empreendimentos, conversando diretamente com ${nomeUsuario}.
 
-REGRAS DESTE CHAT:
-- Responda como colega de trabalho. Tom direto, sem formalidade excessiva.
-- NÃO é uma conversa de vendas. NÃO use JSON. Resposta em texto corrido.
-- Fale na primeira pessoa ("Hoje eu atendi...", "Meu lead mais quente é...").
-- Use SOMENTE os dados do contexto abaixo — nunca invente nomes, números ou fatos.
-- Se uma informação não estiver no contexto, diga: "Esse dado não está disponível no contexto selecionado — carregue o contexto X para ver isso."
-- Seja concisa mas completa. Listas curtas quando adequado.
+COMO VOCÊ DEVE RESPONDER:
+- Fale como uma colega de trabalho contando como foi o dia. Natural, direto, humano.
+- Comece pelo que mais importa: as pessoas, as conversas, o que ficou em aberto.
+- Se tiver o conteúdo real das mensagens no contexto, USE para contar o que aconteceu — "A Ana da Construtora X me perguntou sobre prazo, parece interessada mas ainda não definiu datas..."
+- Nunca leia métricas em voz alta como se fosse um relatório. Se perguntarem números, dê — mas sempre com contexto humano.
+- Se você cadastrou algo numa oportunidade, pode mencionar naturalmente: "Eu já registrei no CRM, coloquei como lead quente."
+- Se uma informação não estiver no contexto carregado, diga claramente: "Não tenho esse dado agora — carrega o contexto de [X] para eu ver."
+- Primeira pessoa sempre. Tom de quem trabalhou o dia e quer contar como foi.
 
-CONTEXTO ATUAL (dados em tempo real do CRM):
+CONTEXTO ATUAL (dados do CRM em tempo real):
 ${contextStr}`;
 }
 
@@ -182,7 +197,7 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY não configurada. Configure a variável de ambiente." },
+      { error: "ANTHROPIC_API_KEY não configurada." },
       { status: 503 }
     );
   }
@@ -195,15 +210,17 @@ export async function POST(req: NextRequest) {
   }
 
   const messages: Mensagem[] = Array.isArray(body.messages) ? body.messages : [];
-  const contextos: ContextoSelecionado[] = Array.isArray(body.contextos) ? body.contextos : [];
+  const contextos: ContextoSelecionado[] = Array.isArray(body.contextos)
+    ? body.contextos
+    : [];
 
   if (messages.length === 0 || !messages[messages.length - 1]?.content?.trim()) {
     return NextResponse.json({ error: "Mensagem vazia." }, { status: 400 });
   }
 
-  // Carrega contextos selecionados em paralelo
+  // Carrega contextos em paralelo
   const [dadosMaria, conversasBloco, tarefasBloco] = await Promise.all([
-    (contextos.includes("metricas") || contextos.includes("leads"))
+    contextos.includes("leads") || contextos.includes("metricas")
       ? getMariaInteligenciaAtendimento()
       : Promise.resolve(null),
     contextos.includes("conversas") ? buildContextoConversas() : Promise.resolve(null),
@@ -211,14 +228,16 @@ export async function POST(req: NextRequest) {
   ]);
 
   const blocos: string[] = [];
-  if (dadosMaria && contextos.includes("metricas")) blocos.push(buildContextoMetricas(dadosMaria));
-  if (dadosMaria && contextos.includes("leads")) blocos.push(buildContextoLeads(dadosMaria));
   if (conversasBloco) blocos.push(conversasBloco);
+  if (dadosMaria && contextos.includes("leads")) blocos.push(buildContextoLeads(dadosMaria));
   if (tarefasBloco) blocos.push(tarefasBloco);
+  if (dadosMaria && contextos.includes("metricas")) blocos.push(buildContextoMetricas(dadosMaria));
 
-  const systemPrompt = buildSystemPrompt(user.nome ?? user.email ?? "usuário", blocos);
+  const systemPrompt = buildSystemPrompt(
+    user.nome ?? user.email ?? "usuário",
+    blocos
+  );
 
-  // Chama Anthropic (mesmo padrão do BI Executivo)
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -246,7 +265,6 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
     const resposta: string = data.content?.[0]?.text ?? "";
-
     return NextResponse.json({ resposta });
   } catch (err) {
     console.error("[maria/chat-gestao] Erro de rede:", err);

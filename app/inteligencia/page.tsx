@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ChatComAgente } from "@/components/agentes/ChatComAgente";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -1235,6 +1236,34 @@ export default function CockpitPage() {
                 </div>
               ))}
             </div>
+          </section>
+
+          {/* ── Falar com João — Chat de Gestão Interna ── */}
+          <section id="falar-com-joao" className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Bot className="h-5 w-5 text-[#1E4FAB]" />
+              <h2 className="text-xl font-semibold text-slate-900">Falar com João</h2>
+              <span className="ml-2 rounded-full bg-[#E8EEFB] px-2.5 py-0.5 text-[11px] font-semibold text-[#1E4FAB]">
+                Modo interno
+              </span>
+            </div>
+            <p className="mb-4 text-sm text-slate-500">
+              Pergunte ao João sobre sua prospecção — quem ele abordou, o que encontrou, o que está quente. Ele responde como colega, não como BI.
+            </p>
+            <ChatComAgente config={{
+              apiRoute: "/api/joao/chat-gestao",
+              nome: "João",
+              inicial: "J",
+              subtitulo: "Hunter outbound — conta sobre sua prospecção e abordagens do dia",
+              placeholder: "Ex.: Como foi hoje, João? Que obras você encontrou? Alguém respondeu?",
+              boasVindas: "Selecione os contextos acima e me pergunte sobre minha prospecção — que obras encontrei, com quem conversei, o que ficou em aberto.",
+              avatarGradiente: "from-purple-500 to-[#1A2E5A]",
+              chips: [
+                { id: "conversas", label: "💬 Conversas", descricao: "Mensagens reais das abordagens outbound", defaultAtivo: true },
+                { id: "prospects", label: "🏗️ Prospectos", descricao: "Pipeline de prospectos do João", defaultAtivo: true },
+                { id: "tarefas", label: "✅ Follow-ups", descricao: "Tarefas e follow-ups pendentes" },
+              ],
+            }} />
           </section>
         </div>
       </main>

@@ -24,7 +24,7 @@ import { NextResponse } from "next/server";
 import { auditLog } from "@/lib/audit";
 import { resolveWhatsappEnvVar } from "@/lib/whatsapp/env-allowlist";
 import { verificarAssinaturaMeta } from "@/lib/whatsapp/verify-signature";
-import { getCanalTaciane, mensagemJaProcessada, persistirMensagemCliente } from "@/lib/whatsapp/agentes/taciane";
+import { getCanalTaciane, mensagemJaProcessada, persistirMensagemCliente, processarStatusRecebido, type MetaStatus } from "@/lib/whatsapp/agentes/taciane";
 import { buscarMidiaMeta } from "@/lib/whatsapp/meta-client";
 import type { CanalWhatsapp } from "@/app/generated/prisma/client";
 
@@ -59,7 +59,9 @@ type MetaValue = {
   metadata: { display_phone_number: string; phone_number_id: string };
   contacts?: MetaContact[];
   messages?: MetaMessage[];
-  statuses?: unknown[];
+  // ACRESCENTADO — recibos de entrega/leitura/falha das mensagens que enviamos
+  // (ver processarStatusRecebido em lib/whatsapp/agentes/taciane.ts).
+  statuses?: MetaStatus[];
 };
 
 type MetaWebhookPayload = {
@@ -192,6 +194,15 @@ async function processarValor(value: MetaValue) {
   for (const msg of value.messages ?? []) {
     await processarMensagem({ canal, msg, contacts: value.contacts ?? [] }).catch((err) => {
       console.error("[taciane/webhook] Erro ao persistir mensagem:", err);
+    });
+  }
+
+  // ACRESCENTADO — sem isso, uma mensagem aceita pela Meta na hora do envio mas
+  // rejeitada depois (ex.: cliente sem opt-in, número inválido) ficava para sempre
+  // com status ENVIADA no CRM, sem nenhum jeito de saber que não chegou de verdade.
+  for (const status of value.statuses ?? []) {
+    await processarStatusRecebido(status).catch((err) => {
+      console.error("[taciane/webhook] Erro ao processar status recebido:", err);
     });
   }
 }

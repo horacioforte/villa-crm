@@ -127,10 +127,22 @@ async function encontrarOuCriarConversa({
         `Conversa ${existente.id} já está vinculada ao canal ${existente.canalWhatsappId}, divergente do canal ${canal.id} resolvido para este evento.`,
       );
     }
-    if (!existente.canalWhatsappId) {
+    const precisaVincularCanal = !existente.canalWhatsappId;
+    // ACRESCENTADO — conversa nasceu sem nome (ex.: criada pelo CRM antes do
+    // cliente responder, via "Nova conversa") ou só tinha o placeholder genérico
+    // "Cliente". Ao chegar uma mensagem real do cliente com o nome de perfil de
+    // verdade, atualiza. Nunca sobrescreve um nome que já não seja esse
+    // placeholder — ex.: nome digitado manualmente por um humano no CRM.
+    const nomeAtualGenerico = !existente.nomeContato || existente.nomeContato === "Cliente";
+    const nomeNovoMelhor = nomeAtualGenerico && Boolean(nomeContato) && nomeContato !== existente.nomeContato;
+
+    if (precisaVincularCanal || nomeNovoMelhor) {
       return prisma.conversa.update({
         where: { id: existente.id },
-        data: { canalWhatsappId: canal.id, nomeContato },
+        data: {
+          ...(precisaVincularCanal ? { canalWhatsappId: canal.id } : {}),
+          ...(nomeNovoMelhor ? { nomeContato } : {}),
+        },
       });
     }
     return existente;

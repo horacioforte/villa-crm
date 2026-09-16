@@ -324,6 +324,10 @@ function ConversasPage() {
                 templateName: "primeiro_contato_villa",
                 templateIdioma: "pt_BR",
                 templateParametros: [novaConversaNomeTemplate.trim()],
+                // ACRESCENTADO — o mesmo nome digitado aqui (hoje usado só como
+                // variável do modelo) também vira o nome salvo da conversa, para não
+                // nascer só com o número até o contato responder.
+                nomeContato: novaConversaNomeTemplate.trim(),
               }
             : { mensagem: novaConversaMsg.trim() }),
           // ACRESCENTADO — quando veio do botão "Abrir no WhatsApp" de uma tarefa,

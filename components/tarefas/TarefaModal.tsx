@@ -525,6 +525,7 @@ export function TarefaModal({
       };
       if (novoContato.telefone.trim()) {
         payload.telefone = novoContato.telefone.trim();
+        payload.whatsapp = novoContato.telefone.trim(); // garante lookup no Chatwoot
       }
       const res = await fetch("/api/contatos", {
         method: "POST",
@@ -574,9 +575,11 @@ export function TarefaModal({
         nome: string;
       };
 
-      // Contato sem telefone no Chatwoot — vai para a Central de Atendimento
+      // Contato sem telefone — vai para Central de Atendimento para o usuário iniciar manualmente
       if (!data.encontrada && !data.telefone) {
-        toast.error("Contato sem telefone cadastrado. Adicione o WhatsApp do contato primeiro.");
+        onFechar();
+        toast.info(`${data.nome} não tem WhatsApp cadastrado. Inicie a conversa manualmente na Central.`);
+        router.push("/conversas");
         return;
       }
 

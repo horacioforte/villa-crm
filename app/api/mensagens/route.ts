@@ -134,6 +134,12 @@ export async function POST(req: NextRequest) {
   // motivo (status HTTP + corpo, ou erro de rede) é guardado em errorCode/errorMessage.
   let erroEnvioCodigo: string | undefined;
   let erroEnvioMensagem: string | undefined;
+  // ACRESCENTADO — sinal de saúde da conexão (Central de Atendimento): só uma falha de
+  // REDE (fetch não completou — servidor da Evolution inalcançável) indica canal
+  // desconectado. Uma resposta HTTP de erro da própria Evolution (400/401/404 etc.)
+  // significa que ela respondeu — a conexão está de pé, o problema é da mensagem em
+  // si (ex.: formato de mídia) — nunca eleva isso a "conexão comprometida" no canal.
+  let erroEhFalhaDeConexao = false;
 
   try {
     const resp = await fetch(
@@ -162,8 +168,28 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     erroEnvioMensagem = err instanceof Error ? err.message : "Erro desconhecido ao chamar a Evolution API.";
+    erroEhFalhaDeConexao = true;
     console.error("[api/mensagens] Erro ao enviar via Evolution API:", err);
     // Continua para salvar no banco mesmo se a API falhar
+  }
+
+  // ACRESCENTADO — atualiza CanalWhatsapp.ultimoErro (campo já existia no schema, sem
+  // uso) para alimentar o aviso de "conexão comprometida" na Central de Atendimento.
+  // Sucesso real de envio limpa o aviso sozinho; falha de rede registra o motivo.
+  // Best-effort: nunca bloqueia o envio/salvamento da mensagem por causa disso.
+  if (canalResolvido) {
+    try {
+      if (waMessageId) {
+        await prisma.canalWhatsapp.update({ where: { id: canalResolvido.id }, data: { ultimoErro: null } });
+      } else if (erroEhFalhaDeConexao) {
+        await prisma.canalWhatsapp.update({
+          where: { id: canalResolvido.id },
+          data: { ultimoErro: `NETWORK_ERROR: ${erroEnvioMensagem ?? "erro de rede desconhecido"}` },
+        });
+      }
+    } catch (err) {
+      console.warn("[api/mensagens] Falha ao atualizar ultimoErro do canal:", err);
+    }
   }
 
   // Salva no banco

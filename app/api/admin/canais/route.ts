@@ -15,12 +15,18 @@ export async function GET() {
   const canais = await prisma.canalWhatsapp.findMany({
     select: {
       id: true,
+      nome: true,
       instanceName: true,
       tipo: true,
       ativo: true,
       phoneNumberId: true,
       accessTokenEnvVar: true,
       agenteIA: true,
+      // ACRESCENTADO — sinal de saúde da conexão usado pelo aviso de "conexão
+      // comprometida" na Central de Atendimento (ver app/conversas/page.tsx e
+      // lib/whatsapp/meta-client.ts / app/api/mensagens/route.ts, que escrevem aqui).
+      ultimoErro: true,
+      updatedAt: true,
       _count: { select: { conversas: true } },
     },
     orderBy: { instanceName: "asc" },

@@ -131,6 +131,10 @@ export async function POST(req: NextRequest) {
   // já existentes errorCode/errorMessage, e o Workspace passa a exibir isso (ver page.tsx).
   let erroEnvioCodigo: string | undefined;
   let erroEnvioMensagem: string | undefined;
+  // ACRESCENTADO — mesmo sinal de saúde da conexão usado em /api/mensagens: só uma
+  // falha de REDE (fetch não completou) indica canal desconectado; uma resposta HTTP
+  // de erro da própria Evolution significa que ela respondeu normalmente.
+  let erroEhFalhaDeConexao = false;
   try {
     const resp = await fetch(`${apiUrl}/message/sendMedia/${conversa.instanceName}`, {
       method: "POST",
@@ -164,7 +168,25 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     erroEnvioMensagem = err instanceof Error ? err.message : "Erro desconhecido ao chamar a Evolution API.";
+    erroEhFalhaDeConexao = true;
     console.error("[api/mensagens/midia] Erro Evolution:", err);
+  }
+
+  // ACRESCENTADO — atualiza CanalWhatsapp.ultimoErro para alimentar o aviso de
+  // "conexão comprometida" na Central de Atendimento. Best-effort, nunca bloqueia.
+  if (conversa.canalWhatsappId) {
+    try {
+      if (waMessageId) {
+        await prisma.canalWhatsapp.update({ where: { id: conversa.canalWhatsappId }, data: { ultimoErro: null } });
+      } else if (erroEhFalhaDeConexao) {
+        await prisma.canalWhatsapp.update({
+          where: { id: conversa.canalWhatsappId },
+          data: { ultimoErro: `NETWORK_ERROR: ${erroEnvioMensagem ?? "erro de rede desconhecido"}` },
+        });
+      }
+    } catch (err) {
+      console.warn("[api/mensagens/midia] Falha ao atualizar ultimoErro do canal:", err);
+    }
   }
 
   const conteudoRegistro = caption || `[${tipo}: ${nomeArquivo}]`;

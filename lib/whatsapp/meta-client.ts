@@ -267,9 +267,16 @@ async function chamarGraphApi(canal: CanalAtivoMeta, payload: Record<string, unk
   }
 }
 
-async function marcarComoEnviada(mensagemId: string, externalMessageId: string | undefined) {
+async function marcarComoEnviada(
+  mensagemId: string,
+  externalMessageId: string | undefined,
+  // ACRESCENTADO — quando informado, permite limpar CanalWhatsapp.ultimoErro logo
+  // abaixo (sinal de saúde da conexão na Central de Atendimento).
+  canalId?: string,
+) {
+  let mensagem;
   try {
-    return await prisma.mensagem.update({
+    mensagem = await prisma.mensagem.update({
       where: { id: mensagemId },
       data: { status: StatusMensagem.ENVIADA, externalMessageId: externalMessageId ?? undefined },
     });
@@ -278,13 +285,34 @@ async function marcarComoEnviada(mensagemId: string, externalMessageId: string |
     // processado duas vezes em paralelo). A constraint composta do banco garante que
     // não há duplicidade real — tratamos como já enviada.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return prisma.mensagem.findUniqueOrThrow({ where: { id: mensagemId } });
+      mensagem = await prisma.mensagem.findUniqueOrThrow({ where: { id: mensagemId } });
+    } else {
+      throw err;
     }
-    throw err;
   }
+
+  // ACRESCENTADO — um envio que completa com sucesso prova que o canal está
+  // alcançável agora. Limpa qualquer ultimoErro de conectividade registrado antes,
+  // para o aviso de "conexão comprometida" sumir sozinho quando a conexão volta.
+  // Best-effort: nunca bloqueia o envio por causa disso.
+  if (canalId) {
+    try {
+      await prisma.canalWhatsapp.update({ where: { id: canalId }, data: { ultimoErro: null } });
+    } catch (err) {
+      console.warn("[meta-client] Falha ao limpar ultimoErro do canal:", err);
+    }
+  }
+
+  return mensagem;
 }
 
-async function marcarComoErro(mensagemId: string, err: unknown) {
+async function marcarComoErro(
+  mensagemId: string,
+  err: unknown,
+  // ACRESCENTADO — quando informado, permite registrar CanalWhatsapp.ultimoErro logo
+  // abaixo (sinal de saúde da conexão na Central de Atendimento).
+  canalId?: string,
+) {
   const { code, message } =
     err instanceof EnvioMetaError
       ? { code: err.errorCode, message: err.message }
@@ -294,6 +322,20 @@ async function marcarComoErro(mensagemId: string, err: unknown) {
     where: { id: mensagemId },
     data: { status: StatusMensagem.ERRO, errorCode: code, errorMessage: message },
   });
+
+  // ACRESCENTADO — só falha de REDE/timeout ao chamar a Meta (a chamada nem
+  // completou) indica canal inalcançável. Um erro de negócio da própria Meta (ex.:
+  // template não aprovado, número inválido — código numérico da Graph API) significa
+  // que ela respondeu normalmente; nunca eleva isso a "conexão comprometida".
+  // Best-effort: nunca bloqueia o fluxo de erro por causa disso.
+  const ehFalhaDeConexao = code === "NETWORK_ERROR" || code === "TIMEOUT";
+  if (canalId && ehFalhaDeConexao) {
+    try {
+      await prisma.canalWhatsapp.update({ where: { id: canalId }, data: { ultimoErro: `${code}: ${message}` } });
+    } catch (updateErr) {
+      console.warn("[meta-client] Falha ao registrar ultimoErro do canal:", updateErr);
+    }
+  }
 }
 
 // ─── API pública ────────────────────────────────────────────────────────────
@@ -346,9 +388,9 @@ export async function enviarTextoMeta({
 
   try {
     const { externalMessageId } = await chamarGraphApi(canal, payload);
-    return await marcarComoEnviada(mensagem.id, externalMessageId);
+    return await marcarComoEnviada(mensagem.id, externalMessageId, canal.id);
   } catch (err) {
-    await marcarComoErro(mensagem.id, err);
+    await marcarComoErro(mensagem.id, err, canal.id);
     throw err;
   }
 }
@@ -444,9 +486,9 @@ export async function enviarMidiaMeta({
 
   try {
     const { externalMessageId } = await chamarGraphApi(canal, payload);
-    return await marcarComoEnviada(mensagem.id, externalMessageId);
+    return await marcarComoEnviada(mensagem.id, externalMessageId, canal.id);
   } catch (err) {
-    await marcarComoErro(mensagem.id, err);
+    await marcarComoErro(mensagem.id, err, canal.id);
     throw err;
   }
 }
@@ -501,9 +543,9 @@ export async function enviarTemplateMeta({
 
   try {
     const { externalMessageId } = await chamarGraphApi(canal, payload);
-    return await marcarComoEnviada(mensagem.id, externalMessageId);
+    return await marcarComoEnviada(mensagem.id, externalMessageId, canal.id);
   } catch (err) {
-    await marcarComoErro(mensagem.id, err);
+    await marcarComoErro(mensagem.id, err, canal.id);
     throw err;
   }
 }

@@ -242,6 +242,12 @@ function ConversasPage() {
   const [filtroResponsavel, setFiltroResponsavel] = useState("");
   const [busca, setBusca] = useState("");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  // ACRESCENTADO — saúde da conexão dos canais WhatsApp (Evolution/Meta), para o
+  // aviso de "conexão comprometida" na lista de conversas. Ver CanalWhatsapp.ultimoErro,
+  // escrito por lib/whatsapp/meta-client.ts e app/api/mensagens(/midia)/route.ts.
+  const [canaisSaude, setCanaisSaude] = useState<
+    Array<{ instanceName: string; nome: string; ativo: boolean; ultimoErro: string | null }>
+  >([]);
   const [showTransferir, setShowTransferir] = useState(false);
   const [transferindo, setTransferindo] = useState(false);
   const [transferiuPara, setTransferiuPara] = useState<string | null>(null);
@@ -392,6 +398,35 @@ function ConversasPage() {
       })
       .catch(() => {});
   }, []);
+
+  // ACRESCENTADO — saúde da conexão dos canais WhatsApp: carrega ao abrir a página e
+  // repete a cada 60s (mesmo padrão do polling da lista de conversas acima, só que
+  // mais espaçado — não muda com a frequência de mensagens). Best-effort: uma falha
+  // aqui não afeta o resto da página, só deixa o aviso desatualizado até a próxima
+  // tentativa.
+  useEffect(() => {
+    let cancelado = false;
+    async function carregarSaudeCanais() {
+      const resp = await fetch("/api/admin/canais").catch(() => null);
+      if (!resp?.ok || cancelado) return;
+      const data = await resp.json().catch(() => null);
+      if (Array.isArray(data) && !cancelado) setCanaisSaude(data);
+    }
+    carregarSaudeCanais();
+    const timer = setInterval(carregarSaudeCanais, 60_000);
+    return () => {
+      cancelado = true;
+      clearInterval(timer);
+    };
+  }, []);
+
+  // ACRESCENTADO — canais ativos com falha de conexão real registrada (ver
+  // CanalWhatsapp.ultimoErro). Nunca inclui um canal só por estar quieto/sem
+  // mensagens recentes — só por uma tentativa de envio que falhou de verdade.
+  const canaisComProblema = useMemo(
+    () => canaisSaude.filter((c) => c.ativo && c.ultimoErro),
+    [canaisSaude],
+  );
 
   // Carrega lista de conversas
   const carregarConversas = useCallback(async () => {
@@ -974,6 +1009,31 @@ function ConversasPage() {
                 ))}
               </select>
             </div>
+
+            {/* ACRESCENTADO — aviso de conexão comprometida: aparece só quando um canal
+                (Evolution ou Meta) teve uma falha REAL de rede no último envio — o
+                servidor ficou inalcançável, não é um erro de conteúdo da própria API.
+                Some sozinho assim que um envio por esse canal funcionar de novo (ver
+                CanalWhatsapp.ultimoErro, limpo em lib/whatsapp/meta-client.ts e em
+                app/api/mensagens(/midia)/route.ts). Nunca dispara por silêncio/ausência
+                de mensagens — isso não significa canal quebrado. */}
+            {canaisComProblema.length > 0 && (
+              <div className="space-y-1 border-b border-red-200 bg-red-50 px-4 py-2.5">
+                {canaisComProblema.map((c) => (
+                  <p
+                    key={c.instanceName}
+                    className="flex items-start gap-1.5 text-[11px] font-semibold text-red-700"
+                    title={c.ultimoErro ?? undefined}
+                  >
+                    <span>⚠</span>
+                    <span>
+                      Conexão de {getInstanceInfo(c.instanceName).label} comprometida — mensagens não
+                      estão sendo entregues. Verifique o servidor/instância desse canal.
+                    </span>
+                  </p>
+                ))}
+              </div>
+            )}
 
             {/* Painel Nova Conversa */}
             {showNovaConversa && (

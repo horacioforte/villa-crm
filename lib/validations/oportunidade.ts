@@ -164,8 +164,14 @@ function validateOportunidadeRules(
 export const oportunidadeSchema =
   oportunidadeBaseSchema.superRefine(validateOportunidadeRules);
 
+// CORREÇÃO (21/09/2026): o campo status tem .default("NOVA") no schema base,
+// o que faz com que qualquer PATCH sem status (ex.: atualizar só "estrategica"
+// ou "temperatura") injete status="NOVA" e reverta oportunidades avançadas.
+// Ao usar .extend() depois de .partial(), substituímos o campo pelo mesmo enum
+// sem o .default(), preservando o status atual quando ele não é enviado.
 export const oportunidadePatchSchema = oportunidadeBaseSchema
   .partial()
+  .extend({ status: z.enum(statusOportunidadeValues).optional() })
   .superRefine(validateOportunidadeRules);
 
 export const oportunidadeStatusSchema = z.object({

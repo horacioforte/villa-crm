@@ -32,14 +32,22 @@ const STATUS_LABELS: Record<string, string> = {
 const RESUMO_TOKEN_FIXO = "villa-historico-2026";
 
 function isCronAuthorized(request: Request): boolean {
-  const envSecret = process.env.RESUMO_DIARIO_TOKEN;
-  // Aceita: token fixo OU variável de ambiente (se configurada)
-  const tokenValido = envSecret ?? RESUMO_TOKEN_FIXO;
-  // Aceita via header Authorization OU via query param ?token=
   const authHeader = request.headers.get("authorization") ?? "";
-  if (authHeader === `Bearer ${tokenValido}`) return true;
   const { searchParams } = new URL(request.url);
-  return searchParams.get("token") === tokenValido;
+  const tokenParam = searchParams.get("token") ?? "";
+
+  // Sempre aceita o token fixo interno, independente do que estiver em RESUMO_DIARIO_TOKEN.
+  if (authHeader === `Bearer ${RESUMO_TOKEN_FIXO}` || tokenParam === RESUMO_TOKEN_FIXO) {
+    return true;
+  }
+
+  // Também aceita RESUMO_DIARIO_TOKEN quando configurada com um valor diferente do fixo.
+  const envSecret = process.env.RESUMO_DIARIO_TOKEN;
+  if (envSecret && envSecret !== RESUMO_TOKEN_FIXO) {
+    if (authHeader === `Bearer ${envSecret}` || tokenParam === envSecret) return true;
+  }
+
+  return false;
 }
 
 function brazilDateStr(date: Date): string {

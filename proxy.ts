@@ -20,6 +20,7 @@ const publicRoutes = [
   "/api/webhook/whatsapp/taciane",
   "/api/email/cron",
   "/api/email/processar",
+  "/api/auditoria/resumo-diario",
 ];
 
 const publicRoutePrefixes = ["/api/webhook/whatsapp/contexto/", "/api/agent/", "/api/cron/"];

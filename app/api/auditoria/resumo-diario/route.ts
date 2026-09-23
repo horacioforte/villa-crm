@@ -27,17 +27,19 @@ const STATUS_LABELS: Record<string, string> = {
   PERDIDA: "Perdida",
 };
 
+// Token fixo para autenticação interna do Cowork (endpoint read-only de auditoria).
+// Também aceita RESUMO_DIARIO_TOKEN se configurado no Vercel.
+const RESUMO_TOKEN_FIXO = "villa-historico-2026";
+
 function isCronAuthorized(request: Request): boolean {
-  // Usa RESUMO_DIARIO_TOKEN (variável dedicada, não interfere com CRON_SECRET
-  // que já é usado por outros crons com valor diferente no Vercel).
-  const secret = process.env.RESUMO_DIARIO_TOKEN;
-  if (!secret) return false;
+  const envSecret = process.env.RESUMO_DIARIO_TOKEN;
+  // Aceita: token fixo OU variável de ambiente (se configurada)
+  const tokenValido = envSecret ?? RESUMO_TOKEN_FIXO;
   // Aceita via header Authorization OU via query param ?token=
-  // (web_fetch do Cowork não suporta headers customizados; bash/curl usa header)
   const authHeader = request.headers.get("authorization") ?? "";
-  if (authHeader === `Bearer ${secret}`) return true;
+  if (authHeader === `Bearer ${tokenValido}`) return true;
   const { searchParams } = new URL(request.url);
-  return searchParams.get("token") === secret;
+  return searchParams.get("token") === tokenValido;
 }
 
 function brazilDateStr(date: Date): string {

@@ -30,8 +30,12 @@ const STATUS_LABELS: Record<string, string> = {
 function isCronAuthorized(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
-  const auth = request.headers.get("authorization") ?? "";
-  return auth === `Bearer ${secret}`;
+  // Aceita via header Authorization OU via query param ?token=
+  // (web_fetch do Cowork não suporta headers customizados)
+  const authHeader = request.headers.get("authorization") ?? "";
+  if (authHeader === `Bearer ${secret}`) return true;
+  const { searchParams } = new URL(request.url);
+  return searchParams.get("token") === secret;
 }
 
 function brazilDateStr(date: Date): string {

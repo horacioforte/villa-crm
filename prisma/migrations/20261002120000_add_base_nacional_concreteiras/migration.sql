@@ -4,7 +4,9 @@
 --   * cria 7 tipos ENUM novos;
 --   * cria 12 tabelas novas;
 --   * cria índices e chaves estrangeiras SOMENTE nas tabelas novas;
---   * adiciona CHECKs de integridade SOMENTE nas tabelas novas.
+--   * adiciona CHECKs de integridade SOMENTE nas tabelas novas;
+--   * NÃO usa exclusão em cascata: as FKs para Empresa e para candidatas são RESTRICT
+--     (exclusão física fica bloqueada enquanto houver dados da Base Nacional ligados).
 -- Não contém DROP, DELETE, UPDATE, TRUNCATE nem RENAME. Não altera nenhuma tabela,
 -- coluna, valor ou registro existente (Empresa, Usuario, DossieComercial etc.).
 -- As relações com Empresa/Usuario são chaves estrangeiras declaradas nas tabelas NOVAS.
@@ -422,7 +424,7 @@ CREATE INDEX "ConcreteiraValidacaoHistorico_empresaId_createdAt_idx" ON "Concret
 CREATE INDEX "RelatorioConcreteirasGerado_geradoEm_idx" ON "RelatorioConcreteirasGerado"("geradoEm");
 
 -- AddForeignKey
-ALTER TABLE "EmpresaSegmento" ADD CONSTRAINT "EmpresaSegmento_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "EmpresaSegmento" ADD CONSTRAINT "EmpresaSegmento_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "EmpresaSegmento" ADD CONSTRAINT "EmpresaSegmento_segmentoId_fkey" FOREIGN KEY ("segmentoId") REFERENCES "SegmentoEmpresa"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -440,7 +442,7 @@ ALTER TABLE "ReceitaMudanca" ADD CONSTRAINT "ReceitaMudanca_competenciaId_fkey" 
 ALTER TABLE "ReceitaMudanca" ADD CONSTRAINT "ReceitaMudanca_competenciaAnteriorId_fkey" FOREIGN KEY ("competenciaAnteriorId") REFERENCES "ReceitaCompetencia"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConcreteiraCandidata" ADD CONSTRAINT "ConcreteiraCandidata_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ConcreteiraCandidata" ADD CONSTRAINT "ConcreteiraCandidata_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ConcreteiraCandidata" ADD CONSTRAINT "ConcreteiraCandidata_vinculadoPorId_fkey" FOREIGN KEY ("vinculadoPorId") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -452,41 +454,40 @@ ALTER TABLE "ConcreteiraCandidata" ADD CONSTRAINT "ConcreteiraCandidata_empresaS
 ALTER TABLE "ConcreteiraCandidata" ADD CONSTRAINT "ConcreteiraCandidata_validadoPorId_fkey" FOREIGN KEY ("validadoPorId") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConcreteiraCandidataUnidade" ADD CONSTRAINT "ConcreteiraCandidataUnidade_candidataId_fkey" FOREIGN KEY ("candidataId") REFERENCES "ConcreteiraCandidata"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ConcreteiraCandidataUnidade" ADD CONSTRAINT "ConcreteiraCandidataUnidade_candidataId_fkey" FOREIGN KEY ("candidataId") REFERENCES "ConcreteiraCandidata"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "EmpresaUnidade" ADD CONSTRAINT "EmpresaUnidade_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "EmpresaUnidade" ADD CONSTRAINT "EmpresaUnidade_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "EmpresaUnidade" ADD CONSTRAINT "EmpresaUnidade_candidataUnidadeId_fkey" FOREIGN KEY ("candidataUnidadeId") REFERENCES "ConcreteiraCandidataUnidade"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "EmpresaUnidade" ADD CONSTRAINT "EmpresaUnidade_candidataUnidadeId_fkey" FOREIGN KEY ("candidataUnidadeId") REFERENCES "ConcreteiraCandidataUnidade"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "EmpresaValidacaoConcreteira" ADD CONSTRAINT "EmpresaValidacaoConcreteira_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "EmpresaValidacaoConcreteira" ADD CONSTRAINT "EmpresaValidacaoConcreteira_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "EmpresaValidacaoConcreteira" ADD CONSTRAINT "EmpresaValidacaoConcreteira_validadoPorId_fkey" FOREIGN KEY ("validadoPorId") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConcreteiraEvidencia" ADD CONSTRAINT "ConcreteiraEvidencia_candidataId_fkey" FOREIGN KEY ("candidataId") REFERENCES "ConcreteiraCandidata"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ConcreteiraEvidencia" ADD CONSTRAINT "ConcreteiraEvidencia_candidataId_fkey" FOREIGN KEY ("candidataId") REFERENCES "ConcreteiraCandidata"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConcreteiraEvidencia" ADD CONSTRAINT "ConcreteiraEvidencia_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ConcreteiraEvidencia" ADD CONSTRAINT "ConcreteiraEvidencia_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ConcreteiraEvidencia" ADD CONSTRAINT "ConcreteiraEvidencia_registradoPorId_fkey" FOREIGN KEY ("registradoPorId") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConcreteiraValidacaoHistorico" ADD CONSTRAINT "ConcreteiraValidacaoHistorico_candidataId_fkey" FOREIGN KEY ("candidataId") REFERENCES "ConcreteiraCandidata"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ConcreteiraValidacaoHistorico" ADD CONSTRAINT "ConcreteiraValidacaoHistorico_candidataId_fkey" FOREIGN KEY ("candidataId") REFERENCES "ConcreteiraCandidata"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConcreteiraValidacaoHistorico" ADD CONSTRAINT "ConcreteiraValidacaoHistorico_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ConcreteiraValidacaoHistorico" ADD CONSTRAINT "ConcreteiraValidacaoHistorico_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ConcreteiraValidacaoHistorico" ADD CONSTRAINT "ConcreteiraValidacaoHistorico_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "RelatorioConcreteirasGerado" ADD CONSTRAINT "RelatorioConcreteirasGerado_geradoPorId_fkey" FOREIGN KEY ("geradoPorId") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
 
 -- ─── CHECKs de integridade (somente tabelas novas) ────────────────────────────
 

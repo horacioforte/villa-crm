@@ -88,6 +88,27 @@ async function main() {
     const raizDup = await falhaEsperada(c, `INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","updatedAt") VALUES ('t-cand-3','12345678',now())`);
     registrar("Uma candidata por raiz de CNPJ (matriz+filiais juntas)", raizDup !== null, raizDup ?? "");
 
+    // 6b. Proteção contra exclusão física (RESTRICT) — tentativas desfeitas por SAVEPOINT
+    const fks = (await c.query(`SELECT conname, confdeltype FROM pg_constraint
+        WHERE contype='f' AND conrelid::regclass::text IN ('"EmpresaSegmento"','"ConcreteiraCandidata"','"ConcreteiraCandidataUnidade"','"EmpresaUnidade"','"EmpresaValidacaoConcreteira"','"ConcreteiraEvidencia"','"ConcreteiraValidacaoHistorico"')
+          AND confrelid::regclass::text IN ('"Empresa"','"ConcreteiraCandidata"','"ConcreteiraCandidataUnidade"')`)).rows as Array<{ conname: string; confdeltype: string }>;
+    const naoRestrict = fks.filter(f => f.confdeltype !== "r" && f.conname !== "ConcreteiraCandidata_empresaSugeridaId_fkey");
+    const sugestao = fks.find(f => f.conname === "ConcreteiraCandidata_empresaSugeridaId_fkey");
+    registrar("FKs para Empresa e candidatas são RESTRICT (exceto sugestão = SET NULL)", fks.length === 11 && naoRestrict.length === 0 && sugestao?.confdeltype === "n",
+      `${fks.length} FKs verificadas; fora do padrão: ${naoRestrict.map(f => f.conname).join(", ") || "nenhuma"}`);
+    // Empresa temporária só para este teste — desfeita pelo ROLLBACK TO SAVEPOINT logo abaixo
+    await c.query("SAVEPOINT sp_emp");
+    await c.query(`INSERT INTO "Empresa"(id,"razaoSocial","atualizadoEm") VALUES ('t-emp-del','EMPRESA TEMPORARIA DE TESTE',now())`);
+    await c.query(`INSERT INTO "EmpresaUnidade"(id,"empresaId","updatedAt") VALUES ('t-eu-1','t-emp-del',now())`);
+    const delEmpresa = await falhaEsperada(c, `DELETE FROM "Empresa" WHERE id='t-emp-del'`);
+    await c.query("ROLLBACK TO SAVEPOINT sp_emp");
+    registrar("Exclusão física de Empresa com unidade da Base Nacional é bloqueada", (delEmpresa ?? "").includes("EmpresaUnidade_empresaId_fkey"), delEmpresa ?? "excluiu (falha)");
+    await c.query(`INSERT INTO "ConcreteiraCandidataUnidade"(id,"candidataId",cnpj,"isMatriz","situacaoCadastral",ativa,"cnaePrincipal","cnaesSecundarios","cnaeAlvoComoPrincipal","updatedAt") VALUES ('t-cu-1','t-cand-2','87654321000100',true,'02',true,'2330305','{}',true,now())`);
+    const delCand = await falhaEsperada(c, `DELETE FROM "ConcreteiraCandidata" WHERE id='t-cand-2'`);
+    registrar("Exclusão física de candidata com unidades é bloqueada", delCand !== null, delCand ?? "excluiu (falha)");
+    const delSeg = await falhaEsperada(c, `DELETE FROM "SegmentoEmpresa" WHERE id='t-seg-1'`);
+    registrar("Exclusão de segmento em uso é bloqueada", delSeg !== null, delSeg ?? "excluiu (falha)");
+
     // 7. Volume: milhares de registros simulados
     const t0 = Date.now();
     await c.query(`INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","razaoSocial","ufMatriz","statusValidacao","updatedAt")

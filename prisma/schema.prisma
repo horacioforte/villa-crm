@@ -2017,6 +2017,8 @@ model SincronizacaoSocialLog {
 //   3. Empresa continua sendo o cadastro comercial central. Segmentos passam a ser
 //      N:N (EmpresaSegmento). O campo antigo Empresa.segmento é mantido intacto.
 //   4. Snapshots mensais da Receita são imutáveis: cada competência guarda sua cópia.
+//   5. Sem exclusão em cascata de dados importantes: exclusão física de Empresa ou
+//      candidata é BLOQUEADA (RESTRICT) enquanto houver dados da Base Nacional ligados.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -2111,7 +2113,7 @@ model SegmentoEmpresa {
 model EmpresaSegmento {
   id         String          @id @default(cuid())
   empresaId  String
-  empresa    Empresa         @relation("EmpresaSegmentos", fields: [empresaId], references: [id], onDelete: Cascade)
+  empresa    Empresa         @relation("EmpresaSegmentos", fields: [empresaId], references: [id], onDelete: Restrict)
   segmentoId String
   segmento   SegmentoEmpresa @relation(fields: [segmentoId], references: [id], onDelete: Restrict)
 
@@ -2256,7 +2258,7 @@ model ConcreteiraCandidata {
 
   // Vínculo com o cadastro comercial — sempre manual, nunca automático
   empresaId      String?
-  empresa        Empresa?  @relation("CandidataEmpresa", fields: [empresaId], references: [id], onDelete: SetNull)
+  empresa        Empresa?  @relation("CandidataEmpresa", fields: [empresaId], references: [id], onDelete: Restrict)
   vinculadoEm    DateTime?
   vinculadoPorId String?
   vinculadoPor   Usuario?  @relation("CandidataVinculadoPor", fields: [vinculadoPorId], references: [id], onDelete: SetNull)
@@ -2294,7 +2296,7 @@ model ConcreteiraCandidata {
 model ConcreteiraCandidataUnidade {
   id          String               @id @default(cuid())
   candidataId String
-  candidata   ConcreteiraCandidata @relation(fields: [candidataId], references: [id], onDelete: Cascade)
+  candidata   ConcreteiraCandidata @relation(fields: [candidataId], references: [id], onDelete: Restrict)
 
   cnpj         String                 @unique @db.Char(14)
   isMatriz     Boolean
@@ -2343,7 +2345,7 @@ model ConcreteiraCandidataUnidade {
 model EmpresaUnidade {
   id        String  @id @default(cuid())
   empresaId String
-  empresa   Empresa @relation("EmpresaUnidades", fields: [empresaId], references: [id], onDelete: Cascade)
+  empresa   Empresa @relation("EmpresaUnidades", fields: [empresaId], references: [id], onDelete: Restrict)
 
   cnpj        String?                @unique @db.Char(14)
   isMatriz    Boolean                @default(false)
@@ -2365,7 +2367,7 @@ model EmpresaUnidade {
   email               String?
 
   candidataUnidadeId String?
-  candidataUnidade   ConcreteiraCandidataUnidade? @relation(fields: [candidataUnidadeId], references: [id], onDelete: SetNull)
+  candidataUnidade   ConcreteiraCandidataUnidade? @relation(fields: [candidataUnidadeId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2378,7 +2380,7 @@ model EmpresaUnidade {
 model EmpresaValidacaoConcreteira {
   id        String  @id @default(cuid())
   empresaId String  @unique
-  empresa   Empresa @relation("EmpresaValidacaoConcreteira", fields: [empresaId], references: [id], onDelete: Cascade)
+  empresa   Empresa @relation("EmpresaValidacaoConcreteira", fields: [empresaId], references: [id], onDelete: Restrict)
 
   status        StatusValidacaoConcreteira
   tipoAtividade TipoAtividadeConcreteira?
@@ -2405,9 +2407,9 @@ model EmpresaValidacaoConcreteira {
 model ConcreteiraEvidencia {
   id          String                @id @default(cuid())
   candidataId String?
-  candidata   ConcreteiraCandidata? @relation(fields: [candidataId], references: [id], onDelete: Cascade)
+  candidata   ConcreteiraCandidata? @relation(fields: [candidataId], references: [id], onDelete: Restrict)
   empresaId   String?
-  empresa     Empresa?              @relation("EmpresaEvidenciasConcreteira", fields: [empresaId], references: [id], onDelete: Cascade)
+  empresa     Empresa?              @relation("EmpresaEvidenciasConcreteira", fields: [empresaId], references: [id], onDelete: Restrict)
 
   tipoFonte  TipoFonteEvidencia
   titulo     String?
@@ -2431,9 +2433,9 @@ model ConcreteiraEvidencia {
 model ConcreteiraValidacaoHistorico {
   id          String                @id @default(cuid())
   candidataId String?
-  candidata   ConcreteiraCandidata? @relation(fields: [candidataId], references: [id], onDelete: Cascade)
+  candidata   ConcreteiraCandidata? @relation(fields: [candidataId], references: [id], onDelete: Restrict)
   empresaId   String?
-  empresa     Empresa?              @relation("EmpresaHistoricoValidacao", fields: [empresaId], references: [id], onDelete: Cascade)
+  empresa     Empresa?              @relation("EmpresaHistoricoValidacao", fields: [empresaId], references: [id], onDelete: Restrict)
 
   statusAnterior    StatusValidacaoConcreteira?
   statusNovo        StatusValidacaoConcreteira

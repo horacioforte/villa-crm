@@ -7,6 +7,7 @@
 //   npx tsx scripts/seed-cnpj-concreteiras.ts          → dry-run (mostra amostra)
 //   npx tsx scripts/seed-cnpj-concreteiras.ts --commit  → grava em produção
 
+import "./guarda-script-legado"; // TRAVA 02/10/2026: grava em Dossiê/Carteira — exige PERMITIR_SCRIPT_LEGADO. Manter como PRIMEIRO import.
 import "./env";
 import { Client } from "pg";
 import * as fs from "fs";

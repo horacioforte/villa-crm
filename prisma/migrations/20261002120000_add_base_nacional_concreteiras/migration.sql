@@ -1,10 +1,10 @@
--- Base Nacional de Concreteiras — Fase 1 (fundação da arquitetura híbrida). 02/10/2026.
+-- Base Nacional de Concreteiras — Fase 1 (fundação da arquitetura híbrida). 02/10/2026. Versão 3.
 --
 -- 100% ADITIVA. Este arquivo apenas:
 --   * cria 7 tipos ENUM novos;
 --   * cria 12 tabelas novas;
 --   * cria índices e chaves estrangeiras SOMENTE nas tabelas novas;
---   * adiciona CHECKs de integridade SOMENTE nas tabelas novas;
+--   * adiciona CHECKs de integridade e 1 índice único parcial SOMENTE nas tabelas novas;
 --   * NÃO usa exclusão em cascata: as FKs para Empresa e para candidatas são RESTRICT
 --     (exclusão física fica bloqueada enquanto houver dados da Base Nacional ligados).
 -- Não contém DROP, DELETE, UPDATE, TRUNCATE nem RENAME. Não altera nenhuma tabela,
@@ -12,7 +12,7 @@
 -- As relações com Empresa/Usuario são chaves estrangeiras declaradas nas tabelas NOVAS.
 --
 -- Gerado com `prisma migrate diff` (schema anterior → schema novo, sem conectar a banco)
--- e complementado à mão com os CHECKs ao final. REGRA: nunca remover.
+-- e complementado à mão com os CHECKs e o índice parcial ao final. REGRA: nunca remover.
 
 -- CreateEnum
 CREATE TYPE "StatusValidacaoConcreteira" AS ENUM ('PENDENTE', 'EM_VERIFICACAO', 'CONFIRMADA', 'PROVAVEL', 'NAO_E_CONCRETEIRA', 'INATIVA', 'NAO_LOCALIZADA');
@@ -391,6 +391,9 @@ CREATE INDEX "ConcreteiraCandidataUnidade_ativa_idx" ON "ConcreteiraCandidataUni
 CREATE UNIQUE INDEX "EmpresaUnidade_cnpj_key" ON "EmpresaUnidade"("cnpj");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "EmpresaUnidade_candidataUnidadeId_key" ON "EmpresaUnidade"("candidataUnidadeId");
+
+-- CreateIndex
 CREATE INDEX "EmpresaUnidade_empresaId_idx" ON "EmpresaUnidade"("empresaId");
 
 -- CreateIndex
@@ -489,8 +492,9 @@ ALTER TABLE "ConcreteiraValidacaoHistorico" ADD CONSTRAINT "ConcreteiraValidacao
 -- AddForeignKey
 ALTER TABLE "RelatorioConcreteirasGerado" ADD CONSTRAINT "RelatorioConcreteirasGerado_geradoPorId_fkey" FOREIGN KEY ("geradoPorId") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- ─── CHECKs de integridade (somente tabelas novas) ────────────────────────────
+-- ─── Integridade complementar (somente tabelas novas; SQL manual) ────────────
 
+-- Formato e consistência de CNPJ / competência
 ALTER TABLE "ReceitaCompetencia" ADD CONSTRAINT "ReceitaCompetencia_competencia_formato_chk" CHECK ("competencia" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$');
 
 ALTER TABLE "ReceitaEstabelecimento" ADD CONSTRAINT "ReceitaEstabelecimento_cnpj_digitos_chk" CHECK ("cnpj" ~ '^[0-9]{14}$' AND "cnpjBasico" = substr("cnpj", 1, 8) AND "cnpjOrdem" = substr("cnpj", 9, 4) AND "cnpjDv" = substr("cnpj", 13, 2));
@@ -503,6 +507,25 @@ ALTER TABLE "ConcreteiraCandidataUnidade" ADD CONSTRAINT "ConcreteiraCandidataUn
 
 ALTER TABLE "EmpresaUnidade" ADD CONSTRAINT "EmpresaUnidade_cnpj_digitos_chk" CHECK ("cnpj" IS NULL OR "cnpj" ~ '^[0-9]{14}$');
 
-ALTER TABLE "ConcreteiraEvidencia" ADD CONSTRAINT "ConcreteiraEvidencia_alvo_chk" CHECK ("candidataId" IS NOT NULL OR "empresaId" IS NOT NULL);
+-- Exatamente um alvo: candidata OU Empresa (nunca nenhum, nunca os dois)
+ALTER TABLE "ConcreteiraEvidencia" ADD CONSTRAINT "ConcreteiraEvidencia_alvo_unico_chk" CHECK (num_nonnulls("candidataId", "empresaId") = 1);
 
-ALTER TABLE "ConcreteiraValidacaoHistorico" ADD CONSTRAINT "ConcreteiraValidacaoHistorico_alvo_chk" CHECK ("candidataId" IS NOT NULL OR "empresaId" IS NOT NULL);
+ALTER TABLE "ConcreteiraValidacaoHistorico" ADD CONSTRAINT "ConcreteiraValidacaoHistorico_alvo_unico_chk" CHECK (num_nonnulls("candidataId", "empresaId") = 1);
+
+-- No máximo um segmento principal por Empresa (secundários ilimitados)
+CREATE UNIQUE INDEX "EmpresaSegmento_empresaId_principal_unico" ON "EmpresaSegmento"("empresaId") WHERE "principal" = true;
+
+-- Valores não negativos (quando preenchidos)
+ALTER TABLE "ReceitaCompetencia" ADD CONSTRAINT "ReceitaCompetencia_totalRegistros_nao_negativo_chk" CHECK ("totalRegistros" >= 0);
+
+ALTER TABLE "ConcreteiraCandidata" ADD CONSTRAINT "ConcreteiraCandidata_totais_unidades_chk" CHECK ("totalUnidades" >= 0 AND "totalUnidadesAtivas" >= 0 AND "totalUnidadesAtivas" <= "totalUnidades");
+
+ALTER TABLE "ConcreteiraCandidata" ADD CONSTRAINT "ConcreteiraCandidata_capitalSocial_nao_negativo_chk" CHECK ("capitalSocial" IS NULL OR "capitalSocial" >= 0);
+
+ALTER TABLE "EmpresaValidacaoConcreteira" ADD CONSTRAINT "EmpresaValidacaoConcreteira_estimativas_nao_negativas_chk" CHECK (("quantidadeCentraisEstimada" IS NULL OR "quantidadeCentraisEstimada" >= 0) AND ("frotaEstimada" IS NULL OR "frotaEstimada" >= 0));
+
+ALTER TABLE "RelatorioConcreteirasGerado" ADD CONSTRAINT "RelatorioConcreteirasGerado_totalRegistros_nao_negativo_chk" CHECK ("totalRegistros" >= 0);
+
+-- Observação: ReceitaEstabelecimento.capitalSocial NÃO recebe CHECK de propósito — a tabela
+-- é uma cópia fiel e imutável da Receita; um valor anômalo na fonte não pode impedir a carga
+-- do snapshot. Anomalias serão sinalizadas no processamento, não rejeitadas no banco.

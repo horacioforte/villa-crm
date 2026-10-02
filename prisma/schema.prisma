@@ -2117,7 +2117,7 @@ model EmpresaSegmento {
   segmentoId String
   segmento   SegmentoEmpresa @relation(fields: [segmentoId], references: [id], onDelete: Restrict)
 
-  principal Boolean @default(false)
+  principal Boolean @default(false) // no máximo 1 principal por Empresa: índice único parcial criado na migration (SQL manual)
   origem    String? // "manual" | "validacao_concreteira" | ...
 
   criadoPorId String?
@@ -2328,7 +2328,7 @@ model ConcreteiraCandidataUnidade {
   primeiraCompetencia String?
   ultimaCompetencia   String?
 
-  empresaUnidades EmpresaUnidade[]
+  empresaUnidade EmpresaUnidade? // no máximo 1 unidade comercial por unidade candidata
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2366,7 +2366,7 @@ model EmpresaUnidade {
   telefone            String?
   email               String?
 
-  candidataUnidadeId String?
+  candidataUnidadeId String? @unique // nulos permitidos; preenchido = vínculo único
   candidataUnidade   ConcreteiraCandidataUnidade? @relation(fields: [candidataUnidadeId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())

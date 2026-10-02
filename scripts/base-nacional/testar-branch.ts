@@ -77,9 +77,7 @@ async function main() {
     registrar("CNPJ fora do padrão de 14 dígitos é recusado", cnpjRuim !== null, cnpjRuim ?? "");
     const compRuim = await falhaEsperada(c, `INSERT INTO "ReceitaCompetencia"(id,competencia,"updatedAt") VALUES ('t-c-x','2026-13',now())`);
     registrar("Competência fora de AAAA-MM é recusada", compRuim !== null, compRuim ?? "");
-    const evSemAlvo = await falhaEsperada(c, `INSERT INTO "ConcreteiraEvidencia"(id,"tipoFonte") VALUES ('t-ev-x','OUTRA')`);
-    registrar("Evidência sem candidata/empresa é recusada", evSemAlvo !== null, evSemAlvo ?? "");
-
+    
     // 6. Candidata com vínculo opcional
     await c.query(`INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","cnpjMatriz","updatedAt") VALUES ('t-cand-1','12345678','12345678000195',now()),('t-cand-2','87654321',NULL,now())`);
     await c.query(`UPDATE "ConcreteiraCandidata" SET "empresaId"=$1 WHERE id='t-cand-1'`, [empresaId]);
@@ -108,6 +106,56 @@ async function main() {
     registrar("Exclusão física de candidata com unidades é bloqueada", delCand !== null, delCand ?? "excluiu (falha)");
     const delSeg = await falhaEsperada(c, `DELETE FROM "SegmentoEmpresa" WHERE id='t-seg-1'`);
     registrar("Exclusão de segmento em uso é bloqueada", delSeg !== null, delSeg ?? "excluiu (falha)");
+
+    // 6c. Versão 3 — integridade complementar
+    const ok = async (sql: string, params: unknown[] = []) => (await falhaEsperada(c, sql, params)) === null;
+
+    // Evidência: exatamente um alvo (4 cenários)
+    registrar("Evidência só com candidata é aceita", await ok(`INSERT INTO "ConcreteiraEvidencia"(id,"candidataId","tipoFonte") VALUES ('t-ev-c','t-cand-1','RECEITA_FEDERAL')`));
+    registrar("Evidência só com Empresa é aceita", await ok(`INSERT INTO "ConcreteiraEvidencia"(id,"empresaId","tipoFonte") VALUES ('t-ev-e',$1,'SITE_EMPRESA')`, [empresaId]));
+    const evDois = await falhaEsperada(c, `INSERT INTO "ConcreteiraEvidencia"(id,"candidataId","empresaId","tipoFonte") VALUES ('t-ev-2','t-cand-1',$1,'OUTRA')`, [empresaId]);
+    registrar("Evidência com candidata E Empresa é recusada", (evDois ?? "").includes("ConcreteiraEvidencia_alvo_unico_chk"), evDois ?? "inseriu (falha)");
+    const evNenhum = await falhaEsperada(c, `INSERT INTO "ConcreteiraEvidencia"(id,"tipoFonte") VALUES ('t-ev-0','OUTRA')`);
+    registrar("Evidência sem nenhum alvo é recusada", (evNenhum ?? "").includes("ConcreteiraEvidencia_alvo_unico_chk"), evNenhum ?? "inseriu (falha)");
+
+    // Histórico: exatamente um alvo (4 cenários)
+    registrar("Histórico só com candidata é aceito", await ok(`INSERT INTO "ConcreteiraValidacaoHistorico"(id,"candidataId","statusNovo") VALUES ('t-h-c','t-cand-1','EM_VERIFICACAO')`));
+    registrar("Histórico só com Empresa é aceito", await ok(`INSERT INTO "ConcreteiraValidacaoHistorico"(id,"empresaId","statusNovo") VALUES ('t-h-e',$1,'CONFIRMADA')`, [empresaId]));
+    const hDois = await falhaEsperada(c, `INSERT INTO "ConcreteiraValidacaoHistorico"(id,"candidataId","empresaId","statusNovo") VALUES ('t-h-2','t-cand-1',$1,'CONFIRMADA')`, [empresaId]);
+    registrar("Histórico com candidata E Empresa é recusado", (hDois ?? "").includes("ConcreteiraValidacaoHistorico_alvo_unico_chk"), hDois ?? "inseriu (falha)");
+    const hNenhum = await falhaEsperada(c, `INSERT INTO "ConcreteiraValidacaoHistorico"(id,"statusNovo") VALUES ('t-h-0','PENDENTE')`);
+    registrar("Histórico sem nenhum alvo é recusado", (hNenhum ?? "").includes("ConcreteiraValidacaoHistorico_alvo_unico_chk"), hNenhum ?? "inseriu (falha)");
+
+    // Segmento principal único por Empresa (t-es-1 e t-es-2 já existem como secundários)
+    registrar("Dois segmentos secundários na mesma Empresa são aceitos", (await n(c, `SELECT count(*) n FROM "EmpresaSegmento" WHERE "empresaId"=$1 AND principal=false`, [empresaId])) === 2);
+    registrar("Um segmento marcado como principal é aceito", await ok(`UPDATE "EmpresaSegmento" SET principal=true WHERE id='t-es-1'`));
+    const doisPrincipais = await falhaEsperada(c, `UPDATE "EmpresaSegmento" SET principal=true WHERE id='t-es-2'`);
+    registrar("Segundo segmento principal na mesma Empresa é recusado", (doisPrincipais ?? "").includes("EmpresaSegmento_empresaId_principal_unico"), doisPrincipais ?? "aceitou (falha)");
+
+    // Vínculo único da unidade candidata (t-cu-1 criada no bloco 6b)
+    registrar("Unidades comerciais sem vínculo com candidata são aceitas (várias)", await ok(`INSERT INTO "EmpresaUnidade"(id,"empresaId","updatedAt") VALUES ('t-eu-a',$1,now()),('t-eu-b',$1,now())`, [empresaId]));
+    registrar("Unidade candidata vinculada a uma unidade comercial é aceita", await ok(`INSERT INTO "EmpresaUnidade"(id,"empresaId","candidataUnidadeId","updatedAt") VALUES ('t-eu-c',$1,'t-cu-1',now())`, [empresaId]));
+    const vincDup = await falhaEsperada(c, `INSERT INTO "EmpresaUnidade"(id,"empresaId","candidataUnidadeId","updatedAt") VALUES ('t-eu-d',$1,'t-cu-1',now())`, [empresaId]);
+    registrar("Mesma unidade candidata vinculada de novo é recusada", (vincDup ?? "").includes("EmpresaUnidade_candidataUnidadeId_key"), vincDup ?? "aceitou (falha)");
+
+    // Valores não negativos
+    const neg: Array<[string, string, unknown[], string]> = [
+      ["ReceitaCompetencia.totalRegistros negativo", `INSERT INTO "ReceitaCompetencia"(id,competencia,"totalRegistros","updatedAt") VALUES ('t-c-neg','2026-07',-1,now())`, [], "ReceitaCompetencia_totalRegistros_nao_negativo_chk"],
+      ["Candidata totalUnidades negativo", `INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","totalUnidades","updatedAt") VALUES ('t-n1','11111111',-1,now())`, [], "ConcreteiraCandidata_totais_unidades_chk"],
+      ["Candidata totalUnidadesAtivas negativo", `INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","totalUnidadesAtivas","updatedAt") VALUES ('t-n2','22222222',-1,now())`, [], "ConcreteiraCandidata_totais_unidades_chk"],
+      ["Candidata com mais unidades ativas do que unidades", `INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","totalUnidades","totalUnidadesAtivas","updatedAt") VALUES ('t-n3','33333333',2,3,now())`, [], "ConcreteiraCandidata_totais_unidades_chk"],
+      ["Candidata capitalSocial negativo", `INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","capitalSocial","updatedAt") VALUES ('t-n4','44444444',-0.01,now())`, [], "ConcreteiraCandidata_capitalSocial_nao_negativo_chk"],
+      ["Validação com centrais estimadas negativas", `INSERT INTO "EmpresaValidacaoConcreteira"(id,"empresaId",status,"quantidadeCentraisEstimada","updatedAt") VALUES ('t-v1',$1,'CONFIRMADA',-1,now())`, [empresaId], "EmpresaValidacaoConcreteira_estimativas_nao_negativas_chk"],
+      ["Validação com frota estimada negativa", `INSERT INTO "EmpresaValidacaoConcreteira"(id,"empresaId",status,"frotaEstimada","updatedAt") VALUES ('t-v2',$1,'CONFIRMADA',-5,now())`, [empresaId], "EmpresaValidacaoConcreteira_estimativas_nao_negativas_chk"],
+      ["Relatório com totalRegistros negativo", `INSERT INTO "RelatorioConcreteirasGerado"(id,tipo,formato,filtros,"totalRegistros") VALUES ('t-r1','NACIONAL','XLSX','{}',-1)`, [], "RelatorioConcreteirasGerado_totalRegistros_nao_negativo_chk"],
+    ];
+    for (const [nome, sql, params, constraint] of neg) {
+      const erro = await falhaEsperada(c, sql, params);
+      registrar(`${nome} é recusado`, (erro ?? "").includes(constraint), erro ?? "aceitou (falha)");
+    }
+    registrar("Valores válidos (zero, iguais, nulos) são aceitos", await ok(`INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","totalUnidades","totalUnidadesAtivas","capitalSocial","updatedAt") VALUES ('t-n5','55555555',3,3,0,now()),('t-n6','66666666',0,0,NULL,now())`)
+      && await ok(`INSERT INTO "EmpresaValidacaoConcreteira"(id,"empresaId",status,"quantidadeCentraisEstimada","frotaEstimada","updatedAt") VALUES ('t-v3',$1,'PROVAVEL',0,NULL,now())`, [empresaId])
+      && await ok(`INSERT INTO "RelatorioConcreteirasGerado"(id,tipo,formato,filtros,"totalRegistros") VALUES ('t-r2','UF','PDF','{"uf":"PE"}',0)`));
 
     // 7. Volume: milhares de registros simulados
     const t0 = Date.now();

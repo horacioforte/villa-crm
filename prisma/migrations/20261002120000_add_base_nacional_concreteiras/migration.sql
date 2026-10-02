@@ -12,8 +12,6 @@
 -- Gerado com `prisma migrate diff` (schema anterior → schema novo, sem conectar a banco)
 -- e complementado à mão com os CHECKs ao final. REGRA: nunca remover.
 
-◇ injected env (28) from .env.local // tip: ⌘ override existing { override: true }
-◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
 -- CreateEnum
 CREATE TYPE "StatusValidacaoConcreteira" AS ENUM ('PENDENTE', 'EM_VERIFICACAO', 'CONFIRMADA', 'PROVAVEL', 'NAO_E_CONCRETEIRA', 'INATIVA', 'NAO_LOCALIZADA');
 

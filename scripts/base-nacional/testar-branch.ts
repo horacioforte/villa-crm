@@ -6,7 +6,7 @@
 // Uso: npx tsx scripts/base-nacional/testar-branch.ts
 
 import { Client } from "pg";
-import { carregarAmbienteIsolado } from "../../lib/base-nacional/ambiente";
+import { carregarAmbienteDeTeste } from "../../lib/base-nacional/ambiente";
 
 type Resultado = { teste: string; ok: boolean; detalhe: string };
 const resultados: Resultado[] = [];
@@ -27,7 +27,7 @@ async function falhaEsperada(c: Client, sql: string, params: unknown[] = []): Pr
 const n = async (c: Client, sql: string, params: unknown[] = []) => Number((await c.query(sql, params)).rows[0].n);
 
 async function main() {
-  const amb = carregarAmbienteIsolado();
+  const amb = carregarAmbienteDeTeste();
   console.log(`[testar-branch] endpoint ${amb.endpointMascarado} — transação com ROLLBACK ao final`);
   const c = new Client({ connectionString: amb.url });
   await c.connect();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { endpointNeon, mascararEndpoint, validarAmbienteIsolado } from "./ambiente";
+import { endpointNeon, mascararEndpoint, validarAmbienteIsolado, validarBancoLocalDeTeste } from "./ambiente";
 
 const PROD = "postgresql://u:senha@ep-aged-shadow-a1b2c3-pooler.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require";
 const PROD_DIRETA = "postgresql://u:senha@ep-aged-shadow-a1b2c3.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require";
@@ -28,5 +28,11 @@ describe("base-nacional/ambiente", () => {
     expect(r.endpointMascarado).toBe("ep-quiet-river-z9***");
     expect(r.endpointMascarado).not.toContain("senha");
     expect(mascararEndpoint(null)).toBe("(desconhecido)");
+  });
+
+  it("banco local de teste só aceita localhost", () => {
+    expect(validarBancoLocalDeTeste(undefined)).toBeNull();
+    expect(validarBancoLocalDeTeste("postgresql://postgres@localhost:55432/x")?.endpoint).toBe("local");
+    expect(() => validarBancoLocalDeTeste(PROD)).toThrow(/localhost/);
   });
 });

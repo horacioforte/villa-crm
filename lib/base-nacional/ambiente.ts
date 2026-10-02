@@ -87,3 +87,27 @@ export function carregarAmbienteIsolado(raiz = process.cwd()): AmbienteIsolado {
   const prod = lerArquivoEnv(path.join(raiz, ARQUIVO_ENV_PRODUCAO));
   return validarAmbienteIsolado(urlDireta(branch), [prod.DIRECT_URL, prod.DATABASE_URL]);
 }
+
+/**
+ * Banco local descartável (Postgres na própria máquina, restaurado do backup) — usado
+ * apenas para validar a migration e os testes ANTES do branch Neon. Só aceita
+ * localhost/127.0.0.1; qualquer outro host é recusado.
+ */
+export function validarBancoLocalDeTeste(url: string | undefined): AmbienteIsolado | null {
+  if (!url) return null;
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    throw new Error("[base-nacional] BASE_NACIONAL_TESTE_LOCAL_URL inválida. Operação cancelada.");
+  }
+  if (host !== "localhost" && host !== "127.0.0.1") {
+    throw new Error("[base-nacional] BASE_NACIONAL_TESTE_LOCAL_URL só aceita localhost. Operação cancelada.");
+  }
+  return { url, endpoint: "local", endpointMascarado: "banco-local-de-teste" };
+}
+
+/** Para testes: banco local (se BASE_NACIONAL_TESTE_LOCAL_URL definida) ou o branch isolado. */
+export function carregarAmbienteDeTeste(raiz = process.cwd()): AmbienteIsolado {
+  return validarBancoLocalDeTeste(process.env.BASE_NACIONAL_TESTE_LOCAL_URL) ?? carregarAmbienteIsolado(raiz);
+}

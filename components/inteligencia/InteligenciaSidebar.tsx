@@ -13,6 +13,7 @@ import {
   Brain,
   Building2,
   ChevronLeft,
+  Database,
   Factory,
   FolderOpen,
   Inbox,
@@ -49,6 +50,10 @@ const menuComercial = [
   { label: "Empresas", href: "/empresas", icon: Building2, exact: false },
   { label: "Decisores", href: "/contatos", icon: Users, exact: false },
   { label: "Campanhas", href: "/campanhas", icon: Target, exact: false },
+  // Adicionado em 01/10/2026 — CRM João focado em concreteiras (/comercial/concreteiras)
+  { label: "CRM João — Concreteiras", href: "/comercial/concreteiras", icon: Factory, exact: false, exclude: ["/comercial/concreteiras/base"] },
+  // Adicionado em 02/10/2026 — Base Nacional de Concreteiras (base de investigação, separada da carteira)
+  { label: "Base Nacional", href: "/comercial/concreteiras/base", icon: Database, exact: false },
 ];
 
 // menuCanais: LinkedIn movido para menuJoao em 09/09/2026. Array mantido para referência futura.
@@ -58,12 +63,13 @@ const menuCanais: typeof menuVisao = [];
 // conforme redesign executivo 08/09/2026 (mantidos aqui, não excluídos)
 const menuSistema: typeof menuVisao = [];
 
-type MenuItem = { label: string; href: string; icon: React.ComponentType<{ className?: string }>; exact: boolean; badge?: boolean };
+type MenuItem = { label: string; href: string; icon: React.ComponentType<{ className?: string }>; exact: boolean; badge?: boolean; exclude?: string[] };
 
 function NavItem({ item, pathname, totalDossies }: { item: MenuItem; pathname: string; totalDossies?: number }) {
-  const isActive = item.exact
+  const isActive = (item.exact
     ? pathname === item.href || pathname === "/inteligencia"
-    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+    : pathname === item.href || pathname.startsWith(`${item.href}/`))
+    && !(item.exclude ?? []).some(p => pathname === p || pathname.startsWith(`${p}/`));
   return (
     <Link
       href={item.href}

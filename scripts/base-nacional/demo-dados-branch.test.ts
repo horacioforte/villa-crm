@@ -23,9 +23,23 @@ describe("dados de demonstração", () => {
   it("grava apenas em tabelas novas", () => {
     const alvos = [...fonte.matchAll(/(?:INSERT INTO|UPDATE|DELETE FROM) "(\w+)"/g)].map(m => m[1]);
     const novas = new Set(["ReceitaCompetencia", "ConcreteiraCandidata", "ConcreteiraCandidataUnidade", "ReceitaEstabelecimento", "ReceitaMudanca",
-      "ConcreteiraEvidencia", "ConcreteiraValidacaoHistorico", "EmpresaUnidade", "RelatorioConcreteirasGerado"]);
+      "ConcreteiraEvidencia", "ConcreteiraValidacaoHistorico", "EmpresaUnidade", "RelatorioConcreteirasGerado",
+      // v4 (05/10/2026)
+      "ConcreteiraPotencialEquipamento", "ConcreteiraCandidataContato", "ConcreteiraCandidataPessoa"]);
     expect(alvos.length).toBeGreaterThan(0);
     for (const a of alvos) expect(novas.has(a)).toBe(true);
+  });
+
+  it("v4: Empresa e Usuario são apenas consultados (SELECT), nunca gravados", () => {
+    expect(fonte).not.toMatch(/(?:INSERT INTO|UPDATE|DELETE FROM) "(?:Empresa|Usuario|Pessoa|DossieComercial|DossieCarteira|Oportunidade|Tarefa)"/);
+  });
+
+  it("v4: contatos e pessoas de demonstração são fictícios (números 0000 e domínio .invalid)", () => {
+    const emails = [...fonte.matchAll(/"([^"\s]+@[^"\s]+)"/g)].map(m => m[1]);
+    expect(emails.length).toBeGreaterThan(0);
+    for (const e of emails) expect(e).toMatch(/\.invalid$/);
+    const fones = [...fonte.matchAll(/"\((\d{2})\) (9?0000-\d{4})"/g)];
+    expect(fones.length).toBeGreaterThan(0);
   });
 
   it("CNPJs fictícios têm dígito verificador inválido", () => {

@@ -61,7 +61,7 @@ async function main() {
     registrar("Segmento desativado mantém vínculos", (await n(c, `SELECT count(*) n FROM "EmpresaSegmento" WHERE "segmentoId"='t-seg-2'`)) === 1);
 
     // 4. Competências e snapshots
-    await c.query(`INSERT INTO "ReceitaCompetencia"(id,competencia,"cnaesFiltro","ufsFiltro","updatedAt") VALUES ('t-c-08','2026-08','{2330305}','{}',now()),('t-c-09','2026-09','{2330305}','{}',now())`);
+    await c.query(`INSERT INTO "ReceitaCompetencia"(id,competencia,"cnaesFiltro","ufsFiltro","updatedAt") VALUES ('t-c-08','2025-08','{2330305}','{}',now()),('t-c-09','2025-09','{2330305}','{}',now())`);
     const ins = `INSERT INTO "ReceitaEstabelecimento"(id,"competenciaId",cnpj,"cnpjBasico","cnpjOrdem","cnpjDv","isMatriz","razaoSocial","situacaoCadastral","cnaePrincipal","cnaesSecundarios","cnaeAlvoComoPrincipal",uf,"hashRegistro")
                  VALUES ($1,$2,'12345678000195','12345678','0001','95',true,$3,'02','2330305','{}',true,'PE',$4)`;
     await c.query(ins, ["t-e-1", "t-c-08", "CONCRETO TESTE AGO", "h1"]);
@@ -159,11 +159,14 @@ async function main() {
 
     // 7. Volume: milhares de registros simulados
     const t0 = Date.now();
-    await c.query(`INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","razaoSocial","ufMatriz","statusValidacao","updatedAt")
+    // v4: Confirmada exige responsável/data/confiança/justificativa; descarte exige justificativa.
+    const validadorTeste = (await c.query(`SELECT id FROM "Usuario" WHERE papel = 'ADMIN' ORDER BY nome, id LIMIT 1`)).rows[0]?.id as string;
+    await c.query(`INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","razaoSocial","ufMatriz","statusValidacao","updatedAt",justificativa,confianca,"validadoEm","validadoPorId","nomeOrdenacao")
       SELECT 'v-c-'||g, lpad((50000000+g)::text,8,'0'), 'CONCRETEIRA SIMULADA '||g,
              (ARRAY['PE','BA','SP','MG','PR','RS','GO','CE'])[1+(g%8)],
-             (ARRAY['PENDENTE','EM_VERIFICACAO','CONFIRMADA','PROVAVEL','NAO_E_CONCRETEIRA','INATIVA','NAO_LOCALIZADA'])[1+(g%7)]::"StatusValidacaoConcreteira", now()
-      FROM generate_series(1,5000) g`);
+             (ARRAY['PENDENTE','EM_VERIFICACAO','CONFIRMADA','PROVAVEL','NAO_E_CONCRETEIRA','INATIVA','NAO_LOCALIZADA'])[1+(g%7)]::"StatusValidacaoConcreteira", now(),
+             'Justificativa simulada de teste', 'MEDIA', now(), $1, 'concreteira simulada '||g
+      FROM generate_series(1,5000) g`, [validadorTeste]);
     await c.query(`INSERT INTO "ConcreteiraCandidataUnidade"(id,"candidataId",cnpj,"isMatriz","situacaoCadastral",ativa,"cnaePrincipal","cnaesSecundarios","cnaeAlvoComoPrincipal",uf,"municipioCodigoIbge","updatedAt")
       SELECT 'v-u-'||g||'-'||k, 'v-c-'||g, lpad((50000000+g)::text,8,'0')||lpad(k::text,4,'0')||'00', k=1, '02', true, '2330305','{}', true,
              (ARRAY['PE','BA','SP','MG','PR','RS','GO','CE'])[1+(g%8)], lpad((2600000+(g%180))::text,7,'0'), now()
@@ -183,6 +186,35 @@ async function main() {
       `carga ${tCarga} ms; relatórios por UF/status, cidade, ficha e comparação entre competências em ${tConsultas} ms (diferenças: ${diff})`);
 
     // 8. Isolamento e ausência de efeitos colaterais
+    // 8. Regras da v4 (05/10/2026)
+    const v4 = async (nome: string, sql: string, params: unknown[], deveFalhar: string | null) => {
+      if (deveFalhar) {
+        const r = await falhaEsperada(c, sql, params);
+        registrar(nome, (r ?? "").includes(deveFalhar), r ? deveFalhar : "foi aceito, deveria falhar");
+      } else registrar(nome, await ok(sql, params));
+    };
+    await v4("v4: Confirmada sem responsável é recusada", `INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","statusValidacao",confianca,justificativa,"validadoEm","updatedAt") VALUES ('t4-c1','71000001','CONFIRMADA','ALTA','fontes ok',now(),now())`, [], "confirmada_exige_validacao_chk");
+    await v4("v4: Confirmada sem confiança é recusada", `INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","statusValidacao",justificativa,"validadoEm","validadoPorId","updatedAt") VALUES ('t4-c2','71000002','CONFIRMADA','fontes ok',now(),$1,now())`, [validadorTeste], "confirmada_exige_validacao_chk");
+    await v4("v4: Descarte sem justificativa é recusado", `INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","statusValidacao","updatedAt") VALUES ('t4-c3','71000003','INATIVA',now())`, [], "descarte_exige_justificativa_chk");
+    await v4("v4: Confirmada completa é aceita", `INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","statusValidacao",confianca,justificativa,"validadoEm","validadoPorId","empresaId","updatedAt") VALUES ('t4-c4','71000004','CONFIRMADA','ALTA','fontes ok',now(),$1,$2,now())`, [validadorTeste, empresaId], null);
+    await v4("v4: mesma Empresa ligada a outra candidata é permitida (decisão 1)", `INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","empresaId","updatedAt") VALUES ('t4-c5','71000005',$1,now())`, [empresaId], null);
+    await v4("v4: contato ativo", `INSERT INTO "ConcreteiraCandidataContato"(id,"candidataId",tipo,valor,"valorNormalizado","updatedAt") VALUES ('t4-k1','t4-c5','TELEFONE','(81) 0000-0001','8100000001',now())`, [], null);
+    await v4("v4: contato ativo repetido é recusado", `INSERT INTO "ConcreteiraCandidataContato"(id,"candidataId",tipo,valor,"valorNormalizado","updatedAt") VALUES ('t4-k2','t4-c5','TELEFONE','81 0000 0001','8100000001',now())`, [], "ConcreteiraCandidataContato_ativo_unico");
+    await v4("v4: inativação sem motivo é recusada", `UPDATE "ConcreteiraCandidataContato" SET ativo=false,"inativadoEm"=now(),"inativadoPorId"=$1 WHERE id='t4-k1'`, [validadorTeste], "inativacao_completa_chk");
+    await v4("v4: inativação completa é aceita", `UPDATE "ConcreteiraCandidataContato" SET ativo=false,"inativadoEm"=now(),"inativadoPorId"=$1,"motivoInativacao"='número desativado' WHERE id='t4-k1'`, [validadorTeste], null);
+    await v4("v4: recadastrar contato depois de inativar é aceito", `INSERT INTO "ConcreteiraCandidataContato"(id,"candidataId",tipo,valor,"valorNormalizado","updatedAt") VALUES ('t4-k3','t4-c5','TELEFONE','(81) 0000-0001','8100000001',now())`, [], null);
+    await v4("v4: pessoa inativa sem responsável é recusada", `INSERT INTO "ConcreteiraCandidataPessoa"(id,"candidataId",nome,ativo,"inativadoEm","motivoInativacao","updatedAt") VALUES ('t4-p1','t4-c5','Teste',false,now(),'saiu',now())`, [], "inativacao_completa_chk");
+    await v4("v4: pessoa com vários papéis é aceita", `INSERT INTO "ConcreteiraCandidataPessoa"(id,"candidataId",nome,papeis,"emailNormalizado","updatedAt") VALUES ('t4-p2','t4-c5','Teste Dois','{COMPRADOR,RESPONSAVEL_FROTA}','t@t.invalid',now())`, [], null);
+    await v4("v4: pessoa ativa com e-mail repetido é recusada", `INSERT INTO "ConcreteiraCandidataPessoa"(id,"candidataId",nome,"emailNormalizado","updatedAt") VALUES ('t4-p3','t4-c5','Teste Três','t@t.invalid',now())`, [], "email_ativo_unico");
+    await c.query(`INSERT INTO "ConcreteiraCandidataUnidade"(id,"candidataId",cnpj,"isMatriz","situacaoCadastral",ativa,"cnaePrincipal","cnaesSecundarios","cnaeAlvoComoPrincipal","updatedAt") VALUES ('t4-u1','t4-c5','71000005000100',true,'02',true,'2330305','{}',true,now())`);
+    await v4("v4: potencial geral", `INSERT INTO "ConcreteiraPotencialEquipamento"(id,"candidataId",equipamento,"potencialVenda","updatedAt") VALUES ('t4-e1','t4-c5','BOMBA_LANCA','ALTO',now())`, [], null);
+    await v4("v4: potencial geral repetido é recusado", `INSERT INTO "ConcreteiraPotencialEquipamento"(id,"candidataId",equipamento,"updatedAt") VALUES ('t4-e2','t4-c5','BOMBA_LANCA',now())`, [], "geral_unico");
+    await v4("v4: mesmo equipamento numa unidade é aceito", `INSERT INTO "ConcreteiraPotencialEquipamento"(id,"candidataId","unidadeId",equipamento,"updatedAt") VALUES ('t4-e3','t4-c5','t4-u1','BOMBA_LANCA',now())`, [], null);
+    await v4("v4: repetido na mesma unidade é recusado", `INSERT INTO "ConcreteiraPotencialEquipamento"(id,"candidataId","unidadeId",equipamento,"updatedAt") VALUES ('t4-e4','t4-c5','t4-u1','BOMBA_LANCA',now())`, [], "unidade_unico");
+    await v4("v4: \"Outro\" sem descrição é recusado", `INSERT INTO "ConcreteiraPotencialEquipamento"(id,"candidataId",equipamento,"updatedAt") VALUES ('t4-e5','t4-c5','OUTRO',now())`, [], "outro_exige_descricao_chk");
+    await v4("v4: quantidade negativa é recusada", `INSERT INTO "ConcreteiraPotencialEquipamento"(id,"candidataId",equipamento,"quantidadeEstimada","updatedAt") VALUES ('t4-e6','t4-c5','TELEBELT',-1,now())`, [], "quantidade_nao_negativa_chk");
+    await v4("v4: excluir candidata com contatos é bloqueado (RESTRICT)", `DELETE FROM "ConcreteiraCandidata" WHERE id='t4-c5'`, [], "violates foreign key");
+
     const depois = {
       empresas: await n(c, `SELECT count(*) n FROM "Empresa"`),
       empresasAtivas: await n(c, `SELECT count(*) n FROM "Empresa" WHERE ativa = true`),
@@ -200,6 +232,8 @@ async function main() {
     registrar("Nenhum Prospect ou Oportunidade criado", depois.prospects === antes.prospects && depois.oportunidades === antes.oportunidades);
     const gatilhos = await n(c, `SELECT count(*) n FROM pg_trigger t JOIN pg_class r ON r.oid=t.tgrelid WHERE NOT t.tgisinternal AND r.relname IN ('SegmentoEmpresa','EmpresaSegmento','ReceitaCompetencia','ReceitaEstabelecimento','ReceitaMudanca','ConcreteiraCandidata','ConcreteiraCandidataUnidade','EmpresaUnidade','EmpresaValidacaoConcreteira','ConcreteiraEvidencia','ConcreteiraValidacaoHistorico','RelatorioConcreteirasGerado')`);
     registrar("Nenhum gatilho (trigger) nas tabelas novas", gatilhos === 0);
+    const gatilhosV4 = await n(c, `SELECT count(*) n FROM pg_trigger t JOIN pg_class r ON r.oid=t.tgrelid WHERE NOT t.tgisinternal AND r.relname IN ('ConcreteiraCandidataContato','ConcreteiraCandidataPessoa','ConcreteiraPotencialEquipamento')`);
+    registrar("v4: nenhum gatilho nas tabelas de contatos, pessoas e potenciais", gatilhosV4 === 0);
   } finally {
     await c.query("ROLLBACK");
     await c.end();

@@ -63,6 +63,8 @@ const selectLinha = {
   ultimaVerificacaoEm: true,
   totalUnidades: true,
   totalUnidadesAtivas: true,
+  prioridadeComercial: true,
+  potenciais: { where: { potencialVenda: { in: ["ALTO", "MEDIO"] as Array<"ALTO" | "MEDIO"> } }, select: { equipamento: true, potencialVenda: true } },
   empresa: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
   _count: { select: { evidencias: true, unidades: true } },
 } as const;
@@ -73,7 +75,16 @@ export async function listarCandidatas(f: FiltrosBase, pagina: number, porPagina
   const where = montarWhere(f);
   const total = await prisma.concreteiraCandidata.count({ where });
   let linhas;
-  if (total <= LIMITE_ORDENACAO_ACENTOS) {
+  // v4: a coluna nomeOrdenacao (sem acentos, indexada) permite ordenar no banco em qualquer volume.
+  // O caminho em JS fica só para candidatas antigas sem nomeOrdenacao preenchido.
+  const semChave = total > 0 ? await prisma.concreteiraCandidata.count({ where: { AND: [where, { nomeOrdenacao: null }] } }) : 0;
+  if (semChave === 0) {
+    linhas = await prisma.concreteiraCandidata.findMany({
+      where, select: selectLinha,
+      orderBy: [{ nomeOrdenacao: "asc" }, { id: "asc" }],
+      skip: (pagina - 1) * porPagina, take: porPagina,
+    });
+  } else if (total <= LIMITE_ORDENACAO_ACENTOS) {
     // Ordenação correta com acentos: busca só id + nome dos resultados, ordena e pagina.
     const chaves = await prisma.concreteiraCandidata.findMany({ where, select: { id: true, razaoSocial: true } });
     const ids = ordenarPorNome(chaves).slice((pagina - 1) * porPagina, pagina * porPagina).map(c => c.id);
@@ -129,6 +140,26 @@ export async function fichaCandidata(id: string) {
       empresa: { select: { id: true, razaoSocial: true, nomeFantasia: true, cnpj: true, cidade: true, estado: true } },
       empresaSugerida: { select: { id: true, razaoSocial: true, nomeFantasia: true, cnpj: true, cidade: true, estado: true } },
       validadoPor: { select: { nome: true } },
+      // v4 (05/10/2026)
+      qualificadoPor: { select: { nome: true } },
+      contatos: {
+        orderBy: [{ ativo: "desc" }, { principal: "desc" }, { createdAt: "asc" }],
+        include: {
+          unidade: { select: { cnpj: true, municipioNome: true, uf: true } },
+          registradoPor: { select: { nome: true } }, verificadoPor: { select: { nome: true } }, inativadoPor: { select: { nome: true } },
+        },
+      },
+      pessoas: {
+        orderBy: [{ ativo: "desc" }, { nome: "asc" }],
+        include: { registradoPor: { select: { nome: true } }, verificadoPor: { select: { nome: true } }, inativadoPor: { select: { nome: true } } },
+      },
+      potenciais: {
+        orderBy: [{ equipamento: "asc" }, { unidadeId: { sort: "asc", nulls: "first" } }],
+        include: {
+          unidade: { select: { cnpj: true, municipioNome: true, uf: true, tipoUnidade: true } },
+          evidencia: { select: { titulo: true } }, avaliadoPor: { select: { nome: true } },
+        },
+      },
     },
   });
   if (!c) return null;

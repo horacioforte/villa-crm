@@ -11,9 +11,15 @@ import type { linhasParaExportar } from "./consulta";
 import { descreverFiltros, tipoRelatorio, type FiltrosBase } from "./filtros";
 import {
   CONFIANCA_LABEL,
+  EQUIPAMENTO_LABEL,
+  NIVEL_LABEL,
+  PRIORIDADE_LABEL,
   STATUS_LABEL,
   TIPO_UNIDADE_LABEL,
   type Confianca,
+  type Equipamento,
+  type NivelPotencial,
+  type Prioridade,
   type StatusValidacao,
   type TipoUnidade,
 } from "./rotulos";
@@ -30,6 +36,12 @@ export const colunasRelatorio: ReportColumn<Linha>[] = [
   { header: "Situação", value: l => STATUS_LABEL[l.statusValidacao as StatusValidacao] },
   { header: "Confiança", value: l => (l.confianca ? CONFIANCA_LABEL[l.confianca as Confianca] : null) },
   { header: "Evidências", value: l => l._count.evidencias },
+  { header: "Prioridade", value: l => (l.prioridadeComercial ? PRIORIDADE_LABEL[l.prioridadeComercial as Prioridade] : null) },
+  {
+    header: "Potencial de venda",
+    value: l => [...new Map(l.potenciais.map(p => [p.equipamento, p])).values()]
+      .map(p => `${EQUIPAMENTO_LABEL[p.equipamento as Equipamento]} (${NIVEL_LABEL[p.potencialVenda as NivelPotencial].toLowerCase()})`).join("; ") || null,
+  },
   { header: "Empresa no CRM", value: l => l.empresa?.nomeFantasia ?? l.empresa?.razaoSocial ?? null },
   { header: "Última verificação", value: l => l.ultimaVerificacaoEm },
 ];
@@ -40,6 +52,8 @@ export function rotulosFiltros(f: FiltrosBase, segmentoNome?: string) {
     tipoUnidade: f.tipoUnidade ? TIPO_UNIDADE_LABEL[f.tipoUnidade as TipoUnidade] : undefined,
     confianca: f.confianca ? CONFIANCA_LABEL[f.confianca] : undefined,
     segmento: segmentoNome,
+    prioridade: f.prioridade ? PRIORIDADE_LABEL[f.prioridade] : undefined,
+    equipamento: f.equipamento ? EQUIPAMENTO_LABEL[f.equipamento] : undefined,
   });
 }
 

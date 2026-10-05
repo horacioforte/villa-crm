@@ -6,10 +6,14 @@
 import type { Prisma } from "@/app/generated/prisma/client";
 import {
   CONFIANCAS,
+  EQUIPAMENTOS,
+  PRIORIDADES,
   SEGMENTO_PARA_ATIVIDADE,
   STATUS_VALIDACAO,
   TIPOS_UNIDADE,
   type Confianca,
+  type Equipamento,
+  type Prioridade,
   type StatusValidacao,
   type TipoUnidade,
 } from "./rotulos";
@@ -26,6 +30,10 @@ export type FiltrosBase = {
   confianca?: Confianca;
   segmento?: string;
   busca?: string;
+  // v4 (05/10/2026)
+  prioridade?: Prioridade;
+  /** Equipamento com potencial de VENDA alto ou médio (geral ou em alguma unidade). */
+  equipamento?: Equipamento;
 };
 
 type Params = Record<string, string | string[] | undefined> | URLSearchParams;
@@ -52,6 +60,8 @@ export function lerFiltros(params: Params): FiltrosBase {
     confianca: oneOf(ler(params, "confianca"), CONFIANCAS),
     segmento: segmento && /^[a-z0-9-]+$/.test(segmento) ? segmento : undefined,
     busca: ler(params, "busca"),
+    prioridade: oneOf(ler(params, "prioridade"), PRIORIDADES),
+    equipamento: oneOf(ler(params, "equipamento"), EQUIPAMENTOS),
   };
 }
 
@@ -73,6 +83,8 @@ export function montarWhere(f: FiltrosBase): Prisma.ConcreteiraCandidataWhereInp
   if (Object.keys(unidade).length > 0) e.push({ unidades: { some: unidade } });
 
   if (f.status) e.push({ statusValidacao: f.status });
+  if (f.prioridade) e.push({ prioridadeComercial: f.prioridade });
+  if (f.equipamento) e.push({ potenciais: { some: { equipamento: f.equipamento, potencialVenda: { in: ["ALTO", "MEDIO"] } } } });
   if (f.confianca) e.push({ confianca: f.confianca });
 
   if (f.segmento) {
@@ -119,7 +131,7 @@ export function querystring(f: FiltrosBase, extra: Record<string, string | numbe
 }
 
 /** Descrição legível dos filtros (vai para PDF, impressão e registro do relatório). */
-export function descreverFiltros(f: FiltrosBase, rotulos: { status?: string; tipoUnidade?: string; confianca?: string; segmento?: string }): string {
+export function descreverFiltros(f: FiltrosBase, rotulos: { status?: string; tipoUnidade?: string; confianca?: string; segmento?: string; prioridade?: string; equipamento?: string }): string {
   const partes: string[] = [];
   if (f.uf) partes.push(`UF: ${f.uf}`);
   if (f.cidade) partes.push(`Cidade: ${f.cidade}`);
@@ -128,6 +140,8 @@ export function descreverFiltros(f: FiltrosBase, rotulos: { status?: string; tip
   if (f.confianca) partes.push(`Confiança: ${rotulos.confianca ?? f.confianca}`);
   if (f.segmento) partes.push(`Segmento: ${rotulos.segmento ?? f.segmento}`);
   if (f.busca) partes.push(`Busca: "${f.busca}"`);
+  if (f.prioridade) partes.push(`Prioridade: ${rotulos.prioridade ?? f.prioridade}`);
+  if (f.equipamento) partes.push(`Potencial de venda: ${rotulos.equipamento ?? f.equipamento}`);
   return partes.length > 0 ? partes.join(" · ") : "Todo o Brasil, sem filtros";
 }
 

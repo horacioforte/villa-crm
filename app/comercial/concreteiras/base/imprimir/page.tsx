@@ -9,7 +9,7 @@ import { linhasParaExportar } from "@/lib/base-nacional/consulta";
 import { formatarCnpj } from "@/lib/base-nacional/cnpj";
 import { LIMITE_EXPORTACAO, lerFiltros, querystring } from "@/lib/base-nacional/filtros";
 import { rotulosFiltros } from "@/lib/base-nacional/relatorios";
-import { CONFIANCA_LABEL, STATUS_LABEL, type Confianca, type StatusValidacao } from "@/lib/base-nacional/rotulos";
+import { CONFIANCA_LABEL, STATUS_LABEL, type Confianca, type StatusValidacao, EQUIPAMENTO_LABEL, PRIORIDADE_LABEL, type Equipamento, type Prioridade } from "@/lib/base-nacional/rotulos";
 import { prisma } from "@/lib/prisma";
 import { BotaoImprimir } from "./BotaoImprimir";
 
@@ -49,7 +49,7 @@ export default async function ImprimirBasePage({ searchParams }: { searchParams:
           <table className="w-full border-collapse text-left text-[10px]">
             <thead>
               <tr className="bg-[#1A2E5A] text-white">
-                {["Razão social", "Nome fantasia", "CNPJ", "Cidade / UF", "Unid.", "Situação", "Confiança", "Evid.", "Empresa no CRM", "Últ. verificação"].map(h => (
+                {["Razão social", "Nome fantasia", "CNPJ", "Cidade / UF", "Unid.", "Situação", "Confiança", "Prioridade", "Potencial de venda", "Evid.", "Empresa no CRM", "Últ. verificação"].map(h => (
                   <th key={h} className="border border-slate-300 px-1.5 py-1 font-semibold">{h}</th>
                 ))}
               </tr>
@@ -64,6 +64,8 @@ export default async function ImprimirBasePage({ searchParams }: { searchParams:
                   <td className="border border-slate-200 px-1.5 py-1 text-center">{l._count.unidades}</td>
                   <td className="border border-slate-200 px-1.5 py-1">{STATUS_LABEL[l.statusValidacao as StatusValidacao]}</td>
                   <td className="border border-slate-200 px-1.5 py-1">{l.confianca ? CONFIANCA_LABEL[l.confianca as Confianca] : "—"}</td>
+                  <td className="border border-slate-200 px-1.5 py-1">{l.prioridadeComercial ? PRIORIDADE_LABEL[l.prioridadeComercial as Prioridade] : "—"}</td>
+                  <td className="border border-slate-200 px-1.5 py-1">{[...new Set(l.potenciais.map(p => EQUIPAMENTO_LABEL[p.equipamento as Equipamento]))].join(", ") || "—"}</td>
                   <td className="border border-slate-200 px-1.5 py-1 text-center">{l._count.evidencias}</td>
                   <td className="border border-slate-200 px-1.5 py-1">{l.empresa?.nomeFantasia ?? l.empresa?.razaoSocial ?? "—"}</td>
                   <td className="border border-slate-200 px-1.5 py-1">{l.ultimaVerificacaoEm ? new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Recife" }).format(l.ultimaVerificacaoEm) : "—"}</td>

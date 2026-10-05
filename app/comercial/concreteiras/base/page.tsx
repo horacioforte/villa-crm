@@ -2,7 +2,8 @@
 // REGRA: nunca remover. Apenas acrescentar.
 // Base Nacional de Concreteiras — tela de CONSULTA (Etapa 2A).
 // Server Component; filtros via URL (GET); paginação no servidor.
-// Somente leitura: nenhum botão confirma, vincula ou grava candidatas.
+// Etapa 2A: somente leitura. v4 (05/10/2026): filtros de prioridade e de equipamento com potencial
+// de venda; a gravação acontece só na ficha da candidata (com histórico).
 
 import Link from "next/link";
 import { Building2, FileSpreadsheet, FileText, Printer, Search, X } from "lucide-react";
@@ -13,12 +14,21 @@ import {
   CONFIANCAS,
   CONFIANCA_COR,
   CONFIANCA_LABEL,
+  EQUIPAMENTOS,
+  EQUIPAMENTO_LABEL,
+  NIVEL_COR,
+  PRIORIDADES,
+  PRIORIDADE_COR,
+  PRIORIDADE_LABEL,
   STATUS_COR,
   STATUS_LABEL,
   STATUS_VALIDACAO,
   TIPOS_UNIDADE,
   TIPO_UNIDADE_LABEL,
   type Confianca,
+  type Equipamento,
+  type NivelPotencial,
+  type Prioridade,
   type StatusValidacao,
   type TipoUnidade,
 } from "@/lib/base-nacional/rotulos";
@@ -69,7 +79,7 @@ export default async function BaseNacionalPage({
           <div>
             <h1 className="text-base font-semibold text-slate-800">Base Nacional de Concreteiras</h1>
             <p className="mt-0.5 text-xs text-slate-400">
-              Base de investigação — candidatas ainda não fazem parte do cadastro comercial. Somente consulta.
+              Base de investigação — candidatas ainda não fazem parte do cadastro comercial. A validação é feita na ficha de cada candidata.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -96,7 +106,7 @@ export default async function BaseNacionalPage({
 
       {/* Filtros (GET — sem gravação) */}
       <form method="get" action={BASE} className="flex-shrink-0 border-b border-slate-100 bg-white px-4 py-3 sm:px-6">
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-5">
           <div className="col-span-2 relative">
             <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
             <input name="busca" defaultValue={filtros.busca ?? ""} placeholder="Razão social, fantasia, CNPJ ou município" className={cn(selectCls, "pl-8")} />
@@ -121,6 +131,14 @@ export default async function BaseNacionalPage({
           <select name="segmento" defaultValue={filtros.segmento ?? ""} className={selectCls} aria-label="Segmento">
             <option value="">Todos os segmentos</option>
             {opcoes.segmentos.map(s => <option key={s.slug} value={s.slug}>{s.nome}</option>)}
+          </select>
+          <select name="prioridade" defaultValue={filtros.prioridade ?? ""} className={selectCls} aria-label="Prioridade comercial">
+            <option value="">Qualquer prioridade</option>
+            {PRIORIDADES.map(p => <option key={p} value={p}>Prioridade {PRIORIDADE_LABEL[p].toLowerCase()}</option>)}
+          </select>
+          <select name="equipamento" defaultValue={filtros.equipamento ?? ""} className={selectCls} aria-label="Potencial de venda por equipamento">
+            <option value="">Qualquer equipamento</option>
+            {EQUIPAMENTOS.map(e => <option key={e} value={e}>Potencial de venda: {EQUIPAMENTO_LABEL[e]}</option>)}
           </select>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -151,7 +169,7 @@ export default async function BaseNacionalPage({
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-slate-100 bg-white">
-            <table className="min-w-[1100px] w-full text-left text-xs">
+            <table className="min-w-[1300px] w-full text-left text-xs">
               <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Razão social</th>
@@ -161,6 +179,8 @@ export default async function BaseNacionalPage({
                   <th className="px-3 py-2 font-semibold">Unidades</th>
                   <th className="px-3 py-2 font-semibold">Situação</th>
                   <th className="px-3 py-2 font-semibold">Confiança</th>
+                  <th className="px-3 py-2 font-semibold">Prioridade</th>
+                  <th className="px-3 py-2 font-semibold">Potencial de venda</th>
                   <th className="px-3 py-2 font-semibold text-center">Evidências</th>
                   <th className="px-3 py-2 font-semibold">Empresa no CRM</th>
                   <th className="px-3 py-2 font-semibold">Última verificação</th>
@@ -194,6 +214,24 @@ export default async function BaseNacionalPage({
                           {CONFIANCA_LABEL[l.confianca as Confianca]}
                         </span>
                       ) : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      {l.prioridadeComercial ? (
+                        <span className={cn("whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold", PRIORIDADE_COR[l.prioridadeComercial as Prioridade])}>
+                          {PRIORIDADE_LABEL[l.prioridadeComercial as Prioridade]}
+                        </span>
+                      ) : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      {l.potenciais.length === 0 ? <span className="text-slate-300">—</span> : (
+                        <span className="flex flex-wrap gap-0.5">
+                          {[...new Map(l.potenciais.map(p => [p.equipamento, p])).values()].map(p => (
+                            <span key={p.equipamento} className={cn("whitespace-nowrap rounded px-1.5 py-0.5 text-[10px]", NIVEL_COR[p.potencialVenda as NivelPotencial])}>
+                              {EQUIPAMENTO_LABEL[p.equipamento as Equipamento]}
+                            </span>
+                          ))}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-center text-slate-600">{l._count.evidencias}</td>
                     <td className="px-3 py-2 text-slate-600">

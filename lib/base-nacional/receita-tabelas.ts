@@ -2,8 +2,13 @@
 // REGRA: nunca remover. Apenas acrescentar.
 // Tradução de códigos da Receita Federal para exibição (porte, natureza jurídica, CNAE).
 // O código original é sempre preservado e exibido como informação secundária (auditoria).
-// Tabelas PARCIAIS, focadas no setor de concreto/construção: códigos fora da lista
-// aparecem como "descrição não cadastrada" — nunca são inventados.
+// Tabelas PARCIAIS abaixo (curadas, focadas no setor de concreto/construção) continuam
+// valendo como primeira opção. A partir de 07/10/2026, códigos fora delas caem no
+// fallback das tabelas OFICIAIS COMPLETAS geradas por scripts/base-nacional/gerar-tabelas-receita.ts
+// (lib/base-nacional/receita-tabelas-completo.generated.ts) — nunca inventadas.
+
+import { CNAE_DESCRICAO_RFB, NATUREZA_JURIDICA_RFB } from "./receita-tabelas-completo.generated";
+export { CNAE_DESCRICAO_RFB, NATUREZA_JURIDICA_RFB, MOTIVO_SITUACAO_RFB, QUALIFICACAO_RFB, PAIS_RFB } from "./receita-tabelas-completo.generated";
 
 export const PORTE_RECEITA: Record<string, string> = {
   "00": "Não informado",
@@ -82,7 +87,7 @@ export function formatarNaturezaCodigo(codigo: string | null | undefined): strin
 export function descreverNatureza(codigo: string | null | undefined): { texto: string; codigo: string | null } {
   if (!codigo) return { texto: "—", codigo: null };
   const d = soDigitos(codigo);
-  return { texto: NATUREZA_JURIDICA[d] ?? "Descrição não cadastrada", codigo: formatarNaturezaCodigo(codigo) };
+  return { texto: NATUREZA_JURIDICA[d] ?? NATUREZA_JURIDICA_RFB[d] ?? "Descrição não cadastrada", codigo: formatarNaturezaCodigo(codigo) };
 }
 
 /** 2330305 → "2330-3/05". */
@@ -97,7 +102,7 @@ export function descreverCnae(codigo: string | null | undefined) {
   return {
     original: codigo ?? null,
     formatado: formatarCnae(codigo),
-    descricao: CNAE_DESCRICAO[d] ?? "Descrição não cadastrada",
+    descricao: CNAE_DESCRICAO[d] ?? CNAE_DESCRICAO_RFB[d] ?? "Descrição não cadastrada",
     concretoUsinado: CNAES_CONCRETO_USINADO.has(d),
   };
 }

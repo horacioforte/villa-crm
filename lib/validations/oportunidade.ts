@@ -85,6 +85,7 @@ export const canalOrigemValues = [
   "CLIENTE_ATUAL",
   "GOOGLE",
   "LINKEDIN",
+  "INSTAGRAM",
   "SITE",
   "VISITA_COMERCIAL",
   "OBRA_MAPEADA",

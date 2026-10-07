@@ -186,6 +186,7 @@ const canalOrigemLabels: Record<CanalOrigem, string> = {
   CLIENTE_ATUAL: "Cliente atual",
   GOOGLE: "Google",
   LINKEDIN: "LinkedIn",
+  INSTAGRAM: "Instagram",
   SITE: "Site",
   VISITA_COMERCIAL: "Visita comercial",
   OBRA_MAPEADA: "Obra mapeada",

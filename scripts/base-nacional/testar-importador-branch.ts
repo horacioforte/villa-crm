@@ -46,7 +46,19 @@ async function main() {
     // ── 1. Importar a amostra fictícia da competência A (2031-01) ──────────────
     const leituraA = await lerCompetencia(path.join(FIXTURES, "2031-01"));
     registrar("Leitura A: 3 raízes encontradas (Alfa, Beta, Gama)", leituraA.relatorio.raizesEncontradas === 3, String(leituraA.relatorio.raizesEncontradas));
-    registrar("Leitura A: linha malformada contada e ignorada, sem derrubar o processo", leituraA.relatorio.linhasMalformadasEstabelecimentos === 2, String(leituraA.relatorio.linhasMalformadasEstabelecimentos));
+    // 08/10/2026: com o pré-filtro de desempenho, linha malformada SEM o código do CNAE é descartada antes do
+    // parse (não pode ser concreteira) e não entra na contagem. O que importa: é ignorada sem derrubar o processo.
+    registrar("Leitura A: linha malformada (sem o CNAE) ignorada, sem derrubar o processo", leituraA.relatorio.raizesEncontradas === 3 && leituraA.relatorio.linhasMalformadasEstabelecimentos === 0, String(leituraA.relatorio.linhasMalformadasEstabelecimentos));
+
+    // ── 0. --somente-ativas (opção (b) autorizada em 08/10/2026) — só leitura, sem banco ──
+    const pastaAtivas = path.join(FIXTURES, "somente-ativas");
+    const todasAtivas = await lerCompetencia(pastaAtivas);
+    const soAtivas = await lerCompetencia(pastaAtivas, { somenteAtivas: true });
+    registrar("Sem --somente-ativas: 5 raízes e 8 unidades (inclui baixadas, inapta e unidades sem o CNAE)", todasAtivas.relatorio.raizesEncontradas === 5 && todasAtivas.relatorio.unidadesTotais === 8, `${todasAtivas.relatorio.raizesEncontradas}/${todasAtivas.relatorio.unidadesTotais}`);
+    registrar("--somente-ativas: só 3 raízes (CNAE principal, CNAE secundário e CNAE só na filial)", soAtivas.relatorio.raizesEncontradas === 3 && soAtivas.raizes.has("97200001") && soAtivas.raizes.has("97200002") && soAtivas.raizes.has("97200006"), [...soAtivas.raizes].join(","));
+    registrar("--somente-ativas: só 3 unidades (sem baixadas e sem as ativas que não têm o CNAE)", soAtivas.relatorio.unidadesTotais === 3, String(soAtivas.relatorio.unidadesTotais));
+    registrar("--somente-ativas: a matriz verdadeira é guardada mesmo quando não entra como unidade", soAtivas.matrizPorRaiz?.get("97200006")?.cnpj === "97200006000199" && soAtivas.matrizPorRaiz?.get("97200006")?.uf === "SP", soAtivas.matrizPorRaiz?.get("97200006")?.cnpj ?? "—");
+    registrar("Linha malformada que CONTÉM o CNAE continua sendo contada", soAtivas.relatorio.linhasMalformadasEstabelecimentos >= 1, String(soAtivas.relatorio.linhasMalformadasEstabelecimentos));
     const resA = await gravarNoBranch(c, { competencia: "2031-01", fonteUrl: "teste://fixture", leitura: leituraA, competenciaAnteriorId: null, competenciaAnteriorStr: null, agente: "teste-integracao" });
     registrar("Gravação A: 3 candidatas novas (Alfa, Beta, Gama)", resA.candidatasCriadas === 3, String(resA.candidatasCriadas));
     registrar("Gravação A: 4 unidades (Alfa tem 2, Beta 1, Gama 1)", resA.unidadesGravadas === 4, String(resA.unidadesGravadas));

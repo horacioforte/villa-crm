@@ -197,19 +197,26 @@ export type RelatorioLeitura = {
 /** Passo 1: lê Estabelecimentos e devolve o conjunto de raízes (cnpjBasico) que batem o filtro de CNAE. */
 export async function passo1ColetarRaizes(
   arquivos: string[],
-  opts: { uf?: string; limite?: number; alvos?: ReadonlySet<string> } = {},
+  opts: { uf?: string; limite?: number; alvos?: ReadonlySet<string>; somenteAtivas?: boolean } = {},
 ): Promise<{ raizes: Set<string>; linhasLidas: number; malformadas: number; noFiltro: number }> {
   const raizes = new Set<string>();
   let linhasLidas = 0, malformadas = 0, noFiltro = 0;
+  const alvos = [...(opts.alvos ?? CNAES_CONCRETO_USINADO)];
   for (const arquivo of arquivos) {
     for await (const linha of linhasDoArquivo(arquivo)) {
       if (opts.limite !== undefined && linhasLidas >= opts.limite) break;
       linhasLidas++;
+      // Pré-filtro (08/10/2026): linha sem nenhum código-alvo nunca passa no filtro de CNAE.
+      // Evita o parse completo de ~73 milhões de linhas. Linhas malformadas descartadas
+      // aqui não são contadas — nenhuma delas poderia ser concreteira.
+      if (!alvos.some(a => linha.includes(a))) continue;
       const r = parseLinhaEstabelecimento(linha);
       if (!r) { malformadas++; continue; }
       if (opts.uf && r.uf.toUpperCase() !== opts.uf.toUpperCase()) continue;
       const secundarios = dividirCnaesSecundarios(r.cnaeFiscalSecundaria);
       if (estabelecimentoNoFiltro(r.cnaeFiscalPrincipal, secundarios, opts.alvos ?? CNAES_CONCRETO_USINADO)) {
+        // --somente-ativas: a raiz só entra se tiver unidade ATIVA (situação 02) com o CNAE-alvo.
+        if (opts.somenteAtivas && r.situacaoCadastral !== "02") continue;
         noFiltro++;
         raizes.add(r.cnpjBasico);
       }
@@ -222,23 +229,36 @@ export async function passo1ColetarRaizes(
 export async function passo2ColetarUnidades(
   arquivos: string[],
   raizes: ReadonlySet<string>,
-  opts: { limite?: number } = {},
-): Promise<{ unidadesPorRaiz: Map<string, UnidadeAgregada[]>; linhasLidas: number; malformadas: number }> {
+  opts: { limite?: number; somenteAtivas?: boolean; alvos?: ReadonlySet<string> } = {},
+): Promise<{ unidadesPorRaiz: Map<string, UnidadeAgregada[]>; linhasLidas: number; malformadas: number; matrizPorRaiz: Map<string, UnidadeAgregada> }> {
   const unidadesPorRaiz = new Map<string, UnidadeAgregada[]>();
+  // 08/10/2026: a MATRIZ de cada raiz é guardada à parte, mesmo quando não entra como unidade
+  // (--somente-ativas), para o cadastro da empresa sempre apontar a matriz verdadeira.
+  const matrizPorRaiz = new Map<string, UnidadeAgregada>();
   let linhasLidas = 0, malformadas = 0;
   for (const arquivo of arquivos) {
     for await (const linha of linhasDoArquivo(arquivo)) {
       if (opts.limite !== undefined && linhasLidas >= opts.limite) break;
       linhasLidas++;
+      // Pré-filtro (08/10/2026): a raiz são os 8 primeiros dígitos da linha (com ou sem aspas).
+      const chave = linha.startsWith('"') ? linha.slice(1, 9) : linha.slice(0, 8);
+      if (!raizes.has(chave)) continue;
       const r = parseLinhaEstabelecimento(linha);
       if (!r) { malformadas++; continue; }
       if (!raizes.has(r.cnpjBasico)) continue;
+      const unidadeLida = construirUnidade(r);
+      if (unidadeLida.isMatriz) matrizPorRaiz.set(r.cnpjBasico, unidadeLida);
+      // --somente-ativas: só unidades ATIVAS que tenham o CNAE-alvo (principal ou secundário).
+      if (opts.somenteAtivas) {
+        if (r.situacaoCadastral !== "02") continue;
+        if (!estabelecimentoNoFiltro(r.cnaeFiscalPrincipal, dividirCnaesSecundarios(r.cnaeFiscalSecundaria), opts.alvos ?? CNAES_CONCRETO_USINADO)) continue;
+      }
       const lista = unidadesPorRaiz.get(r.cnpjBasico) ?? [];
-      lista.push(construirUnidade(r));
+      lista.push(unidadeLida);
       unidadesPorRaiz.set(r.cnpjBasico, lista);
     }
   }
-  return { unidadesPorRaiz, linhasLidas, malformadas };
+  return { unidadesPorRaiz, linhasLidas, malformadas, matrizPorRaiz };
 }
 
 /** Passo 3: lê Empresas e traz razão social, natureza, porte e capital das raízes encontradas. NUNCA lê Sócios. */
@@ -274,10 +294,12 @@ export type ResultadoLeitura = {
   unidadesPorRaiz: Map<string, UnidadeAgregada[]>;
   empresas: Map<string, EmpresaAgregada>;
   relatorio: RelatorioLeitura;
+  /** Matriz de cada raiz (mesmo se não for importada como unidade). Opcional por compatibilidade. */
+  matrizPorRaiz?: Map<string, UnidadeAgregada>;
 };
 
 /** Orquestra os 3 passos sobre uma pasta de competência. Nunca toca em banco. */
-export async function lerCompetencia(pasta: string, opts: { uf?: string; limite?: number } = {}): Promise<ResultadoLeitura> {
+export async function lerCompetencia(pasta: string, opts: { uf?: string; limite?: number; somenteAtivas?: boolean } = {}): Promise<ResultadoLeitura> {
   const t0 = Date.now();
   const arquivosEstab = localizarArquivos(pasta, "Estabelecimentos");
   const arquivosEmp = localizarArquivos(pasta, "Empresas");
@@ -285,7 +307,7 @@ export async function lerCompetencia(pasta: string, opts: { uf?: string; limite?
   if (arquivosEmp.length === 0) throw new Error(`[importar-receita] nenhum arquivo Empresas* encontrado em ${pasta}`);
 
   const p1 = await passo1ColetarRaizes(arquivosEstab, opts);
-  const p2 = await passo2ColetarUnidades(arquivosEstab, p1.raizes, { limite: opts.limite });
+  const p2 = await passo2ColetarUnidades(arquivosEstab, p1.raizes, { limite: opts.limite, somenteAtivas: opts.somenteAtivas });
   const p3 = await passo3ColetarEmpresas(arquivosEmp, p1.raizes, { limite: opts.limite });
 
   const unidadesTotais = [...p2.unidadesPorRaiz.values()].reduce((a, l) => a + l.length, 0);
@@ -300,7 +322,7 @@ export async function lerCompetencia(pasta: string, opts: { uf?: string; limite?
     tempoMs: Date.now() - t0,
     memoriaMaximaMb: Math.round((process.memoryUsage().heapUsed / (1024 * 1024)) * 10) / 10,
   };
-  return { raizes: p1.raizes, unidadesPorRaiz: p2.unidadesPorRaiz, empresas: p3.empresas, relatorio };
+  return { raizes: p1.raizes, unidadesPorRaiz: p2.unidadesPorRaiz, matrizPorRaiz: p2.matrizPorRaiz, empresas: p3.empresas, relatorio };
 }
 
 // ─── Gravação (só quando autorizada — ver main()) ────────────────────────────────────
@@ -515,7 +537,7 @@ async function gravarMudancasLote(c: Client, competenciaId: string, competenciaA
 }
 
 /** Upsert de ConcreteiraCandidata — toca SOMENTE campos originados da Receita. Nunca cria histórico/validação manual. */
-async function upsertCandidata(
+export async function upsertCandidata(
   c: Client,
   cnpjBasico: string,
   unidades: UnidadeAgregada[],
@@ -550,7 +572,7 @@ async function upsertCandidata(
   return { candidataId: id, criada: false };
 }
 
-async function upsertUnidade(c: Client, candidataId: string, u: UnidadeAgregada, competencia: string): Promise<void> {
+export async function upsertUnidade(c: Client, candidataId: string, u: UnidadeAgregada, competencia: string): Promise<void> {
   await c.query(
     `INSERT INTO "ConcreteiraCandidataUnidade"(id,"candidataId",cnpj,"isMatriz","nomeFantasia","situacaoCadastral",ativa,"dataInicioAtividade",
        "cnaePrincipal","cnaesSecundarios","cnaeAlvoComoPrincipal","tipoLogradouro",logradouro,numero,complemento,bairro,cep,
@@ -598,6 +620,104 @@ async function gravarHistoricoSeRelevante(c: Client, candidataId: string, compet
   }
 }
 
+// ─── Gravação em LOTES (08/10/2026) ─────────────────────────────────────────────────
+// Mesmo resultado de upsertCandidata/upsertUnidade/gravarHistoricoSeRelevante (que continuam
+// existindo), mas com centenas de registros por consulta: a latência até o Neon (~180 ms)
+// tornava a gravação linha a linha inviável para ~11 mil empresas.
+
+/** Upsert de várias candidatas numa consulta. Atualiza SOMENTE campos da Receita (nunca validação manual). */
+async function upsertCandidatasLote(
+  c: Client,
+  itens: Array<{ cnpjBasico: string; unidades: UnidadeAgregada[]; empresa: EmpresaAgregada | undefined; matriz?: UnidadeAgregada }>,
+  competencia: string,
+): Promise<Map<string, { candidataId: string; criada: boolean }>> {
+  const res = new Map<string, { candidataId: string; criada: boolean }>();
+  if (itens.length === 0) return res;
+  const linhas: string[] = [];
+  const valores: unknown[] = [];
+  itens.forEach(({ cnpjBasico, unidades, empresa, matriz: matrizReal }, i) => {
+    const matriz = matrizReal ?? unidades.find(u => u.isMatriz) ?? unidades[0];
+    const ativas = unidades.filter(u => u.situacaoCadastral === "02").length;
+    const b = i * 14;
+    linhas.push(`(${Array.from({ length: 14 }, (_, j) => `$${b + j + 1}`).join(",")},now())`);
+    valores.push(
+      `rfb-cand-${cnpjBasico}`, cnpjBasico, matriz?.cnpj ?? null, empresa?.razaoSocial ?? null, matriz?.nomeFantasia ?? null,
+      empresa?.naturezaJuridica ?? null, empresa?.porte ?? null, empresa?.capitalSocial ?? null, matriz?.uf ?? null, matriz?.municipioNome ?? null,
+      unidades.length, ativas, competencia, chaveOrdenacao(empresa?.razaoSocial ?? matriz?.nomeFantasia ?? null),
+    );
+  });
+  const r = await c.query(
+    `INSERT INTO "ConcreteiraCandidata"(id,"cnpjBasico","cnpjMatriz","razaoSocial","nomeFantasia","naturezaJuridica",porte,"capitalSocial","ufMatriz","municipioMatriz",
+       "totalUnidades","totalUnidadesAtivas","primeiraCompetencia","nomeOrdenacao","updatedAt")
+     VALUES ${linhas.join(",")}
+     ON CONFLICT ("cnpjBasico") DO UPDATE SET "cnpjMatriz"=EXCLUDED."cnpjMatriz","razaoSocial"=EXCLUDED."razaoSocial","nomeFantasia"=EXCLUDED."nomeFantasia",
+       "naturezaJuridica"=EXCLUDED."naturezaJuridica",porte=EXCLUDED.porte,"capitalSocial"=EXCLUDED."capitalSocial","ufMatriz"=EXCLUDED."ufMatriz",
+       "municipioMatriz"=EXCLUDED."municipioMatriz","totalUnidades"=EXCLUDED."totalUnidades","totalUnidadesAtivas"=EXCLUDED."totalUnidadesAtivas",
+       "ultimaCompetencia"=$${valores.length + 1},"nomeOrdenacao"=EXCLUDED."nomeOrdenacao","updatedAt"=now()
+     RETURNING id, "cnpjBasico", (xmax = 0) AS criada`,
+    [...valores, competencia],
+  );
+  // ultimaCompetencia das NOVAS: igual à primeira (o INSERT não a preenche; ajusta no mesmo lote).
+  const novas = r.rows.filter(x => x.criada).map(x => x.id as string);
+  if (novas.length) await c.query(`UPDATE "ConcreteiraCandidata" SET "ultimaCompetencia"=$2 WHERE id = ANY($1::text[])`, [novas, competencia]);
+  for (const x of r.rows) res.set(x.cnpjBasico as string, { candidataId: x.id as string, criada: Boolean(x.criada) });
+  return res;
+}
+
+/** Upsert de várias unidades numa consulta (mesmas colunas e regras de upsertUnidade). */
+async function upsertUnidadesLote(c: Client, itens: Array<{ candidataId: string; u: UnidadeAgregada }>, competencia: string): Promise<void> {
+  if (itens.length === 0) return;
+  const linhas: string[] = [];
+  const valores: unknown[] = [];
+  itens.forEach(({ candidataId, u }, i) => {
+    const b = i * 20;
+    linhas.push(Array.from({ length: 20 }, (_, j) => `$${b + j + 1}`).join(","));
+    valores.push(
+      `rfb-uni-${u.cnpj}`, candidataId, u.cnpj, u.isMatriz, u.nomeFantasia, u.situacaoCadastral, u.situacaoCadastral === "02",
+      u.dataInicioAtividade, u.cnaePrincipal, u.cnaesSecundarios, u.cnaeAlvoComoPrincipal, u.tipoLogradouro, u.logradouro, u.numero,
+      u.complemento, u.bairro, u.cep, u.municipioCodigoIbge, u.municipioNome, u.uf,
+    );
+  });
+  const pComp = valores.length + 1;
+  const tuplas = linhas.map(l => `(${l},$${pComp},$${pComp},now())`);
+  await c.query(
+    `INSERT INTO "ConcreteiraCandidataUnidade"(id,"candidataId",cnpj,"isMatriz","nomeFantasia","situacaoCadastral",ativa,"dataInicioAtividade",
+       "cnaePrincipal","cnaesSecundarios","cnaeAlvoComoPrincipal","tipoLogradouro",logradouro,numero,complemento,bairro,cep,
+       "municipioCodigoIbge","municipioNome",uf,"primeiraCompetencia","ultimaCompetencia","updatedAt")
+     VALUES ${tuplas.join(",")}
+     ON CONFLICT (cnpj) DO UPDATE SET
+       "candidataId"=EXCLUDED."candidataId", "isMatriz"=EXCLUDED."isMatriz", "nomeFantasia"=EXCLUDED."nomeFantasia",
+       "situacaoCadastral"=EXCLUDED."situacaoCadastral", ativa=EXCLUDED.ativa, "dataInicioAtividade"=EXCLUDED."dataInicioAtividade",
+       "cnaePrincipal"=EXCLUDED."cnaePrincipal", "cnaesSecundarios"=EXCLUDED."cnaesSecundarios", "cnaeAlvoComoPrincipal"=EXCLUDED."cnaeAlvoComoPrincipal",
+       "tipoLogradouro"=EXCLUDED."tipoLogradouro", logradouro=EXCLUDED.logradouro, numero=EXCLUDED.numero, complemento=EXCLUDED.complemento,
+       bairro=EXCLUDED.bairro, cep=EXCLUDED.cep, "municipioCodigoIbge"=EXCLUDED."municipioCodigoIbge", "municipioNome"=EXCLUDED."municipioNome",
+       uf=EXCLUDED.uf, "ultimaCompetencia"=EXCLUDED."ultimaCompetencia", "updatedAt"=now()`,
+    [...valores, competencia],
+  );
+}
+
+/** Histórico "candidata nova" de várias candidatas numa consulta (ids determinísticos, ON CONFLICT DO NOTHING). */
+async function historicoNovasLote(c: Client, candidataIds: string[], competenciaId: string, agente: string): Promise<void> {
+  if (candidataIds.length === 0) return;
+  const linhas = candidataIds.map((_, i) => `($${i * 2 + 1},$${i * 2 + 2},'PENDENTE','Candidata nova encontrada via importação da Receita Federal.',$${candidataIds.length * 2 + 1},'VALIDACAO','IMPORTACAO_RECEITA')`);
+  const valores = candidataIds.flatMap(id => [`rfb-hist-novo-${id}-${competenciaId}`, id]);
+  await c.query(
+    `INSERT INTO "ConcreteiraValidacaoHistorico"(id,"candidataId","statusNovo",motivo,agente,"tipoEvento",origem) VALUES ${linhas.join(",")} ON CONFLICT (id) DO NOTHING`,
+    [...valores, agente],
+  );
+}
+
+/** Remove CNPJs repetidos dentro da mesma leitura (mantém o último) e devolve quantos foram descartados. */
+export function deduplicarUnidades(unidadesPorRaiz: Map<string, UnidadeAgregada[]>): number {
+  let descartadas = 0;
+  for (const [raiz, lista] of unidadesPorRaiz) {
+    const porCnpj = new Map<string, UnidadeAgregada>();
+    for (const u of lista) { if (porCnpj.has(u.cnpj)) descartadas++; porCnpj.set(u.cnpj, u); }
+    if (porCnpj.size !== lista.length) unidadesPorRaiz.set(raiz, [...porCnpj.values()]);
+  }
+  return descartadas;
+}
+
 export type ResultadoGravacao = {
   competenciaId: string;
   candidatasCriadas: number;
@@ -605,6 +725,8 @@ export type ResultadoGravacao = {
   unidadesGravadas: number;
   estabelecimentosGravados: number;
   mudancasGravadas: number;
+  /** CNPJs repetidos na própria leitura, descartados antes de gravar (v. deduplicarUnidades). */
+  duplicadosDescartados?: number;
 };
 
 /**
@@ -640,27 +762,40 @@ export async function gravarNoBranch(
   }
 
   let estabelecimentosGravados = 0, candidatasCriadas = 0, candidatasAtualizadas = 0, unidadesGravadas = 0;
-  for (const [cnpjBasico, unidades] of params.leitura.unidadesPorRaiz) {
-    const empresa = params.leitura.empresas.get(cnpjBasico);
-    for (let i = 0; i < unidades.length; i += TAMANHO_LOTE) {
-      const lote = unidades.slice(i, i + TAMANHO_LOTE).map(unidade => ({ unidade, empresa }));
-      await gravarEstabelecimentosLote(c, competenciaId, lote);
-      estabelecimentosGravados += lote.length;
+  const duplicadosDescartados = deduplicarUnidades(params.leitura.unidadesPorRaiz);
+  const raizes = [...params.leitura.unidadesPorRaiz.keys()];
+  // 1) Registros da Receita (ReceitaEstabelecimento), em lotes.
+  const todas = raizes.flatMap(r => params.leitura.unidadesPorRaiz.get(r)!.map(unidade => ({ unidade, empresa: params.leitura.empresas.get(r) })));
+  for (let i = 0; i < todas.length; i += TAMANHO_LOTE) {
+    const lote = todas.slice(i, i + TAMANHO_LOTE);
+    await gravarEstabelecimentosLote(c, competenciaId, lote);
+    estabelecimentosGravados += lote.length;
+  }
+  // 2) Candidatas, unidades e histórico, em lotes de raízes.
+  const mudancasPorRaiz = new Map<string, MudancaParaGravar[]>();
+  for (const m of mudancas) mudancasPorRaiz.set(m.cnpjBasico, [...(mudancasPorRaiz.get(m.cnpjBasico) ?? []), m]);
+  for (let i = 0; i < raizes.length; i += TAMANHO_LOTE) {
+    const loteRaizes = raizes.slice(i, i + TAMANHO_LOTE);
+    const ids = await upsertCandidatasLote(c, loteRaizes.map(r => ({ cnpjBasico: r, unidades: params.leitura.unidadesPorRaiz.get(r)!, empresa: params.leitura.empresas.get(r), matriz: params.leitura.matrizPorRaiz?.get(r) })), params.competencia);
+    const unidadesDoLote = loteRaizes.flatMap(r => params.leitura.unidadesPorRaiz.get(r)!.map(u => ({ candidataId: ids.get(r)!.candidataId, u })));
+    for (let j = 0; j < unidadesDoLote.length; j += TAMANHO_LOTE) {
+      await upsertUnidadesLote(c, unidadesDoLote.slice(j, j + TAMANHO_LOTE), params.competencia);
     }
-    const { candidataId, criada } = await upsertCandidata(c, cnpjBasico, unidades, empresa, params.competencia);
-    if (criada) candidatasCriadas++; else candidatasAtualizadas++;
-    for (const u of unidades) {
-      await upsertUnidade(c, candidataId, u, params.competencia);
-      unidadesGravadas++;
+    unidadesGravadas += unidadesDoLote.length;
+    const novas = loteRaizes.filter(r => ids.get(r)!.criada).map(r => ids.get(r)!.candidataId);
+    candidatasCriadas += novas.length;
+    candidatasAtualizadas += loteRaizes.length - novas.length;
+    await historicoNovasLote(c, novas, competenciaId, params.agente);
+    for (const r of loteRaizes) {
+      const mudancasDaRaiz = mudancasPorRaiz.get(r) ?? [];
+      if (mudancasDaRaiz.length) await gravarHistoricoSeRelevante(c, ids.get(r)!.candidataId, competenciaId, false, mudancasDaRaiz, params.agente);
     }
-    const mudancasDaRaiz = mudancas.filter(m => m.cnpjBasico === cnpjBasico);
-    await gravarHistoricoSeRelevante(c, candidataId, competenciaId, criada, mudancasDaRaiz, params.agente);
   }
 
   const totalRegistros = await c.query(`SELECT count(*)::int n FROM "ReceitaEstabelecimento" WHERE "competenciaId" = $1`, [competenciaId]);
   await c.query(`UPDATE "ReceitaCompetencia" SET status='CONCLUIDA', "coletadoEm"=now(), "totalRegistros"=$2, "updatedAt"=now() WHERE id=$1`, [competenciaId, totalRegistros.rows[0].n]);
 
-  return { competenciaId, candidatasCriadas, candidatasAtualizadas, unidadesGravadas, estabelecimentosGravados, mudancasGravadas: mudancas.length };
+  return { competenciaId, candidatasCriadas, candidatasAtualizadas, unidadesGravadas, estabelecimentosGravados, mudancasGravadas: mudancas.length, duplicadosDescartados };
 }
 
 // ─── CLI ──────────────────────────────────────────────────────────────────────────────
@@ -674,6 +809,10 @@ function arg(nome: string): string | undefined {
 async function main() {
   const amostraFicticia = process.argv.includes("--amostra-ficticia");
   const commit = process.argv.includes("--commit");
+  // 08/10/2026 — Horácio autorizou a carga real da opção (b): somente empresas/unidades ATIVAS
+  // com o CNAE-alvo, exclusivamente no branch isolado. A gravação real exige as duas opções.
+  const somenteAtivas = process.argv.includes("--somente-ativas");
+  const realAutorizada = process.argv.includes("--importacao-real-autorizada");
   const competencia = arg("competencia");
   const uf = arg("uf");
   const limiteStr = arg("limite");
@@ -697,7 +836,8 @@ async function main() {
   console.log(`[importar-receita] competência ${competencia} · pasta ${pasta} · modo ${commit ? "COMMIT" : "dry-run"}${amostraFicticia ? " · AMOSTRA FICTÍCIA" : ""}`);
   if (uf) console.log(`[importar-receita] filtro --uf=${uf} (só reduz volume de teste; produção considera o Brasil inteiro)`);
 
-  const leitura = await lerCompetencia(pasta, { uf, limite });
+  const leitura = await lerCompetencia(pasta, { uf, limite, somenteAtivas });
+  if (somenteAtivas) console.log("[importar-receita] --somente-ativas: só unidades ATIVAS (situação 02) com o CNAE-alvo e as empresas que têm ao menos uma delas.");
   const r = leitura.relatorio;
   console.log(`[importar-receita] linhas lidas (Estabelecimentos): ${r.linhasLidasEstabelecimentos} (${r.linhasMalformadasEstabelecimentos} malformadas ignoradas)`);
   console.log(`[importar-receita] estabelecimentos no filtro: ${r.estabelecimentosNoFiltro} · raízes: ${r.raizesEncontradas} · unidades totais: ${r.unidadesTotais}`);
@@ -708,8 +848,8 @@ async function main() {
     console.log("[importar-receita] dry-run: nada foi gravado no banco (nenhuma conexão aberta).");
     return;
   }
-  if (!amostraFicticia) {
-    throw new Error("[importar-receita] BLOQUEADO: importação real exige autorização do Horácio. Use --amostra-ficticia para testar a gravação.");
+  if (!amostraFicticia && !(realAutorizada && somenteAtivas)) {
+    throw new Error("[importar-receita] BLOQUEADO: importação real exige autorização do Horácio (--importacao-real-autorizada, válida só com --somente-ativas). Use --amostra-ficticia para testar a gravação.");
   }
 
   const amb = carregarAmbienteIsolado();
@@ -726,14 +866,14 @@ async function main() {
     const anterior = anteriorStr ? await c.query(`SELECT id FROM "ReceitaCompetencia" WHERE competencia = $1`, [anteriorStr]) : null;
     const resultado = await gravarNoBranch(c, {
       competencia,
-      fonteUrl: amostraFicticia ? "amostra-ficticia://sem-fonte-real" : `https://arquivos.receitafederal.gov.br (${competencia})`,
+      fonteUrl: amostraFicticia ? "amostra-ficticia://sem-fonte-real" : `https://arquivos.receitafederal.gov.br/index.php/s/YggdBLfdninEJX9 (Dados Abertos CNPJ ${competencia}${somenteAtivas ? "; somente ativas com CNAE 2330-3/05" : ""})`,
       leitura,
       competenciaAnteriorId: anterior?.rows[0]?.id ?? null,
       competenciaAnteriorStr: anterior ? anteriorStr : null,
       agente: "importar-receita",
     });
     await c.query("COMMIT");
-    console.log(`[importar-receita] gravado: ${resultado.candidatasCriadas} candidatas novas, ${resultado.candidatasAtualizadas} atualizadas, ${resultado.unidadesGravadas} unidades, ${resultado.estabelecimentosGravados} registros da Receita, ${resultado.mudancasGravadas} mudanças.`);
+    console.log(`[importar-receita] gravado: ${resultado.candidatasCriadas} candidatas novas, ${resultado.candidatasAtualizadas} atualizadas, ${resultado.unidadesGravadas} unidades, ${resultado.estabelecimentosGravados} registros da Receita, ${resultado.mudancasGravadas} mudanças, ${resultado.duplicadosDescartados ?? 0} CNPJs repetidos descartados.`);
   } catch (e) {
     await c.query("ROLLBACK").catch(() => undefined);
     throw e;

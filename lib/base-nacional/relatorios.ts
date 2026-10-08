@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import type { ReportColumn } from "@/lib/relatorios/export";
 import { formatarCnpj } from "./cnpj";
 import type { linhasParaExportar } from "./consulta";
-import { descreverFiltros, tipoRelatorio, type FiltrosBase } from "./filtros";
+import { classeReceitaDe, descreverFiltros, tipoRelatorio, type FiltrosBase } from "./filtros";
 import {
   CONFIANCA_LABEL,
   EQUIPAMENTO_LABEL,
@@ -36,6 +36,7 @@ export const colunasRelatorio: ReportColumn<Linha>[] = [
   { header: "Situação", value: l => STATUS_LABEL[l.statusValidacao as StatusValidacao] },
   { header: "Confiança", value: l => (l.confianca ? CONFIANCA_LABEL[l.confianca as Confianca] : null) },
   { header: "Evidências", value: l => l._count.evidencias },
+  { header: "Prioridade Receita", value: l => ({ A: "A — CNAE principal", B: "B — CNAE secundário (a validar)" } as Record<string, string>)[classeReceitaDe(l.unidades) ?? ""] ?? "Sem unidade ativa" },
   { header: "Prioridade", value: l => (l.prioridadeComercial ? PRIORIDADE_LABEL[l.prioridadeComercial as Prioridade] : null) },
   {
     header: "Potencial de venda",

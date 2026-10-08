@@ -4,8 +4,9 @@ import { descreverFiltros, lerFiltros, lerPaginacao, montarWhere, querystring, t
 describe("base-nacional/filtros", () => {
   it("lê e higieniza filtros da URL", () => {
     const f = lerFiltros({ uf: "pe", cidade: " Recife ", status: "CONFIRMADA", tipoUnidade: "XX", confianca: "ALTA", segmento: "Concreteira", busca: "  alfa " });
-    expect(f).toEqual({ uf: "PE", cidade: "Recife", status: "CONFIRMADA", tipoUnidade: undefined, confianca: "ALTA", segmento: "concreteira", busca: "alfa" });
-    expect(lerFiltros({ uf: "Pernambuco", status: "DROP TABLE" })).toEqual({ uf: undefined, cidade: undefined, status: undefined, tipoUnidade: undefined, confianca: undefined, segmento: undefined, busca: undefined });
+    // 08/10/2026: situacaoReceita tem padrão "ativas" (a tela abre só com empresas ativas na Receita).
+    expect(f).toEqual({ uf: "PE", cidade: "Recife", status: "CONFIRMADA", tipoUnidade: undefined, confianca: "ALTA", segmento: "concreteira", busca: "alfa", situacaoReceita: "ativas" });
+    expect(lerFiltros({ uf: "Pernambuco", status: "DROP TABLE" })).toEqual({ uf: undefined, cidade: undefined, status: undefined, tipoUnidade: undefined, confianca: undefined, segmento: undefined, busca: undefined, situacaoReceita: "ativas" });
   });
 
   it("paginação aceita só tamanhos permitidos e página positiva", () => {
@@ -48,5 +49,34 @@ describe("base-nacional/filtros", () => {
     expect(tipoRelatorio({ uf: "PE" })).toBe("UF");
     expect(tipoRelatorio({ uf: "PE", cidade: "Recife" })).toBe("CIDADE");
     expect(tipoRelatorio({ status: "PENDENTE" })).toBe("STATUS");
+  });
+});
+
+// ═══ 08/10/2026 — Prioridade A/B e situação na Receita ═══════════════════════
+import { classeReceitaDe, temFiltroAtivo, WHERE_CLASSE_A, WHERE_CLASSE_B } from "./filtros";
+
+describe("base-nacional/filtros — Receita", () => {
+  it("abre por padrão só nas ativas e aceita todas/inativas", () => {
+    expect(lerFiltros({}).situacaoReceita).toBe("ativas");
+    expect(lerFiltros({ situacaoReceita: "todas" }).situacaoReceita).toBe("todas");
+    expect(lerFiltros({ situacaoReceita: "xyz" }).situacaoReceita).toBe("ativas");
+    expect(montarWhere({ situacaoReceita: "ativas" })).toEqual({ AND: [{ unidades: { some: { ativa: true } } }] });
+    expect(montarWhere({ situacaoReceita: "inativas" })).toEqual({ AND: [{ unidades: { none: { ativa: true } } }] });
+    expect(montarWhere({ situacaoReceita: "todas" })).toEqual({});
+  });
+  it("o padrão 'ativas' não conta como filtro escolhido", () => {
+    expect(temFiltroAtivo(lerFiltros({}))).toBe(false);
+    expect(temFiltroAtivo(lerFiltros({ classeReceita: "B" }))).toBe(true);
+  });
+  it("classes A/B", () => {
+    expect(lerFiltros({ classeReceita: "A" }).classeReceita).toBe("A");
+    expect(lerFiltros({ classeReceita: "C" }).classeReceita).toBeUndefined();
+    expect(montarWhere({ classeReceita: "A" })).toEqual({ AND: [WHERE_CLASSE_A] });
+    expect(montarWhere({ classeReceita: "B" })).toEqual({ AND: [WHERE_CLASSE_B] });
+    expect(classeReceitaDe([{ ativa: true, cnaeAlvoComoPrincipal: true }])).toBe("A");
+    expect(classeReceitaDe([{ ativa: true, cnaeAlvoComoPrincipal: false, cnaesSecundarios: ["2330305"] }])).toBe("B");
+    // principal só em unidade INATIVA + secundário ativo → B (não é A)
+    expect(classeReceitaDe([{ ativa: false, cnaeAlvoComoPrincipal: true }, { ativa: true, cnaeAlvoComoPrincipal: false, cnaesSecundarios: ["2330305"] }])).toBe("B");
+    expect(classeReceitaDe([{ ativa: false, cnaeAlvoComoPrincipal: true }])).toBeNull();
   });
 });

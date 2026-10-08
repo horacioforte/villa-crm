@@ -28,6 +28,7 @@ import {
 import { classificarLink, descreverCnae, descreverMudanca, descreverNatureza, descreverPorte } from "@/lib/base-nacional/receita-tabelas";
 import { cn } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth/session";
+import { classeReceitaDe } from "@/lib/base-nacional/filtros";
 import { rotuloCampoHistorico, traduzirCodigos, valoresHistorico } from "@/lib/base-nacional/historico";
 import { podeValidar } from "@/lib/base-nacional/validacao";
 import { formatarTelefone, linkContato } from "@/lib/base-nacional/contatos";
@@ -97,6 +98,8 @@ export default async function FichaCandidataPage({ params }: { params: Promise<{
   if (!dados) notFound();
   const { c, registrosReceita, competencias, mudancas, correspondencias } = dados;
   const matriz = c.unidades.find(u => u.isMatriz);
+  const classeReceita = classeReceitaDe(c.unidades);
+  const origemReceita = c.id.startsWith("rfb-cand-");
   const usuario = await getCurrentUser();
   const pode = podeValidar(usuario?.papel);
   const rotuloUnidade = (u: { cnpj: string; municipioNome: string | null; uf: string | null; isMatriz?: boolean; tipoUnidade?: string }) =>
@@ -142,6 +145,24 @@ export default async function FichaCandidataPage({ params }: { params: Promise<{
             )}
           </div>
         </div>
+        {classeReceita === "A" && (
+          <p className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-[11px] text-indigo-800">
+            <b>Prioridade A</b> — tem unidade ativa com o CNAE 2330-3/05 (fabricação de concreto usinado) como atividade <b>principal</b> na Receita Federal.
+            Ainda precisa de validação manual para ser confirmada.
+          </p>
+        )}
+        {classeReceita === "B" && (
+          <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-800">
+            <b>Prioridade B — candidata a validar.</b> O CNAE 2330-3/05 aparece só como atividade <b>secundária</b>.
+            Isso <b>não confirma</b> que a empresa seja concreteira: verifique antes de qualquer abordagem.
+          </p>
+        )}
+        {origemReceita && (
+          <p className="mt-2 text-[10px] text-slate-400">
+            Origem: Dados Abertos do CNPJ — Receita Federal · competência {c.primeiraCompetencia ?? "—"}
+            {c.ultimaCompetencia && c.ultimaCompetencia !== c.primeiraCompetencia ? ` a ${c.ultimaCompetencia}` : ""}
+          </p>
+        )}
         <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
           <Info className="h-3.5 w-3.5 flex-shrink-0" />
           {pode
@@ -192,7 +213,14 @@ export default async function FichaCandidataPage({ params }: { params: Promise<{
                           {pode && <div><EditorTipoUnidade candidataId={c.id} unidadeId={u.id} tipoAtual={u.tipoUnidade} /></div>}
                         </td>
                         <td className="pr-2">{u.ativa ? "Ativa" : (SITUACAO_RECEITA_LABEL[u.situacaoCadastral] ?? u.situacaoCadastral)}</td>
-                        <td className="pr-2 py-1"><Cnae codigo={u.cnaePrincipal} /></td>
+                        <td className="pr-2 py-1">
+                          <Cnae codigo={u.cnaePrincipal} />
+                          {!u.cnaeAlvoComoPrincipal && u.cnaesSecundarios.includes("2330305") && (
+                            <span className="mt-0.5 block w-fit rounded border border-sky-200 bg-sky-50 px-1 py-0.5 text-[10px] text-sky-700" title="Atividade secundária: não confirma que seja concreteira">
+                              + 2330-3/05 como secundário
+                            </span>
+                          )}
+                        </td>
                         <td className="pr-2 text-slate-500">{[u.logradouro, u.numero, u.bairro].filter(Boolean).join(", ") || "—"}</td>
                         <td>{[u.municipioNome, u.uf].filter(Boolean).join(" / ")}</td>
                       </tr>

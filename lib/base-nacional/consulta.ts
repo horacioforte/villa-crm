@@ -6,7 +6,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { normalizarNomeEmpresa } from "./cnpj";
-import { montarWhere, type FiltrosBase } from "./filtros";
+import { montarWhere, type FiltrosBase, WHERE_CLASSE_A, WHERE_CLASSE_B } from "./filtros";
 import { GRUPO_DESCARTADO, GRUPO_EM_ANALISE } from "./rotulos";
 import { LIMITE_ORDENACAO_ACENTOS, ordenarParaRelatorio, ordenarPorNome } from "./ordenacao";
 
@@ -20,6 +20,12 @@ export async function contarResumo() {
     emAnalise: soma(GRUPO_EM_ANALISE),
     descartadas: soma(GRUPO_DESCARTADO),
     semAnalise: por.PENDENTE ?? 0,
+    // 08/10/2026 — classificação pela Receita (só empresas com unidade ativa); consultas em paralelo
+    ...(await Promise.all([
+      prisma.concreteiraCandidata.count({ where: WHERE_CLASSE_A }),
+      prisma.concreteiraCandidata.count({ where: WHERE_CLASSE_B }),
+      prisma.concreteiraCandidata.count({ where: { unidades: { none: { ativa: true } } } }),
+    ]).then(([classeA, classeB, semUnidadeAtiva]) => ({ classeA, classeB, semUnidadeAtiva }))),
   };
 }
 
@@ -64,6 +70,8 @@ const selectLinha = {
   totalUnidades: true,
   totalUnidadesAtivas: true,
   prioridadeComercial: true,
+  // 08/10/2026: unidades ativas com o CNAE (para a Prioridade A/B da Receita)
+  unidades: { where: { ativa: true }, select: { ativa: true, cnaeAlvoComoPrincipal: true, cnaesSecundarios: true } },
   potenciais: { where: { potencialVenda: { in: ["ALTO", "MEDIO"] as Array<"ALTO" | "MEDIO"> } }, select: { equipamento: true, potencialVenda: true } },
   empresa: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
   _count: { select: { evidencias: true, unidades: true } },

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Building2, FileSpreadsheet, FileText, Printer, Search, X } from "lucide-react";
 import { contarResumo, listarCandidatas, opcoesFiltro } from "@/lib/base-nacional/consulta";
 import { formatarCnpj } from "@/lib/base-nacional/cnpj";
-import { lerFiltros, lerPaginacao, querystring, totalPaginas, TAMANHOS_PAGINA } from "@/lib/base-nacional/filtros";
+import { classeReceitaDe, lerFiltros, lerPaginacao, querystring, temFiltroAtivo, totalPaginas, TAMANHOS_PAGINA } from "@/lib/base-nacional/filtros";
 import {
   CONFIANCAS,
   CONFIANCA_COR,
@@ -58,7 +58,7 @@ export default async function BaseNacionalPage({
     listarCandidatas(filtros, pagina, porPagina),
   ]);
   const paginas = totalPaginas(total, porPagina);
-  const temFiltro = Object.values(filtros).some(Boolean);
+  const temFiltro = temFiltroAtivo(filtros);
   const qsFiltros = querystring(filtros);
 
   const kpis = [
@@ -67,6 +67,9 @@ export default async function BaseNacionalPage({
     { label: "Em análise", valor: resumo.emAnalise, cor: "text-amber-700", bg: "bg-amber-50 border-amber-100" },
     { label: "Descartadas", valor: resumo.descartadas, cor: "text-red-700", bg: "bg-red-50 border-red-100" },
     { label: "Sem análise", valor: resumo.semAnalise, cor: "text-slate-600", bg: "bg-white border-slate-200" },
+    // 08/10/2026 — classificação pela Receita Federal
+    { label: "Prioridade A · CNAE principal", valor: resumo.classeA, cor: "text-indigo-700", bg: "bg-indigo-50 border-indigo-100" },
+    { label: "Prioridade B · CNAE secundário (a validar)", valor: resumo.classeB, cor: "text-sky-700", bg: "bg-sky-50 border-sky-100" },
   ];
 
   const selectCls = "h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-indigo-300 focus:outline-none";
@@ -94,7 +97,7 @@ export default async function BaseNacionalPage({
             </a>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
           {kpis.map(k => (
             <div key={k.label} className={cn("rounded-lg border px-3 py-2", k.bg)}>
               <p className={cn("text-lg font-semibold", k.cor)}>{k.valor.toLocaleString("pt-BR")}</p>
@@ -106,7 +109,7 @@ export default async function BaseNacionalPage({
 
       {/* Filtros (GET — sem gravação) */}
       <form method="get" action={BASE} className="flex-shrink-0 border-b border-slate-100 bg-white px-4 py-3 sm:px-6">
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
           <div className="col-span-2 relative">
             <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
             <input name="busca" defaultValue={filtros.busca ?? ""} placeholder="Razão social, fantasia, CNPJ ou município" className={cn(selectCls, "pl-8")} />
@@ -131,6 +134,16 @@ export default async function BaseNacionalPage({
           <select name="segmento" defaultValue={filtros.segmento ?? ""} className={selectCls} aria-label="Segmento">
             <option value="">Todos os segmentos</option>
             {opcoes.segmentos.map(s => <option key={s.slug} value={s.slug}>{s.nome}</option>)}
+          </select>
+          <select name="classeReceita" defaultValue={filtros.classeReceita ?? ""} className={selectCls} aria-label="Prioridade da Receita">
+            <option value="">Prioridade A e B</option>
+            <option value="A">Prioridade A · CNAE principal</option>
+            <option value="B">Prioridade B · CNAE secundário (a validar)</option>
+          </select>
+          <select name="situacaoReceita" defaultValue={filtros.situacaoReceita ?? "ativas"} className={selectCls} aria-label="Situação na Receita">
+            <option value="ativas">Somente ativas na Receita</option>
+            <option value="todas">Ativas, inativas e baixadas</option>
+            <option value="inativas">Somente inativas/baixadas</option>
           </select>
           <select name="prioridade" defaultValue={filtros.prioridade ?? ""} className={selectCls} aria-label="Prioridade comercial">
             <option value="">Qualquer prioridade</option>
@@ -191,6 +204,12 @@ export default async function BaseNacionalPage({
                   <tr key={l.id} className="hover:bg-indigo-50/40">
                     <td className="px-3 py-2 font-medium text-slate-800">
                       <Link href={`${BASE}/${l.id}`} className="hover:text-indigo-700 hover:underline">{l.razaoSocial ?? "(sem razão social)"}</Link>
+                      {(() => {
+                        const classe = classeReceitaDe(l.unidades);
+                        if (classe === "A") return <span className="mt-0.5 block w-fit rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white" title="Unidade ativa com CNAE 2330-3/05 como atividade principal">A · CNAE principal</span>;
+                        if (classe === "B") return <span className="mt-0.5 block w-fit rounded border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700" title="CNAE 2330-3/05 só como atividade secundária: NÃO confirma que seja concreteira">B · CNAE secundário — a validar</span>;
+                        return <span className="mt-0.5 block w-fit rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-500">Sem unidade ativa</span>;
+                      })()}
                     </td>
                     <td className="px-3 py-2 text-slate-600">{l.nomeFantasia ?? "—"}</td>
                     <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">{formatarCnpj(l.cnpjMatriz) ?? `${l.cnpjBasico}…`}</td>

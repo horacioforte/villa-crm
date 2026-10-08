@@ -274,6 +274,9 @@ model Usuario {
   pessoasCandidataInativadas     ConcreteiraCandidataPessoa[]      @relation("PessoaCandidataInativadoPor")
   pessoasCandidataRegistradas    ConcreteiraCandidataPessoa[]      @relation("PessoaCandidataRegistradoPor")
   potenciaisEquipamentoAvaliados ConcreteiraPotencialEquipamento[] @relation("PotencialEquipamentoAvaliadoPor")
+  // v5 (08/10/2026) — relações virtuais, sem coluna nova em Usuario. Nunca remover.
+  triagensEmRevisao              ConcreteiraTriagem[]              @relation("TriagemEmRevisaoPor")
+  triagensConcluidas             ConcreteiraTriagem[]              @relation("TriagemConcluidaPor")
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -2302,6 +2305,9 @@ model ConcreteiraCandidata {
   contatos   ConcreteiraCandidataContato[]
   pessoas    ConcreteiraCandidataPessoa[]
   potenciais ConcreteiraPotencialEquipamento[]
+  triagem    ConcreteiraTriagem? // v5
+  vinculosOrigem  ConcreteiraVinculo[] @relation("VinculoOrigem") // v5
+  vinculosDestino ConcreteiraVinculo[] @relation("VinculoDestino") // v5
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2521,6 +2527,8 @@ enum TipoEventoBaseNacional {
   POTENCIAL_EQUIPAMENTO
   QUALIFICACAO
   OUTRO
+  TRIAGEM // v5
+  FILA_VERIFICACAO // v5
 }
 
 enum OrigemAcaoBaseNacional {
@@ -2528,6 +2536,8 @@ enum OrigemAcaoBaseNacional {
   IMPORTACAO_RECEITA
   SCRIPT_DEMONSTRACAO
   NAO_INFORMADA
+  ROBO_GRATUITO // v5
+  FILA_VERIFICACAO // v5
 }
 
 enum TipoContatoCandidata {
@@ -2683,4 +2693,89 @@ model ConcreteiraPotencialEquipamento {
   @@index([unidadeId])
   @@index([equipamento, potencialVenda])
   @@index([evidenciaId])
+}
+
+// ============================================================================
+// v5 (08/10/2026) — Base Nacional: robô gratuito + fila de verificação humana.
+// Só tabelas novas. REGRA: nunca remover. Apenas acrescentar.
+// ============================================================================
+
+enum SituacaoFilaVerificacao {
+  AGUARDANDO
+  CONCLUIDA
+  DISPENSADA_TRIAGEM
+}
+
+enum TipoVinculoCandidata {
+  TELEFONE
+  EMAIL
+  DOMINIO
+  ENDERECO
+  RAIZ_CNPJ
+}
+
+/// Resultado da triagem automática (sem pesquisa web) e situação na fila de verificação humana.
+model ConcreteiraTriagem {
+  candidataId       String                  @id
+  candidata         ConcreteiraCandidata    @relation(fields: [candidataId], references: [id], onDelete: Restrict)
+  versaoRegra       String
+  classificacao     String
+  sinais            String[]                @default([])
+  pontuacao         Int                     @default(0)
+  uf                String?                 @db.Char(2)
+  municipio         String?
+  interior          Boolean                 @default(false)
+  prioridadeReceita String?                 @db.Char(1)
+  situacaoFila      SituacaoFilaVerificacao @default(AGUARDANDO)
+  motivoFila        String?
+  sugestaoRobo      String?
+  potencialCompra   NivelPotencial          @default(DESCONHECIDO)
+  emRevisaoPorId    String?
+  emRevisaoPor      Usuario?                @relation("TriagemEmRevisaoPor", fields: [emRevisaoPorId], references: [id], onDelete: SetNull)
+  emRevisaoDesde    DateTime?
+  concluidaPorId    String?
+  concluidaPor      Usuario?                @relation("TriagemConcluidaPor", fields: [concluidaPorId], references: [id], onDelete: SetNull)
+  concluidaEm       DateTime?
+  roboExecutadoEm   DateTime?
+  roboResumo        Json?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @default(now()) @updatedAt
+
+  @@index([uf, situacaoFila])
+  @@index([situacaoFila, pontuacao])
+}
+
+/// Vínculo entre duas candidatas encontrado pelo robô (mesmo telefone, e-mail, domínio, endereço ou raiz).
+/// Só registra a relação; nunca copia classificação de uma candidata para outra.
+model ConcreteiraVinculo {
+  id                     String               @id
+  candidataId            String
+  candidata              ConcreteiraCandidata @relation("VinculoOrigem", fields: [candidataId], references: [id], onDelete: Restrict)
+  candidataRelacionadaId String
+  candidataRelacionada   ConcreteiraCandidata @relation("VinculoDestino", fields: [candidataRelacionadaId], references: [id], onDelete: Restrict)
+  tipo                   TipoVinculoCandidata
+  chaveMascarada         String
+  forca                  String               @default("MEDIA")
+  agente                 String               @default("robo-gratuito")
+  createdAt              DateTime             @default(now())
+
+  @@unique([candidataId, candidataRelacionadaId, tipo], map: "ConcreteiraVinculo_par_tipo_key")
+  @@index([candidataId])
+}
+
+/// Cache das páginas públicas visitadas pelo robô (respeita robots.txt; não repete a mesma URL).
+model ConcreteiraRoboCache {
+  url              String   @id
+  dominio          String
+  permitidoRobots  Boolean
+  statusHttp       Int?
+  erro             String?
+  termosConcreto   String[] @default([])
+  termosOutros     String[] @default([])
+  cnpjsEncontrados String[] @default([])
+  trechos          Json?
+  titulo           String?
+  buscadoEm        DateTime @default(now())
+
+  @@index([dominio])
 }

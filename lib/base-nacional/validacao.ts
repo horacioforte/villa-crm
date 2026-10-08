@@ -23,6 +23,8 @@ export const TABELAS_PERMITIDAS = [
   "ConcreteiraCandidataContato",
   "ConcreteiraCandidataPessoa",
   "ConcreteiraPotencialEquipamento",
+  // v5 (08/10/2026) — fila de verificação humana (chave = candidataId)
+  "ConcreteiraTriagem",
 ] as const;
 export type TabelaPermitida = (typeof TABELAS_PERMITIDAS)[number];
 

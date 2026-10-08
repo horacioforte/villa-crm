@@ -40,6 +40,11 @@ export async function executarPlano(operacoes: Operacao[]): Promise<void> {
       ConcreteiraCandidataContato: tx.concreteiraCandidataContato as unknown as Delegate,
       ConcreteiraCandidataPessoa: tx.concreteiraCandidataPessoa as unknown as Delegate,
       ConcreteiraPotencialEquipamento: tx.concreteiraPotencialEquipamento as unknown as Delegate,
+      // v5: a fila usa candidataId como chave; o "id" da operação é o id da candidata.
+      ConcreteiraTriagem: {
+        create: args => tx.concreteiraTriagem.create(args as never),
+        update: args => tx.concreteiraTriagem.update({ where: { candidataId: args.where.id }, data: args.data as never }),
+      },
     };
     for (const op of operacoes) {
       const d = mapa[op.tabela];

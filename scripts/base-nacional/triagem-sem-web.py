@@ -41,6 +41,9 @@ KW_PREMOLD = re.compile(r"\b(PRE ?MOLDAD\w*|PREMOLDAD\w*|ARTEFATO\w*|BLOCO\w*|LA
 KW_CONSTR = re.compile(r"\b(CONSTRU\w*|ENGENHARIA|INCORPORA\w*|EDIFICA\w*|OBRAS?|EMPREENDIMENTO\w*|PROJETO\w*|ARQUITETURA)\b")
 KW_LOJA = re.compile(r"\b(MATERIA\w* DE CONSTRUCAO|MAT CONSTRUCAO|MADEIREIRA|DEPOSITO|HOME CENTER|FERRAGENS?|VIDRACARIA)\b")
 KW_FORTE = re.compile(r"\b(CONCRETEIRA|CONCRETAGEM|CONCREMIX|USINA DE CONCRETO|BETONEIRA\w*|BOMBEAMENTO)\b")
+# v2 auditoria 08/10/2026: frases copiadas da descrição do CNAE 2330-3/05 ("preparação de massa de concreto")
+# faziam "MASSA" disparar argamassa em concreteiras reais (Lè Mix). Removidas antes dos testes.
+FRASE_CNAE = re.compile(r"\b(PREPARACAO DE MASSAS? DE CONCRETO( E ARGAMASSA)?( PARA CONSTRUCAO)?|MASSAS? DE CONCRETO|PREPARACAO DE MASSAS?)\b")
 NAO_CONC = re.compile(r"\b(ARTEFATOS?|BLOCOS?|PRE ?MOLDADOS?|PISOS?|LAJES?|TUBOS?) DE CONCRETO\b")
 KW_TRANSP = re.compile(r"\b(TRANSPORT\w*|LOGISTIC\w*|FRETE\w*|CARGAS?)\b")
 
@@ -62,6 +65,7 @@ def triar(x, uf):
     sec = set(); [sec.update(u.get("sec") or []) for u in units]
     A = any(u.get("alvo") for u in units)
     sinais = []
+    nome = FRASE_CNAE.sub(' ', nome)
     nome_c = NAO_CONC.sub(' ', nome); forte = bool(KW_FORTE.search(nome_c))
     conc = bool(KW_CONCRETO.search(nome_c)) or forte; arg = bool(KW_ARGAMASSA.search(nome))
     pre = bool(KW_PREMOLD.search(nome)); con = bool(KW_CONSTR.search(nome))
@@ -92,6 +96,10 @@ def triar(x, uf):
         cl = "FORTE_INDICIO_CONCRETEIRA" if conc else "POSSIVEL_CONCRETEIRA"
     elif conc and not arg:
         cl = "POSSIVEL_CONCRETEIRA"
+    elif conc and arg:
+        cl = "POSSIVEL_CONCRETEIRA"; sinais.append("v2: nome mistura concreto e argamassa → pesquisar")
+    elif A and arg and not any(p in ARGAM_CNAE for p in princ):
+        cl = "POSSIVEL_CONCRETEIRA"; sinais.append("v2: CNAE principal 2330-3/05 com nome de argamassa → pesquisar")
     elif p_cim:
         cl = "PROVAVEL_NAO_CONCRETEIRA"; sinais.append("perfil cimenteira")
     elif arg or (p_arg and not conc):

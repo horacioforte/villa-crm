@@ -92,6 +92,10 @@ export default async function BaseNacionalPage({
             <a href={`/api/base-nacional/relatorio${querystring(filtros, { formato: "pdf" })}`} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
               <FileText className="h-3.5 w-3.5 text-red-600" /> PDF
             </a>
+            {/* v5 (08/10/2026): fila de verificação humana + robô gratuito */}
+            <Link href={`${BASE}/fila`} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
+              Fila de verificação
+            </Link>
             <a href={`${BASE}/imprimir${qsFiltros}`} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
               <Printer className="h-3.5 w-3.5 text-indigo-600" /> Imprimir
             </a>

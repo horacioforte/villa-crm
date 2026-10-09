@@ -91,6 +91,13 @@ export const TERMOS_CONCRETO = [
   "caminhao betoneira", "caminhoes betoneira", "autobetoneira", "fornecimento de concreto", "concreto bombeado",
   "concreto convencional", "concreto estrutural", "fck",
 ];
+/** v5.1 (09/10/2026): só estes termos indicam PRODUÇÃO/FORNECIMENTO de concreto. Os demais
+ * ("concreto estrutural", "concretagem", "fck"...) aparecem em sites de construtoras e viram só indício fraco. */
+export const TERMOS_CONCRETO_FORTES = new Set([
+  "concreto usinado", "concretos usinados", "usina de concreto", "central de concreto", "centrais de concreto", "concreteira",
+  "bombeamento de concreto", "bomba de concreto", "bombas de concreto", "caminhao betoneira", "caminhoes betoneira", "autobetoneira",
+  "fornecimento de concreto",
+]);
 /** Indícios de outra atividade (sozinhos NÃO bastam para dizer que não é concreteira). */
 export const TERMOS_OUTROS = [
   "argamassa", "gesso", "drywall", "pre-moldado", "pre moldado", "premoldado", "artefatos de cimento", "bloco de concreto",
@@ -160,12 +167,13 @@ export function linksInternosRelevantes(base: URL, links: Array<{ href: string; 
 
 /**
  * Conclusão do robô sobre o site (nunca confirma; nunca decide "não é" por ausência):
- * - CONCRETO_NO_SITE: o site próprio cita produção/fornecimento de concreto;
+ * - CONCRETO_NO_SITE: o site próprio cita produção/fornecimento de concreto (termos fortes);
+ * - CONCRETO_FRACO_NO_SITE: só termos genéricos ("concreto estrutural", "concretagem") — não muda a situação;
  * - OUTRA_ATIVIDADE_NO_SITE: o site existe, não cita concreto e mostra outra atividade;
  * - SITE_DE_TERCEIRO: o domínio parece ser de contador/terceiro (CNPJ de outra raiz ou termos de contabilidade);
  * - SEM_CONCLUSAO: inacessível, bloqueado ou sem termos.
  */
-export type ConclusaoSite = "CONCRETO_NO_SITE" | "OUTRA_ATIVIDADE_NO_SITE" | "SITE_DE_TERCEIRO" | "SEM_CONCLUSAO";
+export type ConclusaoSite = "CONCRETO_NO_SITE" | "CONCRETO_FRACO_NO_SITE" | "OUTRA_ATIVIDADE_NO_SITE" | "SITE_DE_TERCEIRO" | "SEM_CONCLUSAO";
 export function concluirSite(args: { raiz: string; paginas: AnalisePagina[]; algumaLida: boolean }): { conclusao: ConclusaoSite; cnpjConfere: boolean } {
   const cnpjs = new Set(args.paginas.flatMap(p => p.cnpjs));
   const cnpjConfere = [...cnpjs].some(c => c.startsWith(args.raiz));
@@ -176,7 +184,8 @@ export function concluirSite(args: { raiz: string; paginas: AnalisePagina[]; alg
   const pareceContador = outros.has("contabilidade") || outros.has("escritorio de contabilidade") || outros.has("contabil");
   if (!cnpjConfere && (outrosCnpjs.length > 0 && pareceContador)) return { conclusao: "SITE_DE_TERCEIRO", cnpjConfere };
   if (!cnpjConfere && pareceContador && concreto.size === 0) return { conclusao: "SITE_DE_TERCEIRO", cnpjConfere };
-  if (concreto.size > 0) return { conclusao: "CONCRETO_NO_SITE", cnpjConfere };
+  if ([...concreto].some(t => TERMOS_CONCRETO_FORTES.has(t))) return { conclusao: "CONCRETO_NO_SITE", cnpjConfere };
+  if (concreto.size > 0) return { conclusao: "CONCRETO_FRACO_NO_SITE", cnpjConfere }; // v5.1: só indício (ex.: construtora)
   if (outros.size > 0) return { conclusao: "OUTRA_ATIVIDADE_NO_SITE", cnpjConfere };
   return { conclusao: "SEM_CONCLUSAO", cnpjConfere };
 }

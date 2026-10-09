@@ -13,7 +13,7 @@
 import { createHash } from "node:crypto";
 import type { PrismaClient } from "../../../app/generated/prisma/client";
 import { triar, VERSAO_TRIAGEM, CLASSE_TRIAGEM_LABEL, LOCACAO_CNAE, type ResultadoTriagem } from "../triagem";
-import { analisarTexto, concluirSite, dominioDeEmail, lerPagina, linksInternosRelevantes, type AnalisePagina, type ConclusaoSite } from "./site";
+import { TERMOS_CONCRETO_FORTES, analisarTexto, concluirSite, dominioDeEmail, lerPagina, linksInternosRelevantes, type AnalisePagina, type ConclusaoSite } from "./site";
 import { encontrarVinculos, type ContatoReceita, type VinculoEncontrado } from "./vinculos";
 
 export const AGENTE_ROBO = "robo-gratuito";
@@ -212,7 +212,8 @@ export async function executarRobo(o: OpcoesRobo): Promise<ResumoRobo> {
       motivo = `Vínculo (${fortes.map(v => v.tipo.toLowerCase()).join(", ")}) com concreteira já classificada: ${fortes.map(v => porId.get(v.b)?.razaoSocial ?? v.b).slice(0, 2).join("; ")}.`;
     } else if (t.paraVerificar) { situacaoFila = "AGUARDANDO"; motivo = `Triagem: ${CLASSE_TRIAGEM_LABEL[t.classificacao]}.`; }
     else { situacaoFila = "DISPENSADA_TRIAGEM"; motivo = `Triagem: ${CLASSE_TRIAGEM_LABEL[t.classificacao]}${conclusao === "OUTRA_ATIVIDADE_NO_SITE" ? "; site indica outra atividade" : ""}.`; }
-    const sugestao = conclusao === "CONCRETO_NO_SITE" ? "PROVAVEL_PELO_SITE" : conclusao === "OUTRA_ATIVIDADE_NO_SITE" ? "OUTRA_ATIVIDADE_PELO_SITE"
+    const sugestao = conclusao === "CONCRETO_NO_SITE" ? "PROVAVEL_PELO_SITE" : conclusao === "CONCRETO_FRACO_NO_SITE" ? "INDICIO_FRACO_PELO_SITE"
+      : conclusao === "OUTRA_ATIVIDADE_NO_SITE" ? "OUTRA_ATIVIDADE_PELO_SITE"
       : conclusao === "SITE_DE_TERCEIRO" ? "DOMINIO_DE_TERCEIRO" : null;
     const potencial = estimarPotencial(t, c, conclusao);
     const ativa = c.unidades.find(u => u.ativa && u.uf === uf) ?? c.unidades.find(u => u.ativa);
@@ -236,6 +237,7 @@ export async function executarRobo(o: OpcoesRobo): Promise<ResumoRobo> {
       // evidências do site (URL, data, trecho curto, origem)
       for (const u of urlsLidas) {
         const temConcreto = u.analise.termosConcreto.length > 0;
+        const forte = u.analise.termosConcreto.some(t => TERMOS_CONCRETO_FORTES.has(t));
         if (!temConcreto && u.analise.termosOutros.length === 0) continue;
         const trecho = temConcreto
           ? u.analise.trechos.map(x => x.trecho).join(" … ").slice(0, 400)
@@ -243,8 +245,8 @@ export async function executarRobo(o: OpcoesRobo): Promise<ResumoRobo> {
         await tx.concreteiraEvidencia.createMany({
           data: [{
             id: `robo-${hash(`${c.id}|${u.url}`)}`, candidataId: c.id, tipoFonte: "SITE_EMPRESA",
-            titulo: `${temConcreto ? "Site próprio cita concreto" : "Site próprio — outra atividade"}: ${u.titulo ?? new URL(u.url).hostname}`.slice(0, 200),
-            url: u.url, trecho, coletadoEm: agora, confianca: temConcreto ? (cnpjConfere ? "ALTA" : "MEDIA") : "BAIXA", agente: AGENTE_ROBO,
+            titulo: `${forte ? "Site próprio cita concreto" : temConcreto ? "Site próprio — termo genérico de concreto (indício fraco)" : "Site próprio — outra atividade"}: ${u.titulo ?? new URL(u.url).hostname}`.slice(0, 200),
+            url: u.url, trecho, coletadoEm: agora, confianca: forte ? (cnpjConfere ? "ALTA" : "MEDIA") : "BAIXA", agente: AGENTE_ROBO,
             observacao: `Robô gratuito (${VERSAO_TRIAGEM}). Domínio do e-mail da Receita; robots.txt respeitado.${cnpjConfere ? " CNPJ da empresa aparece na página." : ""}`,
           }],
           skipDuplicates: true,

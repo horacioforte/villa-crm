@@ -94,3 +94,14 @@ describe("vínculos", () => {
     expect(encontrarVinculos(l).every(x => x.forca === "BAIXA")).toBe(true);
   });
 });
+
+describe("v5.1 — termos genéricos de concreto (construtoras)", () => {
+  it("'concreto estrutural' sozinho é indício fraco e não vira provável", () => {
+    const p = analisarTexto("Zopone — 854.600 m³ de concreto estrutural executados em obras");
+    expect(concluirSite({ raiz: "00000000", paginas: [p], algumaLida: true }).conclusao).toBe("CONCRETO_FRACO_NO_SITE");
+  });
+  it("'concreto usinado' continua forte", () => {
+    const p = analisarTexto("Fornecemos concreto usinado e bombeado");
+    expect(concluirSite({ raiz: "00000000", paginas: [p], algumaLida: true }).conclusao).toBe("CONCRETO_NO_SITE");
+  });
+});

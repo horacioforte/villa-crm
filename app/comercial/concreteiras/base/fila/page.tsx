@@ -138,8 +138,8 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
           {usuario?.papel === "ADMIN" && <PainelRobo ufPadrao={f.uf} />}
           <div className="rounded-xl border border-slate-100 bg-white">
             <p className="border-b border-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Filas por estado</p>
-            <table className="w-full text-xs">
-              <thead><tr className="text-[10px] uppercase text-slate-400"><th className="px-3 py-1.5 text-left">UF</th><th className="px-2 text-right">Aguardando</th><th className="px-2 text-right">Verificadas</th><th className="px-3 text-right">Dispensadas</th></tr></thead>
+            <div className="overflow-x-auto"><table className="w-full text-xs">
+              <thead><tr className="text-[10px] uppercase text-slate-400"><th className="px-3 py-1.5 text-left">UF</th><th className="px-1 text-right">Aguard.</th><th className="px-1 text-right">Verif.</th><th className="px-3 text-right">Dispens.</th></tr></thead>
               <tbody>
                 {estados.map(e => (
                   <tr key={e.uf} className="border-t border-slate-50">
@@ -149,7 +149,7 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
                 ))}
                 {!estados.length && <tr><td colSpan={4} className="px-3 py-3 text-center text-slate-400">O robô ainda não rodou.</td></tr>}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </aside>
       </div>

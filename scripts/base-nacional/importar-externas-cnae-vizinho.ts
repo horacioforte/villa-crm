@@ -12,11 +12,12 @@
 import { readFileSync } from "node:fs";
 import { Client } from "pg";
 import { carregarAmbienteIsolado } from "../../lib/base-nacional/ambiente";
+import { ehInterior } from "../../lib/base-nacional/triagem";
 
 const ENDPOINT_AUTORIZADO = "ep-gentle-king-ajo60u4q";
 const AGENTE = "cnae-vizinho";
 const COMPETENCIA = "2026-09";
-const ORIGEM_TXT = "Origem: CNAE vizinho — empresa sem o CNAE 2330-3/05, encontrada pela busca gratuita nos dados abertos da Receita (competência 2026-09). Incluída como candidata em 09/10/2026 por autorização de Horácio.";
+const ORIGEM_TXT_PE = "Origem: CNAE vizinho — empresa sem o CNAE 2330-3/05, encontrada pela busca gratuita nos dados abertos da Receita (competência 2026-09). Incluída como candidata em 09/10/2026 por autorização de Horácio.";
 
 type Unidade = {
   cnpj: string; matriz: boolean; fantasia: string | null; situacao: string; inicio: string | null; cnaePrincipal: string; sec: string[];
@@ -26,8 +27,14 @@ type Unidade = {
 type Evid = { tipoFonte: string; titulo: string; url: string | null; trecho: string | null; confianca?: string | null };
 type Externa = {
   raiz: string; razao: string; natureza: string | null; porte: string | null; capital: number | null; unidades: Unidade[];
+  fila?: { uf: string; municipio: string | null };
   resultado: { status: "EM_VERIFICACAO" | "PROVAVEL" | "CONFIRMADA" | "NAO_E_CONCRETEIRA"; confianca: "ALTA" | "MEDIA" | "BAIXA" | null; tipoAtividade: string | null; justificativa: string; evidencias: Evid[]; filaMotivo?: string | null };
 };
+// 12/10/2026 (Brasil autorizado por Horácio): --lote=BR usa o texto nacional e a UF/município da própria empresa na fila.
+const LOTE_BR = process.argv.includes("--lote=BR");
+const ORIGEM_TXT = LOTE_BR
+  ? "Origem: CNAE vizinho — empresa sem o CNAE 2330-3/05, encontrada pela busca gratuita nos dados abertos da Receita (competência 2026-09). Incluída como candidata em 12/10/2026 (Base Nacional, todos os estados) por autorização de Horácio; nome indica concreto usinado/usina/central de concreto."
+  : ORIGEM_TXT_PE;
 const ordenar = (s: string) => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
 async function main() {
@@ -114,12 +121,12 @@ async function main() {
       }
       // Fila: Em verificação e Provável entram para verificação humana (Confirmada e Não é ficam fora).
       if (r.status === "EM_VERIFICACAO" || r.status === "PROVAVEL") {
-        const doUf = ativas.find(u => u.uf === "PE") ?? matriz;
+        const doUf = e.fila ? { uf: e.fila.uf, municipioNome: e.fila.municipio } : (ativas.find(u => u.uf === "PE") ?? matriz);
         await c.query(
           `INSERT INTO "ConcreteiraTriagem"("candidataId","versaoRegra",classificacao,sinais,pontuacao,uf,municipio,interior,"prioridadeReceita","situacaoFila","motivoFila","createdAt","updatedAt")
-           VALUES ($1,'cnae-vizinho-2026-10-09','POSSIVEL_CONCRETEIRA',$2,$3,$4,$5,$6,'B','AGUARDANDO',$7,$8,$8) ON CONFLICT DO NOTHING`,
+           VALUES ($1,'${LOTE_BR ? "cnae-vizinho-2026-10-12" : "cnae-vizinho-2026-10-09"}','POSSIVEL_CONCRETEIRA',$2,$3,$4,$5,$6,'B','AGUARDANDO',$7,$8,$8) ON CONFLICT DO NOTHING`,
           [id, ["origem: CNAE vizinho (sem 2330-3/05)", "nome indica concreto"], 30, doUf.uf, doUf.municipioNome,
-            !["RECIFE", "JABOATAO DOS GUARARAPES", "OLINDA", "PAULISTA", "CABO DE SANTO AGOSTINHO", "CAMARAGIBE", "SAO LOURENCO DA MATA", "IGARASSU", "ABREU E LIMA", "IPOJUCA", "MORENO", "ITAPISSUMA", "ILHA DE ITAMARACA", "ARACOIABA"].includes((doUf.municipioNome ?? "").toUpperCase()),
+            e.fila ? ehInterior(doUf.municipioNome, doUf.uf) : !["RECIFE", "JABOATAO DOS GUARARAPES", "OLINDA", "PAULISTA", "CABO DE SANTO AGOSTINHO", "CAMARAGIBE", "SAO LOURENCO DA MATA", "IGARASSU", "ABREU E LIMA", "IPOJUCA", "MORENO", "ITAPISSUMA", "ILHA DE ITAMARACA", "ARACOIABA"].includes((doUf.municipioNome ?? "").toUpperCase()),
             r.filaMotivo ?? "CNAE vizinho: confirmar se produz/fornece concreto usinado.", agora]);
         cont.fila++;
       }

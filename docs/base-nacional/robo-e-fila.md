@@ -44,3 +44,22 @@ Busca fora da base (CNAEs vizinhos): `scripts/base-nacional/robo-cnaes-vizinhos.
 - A rota do robô só roda quando o banco configurado é o branch autorizado, e só para ADMIN.
 - Toda decisão grava histórico (`FILA_VERIFICACAO`), e o executor só aceita tabelas da Base Nacional.
 - Nada cria Empresa, Pessoa, Dossiê, Carteira, Oportunidade ou Tarefa. Nada envia mensagem. Nada é agendado (sem cron).
+
+## Execução nacional (12/10/2026)
+
+Autorizada por Horácio para todo o Brasil, com Pernambuco preservado exatamente como estava.
+
+- Robô v5.2 (`scripts/base-nacional/robo-gratuito.ts --uf=XX --sites-so-para-verificar --paralelo=6 --prazo-ms=N`):
+  - empresas que a triagem dispensa e que não têm site para ler são gravadas em lote (mesma decisão do robô, sem visita);
+  - só as que a triagem manda verificar têm o site próprio lido;
+  - `--prazo-ms` faz o robô parar de iniciar novas empresas antes do limite de tempo; a próxima execução continua de onde parou (empresas com `roboExecutadoEm` não são repetidas);
+  - falha de conexão numa empresa não derruba o lote: ela fica para a próxima execução.
+- Também roda para `EX` (estrangeiras com CNPJ no Brasil).
+- Dispensadas recebem a justificativa "Dispensada pela triagem automática (regra v2 + robô gratuito, 12/10/2026)…", igual a PE. Isso **não** é "não é concreteira".
+- CNAE vizinho no Brasil todo: `scripts/base-nacional/externas-nacional.py`.
+  - Regra mais rígida que a de PE: só entra como candidata quem tem no nome concreto usinado, usina/central de concreto, concreteira ou ready mix/redimix.
+  - Ficam separados, sem importar: só bombeamento; locação de bombas ou betoneiras; fornecedores/revendas (inclusive "peças para concreteiras"); potenciais compradoras que não são concreteiras; sem evidência suficiente.
+  - Não entra quem já está na base pela raiz do CNPJ, nem quem tem telefone, e-mail, domínio ou endereço iguais aos de uma candidata (chave usada por mais de 5 empresas é ignorada). Entre as externas, também agrupa pelo nome fantasia.
+  - Externas de PE ficam de fora: já foram decididas no piloto.
+  - Importação: `importar-externas-cnae-vizinho.ts --lote=BR --arquivo=importacao-BR.json [--commit]`. Entram como Em verificação, na fila do próprio estado.
+- Nenhum contato com empresas, nenhuma busca de decisores, nenhum serviço pago.

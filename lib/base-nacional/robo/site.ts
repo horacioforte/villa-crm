@@ -196,6 +196,8 @@ export function concluirSite(args: { raiz: string; paginas: AnalisePagina[]; alg
 export type PaginaLida = {
   url: string; urlFinal: string; dominio: string; permitidoRobots: boolean; statusHttp: number | null; erro: string | null;
   titulo: string | null; analise: AnalisePagina | null; links: Array<{ href: string; texto: string }>;
+  /** v6 (João, 12/10/2026): texto limpo da página, para extrair contatos profissionais publicados. */
+  texto?: string;
 };
 
 const LIMITE_BYTES = 1_500_000;
@@ -257,7 +259,7 @@ export async function lerPagina(url: string, buscar: typeof fetch = fetch): Prom
       return { ...base, permitidoRobots: true, statusHttp: r.status, erro: "página de verificação (CAPTCHA) — não contornada", titulo: null, analise: null, links: [] };
     }
     const { titulo, texto, links } = extrairTexto(r.texto);
-    return { ...base, permitidoRobots: true, statusHttp: r.status, erro: null, titulo, analise: analisarTexto(`${titulo ?? ""} ${texto}`), links };
+    return { ...base, permitidoRobots: true, statusHttp: r.status, erro: null, titulo, analise: analisarTexto(`${titulo ?? ""} ${texto}`), links, texto };
   }
   return { url, urlFinal: atual, dominio: dominioInicial, permitidoRobots: true, statusHttp: null, erro: "redirecionamentos demais", titulo: null, analise: null, links: [] };
 }

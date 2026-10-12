@@ -2529,6 +2529,7 @@ enum TipoEventoBaseNacional {
   OUTRO
   TRIAGEM // v5
   FILA_VERIFICACAO // v5
+  ENRIQUECIMENTO // v6 (João)
 }
 
 enum OrigemAcaoBaseNacional {
@@ -2538,6 +2539,7 @@ enum OrigemAcaoBaseNacional {
   NAO_INFORMADA
   ROBO_GRATUITO // v5
   FILA_VERIFICACAO // v5
+  JOAO_ENRIQUECIMENTO // v6
 }
 
 enum TipoContatoCandidata {
@@ -2619,6 +2621,13 @@ model ConcreteiraCandidataContato {
   motivoInativacao String?
   registradoPorId  String?
   registradoPor    Usuario?  @relation("ContatoCandidataRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
+  // v6 (João)
+  confianca        ConfiancaInformacao?
+  pesquisadoEm     DateTime?
+  agente           String?
+  grupoChave       String?
+  pessoaId         String?
+  observacao       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2626,6 +2635,7 @@ model ConcreteiraCandidataContato {
   @@index([candidataId])
   @@index([unidadeId])
   @@index([valorNormalizado])
+  @@index([grupoChave])
 }
 
 /// Pessoas ligadas à candidata. Não criam Pessoa, Decisor, Empresa nem Oportunidade no CRM.
@@ -2658,12 +2668,21 @@ model ConcreteiraCandidataPessoa {
   motivoInativacao    String?
   registradoPorId     String?
   registradoPor       Usuario?                   @relation("PessoaCandidataRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
+  // v6 (João): pesquisa de decisores — só registro, nunca contato
+  confianca           ConfiancaInformacao?
+  pesquisadoEm        DateTime?
+  unidadeId           String?
+  agente              String?
+  grupoChave          String?
+  nomeNormalizado     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([candidataId])
   @@index([papeis], type: Gin)
+  @@index([grupoChave])
+  @@index([nomeNormalizado])
 }
 
 /// Potencial por equipamento — geral (sem unidade) ou de uma unidade/central. Sem preços.
@@ -2778,4 +2797,64 @@ model ConcreteiraRoboCache {
   buscadoEm        DateTime @default(now())
 
   @@index([dominio])
+}
+
+// ─── Base Nacional v6 — João: enriquecimento de decisores (12/10/2026) ────────
+// Só registro de pesquisa pública. Nada envia mensagem nem contata ninguém.
+
+enum SituacaoEnriquecimento {
+  AGUARDANDO
+  EM_ANDAMENTO
+  CONCLUIDO
+  NAO_LOCALIZADO
+  ERRO
+}
+
+model JoaoEnriquecimentoGrupo {
+  chave                String                 @id
+  nome                 String
+  candidataPrincipalId String
+  candidataIds         String[]               @default([])
+  raizes               String[]               @default([])
+  dominios             String[]               @default([])
+  publico              String
+  ordem                Int                    @default(0)
+  situacao             SituacaoEnriquecimento @default(AGUARDANDO)
+  etapas               Json                   @default("{}")
+  decisoresEncontrados Int                    @default(0)
+  contatosEncontrados  Int                    @default(0)
+  resultado            String?
+  tentativas           Int                    @default(0)
+  erro                 String?
+  iniciadoEm           DateTime?
+  concluidoEm          DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @default(now()) @updatedAt
+
+  @@index([publico, situacao, ordem])
+}
+
+model JoaoEnriquecimentoCache {
+  chave     String   @id
+  tipo      String
+  dados     Json?
+  fonteUrl  String?
+  erro      String?
+  buscadoEm DateTime @default(now())
+
+  @@index([tipo])
+}
+
+model JoaoEnriquecimentoConsumo {
+  id              String   @id
+  grupoChave      String?
+  etapa           String
+  ferramenta      String
+  chamadas        Int      @default(0)
+  tokensEstimados Int      @default(0)
+  custoUsd        Decimal  @default(0) @db.Decimal(10, 4)
+  pago            Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([grupoChave])
 }

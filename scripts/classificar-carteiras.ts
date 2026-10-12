@@ -1,3 +1,4 @@
+import "./guarda-script-legado"; // TRAVA 02/10/2026: grava em Dossiê/Carteira — exige PERMITIR_SCRIPT_LEGADO. Manter como PRIMEIRO import.
 import { prisma } from "@/lib/prisma";
 import { classificarDossieEmCarteiras } from "@/lib/inteligencia/carteiras";
 

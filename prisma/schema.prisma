@@ -257,6 +257,27 @@ model Usuario {
   // Fase 2 — Central de Atendimento WhatsApp
   canaisWhatsappResponsavel    CanalWhatsapp[]
 
+  // Base Nacional de Concreteiras (02/10/2026) — nunca remover. Relações virtuais, sem coluna nova em Usuario.
+  empresaSegmentosCriados       EmpresaSegmento[]               @relation("EmpresaSegmentoCriadoPor")
+  candidatasVinculadas          ConcreteiraCandidata[]          @relation("CandidataVinculadoPor")
+  candidatasValidadas           ConcreteiraCandidata[]          @relation("CandidataValidadoPor")
+  validacoesConcreteira         EmpresaValidacaoConcreteira[]   @relation("EmpresaValidacaoValidadoPor")
+  evidenciasConcreteira         ConcreteiraEvidencia[]          @relation("EvidenciaRegistradoPor")
+  historicoValidacaoConcreteira ConcreteiraValidacaoHistorico[] @relation("HistoricoValidacaoUsuario")
+  relatoriosConcreteiras        RelatorioConcreteirasGerado[]   @relation("RelatorioConcreteirasGeradoPor")
+  // v4 (05/10/2026) — relações virtuais, sem coluna nova em Usuario. Nunca remover.
+  candidatasQualificadas         ConcreteiraCandidata[]            @relation("CandidataQualificadoPor")
+  contatosCandidataVerificados   ConcreteiraCandidataContato[]     @relation("ContatoCandidataVerificadoPor")
+  contatosCandidataInativados    ConcreteiraCandidataContato[]     @relation("ContatoCandidataInativadoPor")
+  contatosCandidataRegistrados   ConcreteiraCandidataContato[]     @relation("ContatoCandidataRegistradoPor")
+  pessoasCandidataVerificadas    ConcreteiraCandidataPessoa[]      @relation("PessoaCandidataVerificadoPor")
+  pessoasCandidataInativadas     ConcreteiraCandidataPessoa[]      @relation("PessoaCandidataInativadoPor")
+  pessoasCandidataRegistradas    ConcreteiraCandidataPessoa[]      @relation("PessoaCandidataRegistradoPor")
+  potenciaisEquipamentoAvaliados ConcreteiraPotencialEquipamento[] @relation("PotencialEquipamentoAvaliadoPor")
+  // v5 (08/10/2026) — relações virtuais, sem coluna nova em Usuario. Nunca remover.
+  triagensEmRevisao              ConcreteiraTriagem[]              @relation("TriagemEmRevisaoPor")
+  triagensConcluidas             ConcreteiraTriagem[]              @relation("TriagemConcluidaPor")
+
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
 
@@ -322,6 +343,15 @@ model Empresa {
   // Central de Inteligência — nunca remover
   dossies              DossieComercial[]  @relation("DossieEmpresa")
   dossiesRelacionados  EmpresaDossie[]   @relation("EmpresaDossieEmpresa")
+
+  // Base Nacional de Concreteiras (02/10/2026) — nunca remover. Relações virtuais, sem coluna nova em Empresa.
+  segmentos             EmpresaSegmento[]               @relation("EmpresaSegmentos")
+  unidades              EmpresaUnidade[]                @relation("EmpresaUnidades")
+  validacaoConcreteira  EmpresaValidacaoConcreteira?    @relation("EmpresaValidacaoConcreteira")
+  evidenciasConcreteira ConcreteiraEvidencia[]          @relation("EmpresaEvidenciasConcreteira")
+  historicoValidacao    ConcreteiraValidacaoHistorico[] @relation("EmpresaHistoricoValidacao")
+  candidatasVinculadas  ConcreteiraCandidata[]          @relation("CandidataEmpresa")
+  candidatasSugeridas   ConcreteiraCandidata[]          @relation("CandidataEmpresaSugerida")
 
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
@@ -1986,4 +2016,766 @@ model SincronizacaoSocialLog {
   @@index([redeSocialContaId])
   @@index([status])
   @@index([iniciadoEm])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BASE NACIONAL DE CONCRETEIRAS — Fase 1 (fundação da arquitetura híbrida)
+// Criado em 02/10/2026. REGRA: nunca remover. Apenas acrescentar.
+//
+// Princípios:
+//   1. Candidatas brutas (Receita) ficam em tabelas próprias, separadas de Empresa.
+//      Não aparecem em /empresas, nas seleções de Empresa, na CRM-IA nem no João.
+//   2. Só concreteiras confirmadas/aprovadas são vinculadas a uma Empresa — sempre
+//      por ação manual. Nenhuma tabela daqui cria Empresa ou DossieComercial.
+//   3. Empresa continua sendo o cadastro comercial central. Segmentos passam a ser
+//      N:N (EmpresaSegmento). O campo antigo Empresa.segmento é mantido intacto.
+//   4. Snapshots mensais da Receita são imutáveis: cada competência guarda sua cópia.
+//   5. Sem exclusão em cascata de dados importantes: exclusão física de Empresa ou
+//      candidata é BLOQUEADA (RESTRICT) enquanto houver dados da Base Nacional ligados.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum StatusValidacaoConcreteira {
+  PENDENTE
+  EM_VERIFICACAO
+  CONFIRMADA
+  PROVAVEL
+  NAO_E_CONCRETEIRA
+  INATIVA
+  NAO_LOCALIZADA
+}
+
+enum TipoAtividadeConcreteira {
+  CONCRETO_USINADO
+  ARGAMASSA
+  PRE_MOLDADO
+  BOMBEAMENTO
+  OUTRA_ATIVIDADE
+  DUVIDOSO
+}
+
+enum ConfiancaInformacao {
+  ALTA
+  MEDIA
+  BAIXA
+}
+
+enum TipoUnidadeConcreteira {
+  CENTRAL_CONCRETO
+  ESCRITORIO
+  FABRICA
+  DEPOSITO
+  DESCONHECIDA
+}
+
+enum StatusCompetenciaReceita {
+  REGISTRADA
+  BAIXANDO
+  PROCESSANDO
+  CONCLUIDA
+  FALHOU
+}
+
+enum TipoMudancaReceita {
+  NOVO_ESTABELECIMENTO
+  SAIU_DO_FILTRO
+  SITUACAO_ALTERADA
+  ENDERECO_ALTERADO
+  CNAE_ALTERADO
+  NOME_ALTERADO
+  CONTATO_ALTERADO
+  PORTE_ALTERADO
+  CAPITAL_ALTERADO
+  OUTRA
+}
+
+enum TipoFonteEvidencia {
+  RECEITA_FEDERAL
+  SITE_EMPRESA
+  GOOGLE_MAPS
+  REDE_SOCIAL
+  LINKEDIN
+  NOTICIA
+  VAGA_EMPREGO
+  LICENCA_AMBIENTAL
+  DIARIO_OFICIAL
+  ASSOCIACAO_SETORIAL
+  CONTATO_DIRETO
+  OUTRA
+}
+
+// ─── Segmentos (N:N com Empresa) ──────────────────────────────────────────────
+
+model SegmentoEmpresa {
+  id        String  @id @default(cuid())
+  nome      String  @unique
+  slug      String  @unique
+  descricao String?
+  ativo     Boolean @default(true)
+  ordem     Int     @default(0)
+
+  empresas EmpresaSegmento[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ativo])
+}
+
+model EmpresaSegmento {
+  id         String          @id @default(cuid())
+  empresaId  String
+  empresa    Empresa         @relation("EmpresaSegmentos", fields: [empresaId], references: [id], onDelete: Restrict)
+  segmentoId String
+  segmento   SegmentoEmpresa @relation(fields: [segmentoId], references: [id], onDelete: Restrict)
+
+  principal Boolean @default(false) // no máximo 1 principal por Empresa: índice único parcial criado na migration (SQL manual)
+  origem    String? // "manual" | "validacao_concreteira" | ...
+
+  criadoPorId String?
+  criadoPor   Usuario? @relation("EmpresaSegmentoCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@unique([empresaId, segmentoId])
+  @@index([segmentoId])
+}
+
+// ─── Receita Federal: competências e snapshots imutáveis ──────────────────────
+
+model ReceitaCompetencia {
+  id             String                   @id @default(cuid())
+  competencia    String                   @unique // "AAAA-MM"
+  fonteUrl       String?
+  coletadoEm     DateTime?
+  status         StatusCompetenciaReceita @default(REGISTRADA)
+  cnaesFiltro    String[] // ex: ["2330305"]
+  ufsFiltro      String[] // vazio = Brasil inteiro
+  totalRegistros Int                      @default(0)
+  hashArquivos   Json?
+  observacoes    String?                  @db.Text
+
+  estabelecimentos     ReceitaEstabelecimento[]
+  mudancas             ReceitaMudanca[]         @relation("MudancaCompetencia")
+  mudancasComoAnterior ReceitaMudanca[]         @relation("MudancaCompetenciaAnterior")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Cópia fiel de um estabelecimento numa competência. Nunca é editada.
+model ReceitaEstabelecimento {
+  id            String             @id @default(cuid())
+  competenciaId String
+  competencia   ReceitaCompetencia @relation(fields: [competenciaId], references: [id], onDelete: Restrict)
+
+  cnpj       String  @db.Char(14)
+  cnpjBasico String  @db.Char(8)
+  cnpjOrdem  String  @db.Char(4)
+  cnpjDv     String  @db.Char(2)
+  isMatriz   Boolean
+
+  razaoSocial  String?
+  nomeFantasia String?
+
+  situacaoCadastral     String // código da Receita: 01 nula, 02 ativa, 03 suspensa, 04 inapta, 08 baixada
+  dataSituacaoCadastral DateTime? @db.Date
+  motivoSituacao        String?
+  dataInicioAtividade   DateTime? @db.Date
+
+  cnaePrincipal         String
+  cnaesSecundarios      String[]
+  cnaeAlvoComoPrincipal Boolean // 2330305 como atividade principal
+
+  naturezaJuridica String?
+  porte            String? // código da Receita: 00, 01 ME, 03 EPP, 05 demais
+  capitalSocial    Decimal? @db.Decimal(18, 2)
+  opcaoSimples     Boolean?
+  opcaoMei         Boolean?
+
+  tipoLogradouro         String?
+  logradouro             String?
+  numero                 String?
+  complemento            String?
+  bairro                 String?
+  cep                    String? @db.VarChar(8)
+  municipioCodigoReceita String?
+  municipioCodigoIbge    String? @db.VarChar(7)
+  municipioNome          String?
+  uf                     String? @db.Char(2)
+
+  ddd1      String?
+  telefone1 String?
+  ddd2      String?
+  telefone2 String?
+  email     String?
+
+  hashRegistro String // hash dos campos relevantes, usado na comparação entre competências
+
+  createdAt DateTime @default(now())
+
+  @@unique([competenciaId, cnpj])
+  @@index([cnpj])
+  @@index([cnpjBasico])
+  @@index([competenciaId, uf])
+  @@index([competenciaId, municipioCodigoIbge])
+  @@index([competenciaId, situacaoCadastral])
+}
+
+model ReceitaMudanca {
+  id                    String              @id @default(cuid())
+  competenciaId         String
+  competencia           ReceitaCompetencia  @relation("MudancaCompetencia", fields: [competenciaId], references: [id], onDelete: Restrict)
+  competenciaAnteriorId String?
+  competenciaAnterior   ReceitaCompetencia? @relation("MudancaCompetenciaAnterior", fields: [competenciaAnteriorId], references: [id], onDelete: Restrict)
+
+  cnpj          String             @db.Char(14)
+  cnpjBasico    String             @db.Char(8)
+  tipo          TipoMudancaReceita
+  campo         String?
+  valorAnterior String?            @db.Text
+  valorNovo     String?            @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([competenciaId, tipo])
+  @@index([cnpj])
+  @@index([cnpjBasico])
+}
+
+// ─── Base de validação: candidatas (uma por raiz de CNPJ) ─────────────────────
+
+/// Uma candidata = uma empresa (raiz do CNPJ). Matriz e filiais ficam em
+/// ConcreteiraCandidataUnidade, para não duplicar a empresa comercialmente.
+model ConcreteiraCandidata {
+  id           String  @id @default(cuid())
+  cnpjBasico   String  @unique @db.Char(8)
+  cnpjMatriz   String? @db.Char(14)
+  razaoSocial  String?
+  nomeFantasia String?
+
+  naturezaJuridica String?
+  porte            String?
+  capitalSocial    Decimal? @db.Decimal(18, 2)
+
+  ufMatriz            String? @db.Char(2)
+  municipioMatriz     String?
+  totalUnidades       Int     @default(0)
+  totalUnidadesAtivas Int     @default(0)
+
+  statusValidacao StatusValidacaoConcreteira @default(PENDENTE)
+  tipoAtividade   TipoAtividadeConcreteira?
+  confianca       ConfiancaInformacao?
+  justificativa   String?                    @db.Text
+
+  // Vínculo com o cadastro comercial — sempre manual, nunca automático
+  empresaId      String?
+  empresa        Empresa?  @relation("CandidataEmpresa", fields: [empresaId], references: [id], onDelete: Restrict)
+  vinculadoEm    DateTime?
+  vinculadoPorId String?
+  vinculadoPor   Usuario?  @relation("CandidataVinculadoPor", fields: [vinculadoPorId], references: [id], onDelete: SetNull)
+
+  // Sugestão de correspondência (CNPJ → nome+cidade). Apenas sugestão.
+  empresaSugeridaId String?
+  empresaSugerida   Empresa? @relation("CandidataEmpresaSugerida", fields: [empresaSugeridaId], references: [id], onDelete: SetNull)
+  criterioSugestao  String? // "CNPJ" | "NOME_CIDADE"
+
+  primeiraVerificacaoEm DateTime?
+  ultimaVerificacaoEm   DateTime?
+  validadoPorId         String?
+  validadoPor           Usuario?  @relation("CandidataValidadoPor", fields: [validadoPorId], references: [id], onDelete: SetNull)
+  validadoEm            DateTime?
+
+  primeiraCompetencia String? // "AAAA-MM"
+  ultimaCompetencia   String?
+  observacoes         String? @db.Text
+
+  // v4 (05/10/2026) — qualificação comercial manual e ordenação sem acentos. Nunca remover.
+  prioridadeComercial PrioridadeComercial?
+  observacaoComercial String?   @db.Text
+  qualificadoEm       DateTime?
+  qualificadoPorId    String?
+  qualificadoPor      Usuario?  @relation("CandidataQualificadoPor", fields: [qualificadoPorId], references: [id], onDelete: SetNull)
+  nomeOrdenacao       String?
+
+  unidades   ConcreteiraCandidataUnidade[]
+  evidencias ConcreteiraEvidencia[]
+  historico  ConcreteiraValidacaoHistorico[]
+  contatos   ConcreteiraCandidataContato[]
+  pessoas    ConcreteiraCandidataPessoa[]
+  potenciais ConcreteiraPotencialEquipamento[]
+  triagem    ConcreteiraTriagem? // v5
+  vinculosOrigem  ConcreteiraVinculo[] @relation("VinculoOrigem") // v5
+  vinculosDestino ConcreteiraVinculo[] @relation("VinculoDestino") // v5
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([statusValidacao])
+  @@index([tipoAtividade])
+  @@index([ufMatriz])
+  @@index([empresaId])
+  @@index([empresaSugeridaId])
+  @@index([nomeOrdenacao, id])
+  @@index([prioridadeComercial])
+  // CHECKs da v4 (Confirmada completa; descarte com justificativa) existem só no SQL.
+}
+
+/// Estado atual de cada estabelecimento (CNPJ de 14 dígitos) de uma candidata.
+model ConcreteiraCandidataUnidade {
+  id          String               @id @default(cuid())
+  candidataId String
+  candidata   ConcreteiraCandidata @relation(fields: [candidataId], references: [id], onDelete: Restrict)
+
+  cnpj         String                 @unique @db.Char(14)
+  isMatriz     Boolean
+  nomeFantasia String?
+  tipoUnidade  TipoUnidadeConcreteira @default(DESCONHECIDA)
+
+  situacaoCadastral     String
+  ativa                 Boolean
+  dataInicioAtividade   DateTime? @db.Date
+  cnaePrincipal         String
+  cnaesSecundarios      String[]
+  cnaeAlvoComoPrincipal Boolean
+
+  tipoLogradouro      String?
+  logradouro          String?
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cep                 String?  @db.VarChar(8)
+  municipioCodigoIbge String?  @db.VarChar(7)
+  municipioNome       String?
+  uf                  String?  @db.Char(2)
+  latitude            Decimal? @db.Decimal(9, 6)
+  longitude           Decimal? @db.Decimal(9, 6)
+
+  telefone String?
+  email    String?
+
+  primeiraCompetencia String?
+  ultimaCompetencia   String?
+
+  empresaUnidade EmpresaUnidade? // no máximo 1 unidade comercial por unidade candidata
+  contatos       ConcreteiraCandidataContato[]     // v4
+  potenciais     ConcreteiraPotencialEquipamento[] // v4
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([candidataId])
+  @@index([uf])
+  @@index([uf, municipioCodigoIbge])
+  @@index([ativa])
+}
+
+// ─── Empresa confirmada: tabelas complementares ───────────────────────────────
+
+/// Matriz, filiais e centrais de uma Empresa do cadastro comercial.
+model EmpresaUnidade {
+  id        String  @id @default(cuid())
+  empresaId String
+  empresa   Empresa @relation("EmpresaUnidades", fields: [empresaId], references: [id], onDelete: Restrict)
+
+  cnpj        String?                @unique @db.Char(14)
+  isMatriz    Boolean                @default(false)
+  nome        String?
+  tipoUnidade TipoUnidadeConcreteira @default(DESCONHECIDA)
+  ativa       Boolean                @default(true)
+
+  logradouro          String?
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cep                 String?  @db.VarChar(8)
+  municipioCodigoIbge String?  @db.VarChar(7)
+  municipioNome       String?
+  uf                  String?  @db.Char(2)
+  latitude            Decimal? @db.Decimal(9, 6)
+  longitude           Decimal? @db.Decimal(9, 6)
+  telefone            String?
+  email               String?
+
+  candidataUnidadeId String? @unique // nulos permitidos; preenchido = vínculo único
+  candidataUnidade   ConcreteiraCandidataUnidade? @relation(fields: [candidataUnidadeId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([empresaId])
+  @@index([uf, municipioCodigoIbge])
+}
+
+/// Validação atual de uma Empresa como concreteira (1 por Empresa).
+model EmpresaValidacaoConcreteira {
+  id        String  @id @default(cuid())
+  empresaId String  @unique
+  empresa   Empresa @relation("EmpresaValidacaoConcreteira", fields: [empresaId], references: [id], onDelete: Restrict)
+
+  status        StatusValidacaoConcreteira
+  tipoAtividade TipoAtividadeConcreteira?
+  confianca     ConfiancaInformacao?
+  justificativa String?                    @db.Text
+
+  possuiBombaPropria         Boolean?
+  quantidadeCentraisEstimada Int?
+  frotaEstimada              Int?
+
+  primeiraVerificacaoEm DateTime?
+  ultimaVerificacaoEm   DateTime?
+  validadoPorId         String?
+  validadoPor           Usuario?  @relation("EmpresaValidacaoValidadoPor", fields: [validadoPorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([tipoAtividade])
+}
+
+/// Fontes e evidências — de uma candidata e/ou de uma Empresa.
+model ConcreteiraEvidencia {
+  id          String                @id @default(cuid())
+  candidataId String?
+  candidata   ConcreteiraCandidata? @relation(fields: [candidataId], references: [id], onDelete: Restrict)
+  empresaId   String?
+  empresa     Empresa?              @relation("EmpresaEvidenciasConcreteira", fields: [empresaId], references: [id], onDelete: Restrict)
+
+  tipoFonte  TipoFonteEvidencia
+  titulo     String?
+  url        String?
+  trecho     String?              @db.Text
+  coletadoEm DateTime             @default(now())
+  confianca  ConfiancaInformacao?
+  observacao String?              @db.Text // v4
+
+  registradoPorId String?
+  registradoPor   Usuario? @relation("EvidenciaRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
+  agente          String? // quando registrado por automação futura
+  potenciais      ConcreteiraPotencialEquipamento[] // v4
+
+  createdAt DateTime @default(now())
+
+  @@index([candidataId])
+  @@index([empresaId])
+  @@index([tipoFonte])
+}
+
+/// Histórico de mudanças de validação (append-only).
+model ConcreteiraValidacaoHistorico {
+  id          String                @id @default(cuid())
+  candidataId String?
+  candidata   ConcreteiraCandidata? @relation(fields: [candidataId], references: [id], onDelete: Restrict)
+  empresaId   String?
+  empresa     Empresa?              @relation("EmpresaHistoricoValidacao", fields: [empresaId], references: [id], onDelete: Restrict)
+
+  statusAnterior    StatusValidacaoConcreteira?
+  statusNovo        StatusValidacaoConcreteira
+  tipoAnterior      TipoAtividadeConcreteira?
+  tipoNovo          TipoAtividadeConcreteira?
+  confiancaAnterior ConfiancaInformacao?
+  confiancaNova     ConfiancaInformacao?
+  motivo            String?                     @db.Text
+
+  // v4 — tipo do evento, origem e detalhe campo a campo (contatos sempre mascarados). Nunca remover.
+  tipoEvento    TipoEventoBaseNacional @default(VALIDACAO)
+  origem        OrigemAcaoBaseNacional @default(NAO_INFORMADA)
+  campo         String?
+  valorAnterior String?                @db.Text
+  valorNovo     String?                @db.Text
+  entidadeId    String?
+
+  usuarioId String?
+  usuario   Usuario? @relation("HistoricoValidacaoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+  agente    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([candidataId, createdAt])
+  @@index([empresaId, createdAt])
+  @@index([tipoEvento])
+}
+
+/// Registro de cada relatório gerado (data, filtros, formato).
+model RelatorioConcreteirasGerado {
+  id             String   @id @default(cuid())
+  tipo           String // NACIONAL | UF | CIDADE | STATUS | FICHA
+  formato        String // XLSX | PDF | IMPRESSAO
+  filtros        Json
+  totalRegistros Int
+  geradoPorId    String?
+  geradoPor      Usuario? @relation("RelatorioConcreteirasGeradoPor", fields: [geradoPorId], references: [id], onDelete: SetNull)
+  geradoEm       DateTime @default(now())
+
+  @@index([geradoEm])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BASE NACIONAL DE CONCRETEIRAS — v4 (05/10/2026). REGRA: nunca remover.
+// Índices únicos parciais e CHECKs existem só no SQL da migration v4.
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum TipoEventoBaseNacional {
+  VALIDACAO
+  TIPO_UNIDADE
+  VINCULO_EMPRESA
+  EVIDENCIA
+  CONTATO
+  PESSOA
+  POTENCIAL_EQUIPAMENTO
+  QUALIFICACAO
+  OUTRO
+  TRIAGEM // v5
+  FILA_VERIFICACAO // v5
+}
+
+enum OrigemAcaoBaseNacional {
+  TELA_BASE_NACIONAL
+  IMPORTACAO_RECEITA
+  SCRIPT_DEMONSTRACAO
+  NAO_INFORMADA
+  ROBO_GRATUITO // v5
+  FILA_VERIFICACAO // v5
+}
+
+enum TipoContatoCandidata {
+  TELEFONE
+  WHATSAPP
+  EMAIL
+  SITE
+  LINKEDIN
+  INSTAGRAM
+  FACEBOOK
+  OUTRO
+}
+
+enum SituacaoVerificacaoContato {
+  VERIFICADO
+  NAO_VERIFICADO
+  INVALIDO
+}
+
+enum PapelPessoaCandidata {
+  PROPRIETARIO_SOCIO
+  ADMINISTRADOR
+  COMPRADOR
+  RESPONSAVEL_FROTA
+  RESPONSAVEL_MANUTENCAO
+  RESPONSAVEL_EQUIPAMENTOS
+  OUTRO
+}
+
+enum TipoEquipamentoInteresse {
+  BOMBA_LANCA
+  BOMBA_ESTACIONARIA
+  CAMINHAO_BETONEIRA
+  CENTRAL_CONCRETO
+  TELEBELT
+  PECAS_ACESSORIOS
+  OUTRO
+}
+
+enum NivelPotencial {
+  ALTO
+  MEDIO
+  BAIXO
+  NENHUM
+  DESCONHECIDO
+}
+
+enum PrioridadeComercial {
+  ALTA
+  MEDIA
+  BAIXA
+  NAO_PRIORITARIA
+}
+
+/// Contatos institucionais da candidata. NÃO cria Pessoa nem Decisor no CRM.
+model ConcreteiraCandidataContato {
+  id          String                       @id @default(cuid())
+  candidataId String
+  candidata   ConcreteiraCandidata         @relation(fields: [candidataId], references: [id], onDelete: Restrict)
+  unidadeId   String?
+  unidade     ConcreteiraCandidataUnidade? @relation(fields: [unidadeId], references: [id], onDelete: Restrict)
+
+  tipo             TipoContatoCandidata
+  valor            String
+  valorNormalizado String
+  descricao        String?
+  principal        Boolean                    @default(false)
+  situacao         SituacaoVerificacaoContato @default(NAO_VERIFICADO)
+  fonte            TipoFonteEvidencia?
+  fonteUrl         String?
+
+  verificadoEm     DateTime?
+  verificadoPorId  String?
+  verificadoPor    Usuario?  @relation("ContatoCandidataVerificadoPor", fields: [verificadoPorId], references: [id], onDelete: SetNull)
+  ativo            Boolean   @default(true)
+  inativadoEm      DateTime?
+  inativadoPorId   String?
+  inativadoPor     Usuario?  @relation("ContatoCandidataInativadoPor", fields: [inativadoPorId], references: [id], onDelete: SetNull)
+  motivoInativacao String?
+  registradoPorId  String?
+  registradoPor    Usuario?  @relation("ContatoCandidataRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([candidataId])
+  @@index([unidadeId])
+  @@index([valorNormalizado])
+}
+
+/// Pessoas ligadas à candidata. Não criam Pessoa, Decisor, Empresa nem Oportunidade no CRM.
+model ConcreteiraCandidataPessoa {
+  id          String               @id @default(cuid())
+  candidataId String
+  candidata   ConcreteiraCandidata @relation(fields: [candidataId], references: [id], onDelete: Restrict)
+
+  nome                String
+  funcao              String?
+  papeis              PapelPessoaCandidata[]     @default([])
+  telefone            String?
+  telefoneNormalizado String?
+  whatsapp            String?
+  whatsappNormalizado String?
+  email               String?
+  emailNormalizado    String?
+  linkedinUrl         String?
+  fonte               TipoFonteEvidencia?
+  fonteUrl            String?
+  situacao            SituacaoVerificacaoContato @default(NAO_VERIFICADO)
+  verificadoEm        DateTime?
+  verificadoPorId     String?
+  verificadoPor       Usuario?                   @relation("PessoaCandidataVerificadoPor", fields: [verificadoPorId], references: [id], onDelete: SetNull)
+  observacao          String?                    @db.Text
+  ativo               Boolean                    @default(true)
+  inativadoEm         DateTime?
+  inativadoPorId      String?
+  inativadoPor        Usuario?                   @relation("PessoaCandidataInativadoPor", fields: [inativadoPorId], references: [id], onDelete: SetNull)
+  motivoInativacao    String?
+  registradoPorId     String?
+  registradoPor       Usuario?                   @relation("PessoaCandidataRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([candidataId])
+  @@index([papeis], type: Gin)
+}
+
+/// Potencial por equipamento — geral (sem unidade) ou de uma unidade/central. Sem preços.
+model ConcreteiraPotencialEquipamento {
+  id          String                       @id @default(cuid())
+  candidataId String
+  candidata   ConcreteiraCandidata         @relation(fields: [candidataId], references: [id], onDelete: Restrict)
+  unidadeId   String?
+  unidade     ConcreteiraCandidataUnidade? @relation(fields: [unidadeId], references: [id], onDelete: Restrict)
+
+  equipamento        TipoEquipamentoInteresse
+  descricaoOutro     String?
+  potencialVenda     NivelPotencial           @default(DESCONHECIDO)
+  interesseLocacao   NivelPotencial           @default(DESCONHECIDO)
+  quantidadeEstimada Int?
+  evidenciaId        String?
+  evidencia          ConcreteiraEvidencia?    @relation(fields: [evidenciaId], references: [id], onDelete: Restrict)
+  observacao         String?                  @db.Text
+  avaliadoPorId      String?
+  avaliadoPor        Usuario?                 @relation("PotencialEquipamentoAvaliadoPor", fields: [avaliadoPorId], references: [id], onDelete: SetNull)
+  avaliadoEm         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([candidataId])
+  @@index([unidadeId])
+  @@index([equipamento, potencialVenda])
+  @@index([evidenciaId])
+}
+
+// ============================================================================
+// v5 (08/10/2026) — Base Nacional: robô gratuito + fila de verificação humana.
+// Só tabelas novas. REGRA: nunca remover. Apenas acrescentar.
+// ============================================================================
+
+enum SituacaoFilaVerificacao {
+  AGUARDANDO
+  CONCLUIDA
+  DISPENSADA_TRIAGEM
+}
+
+enum TipoVinculoCandidata {
+  TELEFONE
+  EMAIL
+  DOMINIO
+  ENDERECO
+  RAIZ_CNPJ
+}
+
+/// Resultado da triagem automática (sem pesquisa web) e situação na fila de verificação humana.
+model ConcreteiraTriagem {
+  candidataId       String                  @id
+  candidata         ConcreteiraCandidata    @relation(fields: [candidataId], references: [id], onDelete: Restrict)
+  versaoRegra       String
+  classificacao     String
+  sinais            String[]                @default([])
+  pontuacao         Int                     @default(0)
+  uf                String?                 @db.Char(2)
+  municipio         String?
+  interior          Boolean                 @default(false)
+  prioridadeReceita String?                 @db.Char(1)
+  situacaoFila      SituacaoFilaVerificacao @default(AGUARDANDO)
+  motivoFila        String?
+  sugestaoRobo      String?
+  potencialCompra   NivelPotencial          @default(DESCONHECIDO)
+  emRevisaoPorId    String?
+  emRevisaoPor      Usuario?                @relation("TriagemEmRevisaoPor", fields: [emRevisaoPorId], references: [id], onDelete: SetNull)
+  emRevisaoDesde    DateTime?
+  concluidaPorId    String?
+  concluidaPor      Usuario?                @relation("TriagemConcluidaPor", fields: [concluidaPorId], references: [id], onDelete: SetNull)
+  concluidaEm       DateTime?
+  roboExecutadoEm   DateTime?
+  roboResumo        Json?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @default(now()) @updatedAt
+
+  @@index([uf, situacaoFila])
+  @@index([situacaoFila, pontuacao])
+}
+
+/// Vínculo entre duas candidatas encontrado pelo robô (mesmo telefone, e-mail, domínio, endereço ou raiz).
+/// Só registra a relação; nunca copia classificação de uma candidata para outra.
+model ConcreteiraVinculo {
+  id                     String               @id
+  candidataId            String
+  candidata              ConcreteiraCandidata @relation("VinculoOrigem", fields: [candidataId], references: [id], onDelete: Restrict)
+  candidataRelacionadaId String
+  candidataRelacionada   ConcreteiraCandidata @relation("VinculoDestino", fields: [candidataRelacionadaId], references: [id], onDelete: Restrict)
+  tipo                   TipoVinculoCandidata
+  chaveMascarada         String
+  forca                  String               @default("MEDIA")
+  agente                 String               @default("robo-gratuito")
+  createdAt              DateTime             @default(now())
+
+  @@unique([candidataId, candidataRelacionadaId, tipo], map: "ConcreteiraVinculo_par_tipo_key")
+  @@index([candidataId])
+}
+
+/// Cache das páginas públicas visitadas pelo robô (respeita robots.txt; não repete a mesma URL).
+model ConcreteiraRoboCache {
+  url              String   @id
+  dominio          String
+  permitidoRobots  Boolean
+  statusHttp       Int?
+  erro             String?
+  termosConcreto   String[] @default([])
+  termosOutros     String[] @default([])
+  cnpjsEncontrados String[] @default([])
+  trechos          Json?
+  titulo           String?
+  buscadoEm        DateTime @default(now())
+
+  @@index([dominio])
 }

@@ -10,6 +10,7 @@
 //   npx tsx scripts/seed-revendas-caminhoes.ts          → dry-run
 //   npx tsx scripts/seed-revendas-caminhoes.ts --commit  → grava em produção
 
+import "./guarda-script-legado"; // TRAVA 02/10/2026: grava em Dossiê/Carteira — exige PERMITIR_SCRIPT_LEGADO. Manter como PRIMEIRO import.
 import "./env";
 import { Client } from "pg";
 

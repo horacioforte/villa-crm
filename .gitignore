@@ -45,3 +45,8 @@ next-env.d.ts
 
 # Scripts/exports avulsos e temporarios de agentes de IA (nunca fazem parte do CRM)
 _to_delete/
+# cópias renomeadas do cliente Prisma gerado (nunca versionar)
+/app/generated/prisma-antigo-*
+
+# v5 base-nacional: cache do Python
+__pycache__/

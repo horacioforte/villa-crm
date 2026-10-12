@@ -2,7 +2,7 @@
 // REGRA: nunca remover. Apenas acrescentar.
 // Executa o robô gratuito pelo terminal (alternativa ao botão da tela). Só no branch isolado autorizado.
 // Uso: npx tsx scripts/base-nacional/robo-gratuito.ts --uf=PE [--limite=50] [--sem-sites] [--relatorio=arquivo.json]
-// Nesta etapa só PE é aceito (Brasil depende de autorização expressa do Horácio).
+// 12/10/2026: Brasil autorizado por Horácio. Opções: --sites-so-para-verificar --paralelo=N --prazo-ms=N
 
 import { writeFileSync } from "node:fs";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -15,7 +15,8 @@ const arg = (n: string) => process.argv.find(a => a.startsWith(`--${n}=`))?.spli
 
 async function main() {
   const uf = (arg("uf") ?? "").toUpperCase();
-  if (uf !== "PE") throw new Error("Nesta etapa o robô só está autorizado para PE.");
+  const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
+  if (!UFS.includes(uf)) throw new Error("Informe --uf com a sigla de um estado.");
   const amb = carregarAmbienteIsolado();
   if (amb.endpoint !== ENDPOINT_AUTORIZADO) throw new Error(`BLOQUEADO: endpoint ${amb.endpointMascarado} não é o branch autorizado.`);
   console.log(`[robo] branch autorizado (${amb.endpointMascarado}) · UF ${uf}`);
@@ -24,9 +25,13 @@ async function main() {
     const r = await executarRobo({
       db, uf, limite: arg("limite") ? Number(arg("limite")) : undefined, visitarSites: !process.argv.includes("--sem-sites"),
       log: m => console.log(`[robo] ${m}`),
+      sitesSoParaVerificar: process.argv.includes("--sites-so-para-verificar"),
+      paralelo: arg("paralelo") ? Number(arg("paralelo")) : undefined,
+      prazoMs: arg("prazo-ms") ? Number(arg("prazo-ms")) : undefined,
     });
     const { itens, ...total } = r;
     console.log("[robo] RESUMO", JSON.stringify(total));
+    if (process.argv.includes("--silencioso") === false && itens.length > 50) console.log(`[robo] ${itens.length} itens no lote`);
     const rel = arg("relatorio");
     if (rel) writeFileSync(rel, JSON.stringify(r, null, 1));
   } finally {

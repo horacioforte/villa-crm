@@ -30,10 +30,16 @@ export type OpcoesRobo = {
   buscar?: typeof fetch;
   agora?: Date;
   log?: (msg: string) => void;
+  /** v5.2: só visita sites das empresas que a triagem manda verificar (dispensadas não geram tráfego). */
+  sitesSoParaVerificar?: boolean;
+  /** v5.2: quantas empresas com site processar em paralelo (padrão 1). */
+  paralelo?: number;
+  /** v5.2: para de iniciar novas empresas com site depois deste prazo (ms); o que foi feito fica salvo. */
+  prazoMs?: number;
 };
 
 export type ItemResumo = {
-  candidataId: string; razaoSocial: string | null; triagem: string; situacaoFila: string; conclusaoSite: ConclusaoSite | "SEM_DOMINIO";
+  candidataId: string; razaoSocial: string | null; triagem: string; situacaoFila: string; conclusaoSite: ConclusaoSite | "SEM_DOMINIO" | "NAO_VISITADO";
   site: string | null; virouProvavel: boolean; vinculosFortes: number; potencialCompra: string;
 };
 export type ResumoRobo = {
@@ -146,7 +152,55 @@ export async function executarRobo(o: OpcoesRobo): Promise<ResumoRobo> {
     paginasBloqueadas: 0, porTriagem: {}, porConclusaoSite: {}, marcadasProvavel: 0, filaHumana: 0, dispensadas: 0, itens: [],
   };
 
-  for (const c of lote) {
+  // v5.2 (nacional): empresas que não precisam de site (dispensadas pela triagem quando
+  // sitesSoParaVerificar=true, ou sem domínio próprio) são gravadas EM LOTE — mesma decisão,
+  // menos idas ao banco. As demais passam pelo caminho completo, com até `paralelo` em paralelo.
+  const dominiosDe = (c: Cand) => [...new Set(c.unidades.flatMap(u => [receita.get(u.cnpj)?.email, u.email]).map(dominioDeEmail).filter((d): d is string => Boolean(d)))].slice(0, 2);
+  const precisaSite = (c: Cand) => o.visitarSites !== false && dominiosDe(c).length > 0 && (!o.sitesSoParaVerificar || triagens.get(c.id)!.paraVerificar);
+  const rapidos = lote.filter(c => !precisaSite(c) && !c.triagem);
+  const completos = lote.filter(c => precisaSite(c) || c.triagem);
+
+  for (let i = 0; i < rapidos.length; i += 200) {
+    const parte = rapidos.slice(i, i + 200);
+    const linhasTriagem: Record<string, unknown>[] = [];
+    const linhasHist: Record<string, unknown>[] = [];
+    for (const c of parte) {
+      const t = triagens.get(c.id)!;
+      const dominios = dominiosDe(c);
+      const conclusao = dominios.length ? "NAO_VISITADO" : "SEM_DOMINIO";
+      if (dominios.length) resumo.dominiosProprios++;
+      const fortes = (vinculosDe.get(c.id) ?? []).filter(v => v.forca !== "BAIXA" && ["CONFIRMADA", "PROVAVEL"].includes(porId.get(v.b)?.statusValidacao ?? ""));
+      let situacaoFila: "AGUARDANDO" | "DISPENSADA_TRIAGEM"; let motivo: string;
+      if (fortes.length) { situacaoFila = "AGUARDANDO"; motivo = `Vínculo (${fortes.map(v => v.tipo.toLowerCase()).join(", ")}) com concreteira já classificada: ${fortes.map(v => porId.get(v.b)?.razaoSocial ?? v.b).slice(0, 2).join("; ")}.`; }
+      else if (t.paraVerificar) { situacaoFila = "AGUARDANDO"; motivo = `Triagem: ${CLASSE_TRIAGEM_LABEL[t.classificacao]}.`; }
+      else { situacaoFila = "DISPENSADA_TRIAGEM"; motivo = `Triagem: ${CLASSE_TRIAGEM_LABEL[t.classificacao]}.`; }
+      const potencial = estimarPotencial(t, c, "SEM_DOMINIO");
+      const ativa = c.unidades.find(u => u.ativa && u.uf === uf) ?? c.unidades.find(u => u.ativa);
+      linhasTriagem.push({
+        candidataId: c.id, versaoRegra: VERSAO_TRIAGEM, classificacao: t.classificacao, sinais: t.sinais, pontuacao: t.pontuacao,
+        uf: ativa?.uf ?? uf, municipio: ativa?.municipioNome ?? null, interior: t.unidadesInterior > 0, prioridadeReceita: t.prioridadeReceita,
+        sugestaoRobo: null, roboExecutadoEm: agora, situacaoFila, motivoFila: motivo, potencialCompra: potencial,
+        roboResumo: { conclusaoSite: conclusao, cnpjConfere: false, dominios, paginas: [], vinculosFortes: fortes.length },
+      });
+      linhasHist.push({
+        candidataId: c.id, tipoEvento: "TRIAGEM", origem: "ROBO_GRATUITO", agente: AGENTE_ROBO, statusAnterior: c.statusValidacao, statusNovo: c.statusValidacao,
+        campo: "triagem", valorNovo: `${t.classificacao} → ${situacaoFila}`, motivo: `${motivo} Site: ${conclusao}. Vínculos fortes: ${fortes.length}.`.slice(0, 1000), createdAt: agora,
+      });
+      resumo.processadas++;
+      conta(resumo.porTriagem, t.classificacao);
+      conta(resumo.porConclusaoSite, conclusao);
+      if (situacaoFila === "AGUARDANDO") resumo.filaHumana++; else resumo.dispensadas++;
+      resumo.itens.push({ candidataId: c.id, razaoSocial: c.razaoSocial, triagem: t.classificacao, situacaoFila, conclusaoSite: conclusao,
+        site: dominios[0] ?? null, virouProvavel: false, vinculosFortes: fortes.length, potencialCompra: potencial });
+    }
+    await db.$transaction([
+      db.concreteiraTriagem.createMany({ data: linhasTriagem as never, skipDuplicates: true }),
+      db.concreteiraValidacaoHistorico.createMany({ data: linhasHist as never }),
+    ]);
+    log(`lote rápido ${Math.min(i + 200, rapidos.length)}/${rapidos.length}`);
+  }
+
+  const processarUma = async (c: Cand) => {
     const t = triagens.get(c.id)!;
     // ---- 3) site próprio
     const dominios = [...new Set(c.unidades.flatMap(u => [receita.get(u.cnpj)?.email, u.email]).map(dominioDeEmail).filter((d): d is string => Boolean(d)))].slice(0, 2);
@@ -283,6 +337,12 @@ export async function executarRobo(o: OpcoesRobo): Promise<ResumoRobo> {
     resumo.itens.push({ candidataId: c.id, razaoSocial: c.razaoSocial, triagem: t.classificacao, situacaoFila, conclusaoSite: conclusao,
       site: dominios[0] ?? null, virouProvavel, vinculosFortes: fortes.length, potencialCompra: potencial });
     log(`${resumo.processadas}/${lote.length} ${c.razaoSocial ?? c.id} → ${t.classificacao} · ${conclusao} · ${situacaoFila}`);
+    };
+  const paralelo = Math.max(1, o.paralelo ?? 1);
+  const limiteTempo = o.prazoMs ? Date.now() + o.prazoMs : Infinity;
+  for (let i = 0; i < completos.length; i += paralelo) {
+    if (Date.now() > limiteTempo) { resumo.restantesSemRobo += completos.length - i; break; }
+    await Promise.all(completos.slice(i, i + paralelo).map(processarUma));
   }
   return resumo;
 }

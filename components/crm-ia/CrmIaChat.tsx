@@ -392,8 +392,17 @@ export function CrmIaChat() {
 </body>
 </html>`;
 
-    const w = window.open("", "_blank");
-    if (w) { w.document.write(html); w.document.close(); }
+    // Usa Blob + link para evitar bloqueio de popup do navegador
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
 
   // ── Excel — planilha .xlsx completa com SheetJS ───────────────────────────

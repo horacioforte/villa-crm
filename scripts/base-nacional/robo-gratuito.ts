@@ -16,6 +16,7 @@ const arg = (n: string) => process.argv.find(a => a.startsWith(`--${n}=`))?.spli
 async function main() {
   const uf = (arg("uf") ?? "").toUpperCase();
   const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
+  UFS.push("EX"); // 12/10/2026: empresas estrangeiras com CNPJ no Brasil (unidade com UF "EX")
   if (!UFS.includes(uf)) throw new Error("Informe --uf com a sigla de um estado.");
   const amb = carregarAmbienteIsolado();
   if (amb.endpoint !== ENDPOINT_AUTORIZADO) throw new Error(`BLOQUEADO: endpoint ${amb.endpointMascarado} não é o branch autorizado.`);

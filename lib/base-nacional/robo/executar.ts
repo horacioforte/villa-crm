@@ -327,7 +327,7 @@ export async function executarRobo(o: OpcoesRobo): Promise<ResumoRobo> {
           campo: "triagem", valorNovo: `${t.classificacao} → ${situacaoFila}${sugestao ? ` (${sugestao})` : ""}`.slice(0, 300),
           motivo: `${motivo} Site: ${conclusao}. Vínculos fortes: ${fortes.length}.`.slice(0, 1000), createdAt: agora },
       });
-    });
+    }, { maxWait: 30_000, timeout: 60_000 }); // 12/10/2026: paralelo nacional (evita "Unable to start a transaction")
 
     resumo.processadas++;
     conta(resumo.porTriagem, t.classificacao);
@@ -342,7 +342,15 @@ export async function executarRobo(o: OpcoesRobo): Promise<ResumoRobo> {
   const limiteTempo = o.prazoMs ? Date.now() + o.prazoMs : Infinity;
   for (let i = 0; i < completos.length; i += paralelo) {
     if (Date.now() > limiteTempo) { resumo.restantesSemRobo += completos.length - i; break; }
-    await Promise.all(completos.slice(i, i + paralelo).map(processarUma));
+    // 12/10/2026: uma falha de conexão não derruba o lote; tenta de novo uma vez e, se falhar, deixa para a próxima execução.
+    await Promise.all(completos.slice(i, i + paralelo).map(async c => {
+      try { await processarUma(c); }
+      catch (e1) {
+        await new Promise(r => setTimeout(r, 2_000));
+        try { await processarUma(c); }
+        catch (e2) { resumo.restantesSemRobo++; log(`ERRO ${c.id}: ${(e2 as Error).message.slice(0, 160)} (fica para a próxima execução)`); void e1; }
+      }
+    }));
   }
   return resumo;
 }

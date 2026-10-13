@@ -267,8 +267,11 @@ async function lerComCache(db: Client, url: string, somenteCache = false): Promi
  * 13/10/2026: um domínio só conta como site DA EMPRESA se o próprio domínio tiver o nome distintivo, ou se a página
  * inicial citar o nome ou a raiz do CNPJ. Evita registrar contatos de escritório contábil ou de outra empresa.
  */
-export function dominioEhDaEmpresa(dom: string, titulo: string | null, texto: string, tokens: string[], raizes: string[]): { ok: boolean; motivo: string } {
-  if (tokens.some(t => normalizarNome(dom.replace(/[.-]/g, " ")).replace(/ /g, "").includes(t))) return { ok: true, motivo: "domínio contém o nome da empresa" };
+export function dominioEhDaEmpresa(dom: string, titulo: string | null, texto: string, tokens: string[], raizes: string[], nomesCompactos: string[] = []): { ok: boolean; motivo: string } {
+  const domC = normalizarNome(dom.replace(/[.-]/g, " ")).replace(/ /g, "");
+  if (tokens.some(t => domC.includes(t))) return { ok: true, motivo: "domínio contém o nome da empresa" };
+  // nome curto sem palavra distintiva ("2AC MIX" → 2acmix.com.br)
+  if (nomesCompactos.some(n => n.length >= 5 && domC.includes(n))) return { ok: true, motivo: "domínio contém o nome da empresa" };
   const digitos = texto.replace(/\D/g, "");
   if (raizes.some(r => digitos.includes(r))) return { ok: true, motivo: "CNPJ da empresa publicado no site" };
   if (textoCitaEmpresa(`${titulo ?? ""} ${texto.slice(0, 30_000)}`, tokens)) return { ok: true, motivo: "site cita o nome da empresa" };
@@ -279,10 +282,12 @@ export function dominioEhDaEmpresa(dom: string, titulo: string | null, texto: st
 type ContatoSite = { tipo: string; valor: string; normalizado: string; url: string; confianca: string; observacao: string; descricao: string };
 type PessoaSite = { nome: string; cargo: string; papel: string; url: string; linkedinUrl: string | null; observacao: string };
 
-async function etapaSite(db: Client, g: G, membros: Array<{ id: string; raiz: string }>, tokens: string[], maxPaginas: number, revisar = false) {
+async function etapaSite(db: Client, g: G, membros: Array<{ id: string; raiz: string; razao?: string; fantasia?: string | null }>, tokens: string[], maxPaginas: number, revisar = false) {
   if (!g.dominios.length) { await salvarEtapa(db, g.chave, "site", { resultado: "não localizado: sem site próprio conhecido" }); return; }
   const alvo = g.candidataPrincipalId;
   const raizes = membros.map(m => m.raiz);
+  const nomesCompactos = [...new Set(membros.flatMap(m => [m.razao, m.fantasia]).filter((x): x is string => Boolean(x))
+    .map(x => normalizarNome(x).replace(/\b(LTDA|S A|SA|ME|EPP|EIRELI)\b/g, "").replace(/ /g, "")))];
   let paginas = 0, doCache = 0, bloqueadas = 0;
   const lidas: string[] = [], dominiosValidos: string[] = [], dominiosRecusados: Record<string, string> = {};
   const contatos: ContatoSite[] = [], pessoas: PessoaSite[] = [];
@@ -302,7 +307,7 @@ async function etapaSite(db: Client, g: G, membros: Array<{ id: string; raiz: st
         continue;
       }
       if (valido === null) {
-        const v = dominioEhDaEmpresa(dom, p.titulo, p.texto, tokens, raizes);
+        const v = dominioEhDaEmpresa(dom, p.titulo, p.texto, tokens, raizes, nomesCompactos);
         valido = v.ok;
         if (!v.ok) { dominiosRecusados[dom] = v.motivo; break; }
         dominiosValidos.push(dom);

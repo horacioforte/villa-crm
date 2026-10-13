@@ -10,6 +10,7 @@ import {
   montarPayloadAtualizacaoJoao,
 } from "@/lib/inteligencia/joao-estrutura";
 import { investigarDossie } from "@/lib/agentes/joao/investigador";
+import { investigarDossieCombinado } from "@/lib/agentes/joao/investigador-combinado";
 
 export const maxDuration = 90;
 
@@ -176,7 +177,7 @@ export async function POST(req: NextRequest) {
   for (const dossie of dossies) {
     console.log(`[joao/investigar] Investigando: ${dossie.titulo}`);
 
-    const resultado = await investigarDossie(dossie);
+    const resultado = await investigarDossieCombinado(dossie).then(r => r.mesclado);
     const camposAtualizados: string[] = [];
 
     const camposString = [

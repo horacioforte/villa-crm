@@ -96,6 +96,10 @@ export default async function BaseNacionalPage({
             <Link href={`${BASE}/fila`} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
               Fila de verificação
             </Link>
+            {/* v7 (13/10/2026): fila comercial do João (A/B/C, decisão humana; nada é enviado) */}
+            <Link href={`${BASE}/joao`} className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
+              Fila comercial do João
+            </Link>
             <a href={`${BASE}/imprimir${qsFiltros}`} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
               <Printer className="h-3.5 w-3.5 text-indigo-600" /> Imprimir
             </a>

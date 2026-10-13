@@ -273,6 +273,7 @@ model Usuario {
   pessoasCandidataVerificadas    ConcreteiraCandidataPessoa[]      @relation("PessoaCandidataVerificadoPor")
   pessoasCandidataInativadas     ConcreteiraCandidataPessoa[]      @relation("PessoaCandidataInativadoPor")
   pessoasCandidataRegistradas    ConcreteiraCandidataPessoa[]      @relation("PessoaCandidataRegistradoPor")
+  joaoDecisoesComerciais         JoaoEnriquecimentoGrupo[]         @relation("JoaoDecisaoComercialPor") // v7
   potenciaisEquipamentoAvaliados ConcreteiraPotencialEquipamento[] @relation("PotencialEquipamentoAvaliadoPor")
   // v5 (08/10/2026) — relações virtuais, sem coluna nova em Usuario. Nunca remover.
   triagensEmRevisao              ConcreteiraTriagem[]              @relation("TriagemEmRevisaoPor")
@@ -2530,6 +2531,7 @@ enum TipoEventoBaseNacional {
   TRIAGEM // v5
   FILA_VERIFICACAO // v5
   ENRIQUECIMENTO // v6 (João)
+  DECISAO_COMERCIAL // v7 (fila comercial do João)
 }
 
 enum OrigemAcaoBaseNacional {
@@ -2830,8 +2832,33 @@ model JoaoEnriquecimentoGrupo {
   concluidoEm          DateTime?
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @default(now()) @updatedAt
+  // v7 (13/10/2026): fila comercial do João — categoria por código e decisão humana (nada é enviado)
+  categoriaComercial   CategoriaComercialJoao?
+  categoriaMotivo      String?
+  categorizadoEm       DateTime?
+  indicadores          Json?
+  decisaoComercial     DecisaoComercialJoao?
+  decisaoObservacao    String?
+  decisaoPorId         String?
+  decisaoPor           Usuario?               @relation("JoaoDecisaoComercialPor", fields: [decisaoPorId], references: [id], onDelete: SetNull)
+  decisaoEm            DateTime?
 
   @@index([publico, situacao, ordem])
+  @@index([categoriaComercial])
+}
+
+enum CategoriaComercialJoao {
+  A
+  B
+  C
+}
+
+enum DecisaoComercialJoao {
+  APROVADO_ABORDAGEM
+  PESQUISAR_MELHOR
+  CONTATO_INVALIDO
+  NAO_PRIORITARIA
+  ADIAR
 }
 
 model JoaoEnriquecimentoCache {

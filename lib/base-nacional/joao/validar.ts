@@ -54,6 +54,7 @@ export function normalizarTelefoneBR(v: string | null | undefined): string | nul
   if (ddd < 11 || ddd > 99 || d[0] === "0") return null;
   if (d.length === 11 && d[2] !== "9") return null; // celular tem 9 na frente
   if (/^(\d)\1+$/.test(d.slice(2))) return null; // 0000-0000, 9999-9999
+  if (/^9?(12345678|23456789|87654321)$/.test(d.slice(2))) return null; // número de exemplo (13/10/2026)
   return d;
 }
 export const ehCelular = (n: string) => n.length === 11 && n[2] === "9";
@@ -80,7 +81,9 @@ const EMAIL_FALSO = /^(seu|sua|nome|email|e-mail|exemplo|example|teste|test|usua
  * confereEmpresa = domínio igual (registrável) a um domínio conhecido da empresa.
  */
 export function validarEmail(email: string | null | undefined, dominiosEmpresa: string[] = []): ValidacaoEmail {
-  const e = (email ?? "").trim().toLowerCase().replace(/^mailto:/, "").replace(/\?.*$/, "");
+  let e0 = (email ?? "").trim();
+  try { e0 = decodeURIComponent(e0); } catch { /* mantém */ } // "%20contato@..." de links mailto (13/10/2026)
+  const e = e0.trim().toLowerCase().replace(/^mailto:\s*/, "").replace(/\?.*$/, "").trim();
   const m = e.match(/^([a-z0-9._%+-]+)@([a-z0-9.-]+\.[a-z]{2,})$/);
   if (!m) return { valido: false, normalizado: null, dominio: null, corporativo: false, confereEmpresa: false, motivo: "formato inválido" };
   if (EMAIL_FALSO.test(e) || /\.(png|jpe?g|gif|webp|svg)$/.test(e)) return { valido: false, normalizado: null, dominio: null, corporativo: false, confereEmpresa: false, motivo: "endereço de exemplo ou imagem" };
@@ -114,9 +117,11 @@ export function textoCitaEmpresa(texto: string, tokens: string[]): boolean {
 export function nomePessoaPlausivel(nome: string): boolean {
   const n = normalizarNome(nome);
   const p = n.split(" ").filter(Boolean);
-  if (p.length < 2 || p.length > 6) return false;
+  if (p.length < 2 || p.length > 5) return false;
   if (p.some(x => /\d/.test(x))) return false;
   if (/\b(LTDA|CONCRETO|CONCRETOS|EMPRESA|SERVICOS|CONTATO|ATENDIMENTO|COMERCIAL|VENDAS|FINANCEIRO|DEPARTAMENTO|SETOR|SAC|CENTRAL|UNIDADE|TELEFONE|EMAIL|WHATSAPP)\b/.test(n)) return false;
+  // 13/10/2026: menus, cidades e cargos colados ao nome ("Fale Conosco Matriz", "Presidente Prudente", "Sônia Regina Diretora Rogério")
+  if (/\b(FALE|CONOSCO|CLIENTES?|ORCAMENTOS?|MATRIZ|FILIAL|HOME|INICIO|SOBRE|PRODUTOS?|BLOG|MAPA|SITE|PRUDENTE|JANEIRO|HORIZONTE|ALEGRE|IR|PARA|CONTEUDO|NOSSA|NOSSO|EQUIPE|DIRETORA?|GERENTE|COORDENADORA?|FISCAL|SOCIA?|PRESIDENTE|CEO|ADMINISTRADORA?|CONTABILIDADE|CONTABIL)\b/.test(n)) return false;
   return p.filter(x => x.length >= 2).length >= 2;
 }
 

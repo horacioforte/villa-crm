@@ -148,7 +148,7 @@ async function executar(db: Client) {
   const maxPaginas = Number(arg("max-paginas") ?? 6);
   const socios = lerSocios();
   const r = await db.query(`SELECT chave, nome, "candidataPrincipalId", "candidataIds", raizes, dominios, etapas, tentativas FROM "JoaoEnriquecimentoGrupo"
-    WHERE publico = $1 AND (situacao IN ('AGUARDANDO','EM_ANDAMENTO') OR (situacao = 'ERRO' AND tentativas < 3)) ORDER BY ordem LIMIT $2`, [publico, limite]);
+    WHERE publico = $1 AND (situacao IN ('AGUARDANDO','EM_ANDAMENTO') OR (situacao = 'ERRO' AND tentativas < 3) OR ($3 AND situacao IN ('CONCLUIDO','NAO_LOCALIZADO') AND NOT (etapas->'site' ? 'revisadoEm'))) ORDER BY ordem LIMIT $2`, [publico, limite, tem("revisar-site")]);
   console.log(`[joao] ${r.rows.length} grupos a processar (${publico})`);
   let feitos = 0;
   for (const g of r.rows as G[]) {
@@ -160,6 +160,7 @@ async function executar(db: Client) {
       if (!g.etapas.qsa?.feito) await etapaQsa(db, g, membros, socios);
       if (!g.etapas.receita?.feito) await etapaReceita(db, g, membros);
       if (!g.etapas.site?.feito) await etapaSite(db, g, membros, tokens, maxPaginas);
+      else if (tem("revisar-site") && !g.etapas.site?.revisadoEm) await etapaSite(db, g, membros, tokens, maxPaginas, true);
       await finalizar(db, g.chave);
       feitos++;
     } catch (e) {
@@ -237,7 +238,7 @@ async function etapaReceita(db: Client, g: G, membros: Array<{ id: string; raiz:
         observacao: "Telefone comercial informado à Receita. Pode ser antigo ou do escritório contábil; confirmar antes de usar." })) novos++;
     }
     const v = validarEmail(u.email, g.dominios);
-    if (v.valido && v.normalizado && v.corporativo && (v.confereEmpresa || textoCitaEmpresa((v.dominio ?? "").replace(/\./g, " "), tokens))) {
+    if (v.valido && v.normalizado && v.corporativo && tokens.some(t => normalizarNome((v.dominio ?? "").replace(/[.-]/g, " ")).replace(/ /g, "").includes(t))) { // 13/10/2026: só domínio com o nome; os demais dependem da validação do site
       if (await inserirContato(db, { candidataId: u.candidataId, unidadeId: u.id, grupoChave: g.chave, tipo: "EMAIL", valor: v.normalizado, normalizado: v.normalizado, descricao: "E-mail corporativo do cadastro CNPJ",
         fonte: "RECEITA_FEDERAL", fonteUrl: `https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/cnpjreva_solicitacao.asp?cnpj=${u.cnpj}`, confianca: "MEDIA", observacao: `Domínio validado: ${v.motivo}.` })) novos++;
     } else if (u.email) emailsDescartados++;
@@ -245,12 +246,13 @@ async function etapaReceita(db: Client, g: G, membros: Array<{ id: string; raiz:
   await salvarEtapa(db, g.chave, "receita", { contatos: novos, telefonesCompartilhadosIgnorados: compartilhados, emailsNaoCorporativosIgnorados: emailsDescartados });
 }
 
-async function lerComCache(db: Client, url: string): Promise<{ texto: string; links: Array<{ href: string; texto: string }>; titulo: string | null; erro: string | null; doCache: boolean; urlFinal: string }> {
+async function lerComCache(db: Client, url: string, somenteCache = false): Promise<{ texto: string; links: Array<{ href: string; texto: string }>; titulo: string | null; erro: string | null; doCache: boolean; urlFinal: string }> {
   const c = await db.query(`SELECT dados, erro, "buscadoEm" FROM "JoaoEnriquecimentoCache" WHERE chave = $1`, [`pagina:${url}`]);
   if (c.rowCount && new Date(c.rows[0].buscadoEm).getTime() > Date.now() - DIAS_CACHE * 86_400_000) {
     const d = c.rows[0].dados ?? {};
     return { texto: d.texto ?? "", links: d.links ?? [], titulo: d.titulo ?? null, erro: c.rows[0].erro, doCache: true, urlFinal: d.urlFinal ?? url };
   }
+  if (somenteCache) return { texto: "", links: [], titulo: null, erro: "não está no cache (revisão não busca de novo)", doCache: true, urlFinal: url };
   // página que o robô já viu bloqueada (robots/403) não é tentada de novo
   const rb = await db.query(`SELECT erro FROM "ConcreteiraRoboCache" WHERE url = $1 AND (NOT "permitidoRobots" OR erro LIKE 'acesso restrito%' OR erro LIKE '%CAPTCHA%') AND "buscadoEm" > now() - interval '30 days'`, [url]);
   if (rb.rowCount) return { texto: "", links: [], titulo: null, erro: `já bloqueada para o robô: ${rb.rows[0].erro}`, doCache: true, urlFinal: url };
@@ -261,56 +263,121 @@ async function lerComCache(db: Client, url: string): Promise<{ texto: string; li
   return { ...dados, erro: p.erro, doCache: false };
 }
 
-async function etapaSite(db: Client, g: G, membros: Array<{ id: string }>, tokens: string[], maxPaginas: number) {
+/**
+ * 13/10/2026: um domínio só conta como site DA EMPRESA se o próprio domínio tiver o nome distintivo, ou se a página
+ * inicial citar o nome ou a raiz do CNPJ. Evita registrar contatos de escritório contábil ou de outra empresa.
+ */
+export function dominioEhDaEmpresa(dom: string, titulo: string | null, texto: string, tokens: string[], raizes: string[]): { ok: boolean; motivo: string } {
+  if (tokens.some(t => normalizarNome(dom.replace(/[.-]/g, " ")).replace(/ /g, "").includes(t))) return { ok: true, motivo: "domínio contém o nome da empresa" };
+  const digitos = texto.replace(/\D/g, "");
+  if (raizes.some(r => digitos.includes(r))) return { ok: true, motivo: "CNPJ da empresa publicado no site" };
+  if (textoCitaEmpresa(`${titulo ?? ""} ${texto.slice(0, 30_000)}`, tokens)) return { ok: true, motivo: "site cita o nome da empresa" };
+  if (/CONTAB|CONTADOR|ASSESSORIA FISCAL|ESCRITORIO/.test(normalizarNome(`${titulo ?? ""} ${texto.slice(0, 3000)}`))) return { ok: false, motivo: "site de escritório contábil (terceiro)" };
+  return { ok: false, motivo: "site não cita a empresa (terceiro ou homônimo)" };
+}
+
+type ContatoSite = { tipo: string; valor: string; normalizado: string; url: string; confianca: string; observacao: string; descricao: string };
+type PessoaSite = { nome: string; cargo: string; papel: string; url: string; linkedinUrl: string | null; observacao: string };
+
+async function etapaSite(db: Client, g: G, membros: Array<{ id: string; raiz: string }>, tokens: string[], maxPaginas: number, revisar = false) {
   if (!g.dominios.length) { await salvarEtapa(db, g.chave, "site", { resultado: "não localizado: sem site próprio conhecido" }); return; }
   const alvo = g.candidataPrincipalId;
-  const existentes = await nomesExistentes(db, g.candidataIds);
-  let paginas = 0, doCache = 0, bloqueadas = 0, contatos = 0, pessoas = 0;
-  const lidas: string[] = [];
-  for (const dom of g.dominios.slice(0, 2)) {
+  const raizes = membros.map(m => m.raiz);
+  let paginas = 0, doCache = 0, bloqueadas = 0;
+  const lidas: string[] = [], dominiosValidos: string[] = [], dominiosRecusados: Record<string, string> = {};
+  const contatos: ContatoSite[] = [], pessoas: PessoaSite[] = [];
+  for (const dom of g.dominios.slice(0, 3)) {
     const fila = [`https://${dom}/`];
     const vistas = new Set<string>();
+    let valido: boolean | null = null;
     while (fila.length && vistas.size < maxPaginas) {
       const url = fila.shift()!;
       if (vistas.has(url)) continue;
       vistas.add(url);
-      const p = await lerComCache(db, url);
+      const p = await lerComCache(db, url, revisar);
       if (p.doCache) doCache++; else paginas++;
       if (p.erro) {
         bloqueadas++;
         if (p.erro === "falha de conexão" && url === `https://${dom}/`) fila.push(`http://${dom}/`);
         continue;
       }
+      if (valido === null) {
+        const v = dominioEhDaEmpresa(dom, p.titulo, p.texto, tokens, raizes);
+        valido = v.ok;
+        if (!v.ok) { dominiosRecusados[dom] = v.motivo; break; }
+        dominiosValidos.push(dom);
+      }
       lidas.push(url);
       if (vistas.size === 1 || url.endsWith(`${dom}/`)) { try { fila.push(...linksDeContato(new URL(p.urlFinal), p.links, maxPaginas - 1)); } catch { /* url inválida */ } }
-      for (const a of extrairContatos(p.texto, p.links, g.dominios)) {
+      for (const a of extrairContatos(p.texto, p.links, dominiosValidos)) {
         let confianca = "ALTA", obs = "Publicado no site oficial da empresa.";
         if (a.tipo === "EMAIL") {
           if (!a.corporativo) { confianca = "MEDIA"; obs = "E-mail de provedor genérico, mas publicado no site oficial da empresa."; }
           else if (!a.confereEmpresa) { confianca = "BAIXA"; obs = "Domínio do e-mail diferente do site; pode ser de terceiro (agência/contador)."; }
           else obs = "E-mail corporativo: domínio confere com o site da empresa.";
         }
-        const tipo = a.tipo === "LINKEDIN" ? "LINKEDIN" : a.tipo;
-        if (await inserirContato(db, { candidataId: alvo, grupoChave: g.chave, tipo, valor: a.valor, normalizado: a.normalizado, descricao: `${tipo === "LINKEDIN" ? "Página da empresa no LinkedIn" : "Contato comercial"} (site oficial)`,
-          fonte: "SITE_EMPRESA", fonteUrl: url, confianca, observacao: `${obs} Trecho: "${a.trecho.slice(0, 200)}"` })) contatos++;
+        if (a.tipo === "WHATSAPP") obs = "WhatsApp publicado como contato comercial no site oficial.";
+        contatos.push({ tipo: a.tipo, valor: a.valor, normalizado: a.normalizado, url, confianca, observacao: `${obs} Trecho: "${a.trecho.slice(0, 200)}"`,
+          descricao: `${a.tipo === "LINKEDIN" ? "Página da empresa no LinkedIn" : "Contato comercial"} (site oficial)` });
       }
       const lpess = extrairLinkedinPessoas(p.links);
       for (const pc of extrairPessoasComCargo(p.texto)) {
-        const nn = normalizarNome(pc.nome);
-        if (existentes.has(nn)) continue;
         if (pc.prioridade > 7) continue;
+        const nn = normalizarNome(pc.nome);
         const c = classificarCargo(pc.cargo);
         const li = lpess.find(l => normalizarNome(l.texto).includes(nn) || nn.split(" ").every(t => l.url.toUpperCase().includes(t)))?.url ?? null;
-        if (await inserirPessoa(db, { candidataId: alvo, grupoChave: g.chave, nome: pc.nome, funcao: pc.cargo, papel: c.papel, fonte: "SITE_EMPRESA", fonteUrl: url, confianca: "MEDIA", linkedinUrl: li,
-          observacao: `Citado no site oficial com cargo. Trecho: "${pc.trecho.slice(0, 200)}"` })) { pessoas++; existentes.set(nn, "novo"); }
+        pessoas.push({ nome: pc.nome, cargo: pc.cargo, papel: c.papel, url, linkedinUrl: li, observacao: `Citado no site oficial com cargo. Trecho: "${pc.trecho.slice(0, 200)}"` });
       }
     }
   }
-  void membros; void tokens;
-  await db.query(`INSERT INTO "JoaoEnriquecimentoConsumo"(id, "grupoChave", etapa, ferramenta, chamadas, "tokensEstimados", "custoUsd", pago) VALUES ($1,$2,'site','fetch (código, gratuito)',$3,0,0,false)`,
-    [`jc-${h(`${g.chave}|site|${Date.now()}`)}`, g.chave, paginas]);
-  await salvarEtapa(db, g.chave, "site", { paginasLidas: paginas, paginasDoCache: doCache, paginasBloqueadasOuComErro: bloqueadas, contatos, pessoas, urls: lidas.slice(0, 10),
-    resultado: lidas.length ? undefined : "não localizado: site inacessível ou bloqueado (não contornado)" });
+  // Revisão: o que a regra nova não confirma é inativado (nunca apagado).
+  let inativados = 0;
+  if (revisar) {
+    const okC = new Set(contatos.map(c => `${c.tipo}|${c.normalizado}`));
+    const okP = new Set(pessoas.map(p => normalizarNome(p.nome)));
+    const motivo = `Revisão 13/10/2026: não confirmado pela regra nova (site de terceiro ou texto de menu). Recusados: ${JSON.stringify(dominiosRecusados)}`;
+    const rc = await db.query(`SELECT id, tipo::text, "valorNormalizado" v FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND fonte = 'SITE_EMPRESA' AND ativo`, [g.chave, AGENTE]);
+    for (const x of rc.rows) if (!okC.has(`${x.tipo}|${x.v}`)) { await db.query(`UPDATE "ConcreteiraCandidataContato" SET ativo = false, "inativadoEm" = now(), "motivoInativacao" = $2, "updatedAt" = now() WHERE id = $1`, [x.id, motivo]); inativados++; }
+    const rp = await db.query(`SELECT id, nome FROM "ConcreteiraCandidataPessoa" WHERE "grupoChave" = $1 AND agente = $2 AND fonte = 'SITE_EMPRESA' AND ativo`, [g.chave, AGENTE]);
+    for (const x of rp.rows) if (!okP.has(normalizarNome(x.nome))) { await db.query(`UPDATE "ConcreteiraCandidataPessoa" SET ativo = false, "inativadoEm" = now(), "motivoInativacao" = $2, "updatedAt" = now() WHERE id = $1`, [x.id, motivo]); inativados++; }
+  }
+  const existentes = await nomesExistentes(db, g.candidataIds);
+  let nContatos = 0, nPessoas = 0;
+  for (const c of contatos) if (await inserirContato(db, { candidataId: alvo, grupoChave: g.chave, tipo: c.tipo, valor: c.valor, normalizado: c.normalizado, descricao: c.descricao, fonte: "SITE_EMPRESA", fonteUrl: c.url, confianca: c.confianca, observacao: c.observacao })) nContatos++;
+  for (const p of pessoas) {
+    const nn = normalizarNome(p.nome);
+    if (existentes.has(nn)) continue;
+    if (await inserirPessoa(db, { candidataId: alvo, grupoChave: g.chave, nome: p.nome, funcao: p.cargo, papel: p.papel, fonte: "SITE_EMPRESA", fonteUrl: p.url, confianca: "MEDIA", linkedinUrl: p.linkedinUrl, observacao: p.observacao })) { nPessoas++; existentes.set(nn, "novo"); }
+  }
+  // E-mails do cadastro da Receita cujo domínio o site confirmou como da empresa
+  const nEmailsReceita = await emailsReceitaDeDominiosValidos(db, g, dominiosValidos, revisar);
+  await db.query(`INSERT INTO "JoaoEnriquecimentoConsumo"(id, "grupoChave", etapa, ferramenta, chamadas, "tokensEstimados", "custoUsd", pago) VALUES ($1,$2,$3,'fetch (código, gratuito)',$4,0,0,false)`,
+    [`jc-${h(`${g.chave}|site|${Date.now()}`)}`, g.chave, revisar ? "site-revisao" : "site", paginas]);
+  await salvarEtapa(db, g.chave, "site", { paginasLidas: paginas, paginasDoCache: doCache, paginasBloqueadasOuComErro: bloqueadas, contatos: nContatos, pessoas: nPessoas,
+    emailsReceitaValidados: nEmailsReceita, dominiosValidos, dominiosRecusados, inativadosNaRevisao: inativados, revisadoEm: revisar ? new Date().toISOString() : undefined, urls: lidas.slice(0, 10),
+    resultado: lidas.length ? undefined : "não localizado: site inacessível, bloqueado (não contornado) ou de terceiro" });
+}
+
+async function emailsReceitaDeDominiosValidos(db: Client, g: G, dominiosValidos: string[], revisar: boolean): Promise<number> {
+  const regs = new Set(dominiosValidos.map(d => dominioRegistravel(d) ?? d));
+  if (revisar) {
+    // e-mail da Receita gravado antes com domínio não confirmado → inativa (pode ser do contador)
+    const r = await db.query(`SELECT id, "valorNormalizado" v FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND fonte = 'RECEITA_FEDERAL' AND tipo = 'EMAIL' AND ativo`, [g.chave, AGENTE]);
+    for (const x of r.rows) {
+      const d = dominioRegistravel(String(x.v).split("@")[1] ?? "");
+      if (!d || !regs.has(d)) await db.query(`UPDATE "ConcreteiraCandidataContato" SET ativo = false, "inativadoEm" = now(), "motivoInativacao" = 'Revisão 13/10/2026: domínio do e-mail não confirmado como da empresa (pode ser do contador).', "updatedAt" = now() WHERE id = $1`, [x.id]);
+    }
+  }
+  if (!regs.size) return 0;
+  const uni = (await db.query(`SELECT u.id, u."candidataId", u.cnpj, coalesce(r.email, u.email) email FROM "ConcreteiraCandidataUnidade" u LEFT JOIN "ReceitaEstabelecimento" r ON r.cnpj = u.cnpj WHERE u."candidataId" = ANY($1) AND u.ativa`, [g.candidataIds])).rows;
+  let n = 0;
+  for (const u of uni) {
+    const v = validarEmail(u.email, [...regs]);
+    if (!v.valido || !v.normalizado || !v.confereEmpresa) continue;
+    if (await inserirContato(db, { candidataId: u.candidataId, unidadeId: u.id, grupoChave: g.chave, tipo: "EMAIL", valor: v.normalizado, normalizado: v.normalizado, descricao: "E-mail corporativo do cadastro CNPJ",
+      fonte: "RECEITA_FEDERAL", fonteUrl: `https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/cnpjreva_solicitacao.asp?cnpj=${u.cnpj}`, confianca: "MEDIA", observacao: "Domínio confirmado pelo site oficial da empresa. Não verificado." })) n++;
+  }
+  return n;
 }
 
 async function finalizar(db: Client, chave: string) {

@@ -82,3 +82,18 @@ describe("agrupar", () => {
     expect(g[0]).toMatchObject({ chave: "jg-10000000", principal: "a", candidataIds: ["a", "b"], ordem: 0, motivos: ["sócia pessoa jurídica (QSA)"] });
   });
 });
+
+describe("revisão 13/10/2026", () => {
+  it("recusa menus, cidades e cargos colados como nome de pessoa", () => {
+    expect(nomePessoaPlausivel("Clientes Orçamentos Fale Conosco Matriz")).toBe(false);
+    expect(nomePessoaPlausivel("Prudente Ir")).toBe(false);
+    expect(nomePessoaPlausivel("Sônia Regina Diretora Rogério Silvestrini")).toBe(false);
+    expect(nomePessoaPlausivel("João Paulo Fernandes")).toBe(true);
+    expect(extrairPessoasComCargo("Sawil Contabilidade em Presidente Prudente Ir para o conteúdo")).toEqual([]);
+  });
+  it("telefone de exemplo e e-mail com %20", () => {
+    expect(normalizarTelefoneBR("+55 32 1234-5678")).toBeNull();
+    expect(validarEmail("mailto:%20sawil@sawil.com.br").normalizado).toBe("sawil@sawil.com.br");
+  });
+});
+

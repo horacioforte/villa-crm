@@ -12,7 +12,7 @@ import {
 import { investigarDossie } from "@/lib/agentes/joao/investigador";
 import { investigarDossieCombinado } from "@/lib/agentes/joao/investigador-combinado";
 
-export const maxDuration = 90;
+export const maxDuration = 300;
 
 function verificarApiKey(req: NextRequest): boolean {
   const apiKey = process.env.AGENT_API_KEY;

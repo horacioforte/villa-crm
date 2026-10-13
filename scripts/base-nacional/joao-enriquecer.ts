@@ -163,6 +163,7 @@ async function executar(db: Client) {
       else if (tem("revisar-site") && !g.etapas.site?.revisadoEm) await etapaSite(db, g, membros, tokens, maxPaginas, true);
       await finalizar(db, g.chave);
       feitos++;
+      if (tem("compacto") && feitos % 20 === 0) console.log(`[joao] ${feitos} grupos concluídos nesta execução`);
     } catch (e) {
       await db.query(`UPDATE "JoaoEnriquecimentoGrupo" SET situacao = 'ERRO', erro = $2, "updatedAt" = now() WHERE chave = $1`, [g.chave, (e as Error).message.slice(0, 400)]);
       console.log(`[joao] ERRO ${g.nome}: ${(e as Error).message.slice(0, 160)}`);
@@ -291,11 +292,14 @@ async function etapaSite(db: Client, g: G, membros: Array<{ id: string; raiz: st
   let paginas = 0, doCache = 0, bloqueadas = 0;
   const lidas: string[] = [], dominiosValidos: string[] = [], dominiosRecusados: Record<string, string> = {};
   const contatos: ContatoSite[] = [], pessoas: PessoaSite[] = [];
+  const limiteSite = Date.now() + Number(arg("prazo-site-ms") ?? 45_000);
+  let parcial = false;
   for (const dom of g.dominios.slice(0, 3)) {
     const fila = [`https://${dom}/`];
     const vistas = new Set<string>();
     let valido: boolean | null = null;
     while (fila.length && vistas.size < maxPaginas) {
+      if (Date.now() > limiteSite) { parcial = true; break; } // 13/10/2026: site lento não trava o lote
       const url = fila.shift()!;
       if (vistas.has(url)) continue;
       vistas.add(url);
@@ -359,7 +363,8 @@ async function etapaSite(db: Client, g: G, membros: Array<{ id: string; raiz: st
   await db.query(`INSERT INTO "JoaoEnriquecimentoConsumo"(id, "grupoChave", etapa, ferramenta, chamadas, "tokensEstimados", "custoUsd", pago) VALUES ($1,$2,$3,'fetch (código, gratuito)',$4,0,0,false)`,
     [`jc-${h(`${g.chave}|site|${Date.now()}`)}`, g.chave, revisar ? "site-revisao" : "site", paginas]);
   await salvarEtapa(db, g.chave, "site", { paginasLidas: paginas, paginasDoCache: doCache, paginasBloqueadasOuComErro: bloqueadas, contatos: nContatos, pessoas: nPessoas,
-    emailsReceitaValidados: nEmailsReceita, dominiosValidos, dominiosRecusados, inativadosNaRevisao: inativados, revisadoEm: revisar ? new Date().toISOString() : undefined, urls: lidas.slice(0, 10),
+    emailsReceitaValidados: nEmailsReceita, dominiosValidos, dominiosRecusados, parcialPorTempo: parcial || undefined,
+    revisaoFutura: Object.keys(dominiosRecusados).length || parcial ? "site não confirmado pelas regras ou leitura incompleta: revisar no futuro" : undefined, inativadosNaRevisao: inativados, revisadoEm: revisar ? new Date().toISOString() : undefined, urls: lidas.slice(0, 10),
     resultado: lidas.length ? undefined : "não localizado: site inacessível, bloqueado (não contornado) ou de terceiro" });
 }
 
@@ -404,7 +409,7 @@ async function finalizar(db: Client, chave: string) {
       SELECT $1, c.id, 'ENRIQUECIMENTO', 'JOAO_ENRIQUECIMENTO', $2, c."statusValidacao", c."statusValidacao", 'enriquecimento', $3, $4, now() FROM "ConcreteiraCandidata" c WHERE c.id = $5`,
       [`jh-${h(`${id}|${resultado}|${Date.now()}`)}`, AGENTE, sit, `Pesquisa de decisores (grupo ${chave}): ${resultado}. Nenhum contato foi feito.`, id]);
   }
-  console.log(`[joao] ${chave} → ${sit} · ${resultado}`);
+  if (!tem("compacto")) console.log(`[joao] ${chave} → ${sit} · ${resultado}`);
 }
 
 // ------------------------------------------------------------------------------------------------ importar-web

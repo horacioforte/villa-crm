@@ -336,10 +336,10 @@ async function etapaSite(db: Client, g: G, membros: Array<{ id: string; raiz: st
     const okC = new Set(contatos.map(c => `${c.tipo}|${c.normalizado}`));
     const okP = new Set(pessoas.map(p => normalizarNome(p.nome)));
     const motivo = `Revisão 13/10/2026: não confirmado pela regra nova (site de terceiro ou texto de menu). Recusados: ${JSON.stringify(dominiosRecusados)}`;
-    const rc = await db.query(`SELECT id, tipo::text, "valorNormalizado" v FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND fonte = 'SITE_EMPRESA' AND ativo`, [g.chave, AGENTE]);
-    for (const x of rc.rows) if (!okC.has(`${x.tipo}|${x.v}`)) { await db.query(`UPDATE "ConcreteiraCandidataContato" SET ativo = false, "inativadoEm" = now(), "motivoInativacao" = $2, "updatedAt" = now() WHERE id = $1`, [x.id, motivo]); inativados++; }
-    const rp = await db.query(`SELECT id, nome FROM "ConcreteiraCandidataPessoa" WHERE "grupoChave" = $1 AND agente = $2 AND fonte = 'SITE_EMPRESA' AND ativo`, [g.chave, AGENTE]);
-    for (const x of rp.rows) if (!okP.has(normalizarNome(x.nome))) { await db.query(`UPDATE "ConcreteiraCandidataPessoa" SET ativo = false, "inativadoEm" = now(), "motivoInativacao" = $2, "updatedAt" = now() WHERE id = $1`, [x.id, motivo]); inativados++; }
+    const rc = await db.query(`SELECT id, tipo::text, "valorNormalizado" v FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND fonte = 'SITE_EMPRESA' AND ativo AND situacao <> 'INVALIDO'`, [g.chave, AGENTE]);
+    for (const x of rc.rows) if (!okC.has(`${x.tipo}|${x.v}`)) { await db.query(`UPDATE "ConcreteiraCandidataContato" SET situacao = 'INVALIDO', observacao = concat_ws(' | ', observacao, $2::text), "updatedAt" = now() WHERE id = $1`, [x.id, motivo]); inativados++; }
+    const rp = await db.query(`SELECT id, nome FROM "ConcreteiraCandidataPessoa" WHERE "grupoChave" = $1 AND agente = $2 AND fonte = 'SITE_EMPRESA' AND ativo AND situacao <> 'INVALIDO'`, [g.chave, AGENTE]);
+    for (const x of rp.rows) if (!okP.has(normalizarNome(x.nome))) { await db.query(`UPDATE "ConcreteiraCandidataPessoa" SET situacao = 'INVALIDO', observacao = concat_ws(' | ', observacao, $2::text), "updatedAt" = now() WHERE id = $1`, [x.id, motivo]); inativados++; }
   }
   const existentes = await nomesExistentes(db, g.candidataIds);
   let nContatos = 0, nPessoas = 0;
@@ -362,10 +362,10 @@ async function emailsReceitaDeDominiosValidos(db: Client, g: G, dominiosValidos:
   const regs = new Set(dominiosValidos.map(d => dominioRegistravel(d) ?? d));
   if (revisar) {
     // e-mail da Receita gravado antes com domínio não confirmado → inativa (pode ser do contador)
-    const r = await db.query(`SELECT id, "valorNormalizado" v FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND fonte = 'RECEITA_FEDERAL' AND tipo = 'EMAIL' AND ativo`, [g.chave, AGENTE]);
+    const r = await db.query(`SELECT id, "valorNormalizado" v FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND fonte = 'RECEITA_FEDERAL' AND tipo = 'EMAIL' AND ativo AND situacao <> 'INVALIDO'`, [g.chave, AGENTE]);
     for (const x of r.rows) {
       const d = dominioRegistravel(String(x.v).split("@")[1] ?? "");
-      if (!d || !regs.has(d)) await db.query(`UPDATE "ConcreteiraCandidataContato" SET ativo = false, "inativadoEm" = now(), "motivoInativacao" = 'Revisão 13/10/2026: domínio do e-mail não confirmado como da empresa (pode ser do contador).', "updatedAt" = now() WHERE id = $1`, [x.id]);
+      if (!d || !regs.has(d)) await db.query(`UPDATE "ConcreteiraCandidataContato" SET situacao = 'INVALIDO', observacao = concat_ws(' | ', observacao, 'Revisão 13/10/2026: domínio do e-mail não confirmado como da empresa (pode ser do contador).'), "updatedAt" = now() WHERE id = $1`, [x.id]);
     }
   }
   if (!regs.size) return 0;
@@ -382,12 +382,12 @@ async function emailsReceitaDeDominiosValidos(db: Client, g: G, dominiosValidos:
 
 async function finalizar(db: Client, chave: string) {
   const r = (await db.query(`
-    SELECT (SELECT count(*)::int FROM "ConcreteiraCandidataPessoa" WHERE "grupoChave" = $1 AND agente = $2 AND ativo) pessoas,
-           (SELECT count(*)::int FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND ativo) contatos,
-           (SELECT count(*)::int FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND ativo AND tipo = 'EMAIL' AND confianca = 'ALTA') emails_corp,
-           (SELECT count(*)::int FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND ativo AND tipo = 'WHATSAPP') whats,
-           (SELECT count(*)::int FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND ativo AND tipo = 'TELEFONE') tels,
-           (SELECT count(*)::int FROM "ConcreteiraCandidataPessoa" WHERE "grupoChave" = $1 AND agente = $2 AND ativo AND "linkedinUrl" IS NOT NULL) linkedin`, [chave, AGENTE])).rows[0];
+    SELECT (SELECT count(*)::int FROM "ConcreteiraCandidataPessoa" WHERE "grupoChave" = $1 AND agente = $2 AND ativo AND situacao <> 'INVALIDO') pessoas,
+           (SELECT count(*)::int FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND ativo AND situacao <> 'INVALIDO') contatos,
+           (SELECT count(*)::int FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND ativo AND situacao <> 'INVALIDO' AND tipo = 'EMAIL' AND confianca = 'ALTA') emails_corp,
+           (SELECT count(*)::int FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND ativo AND situacao <> 'INVALIDO' AND tipo = 'WHATSAPP') whats,
+           (SELECT count(*)::int FROM "ConcreteiraCandidataContato" WHERE "grupoChave" = $1 AND agente = $2 AND ativo AND situacao <> 'INVALIDO' AND tipo = 'TELEFONE') tels,
+           (SELECT count(*)::int FROM "ConcreteiraCandidataPessoa" WHERE "grupoChave" = $1 AND agente = $2 AND ativo AND situacao <> 'INVALIDO' AND "linkedinUrl" IS NOT NULL) linkedin`, [chave, AGENTE])).rows[0];
   const nl = (n: number, s: string) => `${s}: ${n || "não localizado"}`;
   const resultado = [nl(r.pessoas, "decisores"), nl(r.linkedin, "LinkedIn de decisor"), nl(r.tels, "telefone comercial"), nl(r.whats, "WhatsApp comercial"), nl(r.emails_corp, "e-mail corporativo")].join(" · ");
   const sit = r.pessoas + r.contatos > 0 ? "CONCLUIDO" : "NAO_LOCALIZADO";
@@ -470,10 +470,10 @@ async function relatorio(db: Client, publico: string) {
       FROM "JoaoEnriquecimentoGrupo" WHERE publico = $1`, [publico])).rows[0];
   const p = (await db.query(`
     SELECT fonte::text, count(*)::int n, count(*) FILTER (WHERE "linkedinUrl" IS NOT NULL)::int li FROM "ConcreteiraCandidataPessoa" p
-      JOIN "JoaoEnriquecimentoGrupo" g ON g.chave = p."grupoChave" WHERE g.publico = $1 AND p.agente = $2 GROUP BY 1`, [publico, AGENTE])).rows;
+      JOIN "JoaoEnriquecimentoGrupo" g ON g.chave = p."grupoChave" WHERE g.publico = $1 AND p.agente = $2 AND p.ativo AND p.situacao <> 'INVALIDO' GROUP BY 1`, [publico, AGENTE])).rows;
   const k = (await db.query(`
     SELECT k.tipo::text, k.fonte::text, k.confianca::text, count(*)::int n FROM "ConcreteiraCandidataContato" k
-      JOIN "JoaoEnriquecimentoGrupo" g ON g.chave = k."grupoChave" WHERE g.publico = $1 AND k.agente = $2 GROUP BY 1,2,3 ORDER BY 1,2,3`, [publico, AGENTE])).rows;
+      JOIN "JoaoEnriquecimentoGrupo" g ON g.chave = k."grupoChave" WHERE g.publico = $1 AND k.agente = $2 AND k.ativo AND k.situacao <> 'INVALIDO' GROUP BY 1,2,3 ORDER BY 1,2,3`, [publico, AGENTE])).rows;
   const c = (await db.query(`SELECT ferramenta, sum(chamadas)::int chamadas, sum("tokensEstimados")::int tokens, sum("custoUsd")::float custo, bool_or(pago) pago
       FROM "JoaoEnriquecimentoConsumo" k JOIN "JoaoEnriquecimentoGrupo" g ON g.chave = k."grupoChave" WHERE g.publico = $1 GROUP BY 1`, [publico])).rows;
   console.log(`[joao] RELATORIO ${JSON.stringify({ publico, ...r, pessoasPorFonte: p, contatos: k, consumo: c })}`);

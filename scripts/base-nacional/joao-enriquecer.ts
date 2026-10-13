@@ -357,8 +357,17 @@ async function importarWeb(db: Client, arquivo: string) {
       if (!nomePessoaPlausivel(a.nome)) { rejeitados++; motivos.push(`${a.nome}: nome não plausível`); continue; }
       if (!textoCitaEmpresa(`${a.trecho} ${a.cargo}`, tokens)) { rejeitados++; motivos.push(`${a.nome}: trecho não cita a empresa (risco de homônimo)`); continue; }
       const c = classificarCargo(a.cargo);
-      if (c.prioridade > 7) { rejeitados++; motivos.push(`${a.nome}: cargo fora do público (${a.cargo})`); continue; }
       const nn = normalizarNome(a.nome);
+      // 12/10/2026: perfil com nome abreviado ("Marcelo Novais") de alguém já registrado pelo QSA ("Marcelo Gonzales Novais"):
+      // mesmo primeiro e último nome + perfil cita a empresa → acrescenta o LinkedIn à pessoa existente (nunca cria outra).
+      const pu = (x: string) => { const t = normalizarNome(x).split(" "); return `${t[0]}|${t[t.length - 1]}`; };
+      const compat = existentes.filter(x => normalizarNome(x.nome) !== nn && pu(x.nome) === pu(a.nome));
+      if (!existentes.some(x => normalizarNome(x.nome) === nn) && compat.length === 1 && li && !compat[0].linkedinUrl) {
+        await db.query(`UPDATE "ConcreteiraCandidataPessoa" SET "linkedinUrl" = $2, observacao = concat_ws(' | ', observacao, $3::text), "updatedAt" = now() WHERE id = $1`,
+          [compat[0].id, li, `LinkedIn provável (${new Date().toISOString().slice(0, 10)}): perfil "${a.nome}" cita a empresa; mesmo primeiro e último nome — confirmar. Fonte: ${a.fonteUrl}`]);
+        atualizados++; ac++; continue;
+      }
+      if (c.prioridade > 7) { rejeitados++; motivos.push(`${a.nome}: cargo fora do público (${a.cargo || "sem cargo no perfil"})`); continue; }
       const igual = existentes.find(x => normalizarNome(x.nome) === nn);
       if (igual) {
         if (li && !igual.linkedinUrl) {

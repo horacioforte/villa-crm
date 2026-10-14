@@ -404,8 +404,8 @@ const ferramentas = [
         },
         agente: {
           type: "string",
-          enum: ["maria-villa", "joao-villa", "taciane-villa", "morgana-villa"],
-          description: "Filtrar por agente/canal: maria-villa (IA), joao-villa (IA), taciane-villa (humano Taciane), morgana-villa (humano Morgana)",
+          enum: ["maria-villa", "joao-villa", "taciane-villa", "morgana-villa", "empreendimentos-villa"],
+          description: "Filtrar por agente/canal: maria-villa (IA), joao-villa (IA), taciane-villa (humano Taciane), morgana-villa (humano Morgana), empreendimentos-villa (humano, número institucional Villa Empreendimentos)",
         },
         pessoaId: {
           type: "string",
@@ -610,6 +610,14 @@ export async function POST(req: NextRequest) {
         contextoDeNavegacao = `\nPÁGINA ATUAL DO USUÁRIO: ${nomePagina}${id ? `\nID da entidade em foco: ${id} — se o usuário disser "essa oportunidade", "essa empresa", "esse contato" ou usar pronomes como "ela/ele/isso", refira-se a este ID sem pedir confirmação. Use a ferramenta adequada para buscar os dados deste ID.` : ""}`;
       }
 
+      const dataHoje = new Intl.DateTimeFormat("pt-BR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        timeZone: "America/Recife",
+      }).format(new Date());
+
       const systemPromptComContexto = `${CRM_IA_SYSTEM_PROMPT}
 
 ---
@@ -617,6 +625,7 @@ CONTEXTO DO USUÁRIO ATUAL:
 Nome: ${ctx.nomeUsuario}
 Papel: ${ctx.papel}
 ID: ${ctx.usuarioId ?? "desconhecido"}
+Data e hora atual (Recife, UTC-3): ${dataHoje}
 ${ctx.papel === "COMERCIAL" ? "ATENÇÃO: Este usuário é COMERCIAL — mostre apenas dados da carteira dele." : ""}
 ${ctx.papel === "GERENTE" ? "Este usuário é GERENTE — pode ver todos os dados comerciais." : ""}
 ${ctx.papel === "ADMIN" ? "Este usuário é ADMIN — acesso total a todos os dados." : ""}${contextoDeNavegacao}

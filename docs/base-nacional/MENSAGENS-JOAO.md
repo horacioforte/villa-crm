@@ -52,3 +52,13 @@ forma, fico à disposição se precisar no futuro.
 - Confirmar que nenhum destes modelos deve citar "bomba-lança" / "bomba estacionária"
   especificamente (hoje genérico — "equipamentos de bombeamento") até haver orientação
   comercial sobre qual linha priorizar por região.
+
+## Aprovação (14/10/2026)
+
+Aprovados por Horácio os 3 modelos, como estão, com estas decisões:
+
+- Nome usado pelo João ao se apresentar: **Villa Empreendimentos**.
+- Modelo 2 só cita `[nome]` quando a pessoa vier de fonte com confiança **ALTA**; caso contrário, usar o Modelo 1.
+- Termo genérico **"equipamentos de bombeamento"** (sem citar bomba-lança/estacionária) até haver orientação comercial por região.
+- Modelo 3 só depois de uma primeira mensagem sem resposta; nunca mais de uma retomada.
+- Nenhum envio automático: o João só usa estes modelos para grupos com decisão "Aprovado para abordagem", e o envio segue a regra de confirmação definida para o WhatsApp do João.

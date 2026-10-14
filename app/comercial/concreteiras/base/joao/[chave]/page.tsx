@@ -10,11 +10,13 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { formatarCnpj } from "@/lib/base-nacional/cnpj";
 import { CATEGORIA_COR, CATEGORIA_LABEL, PORTE_LABEL, type Categoria } from "@/lib/base-nacional/joao/categorizar";
 import { DECISAO_COMERCIAL_LABEL, detalheGrupoJoao, lerFiltrosJoao, qsJoao, type DecisaoComercial } from "@/lib/base-nacional/joao/fila-comercial";
+import { pesquisaIaAtiva } from "@/lib/base-nacional/joao/pesquisa-ia-config";
 import { formatarTelefone } from "@/lib/base-nacional/joao/validar";
 import { CONFIANCA_LABEL, FONTE_LABEL, STATUS_COR, STATUS_LABEL, type StatusValidacao } from "@/lib/base-nacional/rotulos";
 import { podeValidar } from "@/lib/base-nacional/validacao";
 import { cn } from "@/lib/utils";
 import { DecisaoJoao } from "./DecisaoJoao";
+import { PesquisaIA } from "./PesquisaIA";
 
 export const dynamic = "force-dynamic";
 const JOAO = "/comercial/concreteiras/base/joao";
@@ -128,7 +130,8 @@ export default async function GrupoJoaoPage({ params, searchParams }: { params: 
           </section>}
         </div>
 
-        <aside>
+        <aside className="space-y-3">
+          {usuario && podeValidar(usuario.papel) && pesquisaIaAtiva() && (g.categoriaComercial === "B" || g.categoriaComercial === "C") && <PesquisaIA chave={g.chave} />}
           {usuario && podeValidar(usuario.papel)
             ? <DecisaoJoao chave={g.chave} query={qs} decisaoAtual={g.decisaoComercial} observacaoAtual={g.decisaoObservacao}
                 contatos={contatos.map(k => ({ id: k.id, rotulo: `${TIPO[k.tipo] ?? k.tipo}: ${valorContato(k.tipo, k.valor)} (${fonte(k.fonte)})` }))} />

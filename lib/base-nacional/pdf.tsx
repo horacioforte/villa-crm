@@ -39,6 +39,15 @@ export async function gerarPdfBase<T>(args: {
 }) {
   const largura = `${100 / args.colunas.length}%`;
   const quando = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Recife" }).format(args.geradoEm);
+  // Estilo de célula pré-computado FORA do loop de linhas: com N colunas × M linhas, criar
+  // `[estilos.td, { width: largura }]` (novo array + novo objeto) dentro do .map() aloca
+  // N×M objetos à toa a cada geração — a mesma largura vale para toda célula de dados.
+  // Reaproveitar uma única referência reduz alocação/GC sem mudar nada visualmente.
+  const estiloThLargura = { ...estilos.th, width: largura };
+  const estiloTdLargura = { ...estilos.td, width: largura };
+  // Mesma ideia: pré-computa o texto de cada célula de dados antes de montar o PDF, em vez de
+  // chamar c.value(l) + celula(...) de novo a cada render interno do react-pdf.
+  const linhasPreparadas = args.linhas.map(l => args.colunas.map(c => celula(c.value(l))));
   return renderToBuffer(
     <Document title="Base Nacional de Concreteiras" author="Villa CRM">
       <Page size="A4" orientation="landscape" style={estilos.pagina}>
@@ -51,11 +60,11 @@ export async function gerarPdfBase<T>(args: {
         </View>
         <View style={estilos.tabela}>
           <View style={estilos.fila} fixed>
-            {args.colunas.map(c => <Text key={c.header} style={[estilos.th, { width: largura }]} hyphenationCallback={semHifen}>{c.header}</Text>)}
+            {args.colunas.map(c => <Text key={c.header} style={estiloThLargura} hyphenationCallback={semHifen}>{c.header}</Text>)}
           </View>
-          {args.linhas.map((l, i) => (
+          {linhasPreparadas.map((celulas, i) => (
             <View key={i} style={estilos.fila} wrap={false}>
-              {args.colunas.map(c => <Text key={c.header} style={[estilos.td, { width: largura }]} hyphenationCallback={semHifen}>{celula(c.value(l))}</Text>)}
+              {celulas.map((texto, j) => <Text key={args.colunas[j].header} style={estiloTdLargura} hyphenationCallback={semHifen}>{texto}</Text>)}
             </View>
           ))}
         </View>

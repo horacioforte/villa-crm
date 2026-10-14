@@ -59,13 +59,26 @@ export async function detalheGrupoJoao(chave: string) {
   return { grupo: g, ind: (g.indicadores ?? {}) as Partial<Indicadores>, empresas, unidades, pessoas, contatos, historico };
 }
 
+/**
+ * Validação pura da decisão (sem banco) — extraída para ser testável sozinha.
+ * "Aprovado para abordagem" não exige observação; as demais decisões exigem (mínimo 5
+ * caracteres, depois de aparar espaços). contatosInvalidos só é aplicado quando a decisão
+ * é "Contato inválido", e é truncado em 50 itens por chamada.
+ */
+export function validarDecisaoJoao(args: { decisao: DecisaoComercial; observacao: string | null; contatosInvalidos: string[] }): { ok: true; obs: string; invalidos: string[] } | { ok: false; erros: string[] } {
+  const obs = (args.observacao ?? "").trim();
+  if (args.decisao !== "APROVADO_ABORDAGEM" && obs.length < 5) return { ok: false, erros: ["Escreva uma observação curta (mínimo 5 caracteres)."] };
+  const invalidos = args.decisao === "CONTATO_INVALIDO" ? args.contatosInvalidos.slice(0, 50) : [];
+  return { ok: true, obs, invalidos };
+}
+
 /** Grava a decisão humana (com histórico em cada empresa do grupo). "Contato inválido" pode marcar contatos específicos como inválidos (preservados). */
 export async function decidirGrupoJoao(args: { chave: string; decisao: DecisaoComercial; observacao: string | null; contatosInvalidos: string[]; usuarioId: string }) {
   const g = await prisma.joaoEnriquecimentoGrupo.findUnique({ where: { chave: args.chave }, select: { chave: true, publico: true, candidataIds: true, decisaoComercial: true } });
   if (!g || !PUBLICOS_JOAO.includes(g.publico)) return { ok: false as const, erros: ["Grupo não encontrado."] };
-  const obs = (args.observacao ?? "").trim();
-  if (args.decisao !== "APROVADO_ABORDAGEM" && obs.length < 5) return { ok: false as const, erros: ["Escreva uma observação curta (mínimo 5 caracteres)."] };
-  const invalidos = args.decisao === "CONTATO_INVALIDO" ? args.contatosInvalidos.slice(0, 50) : [];
+  const validacao = validarDecisaoJoao(args);
+  if (!validacao.ok) return { ok: false as const, erros: validacao.erros };
+  const { obs, invalidos } = validacao;
   const agora = new Date();
   await prisma.$transaction(async tx => {
     await tx.joaoEnriquecimentoGrupo.update({ where: { chave: g.chave }, data: { decisaoComercial: args.decisao as never, decisaoObservacao: obs || null, decisaoPorId: args.usuarioId, decisaoEm: agora } });

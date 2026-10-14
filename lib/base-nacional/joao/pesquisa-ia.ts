@@ -54,12 +54,18 @@ export interface ClienteBuscaIA {
 }
 
 /** Prompt enviado ao provedor — função pura, testável sem rede. */
+/** Versão das instruções — entra na chave do cache: mudar as instruções permite nova busca. */
+export const VERSAO_PROMPT_PESQUISA_IA = "v2-2026-10-14";
+
 export function montarPromptPesquisaIA(entrada: EntradaPesquisaIA): string {
   const linhas = [
     `Pesquise na web quem, na empresa "${entrada.nome}" (${entrada.cidadeUf}), cuida de compras, frota, manutenção ou operações de equipamentos — NÃO busque sócios ou diretores já conhecidos pela Receita Federal.`,
     entrada.dominio ? `O site oficial da empresa é ${entrada.dominio}; priorize fontes que citem esse domínio ou o nome da empresa.` : "Não há site próprio conhecido; use apenas fontes que citem claramente o nome da empresa (evite homônimos).",
     `Para cada pessoa encontrada, retorne em JSON: nome, cargo (como descrito na fonte), linkedinUrl (se houver, perfil pessoal /in/), fonteUrl (link http(s) da página onde encontrou, OBRIGATÓRIO), trecho (até 240 caracteres citando a empresa).`,
-    `Nunca invente. Sem fonte com link, não inclua a pessoa. Responda só com um array JSON, sem texto fora dele.`,
+    // 14/10/2026 (piloto): o modelo descartava pessoas encontradas em páginas de perfil corporativo. A URL do resultado de busca
+    // onde o nome aparece É a fonte; a confiança e a revisão humana tratam o resto.
+    `A fonteUrl é a URL da página (resultado de busca) onde o nome e o cargo aparecem junto com o nome da empresa — vale LinkedIn, site da empresa, notícia, vaga ou páginas de perfil corporativo (ZoomInfo, Datanyze, Econodata etc.). Não exija outra comprovação: uma pessoa revisará tudo.`,
+    `Nunca invente nome, cargo ou link. Sem fonte com link, não inclua a pessoa. Responda só com um array JSON, sem texto fora dele.`,
   ];
   return linhas.join("\n");
 }

@@ -23,10 +23,13 @@ import {
   type RejeicaoPesquisaIA,
 } from "./pesquisa-ia";
 import { limiteBuscasPorGrupo, limiteMensalUsd } from "./pesquisa-ia-config";
+import { VERSAO_PROMPT_PESQUISA_IA } from "./pesquisa-ia";
 
 const ETAPA = "pesquisa-ia";
 const hash = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 20);
-const chaveCache = (grupoChave: string, entrada: EntradaPesquisaIA) => `pesquisa-ia:${grupoChave}:${hash(JSON.stringify(entrada))}`;
+// 14/10/2026: o provedor entra na chave — Claude e ChatGPT pesquisam o mesmo grupo de forma independente (comparação),
+// e um nunca devolve o cache do outro.
+const chaveCache = (grupoChave: string, entrada: EntradaPesquisaIA, provedor = "") => `pesquisa-ia:${provedor ? `${provedor}:` : ""}${grupoChave}:${hash(JSON.stringify(entrada) + VERSAO_PROMPT_PESQUISA_IA)}`;
 
 export type ResultadoExecutarPesquisaIA =
   | { ok: true; doCache: boolean; entradaImportarWeb: EntradaImportarWeb; rejeitados: RejeicaoPesquisaIA[] }
@@ -38,14 +41,14 @@ export async function executarPesquisaIA(args: {
   nomesEmpresa: string[];
   cliente: ClienteBuscaIA;
 }): Promise<ResultadoExecutarPesquisaIA> {
-  const chave = chaveCache(args.grupoChave, args.entrada);
+  const chave = chaveCache(args.grupoChave, args.entrada, args.cliente.provedor);
 
   const cache = await prisma.joaoEnriquecimentoCache.findUnique({ where: { chave } });
   if (cache?.dados) {
     return { ok: true, doCache: true, entradaImportarWeb: cache.dados as unknown as EntradaImportarWeb, rejeitados: [] };
   }
 
-  const jaFeitas = await prisma.joaoEnriquecimentoConsumo.count({ where: { grupoChave: args.grupoChave, etapa: ETAPA } });
+  const jaFeitas = await prisma.joaoEnriquecimentoConsumo.count({ where: { grupoChave: args.grupoChave, etapa: ETAPA, ferramenta: `pesquisa-ia-${args.cliente.provedor}` } }); // limite por grupo E por provedor
   const limitePorGrupo = limiteBuscasPorGrupo();
   if (jaFeitas >= limitePorGrupo) {
     return { ok: false, motivo: `limite de ${limitePorGrupo} busca${limitePorGrupo > 1 ? "s" : ""} por grupo já atingido — este grupo já foi pesquisado.` };

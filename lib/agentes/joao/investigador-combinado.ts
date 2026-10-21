@@ -58,12 +58,16 @@ function mesclarResultados(
   // Decisor: prefere Claude, cai para GPT-4o
   const decisor = claude.decisor ?? gpt4o.decisor;
 
+  // obraEncerrada: true se qualquer um dos dois confirmou encerramento
+  const obraEncerrada = claude.obraEncerrada === true || gpt4o.obraEncerrada === true;
+
   return {
     dossieId,
     achou:   claude.achou || gpt4o.achou,
     campos:  camposMesclados,
     decisor,
     noticias: noticiasCombinadas,
+    obraEncerrada,
     resumoInvestigacao: [
       claude.resumoInvestigacao ? `Claude: ${claude.resumoInvestigacao}` : null,
       gpt4o.resumoInvestigacao  ? `GPT-4o: ${gpt4o.resumoInvestigacao}` : null,

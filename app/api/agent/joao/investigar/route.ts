@@ -120,7 +120,8 @@ export async function POST(req: NextRequest) {
       where: {
         status: { in: ["INVESTIGANDO", "PEDIR_MAIS_PESQUISA"] },
       },
-      orderBy: { ultimaAtividade: "asc" },
+      // Prioriza OBRA (1º valor do enum TipoDossie), depois os mais antigos
+      orderBy: [{ tipo: "asc" }, { ultimaAtividade: "asc" }],
       take: limite,
       select: {
         id: true,
@@ -178,6 +179,39 @@ export async function POST(req: NextRequest) {
     console.log(`[joao/investigar] Investigando: ${dossie.titulo}`);
 
     const resultado = await investigarDossieCombinado(dossie).then(r => r.mesclado);
+
+    // Se a obra foi confirmada como encerrada (inaugurada/concluída/cancelada), arquivar e pular
+    if (resultado.obraEncerrada === true) {
+      console.log(`[joao/investigar] Obra encerrada detectada: ${dossie.titulo} — arquivando.`);
+      await prisma.$transaction([
+        prisma.dossieComercial.update({
+          where: { id: dossie.id },
+          data: { status: "ARQUIVADO", ultimaAtividade: new Date() },
+        }),
+        prisma.atualizacaoDossie.create({
+          data: {
+            dossieId: dossie.id,
+            tipo: "CAMPO_ATUALIZADO",
+            titulo: "Obra encerrada — dossiê arquivado automaticamente",
+            conteudo: `João identificou que a obra foi inaugurada, concluída ou cancelada.\n\n${resultado.resumoInvestigacao}`,
+            agente: "joao-investigador",
+            fonte: typeof resultado.campos.fonteInformacao === "string" ? resultado.campos.fonteInformacao : null,
+            link: typeof resultado.campos.linkFonte === "string" ? resultado.campos.linkFonte : null,
+          },
+        }),
+      ]);
+      resumos.push({
+        dossieId: dossie.id,
+        titulo: dossie.titulo,
+        achou: true,
+        camposAtualizados: ["status → ARQUIVADO"],
+        decisorEncontrado: false,
+        noticias: 0,
+        resumo: `Obra encerrada — arquivado automaticamente. ${resultado.resumoInvestigacao}`,
+      });
+      continue;
+    }
+
     const camposAtualizados: string[] = [];
 
     const camposString = [

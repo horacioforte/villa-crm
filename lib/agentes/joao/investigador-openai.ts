@@ -61,6 +61,7 @@ RETORNE APENAS UM JSON NO FORMATO ABAIXO (sem markdown, sem explicação):
       "link": "..."
     }
   ],
+  "obraEncerrada": false,
   "resumoInvestigacao": "Breve descrição do que foi buscado e encontrado."
 }
 
@@ -69,7 +70,8 @@ REGRAS CRÍTICAS:
 - Omita campos que não encontrou (não coloque null nem vazio).
 - Se missão não é sobre decisor: omita o campo "decisor" (ou coloque null).
 - Se não encontrou nada: achou=false, campos={}, decisor=null, noticias=[].
-- valorEstimado e volumeConcreto devem ser números (sem R$, sem "bi", sem "m³").`;
+- valorEstimado e volumeConcreto devem ser números (sem R$, sem "bi", sem "m³").
+- obraEncerrada: coloque true APENAS se encontrou confirmação de que a obra foi inaugurada, entregue, concluída ou cancelada definitivamente. Em caso de dúvida, deixe false.`;
 }
 
 function buildPromptUsuario(dossie: DossieParaInvestigacao): string {
@@ -183,6 +185,7 @@ export async function investigarDossieOpenAI(
       resultado.noticias           = Array.isArray(parsed.noticias)
         ? (parsed.noticias as ResultadoInvestigacao["noticias"])
         : [];
+      resultado.obraEncerrada      = parsed.obraEncerrada === true;
       resultado.resumoInvestigacao = typeof parsed.resumoInvestigacao === "string"
         ? parsed.resumoInvestigacao
         : "GPT-4o concluiu investigação.";

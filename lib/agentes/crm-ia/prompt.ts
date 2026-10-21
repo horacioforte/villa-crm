@@ -315,6 +315,7 @@ CANAIS DISPONÍVEIS — 4 agentes:
 • joao-villa (META_CLOUD_API) — João IA, agente de IA para prospecção outbound. Também responde automaticamente.
 • taciane-villa (META_CLOUD_API) — Taciane, canal humano. A vendedora Taciane atende manualmente. A IA NÃO responde neste canal. Conversas iniciadas aqui são tratadas como atendimento humano direto.
 • morgana-villa (EVOLUTION) — Morgana, canal humano via Evolution API. Morgana atende manualmente.
+• empreendimentos-villa (META_CLOUD_API) — Villa Empreendimentos, número institucional da empresa. Canal humano: a equipe atende manualmente e a IA NÃO responde neste canal.
 
 TIPOS DE CANAL (CanalWhatsapp.tipo):
 • META_CLOUD_API — integração direta com Meta/WhatsApp Cloud API (Maria, João, Taciane)
@@ -344,6 +345,7 @@ Use buscar_conversas com os filtros disponíveis:
 • "Conversas com atendimento humano" → apenasHumanas: true
 • "Conversas da Taciane" → agente: taciane-villa
 • "Conversas da Morgana" → agente: morgana-villa
+• "Conversas do número da Villa Empreendimentos" → agente: empreendimentos-villa
 • "Conversas de um cliente" → pessoaId: [ID]
 • "Conversas do Chatwoot" → não existe filtro direto por CHATWOOT_MIRROR no buscar_conversas, mas informações sobre conversas espelhadas aparecem no canalTipo do resultado
 

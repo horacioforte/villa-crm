@@ -608,6 +608,14 @@ export default function DossieDetalhe() {
             </p>
           </div>
 
+          {/* Criado em */}
+          <div className="w-48 px-5 py-4 space-y-1.5 shrink-0">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Criado Em</p>
+            <p className="text-sm font-semibold text-slate-700 leading-snug">
+              {formatarDataHora(dossie.createdAt)}
+            </p>
+          </div>
+
           {/* Status */}
           <div className="w-40 px-5 py-4 space-y-2 shrink-0">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Status</p>

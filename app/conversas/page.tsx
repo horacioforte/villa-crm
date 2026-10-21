@@ -150,6 +150,7 @@ const INSTANCE_LABELS: Record<string, { label: string; cor: string; corBarra: st
   "joao-villa":    { label: "João",    cor: "bg-blue-100 text-blue-700",    corBarra: "bg-blue-500" },
   "morgana-villa": { label: "Morgana", cor: "bg-rose-100 text-rose-700",    corBarra: "bg-rose-500" },
   "taciane-villa": { label: "Taciane", cor: "bg-amber-100 text-amber-700", corBarra: "bg-amber-500" },
+  "empreendimentos-villa": { label: "Villa Empreendimentos", cor: "bg-teal-100 text-teal-700", corBarra: "bg-teal-500" },
 };
 
 const INSTANCE_LABEL_FALLBACK = { cor: "bg-zinc-100 text-zinc-600", corBarra: "bg-zinc-400" };
@@ -978,6 +979,7 @@ function ConversasPage() {
                   <option value="joao-villa">João</option>
                   <option value="morgana-villa">Morgana</option>
                   <option value="taciane-villa">Taciane</option>
+                  <option value="empreendimentos-villa">Villa Empreendimentos</option>
                 </select>
                 <button
                   onClick={carregarConversas}

@@ -43,6 +43,7 @@ const AGENTE_LABELS: Record<string, string> = {
   "joao-villa": "João",
   "morgana-villa": "Morgana",
   "taciane-villa": "Taciane",
+  "empreendimentos-villa": "Villa Empreendimentos",
 };
 
 const AGENTE_COLORS: Record<string, string> = {
@@ -50,6 +51,7 @@ const AGENTE_COLORS: Record<string, string> = {
   "joao-villa": "bg-purple-100 text-purple-700",
   "morgana-villa": "bg-green-100 text-green-700",
   "taciane-villa": "bg-amber-100 text-amber-700",
+  "empreendimentos-villa": "bg-teal-100 text-teal-700",
 };
 
 const STATUS_LABELS: Record<string, string> = {

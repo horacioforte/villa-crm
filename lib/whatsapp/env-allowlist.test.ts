@@ -64,6 +64,25 @@ describe("resolveWhatsappEnvVar", () => {
     expect(valor).toBe("taciane-verify-fake");
   });
 
+  it("resolve EMPREENDIMENTOS_META_ACCESS_TOKEN como access_token (canal Villa Empreendimentos, Meta Cloud API)", async () => {
+    process.env.EMPREENDIMENTOS_META_ACCESS_TOKEN = "empreendimentos-access-fake";
+    const valor = await resolveWhatsappEnvVar("EMPREENDIMENTOS_META_ACCESS_TOKEN", "access_token");
+    expect(valor).toBe("empreendimentos-access-fake");
+  });
+
+  it("resolve EMPREENDIMENTOS_META_VERIFY_TOKEN como verify_token (canal Villa Empreendimentos, Meta Cloud API)", async () => {
+    process.env.EMPREENDIMENTOS_META_VERIFY_TOKEN = "empreendimentos-verify-fake";
+    const valor = await resolveWhatsappEnvVar("EMPREENDIMENTOS_META_VERIFY_TOKEN", "verify_token");
+    expect(valor).toBe("empreendimentos-verify-fake");
+  });
+
+  it("rejeita EMPREENDIMENTOS_META_ACCESS_TOKEN pedido como verify_token (categoria errada)", async () => {
+    process.env.EMPREENDIMENTOS_META_ACCESS_TOKEN = "empreendimentos-access-fake";
+    await expect(
+      resolveWhatsappEnvVar("EMPREENDIMENTOS_META_ACCESS_TOKEN", "verify_token"),
+    ).rejects.toBeInstanceOf(EnvVarNaoPermitidaError);
+  });
+
   it("rejeita TACIANE_META_ACCESS_TOKEN pedido como verify_token (categoria errada)", async () => {
     process.env.TACIANE_META_ACCESS_TOKEN = "taciane-access-fake";
     await expect(

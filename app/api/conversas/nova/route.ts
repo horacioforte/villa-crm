@@ -13,7 +13,7 @@ import { CanalWhatsappTipo } from "@/app/generated/prisma/client";
 import { enviarTextoMeta, enviarTemplateMeta, CanalInvalidoError, EnvioMetaError } from "@/lib/whatsapp/meta-client";
 import { variantesTelefoneBR } from "@/lib/whatsapp/telefone";
 
-const INSTANCES_VALIDAS = ["maria-villa", "joao-villa", "morgana-villa", "taciane-villa"];
+const INSTANCES_VALIDAS = ["maria-villa", "joao-villa", "morgana-villa", "taciane-villa", "empreendimentos-villa"];
 
 function getApiKeyEvolution(instanceName: string): string {
   if (instanceName.startsWith("joao")) return process.env.JOAO_EVOLUTION_API_KEY ?? process.env.EVOLUTION_API_KEY ?? "";

@@ -102,6 +102,14 @@ const CANAIS = [
     badgeCor: "bg-[#FAEEDA] text-[#854F0B]",
     tipo: "HUMANO",
   },
+  {
+    instance: "empreendimentos-villa",
+    label: "Villa Empreendimentos",
+    sigla: "VE",
+    avatarCor: "bg-[#E1F5EE] text-[#0F6E56]",
+    badgeCor: "bg-[#E1F5EE] text-[#0F6E56]",
+    tipo: "HUMANO",
+  },
 ] as const;
 
 // ─── Helpers de tempo ─────────────────────────────────────────────────────────

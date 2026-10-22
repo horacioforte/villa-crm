@@ -62,7 +62,9 @@ export function linksDeBusca(c: { razaoSocial?: string | null; nomeFantasia?: st
     { chave: "google", rotulo: "Google", url: g(`"${nome}" ${local} concreto`) },
     { chave: "maps", rotulo: "Google Maps", url: `https://www.google.com/maps/search/?api=1&query=${q(`${nome} ${local}`)}` },
   ];
-  if (c.site) out.push({ chave: "site", rotulo: "Site da empresa", url: /^https?:\/\//.test(c.site) ? c.site : `https://${c.site}` });
+  // "site" aqui é sempre um PALPITE (domínio do e-mail cadastrado na Receita) — nunca confirmado
+  // só por existir. O selo ao lado (ver rotulos-site.ts, na tela) mostra o que o robô achou de fato.
+  if (c.site) out.push({ chave: "site", rotulo: "Site provável (domínio do e-mail da Receita)", url: /^https?:\/\//.test(c.site) ? c.site : `https://${c.site}` });
   out.push(
     { chave: "instagram", rotulo: "Instagram", url: g(`site:instagram.com "${nome}" ${c.cidade ?? ""}`) },
     { chave: "facebook", rotulo: "Facebook", url: g(`site:facebook.com "${nome}" ${c.cidade ?? ""}`) },

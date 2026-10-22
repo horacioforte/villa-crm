@@ -90,6 +90,28 @@ type Dossie = {
   decisores: DecisorDossie[];
   empresasRelacionadas: EmpresaDossie[];
   atualizacoes: Atualizacao[];
+  oportunidadesRelacionadas?: OportunidadeRelacionada[];
+};
+
+type OportunidadeRelacionada = {
+  id: string; titulo: string; status: string;
+  motivoPerda: string | null; fechadaEm: string | null; updatedAt: string;
+  responsavelNome: string | null;
+  motivoMatch: "mesma empresa" | "mesma obra" | "título parecido";
+  palavrasEmComum: string[];
+  confianca: "alta" | "media";
+};
+
+const STATUS_OPORTUNIDADE_LABEL: Record<string, string> = {
+  NOVA: "Nova", PRE_QUALIFICADA: "Pré-qualificada", EM_ATENDIMENTO: "Em atendimento",
+  PROPOSTA_ENVIADA: "Proposta enviada", NEGOCIACAO: "Negociação", GANHA: "Ganha", PERDIDA: "Perdida",
+};
+
+const STATUS_OPORTUNIDADE_COR: Record<string, string> = {
+  NOVA: "bg-blue-100 text-blue-700", PRE_QUALIFICADA: "bg-blue-100 text-blue-700",
+  EM_ATENDIMENTO: "bg-amber-100 text-amber-700", PROPOSTA_ENVIADA: "bg-amber-100 text-amber-700",
+  NEGOCIACAO: "bg-amber-100 text-amber-700", GANHA: "bg-emerald-100 text-emerald-700",
+  PERDIDA: "bg-red-100 text-red-700",
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -820,6 +842,48 @@ export default function DossieDetalhe() {
         {/* ─────────────────────────────── RESUMO EXECUTIVO ─── */}
         {abaAtiva === "resumo" && (
           <div className="space-y-3 max-w-2xl">
+
+            {/* Oportunidades anteriores desta obra/empresa — nunca cria nada, só alerta */}
+            {dossie.oportunidadesRelacionadas && dossie.oportunidadesRelacionadas.length > 0 && (
+              <Card className="border-amber-300 bg-amber-50">
+                <CardHeader className="p-3 pb-0">
+                  <CardTitle className="text-xs text-amber-700 font-bold uppercase tracking-widest">
+                    Oportunidades anteriores desta obra/empresa
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-2 space-y-2">
+                  {dossie.oportunidadesRelacionadas.map(o => (
+                    <div key={o.id} className="rounded-xl border border-amber-200 bg-white p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-slate-800">{o.titulo}</p>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {o.confianca === "media" && (
+                            <Badge className="bg-slate-100 text-slate-500">match fraco</Badge>
+                          )}
+                          <Badge className={STATUS_OPORTUNIDADE_COR[o.status] ?? "bg-slate-100 text-slate-600"}>
+                            {STATUS_OPORTUNIDADE_LABEL[o.status] ?? o.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      {o.status === "PERDIDA" && o.motivoPerda && (
+                        <p className="text-slate-600 mt-1">Motivo da perda: {o.motivoPerda}</p>
+                      )}
+                      <div className="flex items-center justify-between gap-2 mt-1 text-xs text-slate-400">
+                        <span>
+                          {o.responsavelNome ? `Responsável: ${o.responsavelNome} · ` : ""}
+                          {o.fechadaEm ? `Fechada em ${new Date(o.fechadaEm).toLocaleDateString("pt-BR")}` : `Atualizada ${diasDesde(o.updatedAt)} atrás`}
+                          {" · "}Encontrada por {o.motivoMatch}
+                        </span>
+                        <a href="/oportunidades" target="_blank" rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline flex items-center gap-1 shrink-0">
+                          Ver no funil <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             {dossie.resumo && (
               <Card>

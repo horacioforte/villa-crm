@@ -354,6 +354,14 @@ model Empresa {
   candidatasVinculadas  ConcreteiraCandidata[]          @relation("CandidataEmpresa")
   candidatasSugeridas   ConcreteiraCandidata[]          @relation("CandidataEmpresaSugerida")
 
+  // Deduplicação de Empresa (22/10/2026) — nunca remover. Opcional: aponta pra
+  // empresa "principal" quando este registro é uma duplicata identificada
+  // (ver scripts/empresas/relatorio-duplicadas.ts). Não altera nenhum dado
+  // existente por si só — só fica disponível pra uso futuro (merge manual).
+  duplicadaDeId String?
+  duplicadaDe   Empresa?  @relation("EmpresaDuplicadaDe", fields: [duplicadaDeId], references: [id], onDelete: SetNull)
+  duplicatas    Empresa[] @relation("EmpresaDuplicadaDe")
+
   createdAt DateTime @default(now()) @map("criadoEm")
   updatedAt DateTime @updatedAt @map("atualizadoEm")
 
@@ -361,6 +369,7 @@ model Empresa {
   @@index([createdById])
   @@index([updatedById])
   @@index([razaoSocial])
+  @@index([duplicadaDeId])
 }
 
 model Pessoa {

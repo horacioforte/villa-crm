@@ -15,10 +15,14 @@ import { prisma } from "@/lib/prisma";
 
 // Sufixos do número (sem DDI 55) para cobrir variações com/sem nono dígito
 const TELEFONES_GESTORES = [
-  "81994903673",   // Horácio Forte
+  "81994903673",   // Horácio Forte (com 9)
   "5581994903673",
-  "81985595931",   // Morgana
+  "8194903673",    // Horácio Forte (sem 9 — variação Evolution API)
+  "558194903673",
+  "81985595931",   // Morgana (com 9)
   "5581985595931",
+  "8185595931",    // Morgana (sem 9)
+  "558185595931",
 ];
 
 export function isGestor(telefone: string): boolean {

@@ -13,6 +13,8 @@ import { prisma } from "@/lib/prisma";
 const TELEFONES_GESTORES = [
   "81994903673",   // Horácio Forte
   "5581994903673",
+  "81985595931",   // Morgana
+  "5581985595931",
 ];
 
 export function isGestorJoao(telefone: string): boolean {

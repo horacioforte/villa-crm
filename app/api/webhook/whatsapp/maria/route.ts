@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analisarMensagem, classificarTermometroLead } from "@/lib/agentes/maria/handler";
 import { getContextoConversa } from "@/lib/agentes/maria/contexto";
+import { isGestor, processarGestao } from "@/lib/agentes/maria/gestao";
 import {
   enviarWhatsappMeta,
   registrarLeadQualificado,
@@ -275,6 +276,34 @@ async function processarMensagemMaria({
         canal = null;
       }
     }
+  }
+
+  // ─── ACRESCENTADO — Modo gestão (Horácio/Morgana perguntando para a Maria) ──
+  // Mesmo padrão do webhook do João: gestor nunca entra no fluxo de lead.
+  // A troca é gravada no Workspace para servir de histórico ao modo gestão.
+  if (isGestor(telefone)) {
+    try {
+      const resposta = await processarGestao({ texto, nomeContato, telefone });
+      await enviarWhatsappMeta({ telefone, texto: resposta });
+
+      if (conversasV2Ligada && canal && messageId) {
+        await persistirConversaMaria({
+          canal,
+          telefone,
+          nomeContato,
+          externalMessageId: messageId,
+          messageType,
+          textoCliente: texto,
+          rawPayload: rawMessage,
+          textoResposta: resposta,
+        }).catch((err) => {
+          console.error("[maria/meta-webhook] Falha ao persistir conversa de gestão:", err);
+        });
+      }
+    } catch (err) {
+      console.error("[maria/meta-webhook] Erro no modo gestão:", err);
+    }
+    return;
   }
 
   try {

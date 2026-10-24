@@ -8,6 +8,74 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
 import { exportarScoresJoaoParaPersistencia } from "@/lib/inteligencia/joao-estrutura";
+import { buscarOportunidadesRelacionadas, oportunidadesAbertas, oportunidadesPerdidas } from "@/lib/inteligencia/historico-oportunidades";
+import { encontrarEmpresaExistente } from "@/lib/empresas/encontrar-existente";
+
+// ─── Histórico de oportunidades: alerta sem bloquear a criação/enriquecimento ──
+// Nunca cria Oportunidade, nunca impede o dossiê de ser salvo — só grava um
+// AtualizacaoDossie tipo MONITORAMENTO pra ficar visível (gate real que impede
+// "Pronto para Morgana" está em lib/inteligencia/maturidade.ts, usado pelo script
+// scripts/reclassificar-maturidade.ts, que é quem de fato grava PRONTO_PARA_ASSUMIR).
+// Só grava alerta pra confiança "alta" (empresa/obra por ID, ou 3+ palavras de título
+// em comum) — confiança "media" (match fraco de título) só aparece na tela do dossiê
+// (GET /api/inteligencia/[id]), nunca no feed de atualizações, pra não gerar ruído
+// (ex.: dois "Data Center" em cidades diferentes não têm relação real entre si).
+async function registrarAlertaHistoricoOportunidades(dossieId: string, titulo: string, empresaId: string | null, obraId: string | null) {
+  const relacionadas = await buscarOportunidadesRelacionadas({ titulo, empresaId, obraId });
+  const perdidas = oportunidadesPerdidas(relacionadas).filter(o => o.confianca === "alta");
+  const abertas = oportunidadesAbertas(relacionadas).filter(o => o.confianca === "alta");
+
+  if (perdidas.length === 0 && abertas.length === 0) return;
+
+  // Evita gravar o mesmo alerta de novo a cada enriquecimento do João no mesmo dossiê.
+  const jaAlertadas = new Set(
+    (await prisma.atualizacaoDossie.findMany({
+      where: { dossieId, tipo: "MONITORAMENTO", oportunidadeId: { not: null } },
+      select: { oportunidadeId: true },
+    })).map(a => a.oportunidadeId),
+  );
+
+  for (const o of perdidas) {
+    if (jaAlertadas.has(o.id)) continue;
+    await prisma.atualizacaoDossie.create({
+      data: {
+        dossieId,
+        tipo: "MONITORAMENTO",
+        titulo: `Oportunidade anterior PERDIDA para esta obra/empresa: ${o.titulo}`,
+        conteudo: [
+          `Oportunidade: ${o.titulo} (${o.id})`,
+          `Motivo da perda: ${o.motivoPerda ?? "não informado"}`,
+          `Fechada em: ${o.fechadaEm ? o.fechadaEm.toISOString().slice(0, 10) : "não informado"}`,
+          `Responsável: ${o.responsavelNome ?? "não informado"}`,
+          `Encontrada por: ${o.motivoMatch}${o.palavrasEmComum.length > 0 ? ` (${o.palavrasEmComum.join(", ")})` : ""}`,
+          "Revisar antes de tratar esta obra como nova — o dossiê não será enviado automaticamente para Morgana enquanto isso não for revisto.",
+        ].join("\n"),
+        agente: "joao-radar",
+        oportunidadeId: o.id,
+      },
+    });
+  }
+
+  for (const o of abertas) {
+    if (jaAlertadas.has(o.id)) continue;
+    await prisma.atualizacaoDossie.create({
+      data: {
+        dossieId,
+        tipo: "MONITORAMENTO",
+        titulo: `Já existe oportunidade em aberto para esta obra/empresa: ${o.titulo}`,
+        conteudo: [
+          `Oportunidade: ${o.titulo} (${o.id})`,
+          `Status: ${o.status}`,
+          `Responsável: ${o.responsavelNome ?? "não informado"}`,
+          `Encontrada por: ${o.motivoMatch}${o.palavrasEmComum.length > 0 ? ` (${o.palavrasEmComum.join(", ")})` : ""}`,
+          "Sugestão: vincular este dossiê a essa oportunidade em vez de tratar como caso novo.",
+        ].join("\n"),
+        agente: "joao-radar",
+        oportunidadeId: o.id,
+      },
+    });
+  }
+}
 
 function verificarApiKey(req: NextRequest): boolean {
   const apiKey = process.env.AGENT_API_KEY;
@@ -292,6 +360,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    await registrarAlertaHistoricoOportunidades(dossieExistente.id, dossieExistente.titulo, dossieExistente.empresaId, dossieExistente.obraId);
+
     return NextResponse.json({
       sucesso:              true,
       duplicata:            true,
@@ -306,15 +376,13 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Buscar ou criar Empresa vinculada
+  // Buscar ou criar Empresa vinculada — primeiro por CNPJ/nome normalizado
+  // (evita duplicar "Petrobras" vs "Petróleo Brasileiro S.A." etc.), depois cria.
   let empresaId: string | null = null;
   if (body.empresaNome?.trim()) {
-    let empresa = await prisma.empresa.findFirst({
-      where: { razaoSocial: { equals: body.empresaNome.trim(), mode: "insensitive" } },
-      select: { id: true },
-    });
+    let empresa = await encontrarEmpresaExistente({ cnpj: body.empresaCnpj, nome: body.empresaNome });
     if (!empresa) {
-      empresa = await prisma.empresa.create({
+      const criada = await prisma.empresa.create({
         data: {
           razaoSocial: body.empresaNome.trim(),
           cnpj:        body.empresaCnpj     ?? null,
@@ -326,6 +394,7 @@ export async function POST(req: NextRequest) {
         },
         select: { id: true },
       });
+      empresa = { id: criada.id, razaoSocial: body.empresaNome.trim(), cnpj: body.empresaCnpj ?? null, motivoMatch: "cnpj" };
     }
     empresaId = empresa.id;
   }
@@ -449,6 +518,8 @@ export async function POST(req: NextRequest) {
       data:  { totalDecisores: 1, completude, missaoAtual, maturidadeComercial },
     });
   }
+
+  await registrarAlertaHistoricoOportunidades(dossie.id, dossie.titulo, empresaId, obraId);
 
   return NextResponse.json({
     sucesso:    true,

@@ -3,6 +3,7 @@
 // Ações no CRM disparadas pela Maria: envio de WhatsApp, registro de leads e interações.
 
 import { prisma } from "@/lib/prisma";
+import { encontrarEmpresaExistente } from "@/lib/empresas/encontrar-existente";
 import {
   CanalOrigem,
   InfluenciaDecisao,
@@ -160,6 +161,11 @@ export async function registrarInteracaoParcial({
       }));
 
     if (!empresa) {
+      const existente = await encontrarEmpresaExistente({ nome: nomeContato }, tx);
+      if (existente) empresa = await tx.empresa.findUnique({ where: { id: existente.id } });
+    }
+
+    if (!empresa) {
       empresa = await tx.empresa.create({
         data: {
           razaoSocial: nomeContato,
@@ -263,6 +269,11 @@ export async function registrarLeadQualificado({
           ],
         },
       }));
+
+    if (!empresa) {
+      const existente = await encontrarEmpresaExistente({ nome: nomeContato }, tx);
+      if (existente) empresa = await tx.empresa.findUnique({ where: { id: existente.id } });
+    }
 
     if (!empresa) {
       empresa = await tx.empresa.create({

@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { auditLog } from "@/lib/audit";
+import { encontrarEmpresaExistente } from "@/lib/empresas/encontrar-existente";
 import {
   CanalOrigem,
   PrioridadeTarefa,
@@ -65,6 +66,10 @@ export async function POST(
         where: { razaoSocial: { equals: nomeEmpresa, mode: "insensitive" } },
         select: { id: true },
       });
+      if (!empresa) {
+        const existente = await encontrarEmpresaExistente({ nome: nomeEmpresa }, tx);
+        if (existente) empresa = { id: existente.id };
+      }
       if (!empresa) {
         empresa = await tx.empresa.create({
           data: {

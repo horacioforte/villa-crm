@@ -54,6 +54,22 @@ export interface DossieParaMaturidade {
   prontidao?: number | null;
 }
 
+/**
+ * Oportunidade já existente ligada à mesma empresa/obra/título deste dossiê —
+ * ver lib/inteligencia/historico-oportunidades.ts. Opcional em todo lugar: quem
+ * não passar continua funcionando exatamente como antes.
+ */
+export interface OportunidadeRelacionadaParaMaturidade {
+  id: string;
+  titulo: string;
+  status: string;
+  motivoPerda?: string | null;
+  /** "alta" (empresa/obra batem por ID, ou 3+ palavras de título em comum) é a única
+   * confiança que bloqueia o gate — "media" (match fraco de título) é só informativo
+   * em outros lugares (alerta, UI) e nunca impede "Pronto para Morgana" aqui. */
+  confianca?: "alta" | "media";
+}
+
 export interface DecisorParaMaturidade {
   nome?: string | null;
   telefone?: string | null;
@@ -90,7 +106,11 @@ export const THRESHOLDS = {
 // Cada gate é um requisito obrigatório.
 // Completude ≥ THRESHOLDS.PRONTO é condição necessária mas não suficiente.
 
-function avaliarGates(dossie: DossieParaMaturidade, decisores: DecisorParaMaturidade[]): {
+function avaliarGates(
+  dossie: DossieParaMaturidade,
+  decisores: DecisorParaMaturidade[],
+  oportunidadesRelacionadas: OportunidadeRelacionadaParaMaturidade[] = [],
+): {
   atendidos: string[];
   faltantes: string[];
 } {
@@ -117,6 +137,10 @@ function avaliarGates(dossie: DossieParaMaturidade, decisores: DecisorParaMaturi
   add(
     decisores.some(d => d.nome?.trim()) || (dossie.totalDecisores ?? 0) >= 1,
     "Pelo menos 1 decisor com nome"
+  );
+  add(
+    !oportunidadesRelacionadas.some(o => o.status === "PERDIDA" && (o.confianca ?? "alta") === "alta"),
+    "Nenhuma oportunidade anterior perdida (confiança alta) para esta obra/empresa"
   );
 
   return { atendidos, faltantes };
@@ -169,6 +193,7 @@ function criteriosParaAvançarDeC(
 export function calcularNivelInvestigacao(
   dossie: DossieParaMaturidade,
   decisores: DecisorParaMaturidade[] = [],
+  oportunidadesRelacionadas: OportunidadeRelacionadaParaMaturidade[] = [],
 ): ResultadoMaturidade {
   const completude = typeof dossie.completude === "number" ? dossie.completude : 0;
 
@@ -217,9 +242,13 @@ export function calcularNivelInvestigacao(
   }
 
   // Candidato a Pronto: completude ≥ 70% → verifica gates
-  const { atendidos, faltantes } = avaliarGates(dossie, decisores);
+  const { atendidos, faltantes } = avaliarGates(dossie, decisores, oportunidadesRelacionadas);
 
   if (faltantes.length > 0) {
+    const perdidaBloqueando = oportunidadesRelacionadas.find(o => o.status === "PERDIDA" && (o.confianca ?? "alta") === "alta");
+    const motivo = perdidaBloqueando
+      ? `Completude ${completude}% atingida, mas há oportunidade anterior PERDIDA ("${perdidaBloqueando.titulo}"${perdidaBloqueando.motivoPerda ? ` — ${perdidaBloqueando.motivoPerda}` : ""}) impedindo o envio automático para Morgana. Revisar antes de avançar.`
+      : `Completude ${completude}% atingida, mas ${faltantes.length} gate(s) obrigatório(s) faltam para Morgana.`;
     // Gates faltando: fica em C com indicação dos gates
     return {
       statusDb: "EM_ANALISE",
@@ -228,7 +257,7 @@ export function calcularNivelInvestigacao(
       gatesAtendidos: atendidos,
       gatesFaltantes: faltantes,
       criteriosParaProximo: faltantes,
-      motivo: `Completude ${completude}% atingida, mas ${faltantes.length} gate(s) obrigatório(s) faltam para Morgana.`,
+      motivo,
     };
   }
 

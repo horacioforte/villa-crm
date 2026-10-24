@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
+import { buscarOportunidadesRelacionadas } from "@/lib/inteligencia/historico-oportunidades";
 
 // ─── GET — detalhe completo do dossiê ────────────────────────────────────────
 
@@ -34,7 +35,14 @@ export async function GET(
 
   if (!dossie) return NextResponse.json({ error: "Dossiê não encontrado." }, { status: 404 });
 
-  return NextResponse.json(dossie);
+  // Oportunidades anteriores desta obra/empresa — nunca cria nada, só mostra pra revisão.
+  const oportunidadesRelacionadas = await buscarOportunidadesRelacionadas({
+    titulo: dossie.titulo,
+    empresaId: dossie.empresaId,
+    obraId: dossie.obraId,
+  }).then(lista => lista.filter(o => o.id !== dossie.oportunidadeId));
+
+  return NextResponse.json({ ...dossie, oportunidadesRelacionadas });
 }
 
 // ─── PATCH — atualizar campos do dossiê (via CRM, não pelo João) ──────────────

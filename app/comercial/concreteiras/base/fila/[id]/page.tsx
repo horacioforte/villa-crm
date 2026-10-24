@@ -15,6 +15,7 @@ import { SITUACAO_FILA_LABEL } from "@/lib/base-nacional/fila-relatorio";
 import { CLASSE_TRIAGEM_LABEL, type ClasseTriagem } from "@/lib/base-nacional/triagem";
 import { dominioDeEmail } from "@/lib/base-nacional/robo/site";
 import { descreverCnae, descreverPorte } from "@/lib/base-nacional/receita-tabelas";
+import { rotuloConclusaoSite } from "@/lib/base-nacional/rotulos-site";
 import {
   CONFIANCA_LABEL, EQUIPAMENTO_LABEL, FONTE_LABEL, NIVEL_COR, NIVEL_LABEL, PRIORIDADE_LABEL, STATUS_COR, STATUS_LABEL,
   type Confianca, type Equipamento, type NivelPotencial, type Prioridade, type StatusValidacao,
@@ -52,6 +53,7 @@ export default async function RevisaoPage({ params, searchParams }: { params: Pr
   const site = receita.map(r => dominioDeEmail(r.email)).find(Boolean) ?? null;
   const links = linksDeBusca({ razaoSocial: c.razaoSocial, nomeFantasia: c.nomeFantasia, cidade: t.municipio ?? c.municipioMatriz, uf: t.uf ?? c.ufMatriz, cnpj: c.cnpjMatriz ?? matriz?.cnpj, site });
   const resumoRobo = (t.roboResumo ?? {}) as { conclusaoSite?: string; dominios?: string[]; paginas?: string[] };
+  const seloDoRobo = rotuloConclusaoSite(resumoRobo.conclusaoSite, resumoRobo.paginas);
   const pode = Boolean(usuario && podeValidar(usuario.papel));
   const livre = usuario ? podeRevisar(t, usuario.id) : false;
   const cnaes = [...new Set(ativas.flatMap(u => [u.cnaePrincipal]))];
@@ -81,10 +83,15 @@ export default async function RevisaoPage({ params, searchParams }: { params: Pr
           <Bloco titulo="Buscas prontas (abrem em nova aba)">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {links.map(l => (
-                <a key={l.chave} href={l.url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-2.5 text-xs font-medium text-slate-700 hover:border-indigo-300 hover:bg-indigo-50">
-                  {l.rotulo} <ExternalLink className="h-3 w-3 text-slate-400" />
-                </a>
+                <div key={l.chave} className="flex flex-col items-center gap-1">
+                  <a href={l.url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-2.5 text-xs font-medium text-slate-700 hover:border-indigo-300 hover:bg-indigo-50">
+                    {l.rotulo} <ExternalLink className="h-3 w-3 text-slate-400" />
+                  </a>
+                  {l.chave === "site" && (
+                    <span className={cn("rounded px-1.5 py-0.5 text-center text-[10px] font-medium", seloDoRobo.cor)}>{seloDoRobo.texto}</span>
+                  )}
+                </div>
               ))}
             </div>
             <p className="mt-2 text-[10px] text-slate-400">Os botões só abrem a pesquisa para você analisar. O CRM não lê nem copia nada dessas plataformas.</p>
@@ -93,7 +100,7 @@ export default async function RevisaoPage({ params, searchParams }: { params: Pr
           <Bloco titulo="Por que está na fila">
             <p className="text-xs text-slate-700">{t.motivoFila ?? "—"}</p>
             {t.sinais.length > 0 && <p className="mt-1 text-[11px] text-slate-500">Sinais da triagem: {t.sinais.join(" · ")}</p>}
-            <p className="mt-1 text-[11px] text-slate-500">Robô: {t.roboExecutadoEm ? `${fmt(t.roboExecutadoEm)} · site ${resumoRobo.conclusaoSite ?? "—"}${resumoRobo.dominios?.length ? ` (${resumoRobo.dominios.join(", ")})` : ""}` : "ainda não rodou"} · regra {t.versaoRegra}</p>
+            <p className="mt-1 text-[11px] text-slate-500">Robô: {t.roboExecutadoEm ? `${fmt(t.roboExecutadoEm)} · site: ${seloDoRobo.texto}${resumoRobo.dominios?.length ? ` (${resumoRobo.dominios.join(", ")})` : ""}` : "ainda não rodou"} · regra {t.versaoRegra}</p>
           </Bloco>
 
           <Bloco titulo={`Unidades (${ativas.length} ativa${ativas.length === 1 ? "" : "s"} de ${c.unidades.length})`}>

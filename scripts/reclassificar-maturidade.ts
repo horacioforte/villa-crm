@@ -14,7 +14,8 @@
 
 import "./env";
 import { Client } from "pg";
-import { calcularNivelInvestigacao, THRESHOLDS, type NivelLabel } from "../lib/inteligencia/maturidade";
+import { calcularNivelInvestigacao, THRESHOLDS, type NivelLabel, type OportunidadeRelacionadaParaMaturidade } from "../lib/inteligencia/maturidade";
+import { palavrasDistintivas } from "../lib/inteligencia/palavras-distintivas";
 
 // ─── Ordem do funil (nunca regredir) ────────────────────────────────────────
 // O status de um dossiê nunca pode ir para um nível abaixo do que já estava.
@@ -67,6 +68,8 @@ interface DossieRow {
   cidade: string | null;
   estado: string | null;
   totalDecisores: number;
+  empresaId: string | null;
+  obraId: string | null;
 }
 
 interface DecisorRow {
@@ -110,7 +113,7 @@ async function main() {
       "potencialVilla", "momentoVilla", prontidao,
       "clienteFinal", construtora, epc, epcm,
       "faseObra", cronograma, licenciamento, "valorEstimado",
-      cidade, estado, "totalDecisores"
+      cidade, estado, "totalDecisores", "empresaId", "obraId"
     FROM "DossieComercial"
     WHERE status NOT IN ('ASSUMIDO', 'ARQUIVADO')
     ORDER BY completude DESC, score DESC
@@ -132,6 +135,48 @@ async function main() {
       decisoresPorId[d.dossieId].push({
         nome: d.nome, telefone: d.telefone, email: d.email, linkedin: d.linkedin,
       });
+    }
+  }
+
+  // Busca oportunidades relacionadas (empresa, obra ou título parecido) — só pra
+  // quem já é candidato a Pronto (completude ≥ 70%), já que é o único ponto em que
+  // o gate novo faz diferença. Busca tudo de uma vez pra não fazer 1 query por dossiê.
+  const candidatosAPronto = dossies.filter(d => d.completude >= THRESHOLDS.PRONTO);
+  let relacionadasPorDossie: Record<string, OportunidadeRelacionadaParaMaturidade[]> = {};
+
+  if (candidatosAPronto.length > 0) {
+    const { rows: todasOportunidades } = await client.query<{
+      id: string; titulo: string; status: string; motivoPerda: string | null;
+      empresaId: string | null; obraId: string | null;
+    }>(`SELECT id, titulo, status, "motivoPerda", "empresaId", "obraId" FROM "Oportunidade"`);
+
+    const palavrasPorOportunidade = todasOportunidades.map(o => ({
+      o, palavras: new Set(palavrasDistintivas(o.titulo)),
+    }));
+
+    for (const d of candidatosAPronto) {
+      const relacionadas = new Map<string, OportunidadeRelacionadaParaMaturidade>();
+      const palavrasDossie = palavrasDistintivas(d.titulo);
+      // Exige 2+ palavras em comum (ou todas, se só tiver 1) pra considerar título
+      // parecido — mas só confiança "alta" (mesma Obra por ID, ou 3+ palavras em
+      // comum no título) bloqueia o gate. 2 palavras de categoria genérica ("Data"+
+      // "Center", "Porto"+"Terminal") combinam sem relação real entre obras diferentes,
+      // e "mesma empresa" sozinha também não basta — neste CRM a Empresa muitas vezes
+      // é a construtora/executora (atua em várias obras de clientes diferentes).
+      const minimoEmComum = Math.min(2, palavrasDossie.length);
+
+      for (const { o, palavras } of palavrasPorOportunidade) {
+        const mesmaEmpresa = Boolean(d.empresaId && o.empresaId === d.empresaId);
+        const mesmaObra = Boolean(d.obraId && o.obraId === d.obraId);
+        const emComum = palavrasDossie.filter(p => palavras.has(p));
+        const tituloParecido = palavrasDossie.length > 0 && emComum.length >= minimoEmComum;
+        if (mesmaEmpresa || mesmaObra || tituloParecido) {
+          const confianca: "alta" | "media" = (mesmaObra || emComum.length >= 3) ? "alta" : "media";
+          relacionadas.set(o.id, { id: o.id, titulo: o.titulo, status: o.status, motivoPerda: o.motivoPerda, confianca });
+        }
+      }
+
+      if (relacionadas.size > 0) relacionadasPorDossie[d.id] = [...relacionadas.values()];
     }
   }
 
@@ -187,6 +232,7 @@ async function main() {
         prontidao: d.prontidao,
       },
       decisores,
+      relacionadasPorDossie[d.id] ?? [],
     );
 
     // Regra "nunca regredir": preserva status manual se for mais avançado

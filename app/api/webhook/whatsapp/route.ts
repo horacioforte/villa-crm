@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { analisarMensagem, classificarTermometroLead } from "@/lib/agentes/maria/handler";
 import { getContextoConversa } from "@/lib/agentes/maria/contexto";
 import { enviarWhatsapp, registrarLeadQualificado, registrarInteracaoParcial } from "@/lib/agentes/maria/crm";
+import { isGestor, processarGestao } from "@/lib/agentes/maria/gestao";
 
 export const maxDuration = 90;
 
@@ -109,6 +110,18 @@ export async function POST(request: Request) {
   }
 
   const nomeContato = body.data?.pushName?.trim() || "Cliente";
+
+  // ── Rota: Modo de gestão (gestor mandando mensagem para Maria) ──────────
+  if (isGestor(telefone)) {
+    try {
+      const resposta = await processarGestao({ texto, nomeContato, telefone });
+      await enviarWhatsapp({ telefone, texto: resposta });
+      return NextResponse.json({ ok: true, modo: "gestao" });
+    } catch (error) {
+      console.error("[WEBHOOK_WHATSAPP] Erro no modo gestão:", error);
+      return NextResponse.json({ ok: false, message: "Erro no modo gestão." }, { status: 500 });
+    }
+  }
 
   // ── Rota: Maria (inbound — lógica completa) ──────────────────────────────
   try {

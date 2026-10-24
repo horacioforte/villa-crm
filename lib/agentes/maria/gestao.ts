@@ -14,22 +14,18 @@ import { prisma } from "@/lib/prisma";
 // ─── Gestores autorizados ─────────────────────────────────────────────────────
 
 // Sufixos do número (sem DDI 55) para cobrir variações com/sem nono dígito
-const TELEFONES_GESTORES = [
-  "81994903673",   // Horácio Forte (com 9)
-  "5581994903673",
-  "8194903673",    // Horácio Forte (sem 9 — variação Evolution API)
-  "558194903673",
-  "81985595931",   // Morgana (com 9)
-  "5581985595931",
-  "8185595931",    // Morgana (sem 9)
-  "558185595931",
+const SUFIXOS_GESTORES = [
+  '94903673', // Horácio Forte (9490-3673)
+  '85595931', // Morgana (8559-5931)
 ];
 
 export function isGestor(telefone: string): boolean {
-  const digits = telefone.replace(/\D/g, "");
-  return TELEFONES_GESTORES.some(
-    (g) => digits === g || digits.endsWith(g) || g.endsWith(digits)
-  );
+  const digits = (telefone ?? '').replace(/\D/g, '');
+  return SUFIXOS_GESTORES.some(s => digits.endsWith(s));
+}
+
+export function isGestorJoao(telefone: string): boolean {
+  return isGestor(telefone);
 }
 
 // ─── Contexto do CRM para gestão ─────────────────────────────────────────────

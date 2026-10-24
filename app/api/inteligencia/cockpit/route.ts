@@ -53,8 +53,20 @@ export async function GET(req: NextRequest) {
   const ontem     = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   // ── 1. Dossiês ativos (todas as colunas do kanban, exceto ARQUIVADO) ────────
+  // "carteiras: none" evita duplicar no kanban genérico um dossiê que já está sendo
+  // acompanhado numa tela de Carteira Estratégica — MAS nunca pode esconder um dossiê
+  // Pronto para Morgana ou já Assumido só por também estar numa carteira: são os dois
+  // status finais/acionáveis do funil e precisam aparecer sempre (14/10/2026 — Horácio
+  // reportou 6 dossiês PRONTO_PARA_ASSUMIR, incluindo R$9,2bi e R$13,16bi, invisíveis
+  // em qualquer tela por causa deste filtro).
   const dossiesRaw = await prisma.dossieComercial.findMany({
-    where: { status: { notIn: ["ARQUIVADO"] }, carteiras: { none: {} } },
+    where: {
+      status: { notIn: ["ARQUIVADO"] },
+      OR: [
+        { carteiras: { none: {} } },
+        { status: { in: ["PRONTO_PARA_ASSUMIR", "ASSUMIDO"] } },
+      ],
+    },
     orderBy: [{ status: "asc" }, { score: "desc" }, { updatedAt: "desc" }],
     take: 500,
     include: {

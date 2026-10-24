@@ -10,22 +10,18 @@ import { prisma } from "@/lib/prisma";
 
 // ─── Gestores autorizados ─────────────────────────────────────────────────────
 
-const TELEFONES_GESTORES = [
-  "81994903673",   // Horácio Forte (com 9)
-  "5581994903673",
-  "8194903673",    // Horácio Forte (sem 9 — variação Evolution API)
-  "558194903673",
-  "81985595931",   // Morgana (com 9)
-  "5581985595931",
-  "8185595931",    // Morgana (sem 9)
-  "558185595931",
+const SUFIXOS_GESTORES = [
+  '94903673', // Horácio Forte (9490-3673)
+  '85595931', // Morgana (8559-5931)
 ];
 
+export function isGestor(telefone: string): boolean {
+  const digits = (telefone ?? '').replace(/\D/g, '');
+  return SUFIXOS_GESTORES.some(s => digits.endsWith(s));
+}
+
 export function isGestorJoao(telefone: string): boolean {
-  const digits = telefone.replace(/\D/g, "");
-  return TELEFONES_GESTORES.some(
-    (g) => digits === g || digits.endsWith(g) || g.endsWith(digits)
-  );
+  return isGestor(telefone);
 }
 
 // ─── Contexto do CRM para gestão do João ─────────────────────────────────────
@@ -150,6 +146,7 @@ COMO RESPONDER:
 - Se Horácio perguntar algo específico ("quem respondeu?", "o que está quente?"), responda direto.
 - Nunca trate Horácio como prospecto. Nunca faça perguntas de qualificação para ele.
 - Nunca retorne JSON. Retorne apenas texto natural para WhatsApp.
+- IMPORTANTE: nunca invente ações futuras que não existem no CRM ("vou ligar", "vou enviar"). Relate só o que está registrado. Se quiser sugerir uma ação, use "seria bom" ou "poderia valer".
 
 CONTEXTO DO CRM:
 {CONTEXTO}`;

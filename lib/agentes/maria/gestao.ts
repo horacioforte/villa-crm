@@ -154,7 +154,8 @@ async function getHistoricoGestao(telefone: string): Promise<Array<{ role: "user
     where: { instanceName: "maria-villa", telefone: { contains: telefone.slice(-8) } },
     select: {
       mensagens: {
-        orderBy: { createdAt: "asc" },
+        // Últimas 10 (desc) e depois reverte para ordem cronológica
+        orderBy: { createdAt: "desc" },
         take: 10,
         select: { conteudo: true, direcao: true },
       },
@@ -163,7 +164,7 @@ async function getHistoricoGestao(telefone: string): Promise<Array<{ role: "user
 
   if (!conversa) return [];
 
-  return conversa.mensagens.map((m) => ({
+  return [...conversa.mensagens].reverse().map((m) => ({
     role: m.direcao === "SAIDA" ? "assistant" : "user",
     content: m.conteudo,
   }));

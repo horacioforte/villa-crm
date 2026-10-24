@@ -282,8 +282,10 @@ async function processarMensagemMaria({
   // Mesmo padrão do webhook do João: gestor nunca entra no fluxo de lead.
   // A troca é gravada no Workspace para servir de histórico ao modo gestão.
   if (isGestor(telefone)) {
+    console.info("[maria/meta-webhook] MODO GESTÃO ativado", { telefone, nomeContato, texto: texto.substring(0, 60) });
     try {
       const resposta = await processarGestao({ texto, nomeContato, telefone });
+      console.info("[maria/meta-webhook] MODO GESTÃO resposta gerada", { chars: resposta.length });
       await enviarWhatsappMeta({ telefone, texto: resposta });
 
       if (conversasV2Ligada && canal && messageId) {

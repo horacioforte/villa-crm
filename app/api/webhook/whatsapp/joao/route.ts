@@ -118,8 +118,10 @@ async function processarWebhookJoaoV1(request: Request) {
 
         // ── Modo gestão: Horácio perguntando para João ────────────────────
         if (isGestorJoao(telefone)) {
+          console.info("[joao/webhook] MODO GESTÃO ativado", { telefone, nomeContato, texto: texto.substring(0, 60) });
           try {
             const resposta = await processarGestaoJoao({ texto, nomeContato, telefone });
+            console.info("[joao/webhook] MODO GESTÃO resposta gerada", { chars: resposta.length });
             await enviarWhatsappJoao({ telefone, texto: resposta });
           } catch (error) {
             console.error("[joao/webhook] Erro no modo gestão:", error);

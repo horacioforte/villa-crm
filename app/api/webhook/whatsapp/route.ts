@@ -111,6 +111,16 @@ export async function POST(request: Request) {
 
   const nomeContato = body.data?.pushName?.trim() || "Cliente";
 
+  // ── DIAGNÓSTICO TEMPORÁRIO ────────────────────────────────────────────────
+  console.info("[WEBHOOK_WHATSAPP] DIAGNÓSTICO telefone recebido (Evolution)", {
+    telefone,
+    isGestorResult: (() => {
+      const digits = (telefone ?? "").replace(/\D/g, "");
+      const lista = ["81994903673","5581994903673","81985595931","5581985595931"];
+      return { digits, match: lista.some(g => digits === g || digits.endsWith(g) || g.endsWith(digits)) };
+    })(),
+  });
+
   // ── Rota: Modo de gestão (gestor mandando mensagem para Maria) ──────────
   if (isGestor(telefone)) {
     try {

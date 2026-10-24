@@ -278,6 +278,16 @@ async function processarMensagemMaria({
     }
   }
 
+  // ─── DIAGNÓSTICO TEMPORÁRIO — remover após confirmar modo gestão ────────────
+  console.info("[maria/meta-webhook] DIAGNÓSTICO telefone recebido", {
+    telefone,
+    isGestorResult: (() => {
+      const digits = telefone.replace(/\D/g, "");
+      const lista = ["81994903673","5581994903673","81985595931","5581985595931"];
+      return { digits, match: lista.some(g => digits === g || digits.endsWith(g) || g.endsWith(digits)) };
+    })(),
+  });
+
   // ─── ACRESCENTADO — Modo gestão (Horácio/Morgana perguntando para a Maria) ──
   // Mesmo padrão do webhook do João: gestor nunca entra no fluxo de lead.
   // A troca é gravada no Workspace para servir de histórico ao modo gestão.

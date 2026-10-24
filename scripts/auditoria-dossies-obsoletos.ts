@@ -36,7 +36,7 @@ async function main() {
 
   console.log(`\n=== GRUPO 2: Parados há mais de 90 dias + completude < 40% (${parados.length} dossiês) ===`);
   for (const d of parados) {
-    const diasParado = Math.floor((hoje.getTime() - d.ultimaAtividade.getTime()) / (24*60*60*1000));
+    const diasParado = d.ultimaAtividade ? Math.floor((hoje.getTime() - d.ultimaAtividade.getTime()) / (24*60*60*1000)) : "?";
     console.log(`[parado há ${diasParado}d] ${d.titulo} | ${d.cidade}/${d.estado} | completude: ${d.completude}%`);
     console.log(`  ID: ${d.id}`);
   }

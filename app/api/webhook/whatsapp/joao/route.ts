@@ -15,6 +15,7 @@ import { NextResponse } from "next/server";
 import { analisarMensagemJoao } from "@/lib/agentes/joao/handler";
 import { getContextoJoao } from "@/lib/agentes/joao/contexto";
 import { enviarWhatsappJoao, processarRespostaJoao } from "@/lib/agentes/joao/crm";
+import { isGestorJoao, processarGestaoJoao } from "@/lib/agentes/joao/gestao";
 import { processarWebhookJoaoV2 } from "@/lib/whatsapp/joao-webhook-v2";
 
 export const maxDuration = 90;
@@ -114,6 +115,17 @@ async function processarWebhookJoaoV1(request: Request) {
           "Cliente";
 
         console.info("[joao/webhook] Mensagem recebida", { telefone, nomeContato, texto: texto.substring(0, 80) });
+
+        // ── Modo gestão: Horácio perguntando para João ────────────────────
+        if (isGestorJoao(telefone)) {
+          try {
+            const resposta = await processarGestaoJoao({ texto, nomeContato, telefone });
+            await enviarWhatsappJoao({ telefone, texto: resposta });
+          } catch (error) {
+            console.error("[joao/webhook] Erro no modo gestão:", error);
+          }
+          continue;
+        }
 
         try {
           const contexto = await getContextoJoao(telefone);

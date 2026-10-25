@@ -219,6 +219,7 @@ EQUIPAMENTO ESPECIAL — BOMBA LANÇA 68 METROS
 Modelo: SANY SY68 RZR5
 Tipo: Bomba de concreto montada sobre caminhão (Bomba Lança)
 Nome comercial na Villa: Bomba Lança 68 m
+DIFERENCIAL: É a maior bomba lança da América Latina. Sempre mencionar isso ao falar do equipamento — é um diferencial competitivo único.
 
 DADOS TÉCNICOS OFICIAIS:
 - Número de seções da lança: 6

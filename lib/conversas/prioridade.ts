@@ -82,3 +82,24 @@ export function ordenarConversasPorPrioridade<T extends ConversaOrdenavel>(conve
     return dataB - dataA;
   });
 }
+
+// ACRESCENTADO — ordenação por chegada (Central de Atendimento): a conversa com a
+// mensagem mais recente fica no topo, em qualquer filtro (Urgente, Abertas, Pendentes,
+// Concluídas). Não usa prioridade/tempo de espera para ordenar — isso só aparece como
+// etiqueta e no filtro "Urgente". `ordenarConversasPorPrioridade` acima segue exportada.
+export function ordenarConversasPorChegada<T extends ConversaOrdenavel>(conversas: T[]) {
+  return [...conversas].sort((a, b) => {
+    const dataA = a.ultimaMensagemEm ? new Date(a.ultimaMensagemEm).getTime() : 0;
+    const dataB = b.ultimaMensagemEm ? new Date(b.ultimaMensagemEm).getTime() : 0;
+    return dataB - dataA;
+  });
+}
+
+// ACRESCENTADO — true quando a conversa está aguardando resposta nossa há mais de 4h
+// (mesma regra da etiqueta vermelha "Urgente").
+export function ehConversaUrgente(
+  aguardandoRespostaDesde: string | Date | null | undefined,
+  agora: number = Date.now(),
+): boolean {
+  return getPrioridadeAguardando(aguardandoRespostaDesde, agora)?.prioridade === "urgente";
+}

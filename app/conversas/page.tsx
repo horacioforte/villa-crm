@@ -27,7 +27,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { buildMelhorProximaAcao, buildTarefaPayloadFromRecomendacao } from "@/lib/conversas/next-action";
-import { getPrioridadeAguardando, ordenarConversasPorPrioridade } from "@/lib/conversas/prioridade";
+import { getPrioridadeAguardando, ordenarConversasPorPrioridade, ordenarConversasPorChegada, ehConversaUrgente } from "@/lib/conversas/prioridade";
 import { formatarTempoDecorrido } from "@/lib/conversas/aguardando-resposta";
 import { SupervisaoBoard } from "@/components/conversas/SupervisaoBoard";
 import { ConcluirTarefaDialog } from "@/components/tarefas/ConcluirTarefaDialog";
@@ -367,7 +367,7 @@ function ConversasPage() {
   // Ciclo de Atendimento — re-renderiza a cada 30s só para o texto de "há quanto tempo
   // aguardando" ficar em dia. Puramente client-side: não busca nada do servidor, não é
   // cron/job, não escreve no banco — é só um "tick" para o cálculo local rodar de novo.
-  const [, forcarRecalculoTempo] = useState(0);
+  const [tickTempo, forcarRecalculoTempo] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => forcarRecalculoTempo((t) => t + 1), 30_000);
     return () => clearInterval(timer);
@@ -379,7 +379,7 @@ function ConversasPage() {
   useEffect(() => {
     const timer = setInterval(async () => {
       const params = new URLSearchParams();
-      if (filtroStatus) params.set("status", filtroStatus);
+      if (filtroStatus) params.set("status", filtroStatus === "URGENTE" ? "ABERTA" : filtroStatus);
       if (filtroInstance) params.set("instance", filtroInstance);
       if (filtroResponsavel === "SEM") params.set("semResponsavel", "1");
       else if (filtroResponsavel) params.set("responsavelId", filtroResponsavel);
@@ -429,12 +429,30 @@ function ConversasPage() {
     [canaisSaude],
   );
 
+  // ACRESCENTADO — lista exibida: no filtro "Urgente" mostra só as abertas que esperam
+  // resposta há mais de 4h; em todos os filtros a mais recente fica no topo.
+  // `totalUrgentes` só é conhecido quando a lista carregada contém as abertas.
+  const conversasVisiveis = useMemo(() => {
+    const base = filtroStatus === "URGENTE"
+      ? conversas.filter((c) => ehConversaUrgente(c.aguardandoRespostaDesde))
+      : conversas;
+    return ordenarConversasPorChegada(base);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversas, filtroStatus, tickTempo]);
+  const totalUrgentes = useMemo(
+    () => (filtroStatus === "ABERTA" || filtroStatus === "URGENTE"
+      ? conversas.filter((c) => ehConversaUrgente(c.aguardandoRespostaDesde)).length
+      : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [conversas, filtroStatus, tickTempo],
+  );
+
   // Carrega lista de conversas
   const carregarConversas = useCallback(async () => {
     setCarregando(true);
     try {
       const params = new URLSearchParams();
-      if (filtroStatus) params.set("status", filtroStatus);
+      if (filtroStatus) params.set("status", filtroStatus === "URGENTE" ? "ABERTA" : filtroStatus);
       if (filtroInstance) params.set("instance", filtroInstance);
       if (filtroResponsavel === "SEM") params.set("semResponsavel", "1");
       else if (filtroResponsavel) params.set("responsavelId", filtroResponsavel);
@@ -965,6 +983,7 @@ function ConversasPage() {
                   className="flex-1 rounded-xl border border-[#D7DEEA] bg-[#F4F6FA] px-2 py-1.5 text-xs font-semibold outline-none"
                 >
                   <option value="">Todos status</option>
+                  <option value="URGENTE">Urgente{totalUrgentes !== null ? ` (${totalUrgentes})` : ""}</option>
                   <option value="ABERTA">Abertas</option>
                   <option value="PENDENTE">Pendentes</option>
                   <option value="CONCLUIDA">Concluídas</option>
@@ -1103,14 +1122,14 @@ function ConversasPage() {
                 <div className="flex h-full items-center justify-center text-sm text-[#667085]">
                   Carregando...
                 </div>
-              ) : conversas.length === 0 ? (
+              ) : conversasVisiveis.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-[#667085]">
                   <MessageCircle className="size-8 opacity-30" />
                   <p>Nenhuma conversa encontrada.</p>
                   <p className="text-xs">As mensagens chegam via WhatsApp e aparecem aqui automaticamente.</p>
                 </div>
               ) : (
-                ordenarConversasPorPrioridade(conversas).map((c) => {
+                conversasVisiveis.map((c) => {
                   const instanceInfo = getInstanceInfo(c.instanceName);
                   const ultimaMsg = c.mensagens[0];
                   const aguardando = Boolean(c.aguardandoRespostaDesde);

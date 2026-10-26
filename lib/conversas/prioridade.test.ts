@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getPrioridadeAguardando, ordenarConversasPorPrioridade } from "./prioridade";
+import {
+  ehConversaUrgente,
+  getPrioridadeAguardando,
+  ordenarConversasPorChegada,
+  ordenarConversasPorPrioridade,
+} from "./prioridade";
 
 const AGORA = new Date("2026-01-01T12:00:00.000Z").getTime();
 const minutosAtras = (min: number) => new Date(AGORA - min * 60_000).toISOString();
@@ -82,5 +87,29 @@ describe("ordenarConversasPorPrioridade", () => {
     const ordenadas = ordenarConversasPorPrioridade([b, c, a]);
 
     expect(ordenadas.map((x) => x.id)).toEqual(["a", "c", "b"]);
+  });
+});
+
+describe("ordenarConversasPorChegada", () => {
+  it("mensagem mais recente primeiro, ignorando o tempo de espera", () => {
+    const urgenteAntiga = { id: "u", aguardandoRespostaDesde: minutosAtras(5 * 60), ultimaMensagemEm: minutosAtras(5 * 60) };
+    const nova = { id: "n", aguardandoRespostaDesde: minutosAtras(2), ultimaMensagemEm: minutosAtras(2) };
+    const media = { id: "m", aguardandoRespostaDesde: null, ultimaMensagemEm: minutosAtras(60) };
+
+    expect(ordenarConversasPorChegada([urgenteAntiga, media, nova]).map((x) => x.id)).toEqual(["n", "m", "u"]);
+  });
+
+  it("conversa sem data de mensagem vai para o fim", () => {
+    const comData = { id: "a", ultimaMensagemEm: minutosAtras(10) };
+    const semData = { id: "b", ultimaMensagemEm: null };
+    expect(ordenarConversasPorChegada([semData, comData]).map((x) => x.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("ehConversaUrgente", () => {
+  it("true só acima de 4h aguardando", () => {
+    expect(ehConversaUrgente(minutosAtras(4 * 60 + 1), AGORA)).toBe(true);
+    expect(ehConversaUrgente(minutosAtras(4 * 60), AGORA)).toBe(false);
+    expect(ehConversaUrgente(null, AGORA)).toBe(false);
   });
 });

@@ -191,7 +191,7 @@ ESPECIFICAÇÕES TÉCNICAS (modelo SPL 2000):
 - Peso: aprox. 4.805 kg
 
 POR QUE A VILLA ESTÁ VENDENDO:
-A Villa está renovando a frota. Alguns canteiros de obras têm limite de idade para equipamentos, então equipamentos com certos anos precisam sair da frota — mesmo sendo fantásticos e em plenas condições de uso. Não é defeito, é política de renovação e limite operacional de alguns clientes.
+A Villa está renovando a frota. Alguns canteiros têm limite de idade para equipamentos, então estamos disponibilizando para venda equipamentos de alta performance que são fantásticos e atendem qualquer tipo de obra de bombeamento de concreto. Maria nunca deve mencionar a palavra "defeito" — o foco é sempre no valor do equipamento e na oportunidade de aquisição.
 
 PERFIL DO COMPRADOR IDEAL:
 - Concreteiras e construtoras (não é para uso doméstico ou pequenas obras)

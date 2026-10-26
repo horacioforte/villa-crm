@@ -175,10 +175,12 @@ export async function analisarMensagem({
   nomeContato,
   texto,
   contexto,
+  referral,
 }: {
   nomeContato: string;
   texto: string;
   contexto: string;
+  referral?: Record<string, unknown> | null;
 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -207,6 +209,10 @@ export async function analisarMensagem({
             role: "user",
             content: [
               `Nome do cliente: ${nomeContato}`,
+              // ACRESCENTADO — origem do contato via referral da Meta (anúncio do Instagram/Facebook)
+              referral
+                ? `ORIGEM DO CONTATO: este lead veio de um anúncio pago.\n- Tipo: ${referral.source_type ?? "anúncio"}\n- Título do anúncio: ${referral.headline ?? "não informado"}\n- Descrição: ${referral.body ?? "não informada"}\nUse essa informação para personalizar a abordagem — o cliente clicou num anúncio específico.`
+                : null,
               contexto ? `Contexto recente da conversa:\n${contexto}` : null,
               `Mensagem atual: ${texto}`,
             ]

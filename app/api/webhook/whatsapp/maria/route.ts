@@ -166,8 +166,11 @@ export async function POST(request: NextRequest) {
         const texto = ((message.text as Record<string, unknown>)?.body as string)?.trim();
         if (!texto) continue;
 
+        // ACRESCENTADO — captura referral da Meta (presente quando o contato veio de anúncio)
+        const referral = (message.referral as Record<string, unknown> | undefined) ?? null;
+
         // Aguarda o processamento antes de retornar (Vercel mata execução ao retornar 200)
-        await processarMensagemMaria({ telefone, nomeContato, texto, messageId, messageType, rawMessage: message }).catch((err) => {
+        await processarMensagemMaria({ telefone, nomeContato, texto, messageId, messageType, rawMessage: message, referral }).catch((err) => {
           console.error("[maria/meta-webhook] Erro ao processar mensagem:", err);
         });
       }
@@ -239,6 +242,7 @@ async function processarMensagemMaria({
   messageId,
   messageType,
   rawMessage,
+  referral,
 }: {
   telefone: string;
   nomeContato: string;
@@ -246,6 +250,7 @@ async function processarMensagemMaria({
   messageId: string | null;
   messageType: string;
   rawMessage: unknown;
+  referral: Record<string, unknown> | null;
 }) {
   // ─── Persistência adicional (Workspace) — checagem de idempotência ──────────
   // Roda ANTES do fluxo comercial: em caso de reentrega do mesmo message.id pela
@@ -320,7 +325,7 @@ async function processarMensagemMaria({
 
   try {
     const contexto = await getContextoConversa(telefone);
-    let dados = await analisarMensagem({ nomeContato, texto, contexto });
+    let dados = await analisarMensagem({ nomeContato, texto, contexto, referral });
     await enviarWhatsappMeta({ telefone, texto: dados.resposta });
 
     let classificacaoInterna: {

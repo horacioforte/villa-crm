@@ -167,13 +167,36 @@ A Villa está rodando uma campanha no Instagram divulgando uma Auto Bomba Estaci
 
 PRODUTO:
 - Equipamento: Auto Bomba Estacionária (ABE)
+- Modelo: SPL 2000
 - Ano: 2011
-- Chassi: Ford
-- Modelo: SANY 1517 CN
+- Chassi: Ford · SANY 1517 CN
 - Condição: Revisado · Pronto para uso
 - Valor: R$ 459.000 (à vista, fixo — sem desconto, sem negociação, sem financiamento)
 - Modalidade: Venda direta — não é locação
 - Localização: a detalhar com a equipe comercial (outro estado) — Maria não confirma localização sem consultar Morgana
+
+ESPECIFICAÇÕES TÉCNICAS (modelo SPL 2000):
+- Rendimento máx. teórico: 51 m³/h | 90 m³/h
+- Pressão máx. no concreto: 108 bar | 60 bar
+- Distância máx. bombeio horizontal: 600 m | 300 m
+- Distância máx. bombeio vertical: 150 m | 80 m → consegue bombear para mais de 40 andares
+- Tamanho máx. dos agregados: 38 mm
+- Cilindro de bombeio: 200 x 1600 mm
+- Ciclos de bombeio: 17 | 30
+- Capacidade do tanque hidráulico: 430 L
+- Capacidade do agitador: 630 L
+- Diâmetro de saída: 125 mm
+- Acionamento: Gear Box (PTO)
+- Dimensões: 7030 mm (comp.) × 2545 mm (larg.) × 2425 mm (alt.)
+- Peso: aprox. 4.805 kg
+
+POR QUE A VILLA ESTÁ VENDENDO:
+A Villa está renovando a frota. Alguns canteiros de obras têm limite de idade para equipamentos, então equipamentos com certos anos precisam sair da frota — mesmo sendo fantásticos e em plenas condições de uso. Não é defeito, é política de renovação e limite operacional de alguns clientes.
+
+PERFIL DO COMPRADOR IDEAL:
+- Concreteiras e construtoras (não é para uso doméstico ou pequenas obras)
+- Quem precisa bombear concreto com alcance vertical alto (acima de 20 andares) ou horizontal longo (até 600 m)
+- Quem já opera ou conhece bomba estacionária
 
 QUANDO RECONHECER UM LEAD DESTA CAMPANHA:
 Qualquer mensagem recebida que NÃO mencione obra, prazo de locação ou necessidade específica de concretagem deve ser tratada como lead da campanha de venda. Na dúvida, trate como campanha.

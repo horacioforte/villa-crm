@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { BolinhasConversas } from "@/components/conversas/BolinhasConversas";
 
 // Itens primários — sempre visíveis
 // Ordem atualizada em 14/09/2026: Mídias Sociais na 2ª posição; Inteligência virou dropdown
@@ -161,6 +162,7 @@ export function PageNavigation({
               >
                 <item.icon className="size-4" />
                 {item.label}
+                {item.href === "/conversas" ? <BolinhasConversas /> : null}
                 {item.href === "/tarefas" && tarefasAtrasadas > 0 ? (
                   <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
                     {tarefasAtrasadas}

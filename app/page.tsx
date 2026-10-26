@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BolinhasConversas } from "@/components/conversas/BolinhasConversas";
 import { redirect } from "next/navigation";
 import {
   AlertTriangle,
@@ -1012,6 +1013,7 @@ export default async function Home() {
               >
                 <item.icon className="size-5" />
                 {item.label}
+                {item.href === "/conversas" ? <BolinhasConversas /> : null}
               </a>
             ))}
         </nav>

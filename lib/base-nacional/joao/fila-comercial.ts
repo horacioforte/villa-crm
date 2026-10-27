@@ -7,7 +7,10 @@
 import { prisma } from "@/lib/prisma";
 import type { Indicadores } from "./categorizar";
 
-import { DECISAO_COMERCIAL_LABEL, DECISOES_COMERCIAIS, type DecisaoComercial } from "./fila-comercial-rotulos";
+import {
+  DECISAO_COMERCIAL_LABEL, DECISAO_NAO_E_CONCRETEIRA, DECISOES_COMERCIAIS, MOTIVOS_DESCARTE, MOTIVO_DESCARTE_LABEL, MOTIVO_DESCARTE_TIPO_ATIVIDADE,
+  type DecisaoComercial, type MotivoDescarte,
+} from "./fila-comercial-rotulos";
 export { DECISAO_COMERCIAL_LABEL, DECISOES_COMERCIAIS, type DecisaoComercial };
 export const PUBLICOS_JOAO = ["PILOTO_20", "LOTE_206"];
 
@@ -65,35 +68,65 @@ export async function detalheGrupoJoao(chave: string) {
  * caracteres, depois de aparar espaços). contatosInvalidos só é aplicado quando a decisão
  * é "Contato inválido", e é truncado em 50 itens por chamada.
  */
-export function validarDecisaoJoao(args: { decisao: DecisaoComercial; observacao: string | null; contatosInvalidos: string[] }): { ok: true; obs: string; invalidos: string[] } | { ok: false; erros: string[] } {
+export function validarDecisaoJoao(args: { decisao: DecisaoComercial | typeof DECISAO_NAO_E_CONCRETEIRA; observacao: string | null; contatosInvalidos: string[]; motivoDescarte?: string | null }): { ok: true; obs: string; invalidos: string[]; descarte?: { motivo: MotivoDescarte; label: string; tipoAtividade: string } } | { ok: false; erros: string[] } {
   const obs = (args.observacao ?? "").trim();
+  // "Não é concreteira": o motivo escolhido basta — a observação é opcional.
+  if (args.decisao === DECISAO_NAO_E_CONCRETEIRA) {
+    const motivo = (MOTIVOS_DESCARTE as readonly string[]).includes(args.motivoDescarte ?? "") ? (args.motivoDescarte as MotivoDescarte) : null;
+    if (!motivo) return { ok: false, erros: ["Escolha o motivo: por que não é concreteira?"] };
+    return { ok: true, obs, invalidos: [], descarte: { motivo, label: MOTIVO_DESCARTE_LABEL[motivo], tipoAtividade: MOTIVO_DESCARTE_TIPO_ATIVIDADE[motivo] } };
+  }
   if (args.decisao !== "APROVADO_ABORDAGEM" && obs.length < 5) return { ok: false, erros: ["Escreva uma observação curta (mínimo 5 caracteres)."] };
   const invalidos = args.decisao === "CONTATO_INVALIDO" ? args.contatosInvalidos.slice(0, 50) : [];
   return { ok: true, obs, invalidos };
 }
 
+const dataBr = (d: Date) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Recife" }).format(d);
+/** Texto gravado em decisaoObservacao do grupo quando não é concreteira. */
+export const observacaoDescarteGrupo = (label: string, obs: string) => `Não é concreteira — ${label}${obs ? `: ${obs}` : ""}`;
+/** Justificativa gravada em cada candidata descartada (o CHECK do banco exige texto não vazio). */
+export const justificativaDescarte = (label: string, usuarioNome: string, data: Date, obs: string) =>
+  `Não é concreteira (${label}) — decisão na Fila do João por ${usuarioNome} em ${dataBr(data)}${obs ? `: ${obs}` : ""}`;
+
 /** Grava a decisão humana (com histórico em cada empresa do grupo). "Contato inválido" pode marcar contatos específicos como inválidos (preservados). */
-export async function decidirGrupoJoao(args: { chave: string; decisao: DecisaoComercial; observacao: string | null; contatosInvalidos: string[]; usuarioId: string }) {
+export async function decidirGrupoJoao(args: { chave: string; decisao: DecisaoComercial | typeof DECISAO_NAO_E_CONCRETEIRA; observacao: string | null; contatosInvalidos: string[]; usuarioId: string; motivoDescarte?: string | null; usuarioNome?: string | null }) {
   const g = await prisma.joaoEnriquecimentoGrupo.findUnique({ where: { chave: args.chave }, select: { chave: true, publico: true, candidataIds: true, decisaoComercial: true } });
   if (!g || !PUBLICOS_JOAO.includes(g.publico)) return { ok: false as const, erros: ["Grupo não encontrado."] };
   const validacao = validarDecisaoJoao(args);
   if (!validacao.ok) return { ok: false as const, erros: validacao.erros };
-  const { obs, invalidos } = validacao;
+  const { obs, invalidos, descarte } = validacao;
   const agora = new Date();
+  // Descarte grava o grupo como "não prioritária"; o histórico da decisão guarda o valor efetivamente gravado.
+  const decisaoGrupo: DecisaoComercial = descarte ? "NAO_PRIORITARIA" : (args.decisao as DecisaoComercial);
+  const obsGrupo = descarte ? observacaoDescarteGrupo(descarte.label, obs) : obs;
   await prisma.$transaction(async tx => {
-    await tx.joaoEnriquecimentoGrupo.update({ where: { chave: g.chave }, data: { decisaoComercial: args.decisao as never, decisaoObservacao: obs || null, decisaoPorId: args.usuarioId, decisaoEm: agora } });
+    await tx.joaoEnriquecimentoGrupo.update({ where: { chave: g.chave }, data: { decisaoComercial: decisaoGrupo as never, decisaoObservacao: obsGrupo || null, decisaoPorId: args.usuarioId, decisaoEm: agora } });
     if (invalidos.length) {
       await tx.concreteiraCandidataContato.updateMany({
         where: { id: { in: invalidos }, candidataId: { in: g.candidataIds } },
         data: { situacao: "INVALIDO", verificadoEm: agora, verificadoPorId: args.usuarioId },
       });
     }
-    const cands = await tx.concreteiraCandidata.findMany({ where: { id: { in: g.candidataIds } }, select: { id: true, statusValidacao: true } });
+    const cands = await tx.concreteiraCandidata.findMany({ where: { id: { in: g.candidataIds } }, select: { id: true, statusValidacao: true, tipoAtividade: true, confianca: true, primeiraVerificacaoEm: true } });
     for (const c of cands) {
+      // Descarte: a candidata vira NAO_E_CONCRETEIRA (nada é apagado) e a mudança entra no histórico de VALIDACAO.
+      if (descarte) {
+        const justificativa = justificativaDescarte(descarte.label, args.usuarioNome?.trim() || "usuário", agora, obs);
+        await tx.concreteiraCandidata.update({ where: { id: c.id }, data: {
+          statusValidacao: "NAO_E_CONCRETEIRA" as never, tipoAtividade: descarte.tipoAtividade as never, justificativa,
+          validadoPorId: args.usuarioId, validadoEm: agora, ultimaVerificacaoEm: agora, ...(c.primeiraVerificacaoEm ? {} : { primeiraVerificacaoEm: agora }),
+        } });
+        await tx.concreteiraValidacaoHistorico.create({ data: {
+          candidataId: c.id, tipoEvento: "VALIDACAO" as never, origem: "TELA_BASE_NACIONAL", agente: "fila-comercial-joao", usuarioId: args.usuarioId,
+          statusAnterior: c.statusValidacao, statusNovo: "NAO_E_CONCRETEIRA" as never, tipoAnterior: c.tipoAtividade, tipoNovo: descarte.tipoAtividade as never,
+          confiancaAnterior: c.confianca, confiancaNova: c.confianca, motivo: justificativa, createdAt: agora,
+        } });
+      }
       await tx.concreteiraValidacaoHistorico.create({ data: {
         candidataId: c.id, tipoEvento: "DECISAO_COMERCIAL" as never, origem: "TELA_BASE_NACIONAL", agente: "fila-comercial-joao", usuarioId: args.usuarioId,
-        statusAnterior: c.statusValidacao, statusNovo: c.statusValidacao, campo: "decisaoComercial", valorAnterior: g.decisaoComercial ?? null, valorNovo: args.decisao,
-        motivo: `${DECISAO_COMERCIAL_LABEL[args.decisao]}${obs ? `: ${obs}` : ""}${invalidos.length ? ` (${invalidos.length} contato(s) marcado(s) como inválido)` : ""}. Nenhum contato foi feito pelo sistema.`,
+        statusAnterior: descarte ? ("NAO_E_CONCRETEIRA" as never) : c.statusValidacao, statusNovo: descarte ? ("NAO_E_CONCRETEIRA" as never) : c.statusValidacao,
+        campo: "decisaoComercial", valorAnterior: g.decisaoComercial ?? null, valorNovo: decisaoGrupo,
+        motivo: `${descarte ? obsGrupo : `${DECISAO_COMERCIAL_LABEL[decisaoGrupo]}${obs ? `: ${obs}` : ""}`}${invalidos.length ? ` (${invalidos.length} contato(s) marcado(s) como inválido)` : ""}. Nenhum contato foi feito pelo sistema.`,
         createdAt: agora,
       } });
     }

@@ -63,8 +63,10 @@ function lerForm(f: HTMLFormElement): Record<string, unknown> {
   return out;
 }
 
-function Form({ candidataId, acao, children, botao, aoGravar, className, extras }: {
+function Form({ candidataId, acao, children, botao, aoGravar, className, extras, manter }: {
   candidataId: string; acao: string; children: React.ReactNode; botao: string; aoGravar?: () => void; className?: string; extras?: Record<string, unknown>;
+  /** Campos (select) que mantêm o valor enviado depois do reset — evita voltar ao valor antigo enquanto a ficha recarrega. */
+  manter?: string[];
 }) {
   const { enviar, erros, ok, pendente } = useAcao(candidataId);
   const [enviando, setEnviando] = useState(false);
@@ -73,9 +75,17 @@ function Form({ candidataId, acao, children, botao, aoGravar, className, extras 
     <form ref={ref} className={cn("space-y-2", className)} onSubmit={async e => {
       e.preventDefault();
       setEnviando(true);
-      const gravou = await enviar({ acao, ...lerForm(e.currentTarget), ...extras });
+      const enviado = lerForm(e.currentTarget);
+      const gravou = await enviar({ acao, ...enviado, ...extras });
       setEnviando(false);
-      if (gravou) { ref.current?.reset(); aoGravar?.(); }
+      if (gravou) {
+        ref.current?.reset();
+        for (const nome of manter ?? []) {
+          const campo = ref.current?.elements.namedItem(nome);
+          if (campo instanceof HTMLSelectElement && typeof enviado[nome] === "string") campo.value = enviado[nome] as string;
+        }
+        aoGravar?.();
+      }
     }}>
       {children}
       <Mensagens erros={erros} ok={ok} />
@@ -111,7 +121,7 @@ function Recolhivel({ titulo, children, inicial = false }: { titulo: string; chi
 // ─── Validação ────────────────────────────────────────────────────────────────
 export function PainelValidacao({ candidataId, status, confianca, tipoAtividade }: { candidataId: string; status: string; confianca: string | null; tipoAtividade: string | null }) {
   return (
-    <Form candidataId={candidataId} acao="validar" botao="Gravar validação">
+    <Form candidataId={candidataId} acao="validar" botao="Gravar validação" manter={["status", "confianca", "tipoAtividade"]}>
       <div className="grid gap-2 sm:grid-cols-3">
         <label><span className={rotuloCls}>Situação</span>
           <select name="status" defaultValue={status} className={inputCls}><Opcoes lista={STATUS_VALIDACAO} rotulos={STATUS_LABEL} /></select></label>

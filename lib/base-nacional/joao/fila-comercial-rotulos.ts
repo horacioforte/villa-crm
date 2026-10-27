@@ -11,3 +11,28 @@ export const DECISAO_COMERCIAL_LABEL: Record<DecisaoComercial, string> = {
   NAO_PRIORITARIA: "Empresa não prioritária",
   ADIAR: "Adiar",
 };
+
+// ─── "Não é concreteira" (um clique na tela do grupo) ─────────────────────────
+// Não é valor de enum (sem migration): a rota recebe decisao "NAO_E_CONCRETEIRA" + motivoDescarte; o grupo
+// é gravado como NAO_PRIORITARIA e cada candidata passa para o status NAO_E_CONCRETEIRA.
+export const DECISAO_NAO_E_CONCRETEIRA = "NAO_E_CONCRETEIRA" as const;
+export type TipoAtividadeDescarte = "ARGAMASSA" | "PRE_MOLDADO" | "OUTRA_ATIVIDADE";
+export const MOTIVOS_DESCARTE = ["ARGAMASSA", "PRE_MOLDADO", "CONSTRUTORA", "MINERACAO_AREIA", "LOJA_REVENDA", "FECHOU_INATIVA"] as const;
+export type MotivoDescarte = (typeof MOTIVOS_DESCARTE)[number];
+export const MOTIVO_DESCARTE_LABEL: Record<MotivoDescarte, string> = {
+  ARGAMASSA: "Argamassa",
+  PRE_MOLDADO: "Pré-moldado",
+  CONSTRUTORA: "Construtora",
+  MINERACAO_AREIA: "Mineração/areia",
+  LOJA_REVENDA: "Loja/revenda",
+  FECHOU_INATIVA: "Fechou/inativa",
+};
+/** Motivo → tipoAtividade gravado em cada candidata do grupo. */
+export const MOTIVO_DESCARTE_TIPO_ATIVIDADE: Record<MotivoDescarte, TipoAtividadeDescarte> = {
+  ARGAMASSA: "ARGAMASSA",
+  PRE_MOLDADO: "PRE_MOLDADO",
+  CONSTRUTORA: "OUTRA_ATIVIDADE",
+  MINERACAO_AREIA: "OUTRA_ATIVIDADE",
+  LOJA_REVENDA: "OUTRA_ATIVIDADE",
+  FECHOU_INATIVA: "OUTRA_ATIVIDADE",
+};

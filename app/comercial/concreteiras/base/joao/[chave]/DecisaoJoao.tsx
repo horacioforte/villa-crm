@@ -9,12 +9,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { DECISAO_COMERCIAL_LABEL, DECISOES_COMERCIAIS, type DecisaoComercial } from "@/lib/base-nacional/joao/fila-comercial-rotulos";
+import { DECISAO_COMERCIAL_LABEL, DECISAO_NAO_E_CONCRETEIRA, DECISOES_COMERCIAIS, MOTIVOS_DESCARTE, MOTIVO_DESCARTE_LABEL, type DecisaoComercial, type MotivoDescarte } from "@/lib/base-nacional/joao/fila-comercial-rotulos";
 import { cn } from "@/lib/utils";
 
 export function DecisaoJoao(props: { chave: string; query: string; proximaChave?: string | null; decisaoAtual: string | null; observacaoAtual: string | null; contatos: Array<{ id: string; rotulo: string }> }) {
   const router = useRouter();
-  const [decisao, setDecisao] = useState<DecisaoComercial | "">((props.decisaoAtual as DecisaoComercial) ?? "");
+  const [decisao, setDecisao] = useState<DecisaoComercial | typeof DECISAO_NAO_E_CONCRETEIRA | "">((props.decisaoAtual as DecisaoComercial) ?? "");
+  const [motivo, setMotivo] = useState<MotivoDescarte | "">("");
   const [obs, setObs] = useState(props.observacaoAtual ?? "");
   const [invalidos, setInvalidos] = useState<string[]>([]);
   const [erros, setErros] = useState<string[]>([]);
@@ -25,7 +26,7 @@ export function DecisaoJoao(props: { chave: string; query: string; proximaChave?
     setErros([]); setOk(false); setGravando(true);
     try {
       const r = await fetch(`/api/base-nacional/joao/${encodeURIComponent(props.chave)}`, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decisao, observacao: obs, contatosInvalidos: invalidos }) });
+        body: JSON.stringify({ decisao, observacao: obs, contatosInvalidos: invalidos, ...(decisao === DECISAO_NAO_E_CONCRETEIRA ? { motivoDescarte: motivo } : {}) }) });
       const j = (await r.json().catch(() => ({}))) as { ok?: boolean; erros?: string[] };
       if (!r.ok || !j.ok) setErros(j.erros?.length ? j.erros : ["Não foi possível gravar."]);
       else if (depois === "proximo") {
@@ -45,11 +46,27 @@ export function DecisaoJoao(props: { chave: string; query: string; proximaChave?
       <fieldset className="grid gap-1.5">
         {DECISOES_COMERCIAIS.map(d => (
           <label key={d} className={cn("flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-xs", decisao === d ? "border-indigo-400 bg-indigo-50 text-indigo-800" : "border-slate-200 text-slate-700")}>
-            <input type="radio" name="decisao" value={d} checked={decisao === d} onChange={() => setDecisao(d)} className="h-4 w-4" />
+            <input type="radio" name="decisao" value={d} checked={decisao === d} onChange={() => { setDecisao(d); setErros([]); }} className="h-4 w-4" />
             {DECISAO_COMERCIAL_LABEL[d]}
           </label>
         ))}
+        <label className={cn("flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-xs", decisao === DECISAO_NAO_E_CONCRETEIRA ? "border-red-400 bg-red-50 text-red-800" : "border-slate-200 text-slate-700")}>
+          <input type="radio" name="decisao" value={DECISAO_NAO_E_CONCRETEIRA} checked={decisao === DECISAO_NAO_E_CONCRETEIRA} onChange={() => { setDecisao(DECISAO_NAO_E_CONCRETEIRA); setErros([]); }} className="h-4 w-4" />
+          Não é concreteira
+        </label>
       </fieldset>
+      {decisao === DECISAO_NAO_E_CONCRETEIRA && (
+        <div className="space-y-1 rounded-md bg-red-50/60 p-2">
+          <p className="text-[10px] uppercase tracking-wide text-slate-400">Motivo (basta escolher — nada é apagado)</p>
+          <div className="flex flex-wrap gap-1.5">
+            {MOTIVOS_DESCARTE.map(m => (
+              <button key={m} type="button" onClick={() => { setMotivo(m); setErros([]); }} className={cn("rounded-full border px-2.5 py-1 text-xs", motivo === m ? "border-red-500 bg-red-600 text-white" : "border-slate-200 bg-white text-slate-700")}>
+                {MOTIVO_DESCARTE_LABEL[m]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {decisao === "CONTATO_INVALIDO" && props.contatos.length > 0 && (
         <div className="space-y-1 rounded-md bg-slate-50 p-2">
           <p className="text-[10px] uppercase tracking-wide text-slate-400">Marcar como inválido (fica preservado no histórico)</p>
@@ -61,15 +78,15 @@ export function DecisaoJoao(props: { chave: string; query: string; proximaChave?
           ))}
         </div>
       )}
-      <label className="block"><span className="mb-0.5 block text-[10px] uppercase tracking-wide text-slate-400">Observação{decisao && decisao !== "APROVADO_ABORDAGEM" ? " *" : ""}</span>
-        <textarea rows={3} value={obs} onChange={e => setObs(e.target.value)} className="w-full rounded-md border border-slate-200 px-2 py-2 text-xs" placeholder="O que você viu, o que falta ou por que adiar." />
+      <label className="block"><span className="mb-0.5 block text-[10px] uppercase tracking-wide text-slate-400">Observação{decisao && decisao !== "APROVADO_ABORDAGEM" && decisao !== DECISAO_NAO_E_CONCRETEIRA ? " *" : ""}</span>
+        <textarea rows={3} value={obs} onChange={e => { setObs(e.target.value); setErros([]); }} className="w-full rounded-md border border-slate-200 px-2 py-2 text-xs" placeholder="O que você viu, o que falta ou por que adiar." />
       </label>
       {erros.length > 0 && <ul className="rounded-md bg-red-50 p-2 text-[11px] text-red-700">{erros.map(e => <li key={e}>• {e}</li>)}</ul>}
       {ok && <p className="rounded-md bg-emerald-50 p-2 text-[11px] text-emerald-700">Gravado com responsável, data e histórico. Nenhuma mensagem foi enviada.</p>}
-      <button type="button" disabled={!decisao || gravando} onClick={() => void gravar("proximo")} className="w-full rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white disabled:opacity-50 sm:text-xs">
+      <button type="button" disabled={!decisao || (decisao === DECISAO_NAO_E_CONCRETEIRA && !motivo) || gravando} onClick={() => void gravar("proximo")} className="w-full rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white disabled:opacity-50 sm:text-xs">
         {gravando && <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" />} Gravar e próximo
       </button>
-      <button type="button" disabled={!decisao || gravando} onClick={() => void gravar()} className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2.5 text-sm font-medium text-indigo-700 disabled:opacity-50 sm:text-xs">
+      <button type="button" disabled={!decisao || (decisao === DECISAO_NAO_E_CONCRETEIRA && !motivo) || gravando} onClick={() => void gravar()} className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2.5 text-sm font-medium text-indigo-700 disabled:opacity-50 sm:text-xs">
         Gravar decisão
       </button>
       <p className="text-[10px] text-slate-400">A decisão não envia mensagem, não liga e não inicia abordagem.</p>

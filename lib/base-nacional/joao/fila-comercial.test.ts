@@ -6,7 +6,7 @@ const { prismaMock, tx } = vi.hoisted(() => {
   const tx = {
     joaoEnriquecimentoGrupo: { update: vi.fn() },
     concreteiraCandidataContato: { updateMany: vi.fn() },
-    concreteiraCandidata: { findMany: vi.fn() },
+    concreteiraCandidata: { findMany: vi.fn(), update: vi.fn() },
     concreteiraValidacaoHistorico: { create: vi.fn() },
   };
   return {
@@ -19,7 +19,8 @@ const { prismaMock, tx } = vi.hoisted(() => {
 });
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
 
-const { decidirGrupoJoao, validarDecisaoJoao, PUBLICOS_JOAO } = await import("./fila-comercial");
+const { decidirGrupoJoao, validarDecisaoJoao, justificativaDescarte, PUBLICOS_JOAO } = await import("./fila-comercial");
+const { MOTIVOS_DESCARTE, MOTIVO_DESCARTE_TIPO_ATIVIDADE } = await import("./fila-comercial-rotulos");
 
 const GRUPO = { chave: "jg-demo", publico: "LOTE_206", candidataIds: ["c1", "c2"], decisaoComercial: null as string | null };
 
@@ -125,5 +126,75 @@ describe("decidirGrupoJoao — grava a decisão no grupo com responsável e data
       where: { chave: "jg-demo" },
       data: { decisaoComercial: "NAO_PRIORITARIA", decisaoObservacao: "porte pequeno demais", decisaoPorId: "u-responsavel", decisaoEm: expect.any(Date) },
     });
+  });
+});
+
+describe("\"Não é concreteira\" — validação pura", () => {
+  it("o motivo basta: observação é opcional", () => {
+    const r = validarDecisaoJoao({ decisao: "NAO_E_CONCRETEIRA", motivoDescarte: "ARGAMASSA", observacao: null, contatosInvalidos: ["k1"] });
+    expect(r).toEqual({ ok: true, obs: "", invalidos: [], descarte: { motivo: "ARGAMASSA", label: "Argamassa", tipoAtividade: "ARGAMASSA" } });
+  });
+  it("sem motivo (ou motivo desconhecido) é recusado", () => {
+    expect(validarDecisaoJoao({ decisao: "NAO_E_CONCRETEIRA", observacao: "x", contatosInvalidos: [] }).ok).toBe(false);
+    expect(validarDecisaoJoao({ decisao: "NAO_E_CONCRETEIRA", motivoDescarte: "QUALQUER", observacao: "x", contatosInvalidos: [] }).ok).toBe(false);
+  });
+  it("mapeia cada motivo para o tipoAtividade combinado", () => {
+    expect(MOTIVO_DESCARTE_TIPO_ATIVIDADE).toEqual({
+      ARGAMASSA: "ARGAMASSA", PRE_MOLDADO: "PRE_MOLDADO", CONSTRUTORA: "OUTRA_ATIVIDADE",
+      MINERACAO_AREIA: "OUTRA_ATIVIDADE", LOJA_REVENDA: "OUTRA_ATIVIDADE", FECHOU_INATIVA: "OUTRA_ATIVIDADE",
+    });
+    expect(Object.keys(MOTIVO_DESCARTE_TIPO_ATIVIDADE).sort()).toEqual([...MOTIVOS_DESCARTE].sort());
+  });
+});
+
+describe("\"Não é concreteira\" — gravação em uma transação", () => {
+  const dados = { chave: "jg-demo", decisao: "NAO_E_CONCRETEIRA" as const, motivoDescarte: "LOJA_REVENDA", observacao: "vende peças", contatosInvalidos: [], usuarioId: "u1", usuarioNome: "Horácio" };
+  beforeEach(() => {
+    tx.concreteiraCandidata.findMany.mockResolvedValue([
+      { id: "c1", statusValidacao: "PROVAVEL", tipoAtividade: null, confianca: "MEDIA", primeiraVerificacaoEm: null },
+      { id: "c2", statusValidacao: "CONFIRMADA", tipoAtividade: "CONCRETO_USINADO", confianca: "ALTA", primeiraVerificacaoEm: new Date("2026-01-01") },
+    ]);
+  });
+
+  it("grupo vira NAO_PRIORITARIA com a observação padronizada", async () => {
+    expect(await decidirGrupoJoao(dados)).toEqual({ ok: true });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.joaoEnriquecimentoGrupo.update).toHaveBeenCalledWith({
+      where: { chave: "jg-demo" },
+      data: { decisaoComercial: "NAO_PRIORITARIA", decisaoObservacao: "Não é concreteira — Loja/revenda: vende peças", decisaoPorId: "u1", decisaoEm: expect.any(Date) },
+    });
+  });
+  it("sem observação, grava só o motivo", async () => {
+    await decidirGrupoJoao({ ...dados, observacao: null });
+    expect(tx.joaoEnriquecimentoGrupo.update.mock.calls[0][0].data.decisaoObservacao).toBe("Não é concreteira — Loja/revenda");
+  });
+  it("cada candidata recebe status, tipoAtividade, justificativa não vazia e validador", async () => {
+    await decidirGrupoJoao(dados);
+    expect(tx.concreteiraCandidata.update).toHaveBeenCalledTimes(2);
+    for (const [arg] of tx.concreteiraCandidata.update.mock.calls) {
+      expect(arg.data).toMatchObject({ statusValidacao: "NAO_E_CONCRETEIRA", tipoAtividade: "OUTRA_ATIVIDADE", validadoPorId: "u1", validadoEm: expect.any(Date), ultimaVerificacaoEm: expect.any(Date) });
+      expect(arg.data.justificativa).toMatch(/^Não é concreteira \(Loja\/revenda\) — decisão na Fila do João por Horácio em \d{2}\/\d{2}\/\d{4}: vende peças$/);
+    }
+    expect(tx.concreteiraCandidata.update.mock.calls[0][0].data.primeiraVerificacaoEm).toEqual(expect.any(Date));
+    expect(tx.concreteiraCandidata.update.mock.calls[1][0].data).not.toHaveProperty("primeiraVerificacaoEm");
+  });
+  it("histórico: VALIDACAO (anterior → NAO_E_CONCRETEIRA) e DECISAO_COMERCIAL para cada candidata; nada é apagado", async () => {
+    await decidirGrupoJoao(dados);
+    const h = tx.concreteiraValidacaoHistorico.create.mock.calls.map(c => c[0].data);
+    expect(h).toHaveLength(4);
+    const validacao = h.filter((d: { tipoEvento: string }) => d.tipoEvento === "VALIDACAO");
+    expect(validacao.map((d: { statusAnterior: string }) => d.statusAnterior)).toEqual(["PROVAVEL", "CONFIRMADA"]);
+    expect(validacao.every((d: { statusNovo: string; tipoNovo: string }) => d.statusNovo === "NAO_E_CONCRETEIRA" && d.tipoNovo === "OUTRA_ATIVIDADE")).toBe(true);
+    const decisoes = h.filter((d: { tipoEvento: string }) => d.tipoEvento === "DECISAO_COMERCIAL");
+    expect(decisoes.every((d: { valorNovo: string }) => d.valorNovo === "NAO_PRIORITARIA")).toBe(true);
+    expect(tx.concreteiraCandidataContato.updateMany).not.toHaveBeenCalled();
+  });
+  it("motivo ausente: recusa antes de abrir transação", async () => {
+    const r = await decidirGrupoJoao({ ...dados, motivoDescarte: null });
+    expect(r.ok).toBe(false);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+  it("justificativaDescarte nunca fica vazia", () => {
+    expect(justificativaDescarte("Argamassa", "Ana", new Date("2026-10-26T12:00:00Z"), "").length).toBeGreaterThanOrEqual(10);
   });
 });

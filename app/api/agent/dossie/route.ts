@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { recalcularDossie } from "@/lib/inteligencia/completude";
 import { exportarScoresJoaoParaPersistencia } from "@/lib/inteligencia/joao-estrutura";
-import { buscarOportunidadesRelacionadas, oportunidadesAbertas, oportunidadesPerdidas } from "@/lib/inteligencia/historico-oportunidades";
+import { buscarOportunidadesRelacionadas, oportunidadesAbertas, oportunidadesPerdidas, palavrasDistintivas } from "@/lib/inteligencia/historico-oportunidades";
 import { encontrarEmpresaExistente } from "@/lib/empresas/encontrar-existente";
 
 // ─── Histórico de oportunidades: alerta sem bloquear a criação/enriquecimento ──
@@ -210,6 +210,37 @@ export async function POST(req: NextRequest) {
       },
       include: { decisores: { select: { nome: true, telefone: true, email: true, linkedin: true } } },
     });
+  }
+
+  // Camada 3: palavras distintivas em comum (≥2) OU substring — cobre variações de título
+  // como "Bracell" ≠ "Bracell (RGE)", "FIOL 2" ≠ "FIOL 2 — Trecho Barreiras" etc.
+  if (!dossieExistente) {
+    const palavrasNovo = palavrasDistintivas(body.titulo.trim());
+    if (palavrasNovo.length >= 1) {
+      const candidatos = await prisma.dossieComercial.findMany({
+        where: {
+          status: { not: "ARQUIVADO" },
+          OR: palavrasNovo.map(p => ({ titulo: { contains: p, mode: "insensitive" as const } })),
+        },
+        include: { decisores: { select: { nome: true, telefone: true, email: true, linkedin: true } } },
+        take: 20,
+      });
+      const tituloNovoNorm = body.titulo.trim().toLowerCase();
+      for (const candidato of candidatos) {
+        const tituloCandNorm = candidato.titulo.toLowerCase();
+        // Substring: um título contém o outro integralmente (min 6 chars para evitar falsos positivos)
+        const ehSubstring =
+          (tituloNovoNorm.length >= 6 && tituloCandNorm.includes(tituloNovoNorm)) ||
+          (tituloCandNorm.length >= 6 && tituloNovoNorm.includes(tituloCandNorm));
+        // Palavras em comum: 2+ palavras distintivas batem
+        const palavrasCand = new Set(palavrasDistintivas(candidato.titulo));
+        const emComum = palavrasNovo.filter(p => palavrasCand.has(p));
+        if (ehSubstring || emComum.length >= 2) {
+          dossieExistente = candidato;
+          break;
+        }
+      }
+    }
   }
 
   // ─── Merge inteligente — enriquece o existente com dados novos ───────────────

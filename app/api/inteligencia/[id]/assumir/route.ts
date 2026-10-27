@@ -33,7 +33,7 @@ export async function POST(
 
   const usuario = { id: authResult.id, name: authResult.nome };
 
-  let body: { responsavelId?: string; observacoes?: string } = {};
+  let body: { responsavelId?: string; observacoes?: string; forcarCriacao?: boolean } = {};
   try { body = await req.json(); } catch { /* body vazio é ok */ }
 
   const dossie = await prisma.dossieComercial.findUnique({
@@ -58,6 +58,7 @@ export async function POST(
   resultado = await prisma.$transaction(async (tx) => {
 
     // 1. Buscar ou criar Empresa no CRM
+    // (guard de conflito é executado após resolver empresaId/obraId — ver passo 2.5)
     let empresaId = dossie.empresaId;
     if (!empresaId) {
       // Usa o nome da empresa do dossiê (clienteFinal ou título como fallback)
@@ -119,6 +120,32 @@ export async function POST(
         where: { id: dossie.id },
         data:  { obraId },
       });
+    }
+
+    // 2.5. Guard: verificar se já existe Oportunidade ativa para esta obra/empresa
+    // Evita criar oportunidade duplicada quando João criou dossiê sobre uma obra que
+    // Morgana já estava trabalhando no pipeline comercial. forcarCriacao permite bypass.
+    if (!body.forcarCriacao) {
+      const filtrosConflito: { obraId?: string; empresaId?: string }[] = [];
+      if (obraId)    filtrosConflito.push({ obraId });
+      if (empresaId) filtrosConflito.push({ empresaId });
+
+      if (filtrosConflito.length > 0) {
+        const oportunidadeConflito = await tx.oportunidade.findFirst({
+          where: {
+            status: { notIn: ["PERDIDA", "GANHA"] },
+            OR: filtrosConflito,
+          },
+          select: { id: true, titulo: true, status: true },
+        });
+        if (oportunidadeConflito) {
+          // Lança erro estruturado — capturado no catch abaixo (não vira 500)
+          throw Object.assign(
+            new Error("CONFLITO_OPORTUNIDADE_EXISTENTE"),
+            { conflito: oportunidadeConflito },
+          );
+        }
+      }
     }
 
     // 3. Vincular decisores → Pessoa no CRM
@@ -246,6 +273,15 @@ export async function POST(
     return { oportunidadeId: oportunidade.id, empresaId, obraId };
   });
   } catch (err) {
+    // Conflito de oportunidade já existente — retorna 409 com detalhes para a UI mostrar
+    if (err instanceof Error && err.message === "CONFLITO_OPORTUNIDADE_EXISTENTE") {
+      const conflito = (err as Error & { conflito: { id: string; titulo: string; status: string } }).conflito;
+      return NextResponse.json({
+        error: `Já existe oportunidade ativa para esta obra/empresa: "${conflito.titulo}" (${conflito.status}). Revise antes de assumir.`,
+        conflito,
+        dica: "Para criar mesmo assim (com supervisão), envie forcarCriacao: true no body.",
+      }, { status: 409 });
+    }
     console.error("[assumir] Erro na transação:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Erro interno ao assumir dossiê." },

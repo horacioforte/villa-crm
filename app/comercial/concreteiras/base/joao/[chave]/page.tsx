@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { formatarCnpj } from "@/lib/base-nacional/cnpj";
 import { CATEGORIA_COR, CATEGORIA_LABEL, PORTE_LABEL, type Categoria } from "@/lib/base-nacional/joao/categorizar";
 import { DECISAO_COMERCIAL_LABEL, detalheGrupoJoao, escolherProximoPendente, lerFiltrosJoao, listarFilaJoao, qsJoao, type DecisaoComercial } from "@/lib/base-nacional/joao/fila-comercial";
+import { linksConferenciaGrupo } from "@/lib/base-nacional/joao/links-conferencia";
 import { pesquisaIaAtiva } from "@/lib/base-nacional/joao/pesquisa-ia-config";
 import { formatarTelefone } from "@/lib/base-nacional/joao/validar";
 import { CONFIANCA_LABEL, FONTE_LABEL, STATUS_COR, STATUS_LABEL, type StatusValidacao } from "@/lib/base-nacional/rotulos";
@@ -34,7 +35,8 @@ export default async function GrupoJoaoPage({ params, searchParams }: { params: 
   const [d, usuario, fila] = await Promise.all([detalheGrupoJoao(chaveAtual), getCurrentUser(), listarFilaJoao(filtros)]);
   if (!d) notFound();
   const proximaChave = escolherProximoPendente(fila.linhas, chaveAtual);
-  const { grupo: g, ind, empresas, unidades, pessoas, contatos, historico } = d;
+  const { grupo: g, ind, empresas, unidades, pessoas, contatos, historico, sites } = d;
+  const conf30 = linksConferenciaGrupo({ empresas, contatos: [...sites, ...contatos] });
   const nomeEmp = new Map(empresas.map(e => [e.id, e.nomeFantasia || e.razaoSocial]));
   const uniPorId = new Map(unidades.map(u => [u.id, u]));
   const societarios = pessoas.filter(p => p.fonte === "RECEITA_FEDERAL");
@@ -45,6 +47,8 @@ export default async function GrupoJoaoPage({ params, searchParams }: { params: 
   const card = "rounded-xl border border-slate-100 bg-white";
   const th = "px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wide text-slate-400";
   const td = "px-2 py-1.5 align-top";
+  const botaoConf = "rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 hover:border-indigo-300 hover:text-indigo-700";
+  const fonteConf = "text-[10px] text-indigo-700 underline hover:text-indigo-900";
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-slate-50">
@@ -62,6 +66,26 @@ export default async function GrupoJoaoPage({ params, searchParams }: { params: 
             <span className={cn("rounded px-2 py-1", g.decisaoComercial ? "bg-slate-800 text-white" : "bg-white text-slate-500 ring-1 ring-slate-200")}>
               {g.decisaoComercial ? `${DECISAO_COMERCIAL_LABEL[g.decisaoComercial as DecisaoComercial]} · ${g.decisaoPor?.nome ?? ""} · ${data(g.decisaoEm)}` : "Aguardando revisão"}
             </span>
+          </div>
+        </div>
+        <div className="mt-3 space-y-1.5">
+          <p className="text-[11px] text-slate-500">Conferir em 30s: é concreteira? o WhatsApp é da empresa?</p>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            {conf30.site
+              ? <>
+                  <a href={conf30.site.url} target="_blank" rel="noopener noreferrer" className={botaoConf}>Site</a>
+                  {conf30.site.fonteUrl && <a href={conf30.site.fonteUrl} target="_blank" rel="noopener noreferrer" className={fonteConf}>fonte</a>}
+                </>
+              : <span aria-disabled="true" className="cursor-not-allowed rounded-md border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-slate-400">sem site</span>}
+            {conf30.maps && <a href={conf30.maps} target="_blank" rel="noopener noreferrer" className={botaoConf}>Google Maps</a>}
+            {conf30.instagram && <a href={conf30.instagram} target="_blank" rel="noopener noreferrer" className={botaoConf}>Instagram</a>}
+            {conf30.google && <a href={conf30.google} target="_blank" rel="noopener noreferrer" className={botaoConf}>Google</a>}
+            {conf30.whatsapps.map(w => (
+              <span key={w.url} className="inline-flex items-center gap-1">
+                <a href={w.url} target="_blank" rel="noopener noreferrer" className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-emerald-800 hover:bg-emerald-100">{w.rotulo}</a>
+                {w.fonteUrl && <a href={w.fonteUrl} target="_blank" rel="noopener noreferrer" className={fonteConf}>fonte</a>}
+              </span>
+            ))}
           </div>
         </div>
       </div>

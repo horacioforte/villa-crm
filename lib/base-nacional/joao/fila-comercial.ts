@@ -52,14 +52,16 @@ export async function detalheGrupoJoao(chave: string) {
   const g = await prisma.joaoEnriquecimentoGrupo.findUnique({ where: { chave }, include: { decisaoPor: { select: { nome: true } } } });
   if (!g || !PUBLICOS_JOAO.includes(g.publico)) return null;
   const ids = g.candidataIds;
-  const [empresas, unidades, pessoas, contatos, historico] = await Promise.all([
+  const [empresas, unidades, pessoas, contatos, historico, sites] = await Promise.all([
     prisma.concreteiraCandidata.findMany({ where: { id: { in: ids } }, select: { id: true, razaoSocial: true, nomeFantasia: true, cnpjMatriz: true, cnpjBasico: true, statusValidacao: true, confianca: true, porte: true, capitalSocial: true, totalUnidadesAtivas: true, ufMatriz: true, municipioMatriz: true } }),
     prisma.concreteiraCandidataUnidade.findMany({ where: { candidataId: { in: ids }, ativa: true }, select: { id: true, candidataId: true, cnpj: true, isMatriz: true, municipioNome: true, uf: true }, orderBy: [{ isMatriz: "desc" }, { uf: "asc" }, { municipioNome: "asc" }] }),
     prisma.concreteiraCandidataPessoa.findMany({ where: { candidataId: { in: ids }, ativo: true, situacao: { not: "INVALIDO" } }, select: { id: true, candidataId: true, nome: true, funcao: true, papeis: true, fonte: true, fonteUrl: true, confianca: true, linkedinUrl: true, observacao: true, pesquisadoEm: true, createdAt: true }, orderBy: [{ fonte: "desc" }, { nome: "asc" }] }),
     prisma.concreteiraCandidataContato.findMany({ where: { candidataId: { in: ids }, ativo: true, situacao: { not: "INVALIDO" }, tipo: { in: ["TELEFONE", "WHATSAPP", "EMAIL", "LINKEDIN"] } }, select: { id: true, candidataId: true, unidadeId: true, tipo: true, valor: true, descricao: true, fonte: true, fonteUrl: true, confianca: true, situacao: true, observacao: true, pessoaId: true, pesquisadoEm: true, createdAt: true }, orderBy: [{ tipo: "asc" }, { confianca: "asc" }] }),
     prisma.concreteiraValidacaoHistorico.findMany({ where: { candidataId: { in: ids }, tipoEvento: "DECISAO_COMERCIAL" as never }, select: { id: true, createdAt: true, valorAnterior: true, valorNovo: true, motivo: true, usuario: { select: { nome: true } } }, orderBy: { createdAt: "desc" }, take: 20 }),
+    // Sites ficam fora da tabela de contatos comerciais; entram só nos botões de conferência rápida.
+    prisma.concreteiraCandidataContato.findMany({ where: { candidataId: { in: ids }, ativo: true, situacao: { not: "INVALIDO" }, tipo: "SITE" }, select: { id: true, candidataId: true, tipo: true, valor: true, fonteUrl: true }, orderBy: { createdAt: "asc" } }),
   ]);
-  return { grupo: g, ind: (g.indicadores ?? {}) as Partial<Indicadores>, empresas, unidades, pessoas, contatos, historico };
+  return { grupo: g, ind: (g.indicadores ?? {}) as Partial<Indicadores>, empresas, unidades, pessoas, contatos, historico, sites };
 }
 
 /**

@@ -18,8 +18,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Clock,
+  Download,
   Loader2,
   MapPin,
+  Printer,
   RefreshCw,
   Search,
 } from "lucide-react";
@@ -411,6 +413,85 @@ export default function DossiesPage() {
 
   const irPara = useCallback((id: string) => router.push(`/inteligencia/${id}`), [router]);
 
+  // ── Exportar CSV (abre no Excel) ─────────────────────────────────────────────
+  function exportarExcel() {
+    const a = document.createElement("a");
+    a.href = "/api/inteligencia/exportar";
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  // ── Imprimir PDF ─────────────────────────────────────────────────────────────
+  function imprimirPDF() {
+    const NIVEL_LABEL: Record<string, string> = {
+      A: "Inv. A", B: "Inv. B", C: "Inv. C", PRONTO: "Pronto", OPORTUNIDADE: "Oport.", ARQUIVADO: "Arquivado",
+    };
+    const lista = dossiesFiltrados.length > 0 ? dossiesFiltrados : dossies;
+    const dataHoje = new Date().toLocaleDateString("pt-BR");
+    const linhas = lista
+      .slice()
+      .sort((a, b) => {
+        const ordem: Record<string, number> = { PRONTO: 0, OPORTUNIDADE: 1, C: 2, B: 3, A: 4, ARQUIVADO: 5 };
+        const na = ordem[nivelDoDossie(a)] ?? 9;
+        const nb = ordem[nivelDoDossie(b)] ?? 9;
+        return na !== nb ? na - nb : b.score - a.score;
+      })
+      .map(d => {
+        const nivel = nivelDoDossie(d);
+        const corNivel: Record<string, string> = {
+          PRONTO: "#059669", OPORTUNIDADE: "#4f46e5", C: "#7c3aed", B: "#d97706", A: "#2563eb",
+        };
+        const bg = nivel === "PRONTO" ? "#f0fdf4" : nivel === "OPORTUNIDADE" ? "#eef2ff" : "";
+        return `<tr style="background:${bg}">
+          <td style="color:${corNivel[nivel] ?? "#64748b"};font-weight:600;white-space:nowrap">${NIVEL_LABEL[nivel] ?? nivel}</td>
+          <td style="font-weight:600;color:#1e293b">${d.score}</td>
+          <td>${d.titulo}</td>
+          <td>${d.clienteFinal ?? ""}</td>
+          <td>${[d.cidade, d.estado].filter(Boolean).join(" / ")}</td>
+          <td>${d.segmento ?? ""}</td>
+          <td>${d.completude}%</td>
+          <td>${d.maturidadeComercial ?? 0}%</td>
+          <td>${d.totalDecisores > 0 ? "👤 " + d.totalDecisores : ""}</td>
+          <td style="font-size:10px;color:#94a3b8">${new Date(d.updatedAt).toLocaleDateString("pt-BR")}</td>
+        </tr>`;
+      })
+      .join("");
+
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head>
+      <meta charset="utf-8"/>
+      <title>Dossiês Comerciais — Villa Empreendimentos — ${dataHoje}</title>
+      <style>
+        @page { size: A4 landscape; margin: 15mm 12mm; }
+        body { font-family: Arial, sans-serif; font-size: 11px; color: #1e293b; margin: 0; }
+        h1 { font-size: 15px; margin: 0 0 2px; color: #1e3a6e; }
+        p.sub { font-size: 10px; color: #64748b; margin: 0 0 12px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #1e3a6e; color: #fff; text-align: left; padding: 5px 6px; font-size: 10px; white-space: nowrap; }
+        td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        tr:hover { background: #f8fafc; }
+        .footer { margin-top: 10px; font-size: 9px; color: #94a3b8; text-align: right; }
+      </style>
+    </head><body>
+      <h1>📋 Dossiês Comerciais — Villa Empreendimentos</h1>
+      <p class="sub">Exportado em ${dataHoje} · ${lista.length} dossiê(s)${busca ? " · filtro: "" + busca + """ : ""}</p>
+      <table>
+        <thead><tr>
+          <th>Nível</th><th>Score</th><th>Título</th><th>Cliente Final</th>
+          <th>Localização</th><th>Segmento</th><th>Complet.</th><th>Maturid.</th>
+          <th>Decisores</th><th>Atualizado</th>
+        </tr></thead>
+        <tbody>${linhas}</tbody>
+      </table>
+      <div class="footer">Villa Empreendimentos · Central de Inteligência · villa-crm.vercel.app</div>
+      <script>window.onload = function() { window.print(); }<\/script>
+    </body></html>`;
+
+    const w = window.open("", "_blank", "width=1200,height=800");
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+
   if (carregando) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -452,13 +533,31 @@ export default function DossiesPage() {
             {dossies.length} dossiês · A≥{THRESHOLDS.B}% B · ≥{THRESHOLDS.C}% C · ≥{THRESHOLDS.PRONTO}%+gates Pronto
           </p>
         </div>
-        <button
-          onClick={carregar}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          Atualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportarExcel}
+            title="Baixar planilha CSV — abre no Excel"
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Excel
+          </button>
+          <button
+            onClick={imprimirPDF}
+            title="Imprimir / salvar como PDF"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Imprimir
+          </button>
+          <button
+            onClick={carregar}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Atualizar
+          </button>
+        </div>
       </header>
 
       {/* Barra de pesquisa */}

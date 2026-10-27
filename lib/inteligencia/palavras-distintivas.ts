@@ -38,6 +38,10 @@ const PALAVRAS_GENERICAS = new Set([
   "DUPLICACAO", "DUPLICAÇÃO", "VIADUTO", "VIADUTOS", "PONTE", "PONTES", "TUNEL", "TUNEIS",
   "CONDOMINIO", "CONDOMINIOS", "LOGISTICO", "LOGISTICA", "CONCESSAO", "CONCESSÃO",
   "INVESTIMENTO", "INVESTIMENTOS", "IMPLANTACAO", "IMPLANTAÇÃO",
+  // Localizações que hospedam muitos projetos distintos — estado/complexo não identifica
+  // uma obra específica (ex.: "Porto do Pecém" e "Eneva Hub Ceará" compartilham
+  // "PECEM" + "CEARA" sem nenhuma relação entre si).
+  "PECEM", "CEARA", "SANTOS", "SUAPE", "GOIAS", "PARANA", "BAHIA",
 ]);
 
 /** Palavras distintivas do título (4+ letras, não genéricas, sem acento, maiúsculas, sem repetição). */

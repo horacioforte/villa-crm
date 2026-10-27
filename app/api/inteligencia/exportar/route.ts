@@ -2,18 +2,18 @@
 // REGRA: nunca remover. Apenas acrescentar.
 // Exporta todos os dossiês não arquivados como CSV (abre no Excel).
 // GET /api/inteligencia/exportar
-// GET /api/inteligencia/exportar?status=ARQUIVADO  → inclui arquivados
-// GET /api/inteligencia/exportar?todos=1           → tudo
+// GET /api/inteligencia/exportar?todos=1  → inclui arquivados
+// GET /api/inteligencia/exportar?status=ARQUIVADO → só arquivados
 
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { Prisma, StatusDossie } from "@/app/generated/prisma/client";
 
 function esc(v: string | null | undefined): string {
   if (v == null) return "";
   const s = String(v).replace(/\r?\n/g, " ").trim();
-  // Escapa aspas duplas e envolve em aspas se contiver vírgula, aspas ou ponto-e-vírgula
-  if (s.includes('"') || s.includes(",") || s.includes(";") || s.includes("\n")) {
+  if (s.includes('"') || s.includes(";")) {
     return `"${s.replace(/"/g, '""')}"`;
   }
   return s;
@@ -25,62 +25,42 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const todos = searchParams.get("todos") === "1";
-  const soStatus = searchParams.get("status"); // ex.: "ARQUIVADO"
+  const soStatus = searchParams.get("status");
 
-  const whereStatus = todos
-    ? {}
-    : soStatus
-    ? { status: soStatus as string }
-    : { status: { not: "ARQUIVADO" as const } };
+  let where: Prisma.DossieComercialWhereInput = {};
+  if (!todos) {
+    if (soStatus && Object.values(StatusDossie).includes(soStatus as StatusDossie)) {
+      where = { status: soStatus as StatusDossie };
+    } else {
+      where = { status: { not: "ARQUIVADO" } };
+    }
+  }
 
   const dossies = await prisma.dossieComercial.findMany({
-    where: whereStatus,
-    select: {
-      id: true,
-      titulo: true,
-      status: true,
-      score: true,
-      completude: true,
-      maturidadeComercial: true,
-      prioridade: true,
-      clienteFinal: true,
-      construtora: true,
-      epc: true,
-      epcm: true,
-      cidade: true,
-      estado: true,
-      segmento: true,
-      valorEstimado: true,
-      faseObra: true,
-      cronograma: true,
-      licenciamento: true,
-      resumo: true,
-      missaoAtual: true,
-      proximaAcaoSugerida: true,
-      fonteInformacao: true,
-      motivoDescarte: true,
-      createdAt: true,
-      updatedAt: true,
+    where,
+    include: {
       decisores: { select: { nome: true, cargo: true } },
       _count: { select: { decisores: true, atualizacoes: true } },
     },
     orderBy: [{ score: "desc" }, { updatedAt: "desc" }],
   });
 
-  // Cabeçalho CSV
   const cabecalho = [
-    "Título", "Status", "Score", "Completude%", "Maturidade%", "Prioridade",
+    "Titulo", "Status", "Score", "Completude%", "Maturidade%", "Prioridade",
     "Cliente Final", "Construtora", "EPC", "EPCM",
-    "Cidade", "Estado", "Segmento", "Valor Estimado",
+    "Cidade", "Estado", "Segmento", "Valor Estimado (R$)",
     "Fase da Obra", "Cronograma", "Licenciamento",
-    "Decisores (#)", "Decisores (nomes)", "Atualizações",
-    "Missão Atual", "Próxima Ação", "Fonte",
+    "Decisores (#)", "Decisores (nomes)", "Atualizacoes",
+    "Missao Atual", "Proxima Acao", "Fonte",
     "Resumo", "Motivo Descarte",
     "Criado em", "Atualizado em", "ID",
   ].join(";");
 
   const linhas = dossies.map(d => {
-    const decisoresNomes = d.decisores.map(dec => dec.nome ?? "").filter(Boolean).join(", ");
+    const decisoresNomes = d.decisores
+      .map(dec => dec.nome ?? "")
+      .filter(Boolean)
+      .join(", ");
     return [
       esc(d.titulo),
       esc(d.status),
@@ -95,7 +75,7 @@ export async function GET(req: NextRequest) {
       esc(d.cidade),
       esc(d.estado),
       esc(d.segmento),
-      esc(d.valorEstimado),
+      d.valorEstimado != null ? d.valorEstimado.toString() : "",
       esc(d.faseObra),
       esc(d.cronograma),
       esc(d.licenciamento),

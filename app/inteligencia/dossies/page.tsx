@@ -475,7 +475,7 @@ export default function DossiesPage() {
       </style>
     </head><body>
       <h1>📋 Dossiês Comerciais — Villa Empreendimentos</h1>
-      <p class="sub">Exportado em ${dataHoje} · ${lista.length} dossiê(s)${busca ? " · filtro: "" + busca + """ : ""}</p>
+      <p class="sub">Exportado em ${dataHoje} &middot; ${lista.length} dossie(s)${busca ? " &middot; filtro: " + busca : ""}</p>
       <table>
         <thead><tr>
           <th>Nível</th><th>Score</th><th>Título</th><th>Cliente Final</th>
@@ -485,7 +485,7 @@ export default function DossiesPage() {
         <tbody>${linhas}</tbody>
       </table>
       <div class="footer">Villa Empreendimentos · Central de Inteligência · villa-crm.vercel.app</div>
-      <script>window.onload = function() { window.print(); }<\/script>
+      ${"<script>"}window.onload=function(){window.print()}${"</script>"}
     </body></html>`;
 
     const w = window.open("", "_blank", "width=1200,height=800");

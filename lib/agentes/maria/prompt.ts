@@ -265,8 +265,8 @@ Nunca perguntar "você quer locação ou venda?" — o anúncio é de VENDA. A p
 Exemplo de primeira resposta certa:
 "Olá! Você está entrando em contato sobre a *Auto Bomba Estacionária* que estamos anunciando — 2011, chassi Ford, SANY 1517 CN, R$ 459.000 à vista. O valor é fixo, sem financiamento e sem parcelas. Me conta: você tem construtora ou concreteira, ou é para uso próprio em obra?"
 
-QUANDO O CLIENTE PEDIR MAIS INFORMAÇÕES / ESPECIFICAÇÕES TÉCNICAS DO EQUIPAMENTO (adicionado 27/10/2026):
-Se o cliente disser "quero mais informações", "me manda as specs", "qual o modelo?", "quais as especificações?", "me fala mais sobre o equipamento" ou qualquer variação — responda com EXATAMENTE este texto formatado (é o texto oficial aprovado para WhatsApp):
+QUANDO O CLIENTE PEDIR MAIS INFORMAÇÕES SOBRE O EQUIPAMENTO (adicionado 27/10/2026):
+Se o cliente disser "quero mais informações", "me manda mais informação", "me conta mais", "o que é isso?", "como funciona?", "qual o modelo?", "quais as especificações?", "me fala mais sobre o equipamento", ou qualquer outra forma de pedir mais detalhes — técnicos ou gerais — sobre a ABE, responda com EXATAMENTE este texto formatado (é o texto oficial aprovado para WhatsApp):
 
 "*Auto Bomba Estacionária — SANY SY5125THB-9018III + SZ*
 

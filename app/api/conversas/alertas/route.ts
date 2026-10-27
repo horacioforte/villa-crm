@@ -40,6 +40,7 @@ import { startOfDay } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { calcularAguardandoRespostaDesde } from "@/lib/conversas/aguardando-resposta";
+import { buscarTelefonesInternos, ehTelefoneInterno } from "@/lib/conversas/telefones-internos";
 import { getVirtualStatus } from "@/lib/tarefas/service";
 import {
   montarFilaDeAlertas,
@@ -74,6 +75,7 @@ export async function GET() {
   });
 
   const conversaIds = conversas.map((c) => c.id);
+  const telefonesInternos = await buscarTelefonesInternos();
 
   const [ultimasDoCliente, ultimasRespostasHumanas, candidatasVencidas] = await Promise.all([
     conversaIds.length
@@ -129,10 +131,12 @@ export async function GET() {
     atendidoPorNome: c.atendidoPor?.nome ?? null,
     tarefaAtualId: c.tarefaAtualId,
     ultimaMensagemEm: c.ultimaMensagemEm ? c.ultimaMensagemEm.toISOString() : null,
-    aguardandoRespostaDesde: calcularAguardandoRespostaDesde(
-      mapaUltimaCliente.get(c.id) ?? null,
-      mapaUltimaHumana.get(c.id) ?? null,
-    ),
+    aguardandoRespostaDesde: ehTelefoneInterno(telefonesInternos, c.telefone)
+      ? null
+      : calcularAguardandoRespostaDesde(
+          mapaUltimaCliente.get(c.id) ?? null,
+          mapaUltimaHumana.get(c.id) ?? null,
+        ),
     empresaNome: c.empresa?.razaoSocial ?? c.empresa?.nomeFantasia ?? null,
     oportunidade: c.oportunidade
       ? {

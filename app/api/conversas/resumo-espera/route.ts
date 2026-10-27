@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { calcularAguardandoRespostaDesde } from "@/lib/conversas/aguardando-resposta";
+import { buscarTelefonesInternos, ehTelefoneInterno } from "@/lib/conversas/telefones-internos";
 import { ehConversaUrgente } from "@/lib/conversas/prioridade";
 
 export async function GET() {
@@ -17,8 +18,9 @@ export async function GET() {
 
   const conversas = await prisma.conversa.findMany({
     where: { status: "ABERTA" },
-    select: { id: true },
+    select: { id: true, telefone: true },
   });
+  const telefonesInternos = await buscarTelefonesInternos();
   const ids = conversas.map((c) => c.id);
   if (ids.length === 0) return NextResponse.json({ urgentes: 0, novas: 0 });
 
@@ -40,7 +42,8 @@ export async function GET() {
 
   let urgentes = 0;
   let novas = 0;
-  for (const id of ids) {
+  for (const { id, telefone } of conversas) {
+    if (ehTelefoneInterno(telefonesInternos, telefone)) continue; // equipe: não é cliente esperando
     const desde = calcularAguardandoRespostaDesde(mapaCliente.get(id) ?? null, mapaHumana.get(id) ?? null);
     if (!desde) continue;
     if (ehConversaUrgente(desde)) urgentes += 1;

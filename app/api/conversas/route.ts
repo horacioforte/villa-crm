@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { calcularAguardandoRespostaDesde } from "@/lib/conversas/aguardando-resposta";
+import { buscarTelefonesInternos, ehTelefoneInterno } from "@/lib/conversas/telefones-internos";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -85,12 +86,16 @@ export async function GET(req: NextRequest) {
   const mapaUltimaCliente = new Map(ultimasDoCliente.map((r) => [r.conversaId, r._max.createdAt]));
   const mapaUltimaHumana = new Map(ultimasRespostasHumanas.map((r) => [r.conversaId, r._max.createdAt]));
 
+  const telefonesInternos = await buscarTelefonesInternos();
   const conversasComAguardando = conversas.map((c) => ({
     ...c,
-    aguardandoRespostaDesde: calcularAguardandoRespostaDesde(
-      mapaUltimaCliente.get(c.id) ?? null,
-      mapaUltimaHumana.get(c.id) ?? null,
-    ),
+    // Conversa com telefone da equipe (Usuario.telefone) nunca fica "aguardando resposta".
+    aguardandoRespostaDesde: ehTelefoneInterno(telefonesInternos, c.telefone)
+      ? null
+      : calcularAguardandoRespostaDesde(
+          mapaUltimaCliente.get(c.id) ?? null,
+          mapaUltimaHumana.get(c.id) ?? null,
+        ),
   }));
 
   return NextResponse.json(conversasComAguardando);

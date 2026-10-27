@@ -33,6 +33,11 @@ const PALAVRAS_GENERICAS = new Set([
   "MUNICIPIO", "MUNICÍPIO", "MUNICIPIOS", "MUNICÍPIOS", "USINA", "USINAS", "HIDRELETRICA",
   "HIDRELÉTRICA", "HIDRELETRICAS", "HIDRELÉTRICAS", "FERROVIA", "FERROVIAS", "RODOVIA",
   "RODOVIAS", "MINERACAO", "MINERAÇÃO", "ENERGIA", "DATA", "CENTER", "CENTERS", "CAMPUS", "CAIS",
+  // Termos de tipo de obra rodoviária/civil — recorrem em dezenas de projetos sem relação entre si
+  // (ex.: "BR-116 Duplicação 50 viadutos" e "BR-262 Duplicação 28 viadutos" são obras distintas).
+  "DUPLICACAO", "DUPLICAÇÃO", "VIADUTO", "VIADUTOS", "PONTE", "PONTES", "TUNEL", "TUNEIS",
+  "CONDOMINIO", "CONDOMINIOS", "LOGISTICO", "LOGISTICA", "CONCESSAO", "CONCESSÃO",
+  "INVESTIMENTO", "INVESTIMENTOS", "IMPLANTACAO", "IMPLANTAÇÃO",
 ]);
 
 /** Palavras distintivas do título (4+ letras, não genéricas, sem acento, maiúsculas, sem repetição). */

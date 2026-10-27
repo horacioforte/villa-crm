@@ -576,9 +576,18 @@ export default function DossiesPage() {
           )}
         </div>
         {totalPorNivel.OPORTUNIDADE > 0 && (
-          <span className="flex items-center gap-1.5 px-3 py-2 text-xs border rounded-lg bg-indigo-50 border-indigo-100 text-indigo-600 shrink-0">
+          <button
+            onClick={() => setBusca(busca === "oportunidade gerada" ? "" : "oportunidade gerada")}
+            title="Ver dossiês com oportunidade gerada"
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-2 text-xs border rounded-lg shrink-0 transition-all",
+              busca === "oportunidade gerada"
+                ? "bg-indigo-600 border-indigo-600 text-white font-semibold"
+                : "bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100 cursor-pointer"
+            )}
+          >
             🟣 {totalPorNivel.OPORTUNIDADE} oportunidade{totalPorNivel.OPORTUNIDADE !== 1 ? "s" : ""} gerada{totalPorNivel.OPORTUNIDADE !== 1 ? "s" : ""}
-          </span>
+          </button>
         )}
         {busca && (
           <span className="text-[11px] text-slate-400 shrink-0">

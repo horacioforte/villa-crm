@@ -9,7 +9,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatarCnpj } from "@/lib/base-nacional/cnpj";
 import { CATEGORIA_COR, CATEGORIA_LABEL, PORTE_LABEL, type Categoria } from "@/lib/base-nacional/joao/categorizar";
-import { DECISAO_COMERCIAL_LABEL, detalheGrupoJoao, lerFiltrosJoao, qsJoao, type DecisaoComercial } from "@/lib/base-nacional/joao/fila-comercial";
+import { DECISAO_COMERCIAL_LABEL, detalheGrupoJoao, escolherProximoPendente, lerFiltrosJoao, listarFilaJoao, qsJoao, type DecisaoComercial } from "@/lib/base-nacional/joao/fila-comercial";
 import { pesquisaIaAtiva } from "@/lib/base-nacional/joao/pesquisa-ia-config";
 import { formatarTelefone } from "@/lib/base-nacional/joao/validar";
 import { CONFIANCA_LABEL, FONTE_LABEL, STATUS_COR, STATUS_LABEL, type StatusValidacao } from "@/lib/base-nacional/rotulos";
@@ -28,9 +28,12 @@ const TIPO: Record<string, string> = { TELEFONE: "Telefone", WHATSAPP: "WhatsApp
 
 export default async function GrupoJoaoPage({ params, searchParams }: { params: Promise<{ chave: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { chave } = await params;
-  const qs = qsJoao(lerFiltrosJoao(await searchParams));
-  const [d, usuario] = await Promise.all([detalheGrupoJoao(decodeURIComponent(chave)), getCurrentUser()]);
+  const filtros = lerFiltrosJoao(await searchParams);
+  const qs = qsJoao(filtros);
+  const chaveAtual = decodeURIComponent(chave);
+  const [d, usuario, fila] = await Promise.all([detalheGrupoJoao(chaveAtual), getCurrentUser(), listarFilaJoao(filtros)]);
   if (!d) notFound();
+  const proximaChave = escolherProximoPendente(fila.linhas, chaveAtual);
   const { grupo: g, ind, empresas, unidades, pessoas, contatos, historico } = d;
   const nomeEmp = new Map(empresas.map(e => [e.id, e.nomeFantasia || e.razaoSocial]));
   const uniPorId = new Map(unidades.map(u => [u.id, u]));
@@ -52,6 +55,7 @@ export default async function GrupoJoaoPage({ params, searchParams }: { params: 
             <h1 className="text-lg font-semibold text-slate-800">{g.nome}</h1>
             <p className="text-xs text-slate-500">{empresas.length} empresa(s) · {ind.unidadesAtivas ?? unidades.length} unidade(s) ativa(s) · {(ind.ufs ?? []).join(", ") || "—"}</p>
             <p className="mt-1 text-xs text-slate-500">{g.categoriaMotivo}</p>
+            <p className="mt-1 text-[11px] font-medium text-indigo-700">Pendentes com estes filtros: {fila.resumo.aguardando}</p>
           </div>
           <div className="flex flex-wrap gap-1.5 text-[11px]">
             {g.categoriaComercial && <span className={cn("rounded px-2 py-1 font-semibold", CATEGORIA_COR[g.categoriaComercial as Categoria])}>{CATEGORIA_LABEL[g.categoriaComercial as Categoria]}</span>}
@@ -133,7 +137,7 @@ export default async function GrupoJoaoPage({ params, searchParams }: { params: 
         <aside className="space-y-3">
           {usuario && podeValidar(usuario.papel) && pesquisaIaAtiva() && (g.categoriaComercial === "B" || g.categoriaComercial === "C") && <PesquisaIA chave={g.chave} />}
           {usuario && podeValidar(usuario.papel)
-            ? <DecisaoJoao chave={g.chave} query={qs} decisaoAtual={g.decisaoComercial} observacaoAtual={g.decisaoObservacao}
+            ? <DecisaoJoao key={g.chave} chave={g.chave} query={qs} proximaChave={proximaChave} decisaoAtual={g.decisaoComercial} observacaoAtual={g.decisaoObservacao}
                 contatos={contatos.map(k => ({ id: k.id, rotulo: `${TIPO[k.tipo] ?? k.tipo}: ${valorContato(k.tipo, k.valor)} (${fonte(k.fonte)})` }))} />
             : <p className="rounded-xl border border-slate-100 bg-white p-3 text-xs text-slate-500">Seu perfil pode consultar, mas não registrar decisões.</p>}
         </aside>

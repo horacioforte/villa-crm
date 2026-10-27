@@ -100,3 +100,20 @@ export async function decidirGrupoJoao(args: { chave: string; decisao: DecisaoCo
   });
   return { ok: true as const };
 }
+
+/**
+ * Escolhe, na ordem recebida, o próximo grupo "Aguardando revisão" (decisaoComercial vazio) depois do atual.
+ * Se não houver adiante, volta ao início da lista. O próprio grupo atual nunca é devolvido. Sem pendentes: null.
+ * Função pura (sem banco) — a ordem é a mesma de listarFilaJoao.
+ */
+export function escolherProximoPendente(linhas: Array<{ chave: string; decisaoComercial: string | null }>, chaveAtual: string): string | null {
+  const pendentes = (l: typeof linhas) => l.find(g => !g.decisaoComercial && g.chave !== chaveAtual)?.chave ?? null;
+  const i = linhas.findIndex(g => g.chave === chaveAtual);
+  return pendentes(linhas.slice(i + 1)) ?? pendentes(linhas.slice(0, Math.max(i, 0)));
+}
+
+/** Próximo grupo pendente com os mesmos filtros e a mesma ordem da lista (ver escolherProximoPendente). */
+export async function proximoGrupoPendente(chaveAtual: string, filtros: FiltrosJoao): Promise<string | null> {
+  const { linhas } = await listarFilaJoao(filtros);
+  return escolherProximoPendente(linhas, chaveAtual);
+}

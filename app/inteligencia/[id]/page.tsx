@@ -504,7 +504,7 @@ export default function DossieDetalhe() {
   // ── Derivações ──
   const jaAssumido       = dossie.status === "ASSUMIDO";
   const arquivado        = dossie.status === "ARQUIVADO";
-  const podeAssumirAgora = dossie.completude >= 80;
+  const podeAssumirAgora = dossie.completude >= THRESHOLDS.PRONTO; // 70% — alinhado com maturidade.ts
 
   const { prob: probVenda, motivadores: motivVenda } = calcularProbabilidade(dossie);
   const checklist    = calcularChecklist(dossie);
@@ -706,7 +706,7 @@ export default function DossieDetalhe() {
               <div className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-2.5 flex items-center gap-3">
                 <div className="h-3 w-3 rounded-full bg-amber-400 shrink-0 animate-pulse" />
                 <p className="text-xs text-slate-500">
-                  João ainda investiga — {dossie.completude}% de 80% para assumir automaticamente
+                  João ainda investiga — {dossie.completude}% de {THRESHOLDS.PRONTO}% para assumir automaticamente
                 </p>
               </div>
               <Button

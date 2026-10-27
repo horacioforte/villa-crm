@@ -502,9 +502,8 @@ export default function DossieDetalhe() {
   }
 
   // ── Derivações ──
-  const jaAssumido       = dossie.status === "ASSUMIDO";
-  const arquivado        = dossie.status === "ARQUIVADO";
-  const podeAssumirAgora = dossie.completude >= THRESHOLDS.PRONTO; // 70% — alinhado com maturidade.ts
+  const jaAssumido = dossie.status === "ASSUMIDO";
+  const arquivado  = dossie.status === "ARQUIVADO";
 
   const { prob: probVenda, motivadores: motivVenda } = calcularProbabilidade(dossie);
   const checklist    = calcularChecklist(dossie);
@@ -546,6 +545,10 @@ export default function DossieDetalhe() {
     dossie.status === "ASSUMIDO"  ? "OPORTUNIDADE" :
     dossie.status === "ARQUIVADO" ? "ARQUIVADO"    :
     maturidade.nivel;
+
+  // Pode assumir = completude ≥ 70% E todos os gates obrigatórios atendidos
+  // (gates incluem: localização, cliente, construtora, decisor c/ nome, decisor c/ contato)
+  const podeAssumirAgora = dossie.completude >= THRESHOLDS.PRONTO && maturidade.gatesFaltantes.length === 0;
 
   // ── Render ──
   return (
@@ -703,11 +706,22 @@ export default function DossieDetalhe() {
             </Button>
           ) : (
             <div className="space-y-2">
-              <div className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-2.5 flex items-center gap-3">
-                <div className="h-3 w-3 rounded-full bg-amber-400 shrink-0 animate-pulse" />
-                <p className="text-xs text-slate-500">
-                  João ainda investiga — {dossie.completude}% de {THRESHOLDS.PRONTO}% para assumir automaticamente
-                </p>
+              {/* Motivo do bloqueio */}
+              <div className="w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 space-y-1">
+                {dossie.completude < THRESHOLDS.PRONTO && (
+                  <div className="flex items-center gap-2">
+                    <div className="h-2.5 w-2.5 rounded-full bg-amber-400 shrink-0 animate-pulse" />
+                    <p className="text-xs text-amber-700">
+                      João ainda investiga — {dossie.completude}% de {THRESHOLDS.PRONTO}% de completude
+                    </p>
+                  </div>
+                )}
+                {maturidade.gatesFaltantes.map((g, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="text-amber-500 shrink-0 mt-0.5">⚠</span>
+                    <p className="text-xs text-amber-800">{g}</p>
+                  </div>
+                ))}
               </div>
               <Button
                 className="w-full bg-amber-500 hover:bg-amber-600 text-white h-10 text-sm font-semibold"
@@ -715,7 +729,7 @@ export default function DossieDetalhe() {
                 disabled={assumindo}
               >
                 {assumindo ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
-                ⚡ Assumir agora mesmo assim
+                ⚡ Assumir mesmo assim
               </Button>
             </div>
           )}

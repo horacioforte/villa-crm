@@ -138,6 +138,11 @@ function avaliarGates(
     decisores.some(d => d.nome?.trim()) || (dossie.totalDecisores ?? 0) >= 1,
     "Pelo menos 1 decisor com nome"
   );
+  // Gate: decisor com contato real (telefone ou email) — Morgana precisa de como abordar
+  add(
+    decisores.some(d => d.telefone?.trim() || d.email?.trim() || d.linkedin?.trim()),
+    "Pelo menos 1 decisor com telefone, e-mail ou LinkedIn (Morgana precisa de contato para abordar)"
+  );
   add(
     !oportunidadesRelacionadas.some(o => o.status === "PERDIDA" && (o.confianca ?? "alta") === "alta"),
     "Nenhuma oportunidade anterior perdida (confiança alta) para esta obra/empresa"

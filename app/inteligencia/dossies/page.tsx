@@ -488,8 +488,11 @@ export default function DossiesPage() {
       ${"<script>"}window.onload=function(){window.print()}${"</script>"}
     </body></html>`;
 
-    const w = window.open("", "_blank", "width=1200,height=800");
-    if (w) { w.document.write(html); w.document.close(); }
+    // Usa Blob URL para evitar "about:blank" no cabeçalho da impressão
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url  = URL.createObjectURL(blob);
+    window.open(url, "_blank", "width=1200,height=800");
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
   }
 
   if (carregando) {

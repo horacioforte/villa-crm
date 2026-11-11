@@ -286,7 +286,7 @@ describe("persistirConversaMaria — mensagens", () => {
       textoResposta: "resposta",
     });
 
-    expect(resultado).toEqual({ id: "conversa-1", canalWhatsappId: "canal-maria" });
+    expect(resultado).toEqual({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-maria" });
     // Não deve tentar gravar a mensagem de saída se a de entrada colidiu.
     expect(prismaMock.mensagem.create).toHaveBeenCalledTimes(1);
   });

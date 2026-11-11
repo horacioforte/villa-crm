@@ -42,7 +42,7 @@ describe("mensagemJaProcessada", () => {
 
 describe("persistirMensagemCliente — inbound de cliente real", () => {
   beforeEach(() => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-morgana" });
     prismaMock.conversa.update.mockResolvedValue({});
   });
 
@@ -92,7 +92,7 @@ describe("persistirMensagemCliente — inbound de cliente real", () => {
   });
 
   it("Ciclo de Atendimento — PENDENTE reabre para ABERTA ao chegar mensagem do cliente", async () => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana", status: "PENDENTE" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-morgana", status: "PENDENTE" });
     prismaMock.mensagem.create.mockResolvedValue({ id: "m1" });
 
     await persistirMensagemCliente({
@@ -112,7 +112,7 @@ describe("persistirMensagemCliente — inbound de cliente real", () => {
   });
 
   it("Ciclo de Atendimento — SPAM NUNCA reabre sozinha", async () => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana", status: "SPAM" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-morgana", status: "SPAM" });
     prismaMock.mensagem.create.mockResolvedValue({ id: "m1" });
 
     await persistirMensagemCliente({
@@ -137,7 +137,7 @@ describe("reconciliarOuCriarMensagemHumana — Ciclo de Atendimento NÃO se apli
     prismaMock.mensagem.findFirst
       .mockResolvedValueOnce(null) // mensagemJaProcessada
       .mockResolvedValueOnce(null); // nenhuma candidata de reconciliação
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana", status: "PENDENTE" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-morgana", status: "PENDENTE" });
     prismaMock.mensagem.create.mockResolvedValue({ id: "m-nova" });
     prismaMock.conversa.update.mockResolvedValue({});
 
@@ -182,7 +182,7 @@ describe("reconciliarOuCriarMensagemHumana — envio pela Central, eco fromMe co
     prismaMock.mensagem.findFirst
       .mockResolvedValueOnce(null) // mensagemJaProcessada: ainda não reconciliada
       .mockResolvedValueOnce({ id: "msg-pendente-central", conteudo: "Pode ser, te mando os detalhes" }); // candidata a reconciliar
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-morgana" });
     prismaMock.mensagem.update.mockResolvedValue({});
     prismaMock.conversa.update.mockResolvedValue({});
 
@@ -211,7 +211,7 @@ describe("reconciliarOuCriarMensagemHumana — envio pela Central, eco fromMe co
     prismaMock.mensagem.findFirst
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ id: "msg-pendente", conteudo: "oi" });
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-morgana" });
     prismaMock.mensagem.update.mockResolvedValue({});
     prismaMock.conversa.update.mockResolvedValue({});
 
@@ -235,7 +235,7 @@ describe("reconciliarOuCriarMensagemHumana — Morgana responde direto pelo celu
     prismaMock.mensagem.findFirst
       .mockResolvedValueOnce(null) // mensagemJaProcessada
       .mockResolvedValueOnce(null); // nenhuma candidata de reconciliação
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-morgana" });
     prismaMock.mensagem.create.mockResolvedValue({ id: "m-nova" });
     prismaMock.conversa.update.mockResolvedValue({});
 
@@ -265,7 +265,7 @@ describe("reconciliarOuCriarMensagemHumana — Morgana responde direto pelo celu
 
   it("corrida concorrente na criação (P2002) é sucesso idempotente", async () => {
     prismaMock.mensagem.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-morgana" });
     prismaMock.mensagem.create.mockRejectedValueOnce(
       new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "test" }),
     );
@@ -287,7 +287,7 @@ describe("reconciliarOuCriarMensagemHumana — Morgana responde direto pelo celu
     prismaMock.mensagem.findFirst
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ id: "msg-pendente", conteudo: "oi" });
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-morgana" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-morgana" });
     prismaMock.mensagem.update.mockRejectedValueOnce(
       new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "test" }),
     );

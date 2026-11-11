@@ -83,6 +83,7 @@ describe("persistirConversaMaria — conversa", () => {
   it("reaproveita Conversa existente já vinculada ao canal, sem criar outra", async () => {
     prismaMock.conversa.findFirst.mockResolvedValue({
       id: "conversa-existente",
+      nomeContato: "Cliente Teste",
       canalWhatsappId: "canal-maria",
     });
     prismaMock.mensagem.create.mockResolvedValue({ id: "m1" });
@@ -110,6 +111,7 @@ describe("persistirConversaMaria — conversa", () => {
   it("Ciclo de Atendimento — PENDENTE reabre para ABERTA ao chegar mensagem do cliente (mesmo com a IA já tendo respondido)", async () => {
     prismaMock.conversa.findFirst.mockResolvedValue({
       id: "conversa-existente",
+      nomeContato: "Cliente Teste",
       canalWhatsappId: "canal-maria",
       status: "PENDENTE",
     });
@@ -136,6 +138,7 @@ describe("persistirConversaMaria — conversa", () => {
   it("Ciclo de Atendimento — SPAM NUNCA reabre sozinha", async () => {
     prismaMock.conversa.findFirst.mockResolvedValue({
       id: "conversa-existente",
+      nomeContato: "Cliente Teste",
       canalWhatsappId: "canal-maria",
       status: "SPAM",
     });
@@ -204,7 +207,7 @@ describe("persistirConversaMaria — conversa", () => {
 
 describe("persistirConversaMaria — mensagens", () => {
   beforeEach(() => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-maria" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-maria" });
     prismaMock.conversa.update.mockResolvedValue({});
   });
 

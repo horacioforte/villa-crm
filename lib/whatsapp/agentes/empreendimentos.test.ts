@@ -48,7 +48,7 @@ describe("mensagemJaProcessada", () => {
 
 describe("persistirMensagemCliente — inbound de cliente real", () => {
   beforeEach(() => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-empreendimentos" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-empreendimentos" });
     prismaMock.conversa.update.mockResolvedValue({});
   });
 
@@ -85,7 +85,7 @@ describe("persistirMensagemCliente — inbound de cliente real", () => {
   });
 
   it("Ciclo de Atendimento — conversa PENDENTE reabre para ABERTA ao chegar mensagem do cliente", async () => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-empreendimentos", status: "PENDENTE" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-empreendimentos", status: "PENDENTE" });
     prismaMock.mensagem.create.mockResolvedValue({ id: "m1" });
 
     await persistirMensagemCliente({
@@ -105,7 +105,7 @@ describe("persistirMensagemCliente — inbound de cliente real", () => {
   });
 
   it("Ciclo de Atendimento — conversa CONCLUIDA reabre para ABERTA ao chegar mensagem do cliente", async () => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-empreendimentos", status: "CONCLUIDA" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-empreendimentos", status: "CONCLUIDA" });
     prismaMock.mensagem.create.mockResolvedValue({ id: "m1" });
 
     await persistirMensagemCliente({
@@ -125,7 +125,7 @@ describe("persistirMensagemCliente — inbound de cliente real", () => {
   });
 
   it("Ciclo de Atendimento — conversa SPAM NUNCA reabre sozinha ao chegar mensagem do cliente", async () => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-empreendimentos", status: "SPAM" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-empreendimentos", status: "SPAM" });
     prismaMock.mensagem.create.mockResolvedValue({ id: "m1" });
 
     await persistirMensagemCliente({
@@ -145,7 +145,7 @@ describe("persistirMensagemCliente — inbound de cliente real", () => {
   });
 
   it("Ciclo de Atendimento — conversa já ABERTA não sofre escrita extra de status", async () => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-empreendimentos", status: "ABERTA" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-empreendimentos", status: "ABERTA" });
     prismaMock.mensagem.create.mockResolvedValue({ id: "m1" });
 
     await persistirMensagemCliente({

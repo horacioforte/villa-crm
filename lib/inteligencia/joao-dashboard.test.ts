@@ -3,11 +3,14 @@ import { buildAttentionCards, buildRadarHealth, buildRecentFindings } from "./jo
 
 describe("João dashboard executive metrics", () => {
   it("calcula cards de atenção a partir de dados reais", () => {
+    // Datas relativas a "agora": o cálculo usa "dias desde a última atualização", então
+    // datas fixas (ex.: 2026-01-10) fazem o teste quebrar com o passar do tempo.
+    const diasAtras = (dias: number) => new Date(Date.now() - dias * 86_400_000).toISOString();
     const dossies = [
-      { status: "PRONTO_PARA_ASSUMIR", updatedAt: "2026-01-10T00:00:00.000Z", prioridade: "ALTA" },
-      { status: "INVESTIGANDO", updatedAt: "2026-01-10T00:00:00.000Z", prioridade: "ALTA" },
-      { status: "AGUARDANDO_VALIDACAO", updatedAt: "2026-01-09T00:00:00.000Z", prioridade: "MEDIA" },
-      { status: "INVESTIGANDO", updatedAt: "2025-12-01T00:00:00.000Z", prioridade: "ALTA" },
+      { status: "PRONTO_PARA_ASSUMIR", updatedAt: diasAtras(2), prioridade: "ALTA" },
+      { status: "INVESTIGANDO", updatedAt: diasAtras(2), prioridade: "ALTA" },
+      { status: "AGUARDANDO_VALIDACAO", updatedAt: diasAtras(3), prioridade: "MEDIA" },
+      { status: "INVESTIGANDO", updatedAt: diasAtras(60), prioridade: "ALTA" },
     ] as any[];
 
     const cards = buildAttentionCards(dossies, {

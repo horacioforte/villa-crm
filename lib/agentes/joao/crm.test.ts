@@ -4,6 +4,7 @@ const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     conversa: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     mensagem: { createMany: vi.fn() },
+    canalWhatsapp: { findUnique: vi.fn() },
   },
 }));
 
@@ -14,6 +15,7 @@ import { salvarMensagensJoao } from "./crm";
 beforeEach(() => {
   vi.clearAllMocks();
   prismaMock.mensagem.createMany.mockResolvedValue({ count: 2 });
+  prismaMock.canalWhatsapp.findUnique.mockResolvedValue(null);
 });
 
 describe("salvarMensagensJoao (V1 legado) — Ciclo de Atendimento, reabertura mínima aprovada", () => {

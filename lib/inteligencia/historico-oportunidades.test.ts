@@ -35,9 +35,12 @@ describe("palavrasDistintivas", () => {
     expect(palavrasDistintivas("Petrobras — RNEST Refinaria Abreu e Lima Trem 2")).not.toContain("TREM");
   });
   it("normaliza acentos", () => {
-    expect(palavrasDistintivas("Implantação de Unidade Abreu e Lima")).toEqual(
-      expect.arrayContaining(["IMPLANTACAO"]),
+    // "Implantação" virou palavra genérica (commit f8e57d9) e é filtrada; o teste de acentos
+    // usa palavras distintivas com acento.
+    expect(palavrasDistintivas("Siderúrgica Açailândia Maranhão")).toEqual(
+      expect.arrayContaining(["SIDERURGICA", "ACAILANDIA", "MARANHAO"]),
     );
+    expect(palavrasDistintivas("Implantação de Unidade Abreu e Lima")).not.toContain("IMPLANTACAO");
   });
   it("remove rótulo de categoria entre colchetes e termos de setor genéricos — caso real Nestlé x Toyota", () => {
     const nestle = palavrasDistintivas("Radar João — [Pilar 1 / Grandes Indústrias] Nova Fábrica Nestlé Ituiutaba / MG");
@@ -98,7 +101,7 @@ describe("buscarOportunidadesRelacionadas — caso real RNEST/Petrobras", () => 
   it("título parecido com exatamente 2 palavras em comum vira confiança 'media', não 'alta'", async () => {
     const outraPonte = {
       id: "oportunidade-ponte-nao-relacionada",
-      titulo: "Ponte Suspensa Canaã Verde/PA",
+      titulo: "Ponte Suspensa Canaã Carajás Verde/PA", // "Ponte" virou genérica (f8e57d9): 2 palavras distintivas em comum = CANAA + CARAJAS
       status: "PERDIDA",
       motivoPerda: "Sem interesse",
       fechadaEm: new Date("2026-05-01"),
@@ -118,7 +121,7 @@ describe("buscarOportunidadesRelacionadas — caso real RNEST/Petrobras", () => 
     });
 
     expect(relacionadas).toHaveLength(1);
-    expect(relacionadas[0].palavrasEmComum).toEqual(expect.arrayContaining(["PONTE", "CANAA"]));
+    expect(relacionadas[0].palavrasEmComum).toEqual(expect.arrayContaining(["CANAA", "CARAJAS"]));
     expect(relacionadas[0].confianca).toBe("media");
   });
 

@@ -68,7 +68,7 @@ function valorSemTexto(overrides: { messageId?: string } = {}) {
 
 describe("processarValorMetaJoao — Ciclo de Atendimento (reabertura automática)", () => {
   it("PENDENTE reabre para ABERTA ao chegar mensagem do cliente", async () => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-joao", status: "PENDENTE" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-joao", status: "PENDENTE" });
 
     await processarValorMetaJoao({ canal: CANAL, value: valorSemTexto({ messageId: "wamid.reabre-1" }) });
 
@@ -79,7 +79,7 @@ describe("processarValorMetaJoao — Ciclo de Atendimento (reabertura automátic
   });
 
   it("CONCLUIDA reabre para ABERTA ao chegar mensagem do cliente", async () => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-joao", status: "CONCLUIDA" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-joao", status: "CONCLUIDA" });
 
     await processarValorMetaJoao({ canal: CANAL, value: valorSemTexto({ messageId: "wamid.reabre-2" }) });
 
@@ -90,7 +90,7 @@ describe("processarValorMetaJoao — Ciclo de Atendimento (reabertura automátic
   });
 
   it("SPAM NUNCA reabre sozinha", async () => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-joao", status: "SPAM" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-joao", status: "SPAM" });
 
     await processarValorMetaJoao({ canal: CANAL, value: valorSemTexto({ messageId: "wamid.spam-1" }) });
 
@@ -101,7 +101,7 @@ describe("processarValorMetaJoao — Ciclo de Atendimento (reabertura automátic
   });
 
   it("ABERTA não sofre escrita extra de status", async () => {
-    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", canalWhatsappId: "canal-joao", status: "ABERTA" });
+    prismaMock.conversa.findFirst.mockResolvedValue({ id: "conversa-1", nomeContato: "Cliente Teste", canalWhatsappId: "canal-joao", status: "ABERTA" });
 
     await processarValorMetaJoao({ canal: CANAL, value: valorSemTexto({ messageId: "wamid.aberta-1" }) });
 

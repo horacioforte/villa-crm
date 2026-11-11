@@ -8,6 +8,7 @@ const { prismaMock, getCurrentUserMock, enviarTextoMetaMock, CanalInvalidoErrorF
       prismaMock: {
         conversa: { findUnique: vi.fn(), update: vi.fn() },
         mensagem: { create: vi.fn() },
+        canalWhatsapp: { findUnique: vi.fn(), update: vi.fn() },
       },
       getCurrentUserMock: vi.fn(),
       enviarTextoMetaMock: vi.fn(),
@@ -36,6 +37,8 @@ beforeEach(() => {
   getCurrentUserMock.mockResolvedValue(USER);
   prismaMock.conversa.update.mockResolvedValue({});
   prismaMock.mensagem.create.mockResolvedValue({ id: "msg-evolution" });
+  prismaMock.canalWhatsapp.findUnique.mockResolvedValue(null);
+  prismaMock.canalWhatsapp.update.mockResolvedValue({});
 });
 
 function criarRequest(body: unknown) {
@@ -68,7 +71,7 @@ describe("POST /api/mensagens — roteamento determinístico por canal (sem fall
     vi.unstubAllGlobals();
   });
 
-  it("canal META_CLOUD_API com a flag desligada: usa o caminho Evolution legado (comportamento inalterado), não chama meta-client", async () => {
+  it("canal META_CLOUD_API com WHATSAPP_JOAO_V2 desligada: a flag não é mais exigida — usa meta-client e nunca chama Evolution (fetch)", async () => {
     delete process.env.WHATSAPP_JOAO_V2;
     prismaMock.conversa.findUnique.mockResolvedValue({
       id: "c1",
@@ -77,12 +80,14 @@ describe("POST /api/mensagens — roteamento determinístico por canal (sem fall
       canalWhatsappId: "canal-joao",
       canalWhatsapp: { tipo: "META_CLOUD_API" },
     });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ key: { id: "wa-1" } }) }));
+    enviarTextoMetaMock.mockResolvedValue({ id: "msg-meta", status: "ENVIADA" });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
 
     await POST(criarRequest({ conversaId: "c1", conteudo: "oi" }));
 
-    expect(enviarTextoMetaMock).not.toHaveBeenCalled();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(enviarTextoMetaMock).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
 
@@ -209,7 +214,7 @@ describe("POST /api/mensagens — canal META_CLOUD_API humano (agenteIA === null
     vi.unstubAllGlobals();
   });
 
-  it("flag ausente: BLOQUEIA o envio (422), nunca chama meta-client nem Evolution (fetch), nenhuma Mensagem é criada", async () => {
+  it("flag WHATSAPP_META_HUMANO_OUTBOUND_V2 ausente: não bloqueia mais — canal humano META_CLOUD_API envia via meta-client, nunca Evolution (fetch); gravação é do meta-client", async () => {
     delete process.env.WHATSAPP_META_HUMANO_OUTBOUND_V2;
     prismaMock.conversa.findUnique.mockResolvedValue({
       id: "c1",
@@ -221,16 +226,18 @@ describe("POST /api/mensagens — canal META_CLOUD_API humano (agenteIA === null
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
 
+    enviarTextoMetaMock.mockResolvedValue({ id: "msg-meta", status: "ENVIADA" });
+
     const res = await POST(criarRequest({ conversaId: "c1", conteudo: "Oi, tudo bem?" }));
 
-    expect(res.status).toBe(422);
-    expect(enviarTextoMetaMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(enviarTextoMetaMock).toHaveBeenCalledTimes(1);
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(prismaMock.mensagem.create).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
 
-  it('flag "false": BLOQUEIA o envio (422), sem fallback', async () => {
+  it('flag "false": não bloqueia mais — envia via meta-client, sem fallback Evolution', async () => {
     process.env.WHATSAPP_META_HUMANO_OUTBOUND_V2 = "false";
     prismaMock.conversa.findUnique.mockResolvedValue({
       id: "c1",
@@ -242,16 +249,19 @@ describe("POST /api/mensagens — canal META_CLOUD_API humano (agenteIA === null
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
 
+    enviarTextoMetaMock.mockResolvedValue({ id: "msg-meta", status: "ENVIADA" });
+
     const res = await POST(criarRequest({ conversaId: "c1", conteudo: "oi" }));
 
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(200);
+    expect(enviarTextoMetaMock).toHaveBeenCalledTimes(1);
     expect(fetchSpy).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
 });
 
 describe("POST /api/mensagens — isolamento entre WHATSAPP_META_HUMANO_OUTBOUND_V2 e WHATSAPP_JOAO_V2", () => {
-  it("canal de IA (agenteIA: 'joao') com WHATSAPP_META_HUMANO_OUTBOUND_V2=true mas WHATSAPP_JOAO_V2 ausente: continua indo por Evolution, a flag nova não afeta João", async () => {
+  it("canal de IA (agenteIA: 'joao') com WHATSAPP_META_HUMANO_OUTBOUND_V2=true mas WHATSAPP_JOAO_V2 ausente: canal META_CLOUD_API vai por meta-client (flags não são mais exigidas), nunca por Evolution — João", async () => {
     process.env.WHATSAPP_META_HUMANO_OUTBOUND_V2 = "true";
     delete process.env.WHATSAPP_JOAO_V2;
     prismaMock.conversa.findUnique.mockResolvedValue({
@@ -261,17 +271,19 @@ describe("POST /api/mensagens — isolamento entre WHATSAPP_META_HUMANO_OUTBOUND
       canalWhatsappId: "canal-joao",
       canalWhatsapp: { tipo: "META_CLOUD_API", agenteIA: "joao" },
     });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ key: { id: "wa-joao" } }) }));
+    enviarTextoMetaMock.mockResolvedValue({ id: "msg-meta", status: "ENVIADA" });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
 
     const res = await POST(criarRequest({ conversaId: "c1", conteudo: "oi" }));
 
     expect(res.status).toBe(200);
-    expect(enviarTextoMetaMock).not.toHaveBeenCalled();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(enviarTextoMetaMock).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
 
-  it("canal de IA (agenteIA: 'maria') com WHATSAPP_META_HUMANO_OUTBOUND_V2=true mas WHATSAPP_JOAO_V2 ausente: continua indo por Evolution, a flag nova não afeta Maria", async () => {
+  it("canal de IA (agenteIA: 'maria') com WHATSAPP_META_HUMANO_OUTBOUND_V2=true mas WHATSAPP_JOAO_V2 ausente: canal META_CLOUD_API vai por meta-client (flags não são mais exigidas), nunca por Evolution — Maria", async () => {
     process.env.WHATSAPP_META_HUMANO_OUTBOUND_V2 = "true";
     delete process.env.WHATSAPP_JOAO_V2;
     prismaMock.conversa.findUnique.mockResolvedValue({
@@ -281,13 +293,15 @@ describe("POST /api/mensagens — isolamento entre WHATSAPP_META_HUMANO_OUTBOUND
       canalWhatsappId: "canal-maria",
       canalWhatsapp: { tipo: "META_CLOUD_API", agenteIA: "maria" },
     });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ key: { id: "wa-maria" } }) }));
+    enviarTextoMetaMock.mockResolvedValue({ id: "msg-meta", status: "ENVIADA" });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
 
     const res = await POST(criarRequest({ conversaId: "c1", conteudo: "oi" }));
 
     expect(res.status).toBe(200);
-    expect(enviarTextoMetaMock).not.toHaveBeenCalled();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(enviarTextoMetaMock).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
 

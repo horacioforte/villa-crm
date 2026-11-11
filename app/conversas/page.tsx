@@ -275,6 +275,13 @@ function ConversasPage() {
   // Aba Supervisão
   const [abaSupervisao, setAbaSupervisao] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  // ACRESCENTADO — rolagem inteligente das mensagens: a lista é recarregada a cada 5s e
+  // antes puxava a tela para o fim a cada recarga, impedindo de ler o histórico.
+  // Agora só rola para o fim ao abrir uma conversa ou quando chega mensagem nova e a
+  // pessoa já está perto do fim.
+  const mensagensContainerRef = useRef<HTMLDivElement>(null);
+  const ultimaConversaRoladaRef = useRef<string | null>(null);
+  const totalMensagensRoladasRef = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -530,7 +537,18 @@ function ConversasPage() {
       const data = await resp.json();
       setMensagens(data.mensagens ?? []);
       setConversaContexto(data);
-      setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      const total = Array.isArray(data.mensagens) ? data.mensagens.length : 0;
+      const container = mensagensContainerRef.current;
+      const trocouConversa = ultimaConversaRoladaRef.current !== conversa.id;
+      const pertoDoFim = container
+        ? container.scrollHeight - container.scrollTop - container.clientHeight < 150
+        : true;
+      const chegouMensagemNova = total > totalMensagensRoladasRef.current;
+      ultimaConversaRoladaRef.current = conversa.id;
+      totalMensagensRoladasRef.current = total;
+      if (trocouConversa || (chegouMensagemNova && pertoDoFim)) {
+        setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      }
     }
   }, []);
 
@@ -1384,7 +1402,7 @@ function ConversasPage() {
                   )}
 
                 {/* Mensagens */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-3" onClick={() => setShowTransferir(false)}>
+                <div ref={mensagensContainerRef} className="flex-1 overflow-y-auto p-6 space-y-3" onClick={() => setShowTransferir(false)}>
                   {mensagens.length === 0 ? (
                     <div className="flex h-full items-center justify-center text-sm text-[#667085]">
                       Nenhuma mensagem ainda.

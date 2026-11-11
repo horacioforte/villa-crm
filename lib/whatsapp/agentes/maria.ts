@@ -299,3 +299,84 @@ export async function processarStatusRecebido(status: MetaStatus) {
   // "sent" já é refletido no momento do envio (meta-client marca ENVIADA); outros
   // valores de status não mapeados são ignorados silenciosamente.
 }
+
+// ─── Aviso automático de áudio (adicionado 11/11/2026) ────────────────────────
+// A Maria não consegue ouvir áudio e antes ficava em silêncio (revisão de 30 dias:
+// 21 áudios sem resposta). Texto fixo — NÃO usa IA. O envio em si fica no webhook
+// (este módulo continua sem enviar WhatsApp); aqui só a decisão e o registro.
+export const AVISO_AUDIO_1 =
+  "Oi! Por aqui eu ainda não consigo ouvir áudios 😊 Pode me mandar sua dúvida por escrito? Assim consigo te ajudar.";
+export const AVISO_AUDIO_2 =
+  "Entendi! Vou passar seu contato para um atendente da nossa equipe, que vai ouvir seu áudio e te responder por aqui.";
+
+const MINUTOS_ENTRE_AVISOS = 10;
+const HORAS_HUMANO_RECENTE = 2;
+
+/** Decisão pura (testável): qual aviso enviar, ou null para ficar em silêncio. */
+export function decidirAvisoAudio({
+  avisosAnteriores,
+  minutosDesdeUltimoAviso,
+  humanoRecente,
+}: {
+  avisosAnteriores: number;
+  minutosDesdeUltimoAviso: number | null;
+  humanoRecente: boolean;
+}): string | null {
+  if (humanoRecente) return null; // uma pessoa já está atendendo — não interromper
+  if (avisosAnteriores === 0) return AVISO_AUDIO_1;
+  if (minutosDesdeUltimoAviso !== null && minutosDesdeUltimoAviso < MINUTOS_ENTRE_AVISOS) return null;
+  if (avisosAnteriores === 1) return AVISO_AUDIO_2;
+  return null; // no máximo dois avisos por conversa
+}
+
+export async function buscarContextoAvisoAudio(conversaId: string) {
+  const agora = Date.now();
+  const [avisos, humano] = await Promise.all([
+    prisma.mensagem.findMany({
+      where: {
+        conversaId,
+        direcao: DirecaoMensagem.SAIDA,
+        autor: AutorMensagem.IA,
+        conteudo: { in: [AVISO_AUDIO_1, AVISO_AUDIO_2] },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    }),
+    prisma.mensagem.findFirst({
+      where: {
+        conversaId,
+        direcao: DirecaoMensagem.SAIDA,
+        autor: AutorMensagem.HUMANO,
+        createdAt: { gte: new Date(agora - HORAS_HUMANO_RECENTE * 3600_000) },
+      },
+      select: { id: true },
+    }),
+  ]);
+  return {
+    avisosAnteriores: avisos.length,
+    minutosDesdeUltimoAviso: avisos[0] ? (agora - avisos[0].createdAt.getTime()) / 60_000 : null,
+    humanoRecente: Boolean(humano),
+  };
+}
+
+/** Registra o aviso JÁ enviado (nunca dispara envio). */
+export async function registrarMensagemAvisoAudio({
+  canal,
+  conversaId,
+  texto,
+}: {
+  canal: CanalWhatsapp;
+  conversaId: string;
+  texto: string;
+}) {
+  await prisma.mensagem.create({
+    data: {
+      conversaId,
+      conteudo: texto,
+      direcao: DirecaoMensagem.SAIDA,
+      autor: AutorMensagem.IA,
+      status: StatusMensagem.ENVIADA,
+      canalWhatsappId: canal.id,
+    },
+  });
+}

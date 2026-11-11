@@ -305,3 +305,30 @@ describe("persistirConversaMaria — mensagens", () => {
     ).rejects.toThrow("Falha de conexão com o banco");
   });
 });
+
+describe("decidirAvisoAudio", () => {
+  it("primeiro áudio: envia o aviso 1", async () => {
+    const { decidirAvisoAudio, AVISO_AUDIO_1 } = await import("./maria");
+    expect(decidirAvisoAudio({ avisosAnteriores: 0, minutosDesdeUltimoAviso: null, humanoRecente: false })).toBe(AVISO_AUDIO_1);
+  });
+
+  it("áudios em sequência (menos de 10 min): não repete", async () => {
+    const { decidirAvisoAudio } = await import("./maria");
+    expect(decidirAvisoAudio({ avisosAnteriores: 1, minutosDesdeUltimoAviso: 2, humanoRecente: false })).toBeNull();
+  });
+
+  it("cliente insiste depois de 10 min: envia o aviso 2 (passagem para atendente)", async () => {
+    const { decidirAvisoAudio, AVISO_AUDIO_2 } = await import("./maria");
+    expect(decidirAvisoAudio({ avisosAnteriores: 1, minutosDesdeUltimoAviso: 30, humanoRecente: false })).toBe(AVISO_AUDIO_2);
+  });
+
+  it("no máximo dois avisos por conversa", async () => {
+    const { decidirAvisoAudio } = await import("./maria");
+    expect(decidirAvisoAudio({ avisosAnteriores: 2, minutosDesdeUltimoAviso: 600, humanoRecente: false })).toBeNull();
+  });
+
+  it("se um humano atendeu há pouco, não interrompe", async () => {
+    const { decidirAvisoAudio } = await import("./maria");
+    expect(decidirAvisoAudio({ avisosAnteriores: 0, minutosDesdeUltimoAviso: null, humanoRecente: true })).toBeNull();
+  });
+});

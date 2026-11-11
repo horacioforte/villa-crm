@@ -23,7 +23,7 @@ import {
   registrarLeadQualificado,
   registrarInteracaoParcial,
 } from "@/lib/agentes/maria/crm";
-import { getCanalMaria, mensagemJaProcessada, persistirConversaMaria, persistirMensagemMidiaCliente, processarStatusRecebido } from "@/lib/whatsapp/agentes/maria";
+import { buscarContextoAvisoAudio, decidirAvisoAudio, getCanalMaria, mensagemJaProcessada, persistirConversaMaria, persistirMensagemMidiaCliente, processarStatusRecebido, registrarMensagemAvisoAudio } from "@/lib/whatsapp/agentes/maria";
 import { buscarMidiaMeta } from "@/lib/whatsapp/meta-client";
 import { resolveWhatsappEnvVar } from "@/lib/whatsapp/env-allowlist";
 import type { CanalWhatsapp } from "@/app/generated/prisma/client";
@@ -220,7 +220,7 @@ async function processarMensagemMidiaMaria({
     console.warn("[maria/meta-webhook] Não foi possível resolver token para buscar mídia:", err);
   }
 
-  await persistirMensagemMidiaCliente({
+  const conversaMidia = await persistirMensagemMidiaCliente({
     canal,
     telefone,
     nomeContato,
@@ -231,6 +231,23 @@ async function processarMensagemMidiaMaria({
     mediaUrl: mediaResolvida?.mediaUrl,
     mimeType: mediaResolvida?.mimeType ?? mediaMeta.mimetype,
   });
+
+  // ACRESCENTADO (11/11/2026) — aviso fixo para áudio: a Maria não ouve áudio e antes
+  // ficava em silêncio. Texto fixo (sem IA), no máximo 2 por conversa, nunca para
+  // gestor nem quando um humano já atendeu nas últimas 2h. Falha aqui nunca derruba o
+  // fluxo. Desligável com WHATSAPP_MARIA_AVISO_AUDIO=false.
+  if (messageType === "audio" && process.env.WHATSAPP_MARIA_AVISO_AUDIO !== "false" && !isGestor(telefone)) {
+    try {
+      const ctx = await buscarContextoAvisoAudio(conversaMidia.id);
+      const textoAviso = decidirAvisoAudio(ctx);
+      if (textoAviso) {
+        await enviarWhatsappMeta({ telefone, texto: textoAviso });
+        await registrarMensagemAvisoAudio({ canal, conversaId: conversaMidia.id, texto: textoAviso });
+      }
+    } catch (err) {
+      console.error("[maria/meta-webhook] Falha ao enviar aviso de áudio:", err);
+    }
+  }
 }
 
 // ─── Processamento assíncrono ─────────────────────────────────────────────────

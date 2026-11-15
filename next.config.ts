@@ -1,10 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig = {
-  // Temporário: erros de tipo do Prisma client (stale localmente) não quebram o build.
-  // Remover após prisma generate ser executado com o schema atualizado.
+  // TypeScript com zero erros — verificação ativa no build.
+  // Corrigido em 15/11/2026: fila.ts referral (DbNull) + auth.config.ts secret.
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   // Temporário: suprime warnings de variáveis não utilizadas no build.
   // Causa: imports em page.tsx (Bot, FolderOpen, formatHorario, joao) ainda não referenciados no JSX.

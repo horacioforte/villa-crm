@@ -15,7 +15,7 @@
 // ACRESCENTADO (15/11/2026 — Fila Persistente Maria v1)
 
 import { prisma } from "@/lib/prisma";
-import { StatusFilaMensagem } from "@/app/generated/prisma/client";
+import { Prisma, StatusFilaMensagem } from "@/app/generated/prisma/client";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -73,7 +73,14 @@ export async function registrarNaFila(
       messageId: payload.messageId,
       messageType: payload.messageType,
       rawPayload: payload.rawPayload as object,
-      referral: payload.referral as object | null,
+      // referral é Json? no schema.
+      // - Sem referral (null) → Prisma.DbNull = SQL NULL (ausência de dado).
+      // - Com referral → cast para InputJsonValue: o payload vem do webhook da Meta,
+      //   é JSON-serializable por definição. Record<string,unknown> não é atribuível
+      //   diretamente ao InputJsonValue do Prisma sem assert, pois `unknown` é mais amplo.
+      referral: payload.referral !== null
+        ? (payload.referral as Prisma.InputJsonValue)
+        : Prisma.DbNull,
       status: StatusFilaMensagem.AGUARDANDO,
     },
     select: { id: true },

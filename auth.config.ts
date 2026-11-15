@@ -13,10 +13,15 @@ const publicRoutes = [
   "/api/email/processar",
 ];
 const publicRoutePrefixes = ["/api/webhook/whatsapp/contexto/", "/api/agent/", "/api/cron/"];
-const authSecret =
-  process.env.AUTH_SECRET ??
-  process.env.NEXTAUTH_SECRET ??
-  "villa-crm-development-secret";
+const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+
+if (!authSecret) {
+  throw new Error(
+    "[villa-crm] AUTH_SECRET (ou NEXTAUTH_SECRET) não está configurado. " +
+    "Defina essa variável de ambiente antes de iniciar a aplicação. " +
+    "Nunca use um secret padrão em produção.",
+  );
+}
 
 function getAuthBaseUrl(baseUrl: string) {
   const candidates = [process.env.AUTH_URL, process.env.NEXTAUTH_URL, baseUrl];

@@ -5,11 +5,12 @@
 // Acesso: apenas ADMIN. Resultado: JSON com os casos encontrados.
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-  const authResult = await requireAuth(req);
+  // Acesso restrito a ADMIN — verifica papel via RBAC, não só autenticação.
+  const authResult = await requirePermission("inteligencia", "delete", req);
   if (authResult instanceof NextResponse) return authResult;
 
   // 1. Dossiês ainda investigando MAS com oportunidadeId direto (inconsistência de status)

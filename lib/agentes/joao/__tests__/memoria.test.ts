@@ -48,9 +48,13 @@ const mensagens10: MensagemJoao[] = [
 
 const dossie: DossieContexto = {
   titulo: "[João Outbound] Marcos Ferreira — demanda_informada",
+  resumo: null,
   missaoAtual: "Confirmar volume e prazo de início da obra",
+  proximaAcaoSugerida: null,
   score: 75,
   completude: 40,
+  evidencias: [],
+  movimentacoes: [],
 };
 
 // ─── 1. Contexto vazio ────────────────────────────────────────────────────────
@@ -123,9 +127,13 @@ grupo("7. Dossiê sem missão atual (campo null) não exibe linha vazia");
 {
   const dossieSemMissao: DossieContexto = {
     titulo: "Dossiê Sem Missão",
+    resumo: null,
     missaoAtual: null,
+    proximaAcaoSugerida: null,
     score: 60,
     completude: 20,
+    evidencias: [],
+    movimentacoes: [],
   };
   const ctx = formatarContextoJoao({ mensagens: [], dossie: dossieSemMissao });
   assert(!ctx.includes("Missão atual: null"), "Linha 'Missão atual: null' não aparece");
@@ -139,9 +147,13 @@ grupo("8. Dossiê com score null e completude null");
 {
   const dossieMinimo: DossieContexto = {
     titulo: "Dossiê Mínimo",
+    resumo: null,
     missaoAtual: "Levantar contatos da empresa",
+    proximaAcaoSugerida: null,
     score: null,
     completude: null,
+    evidencias: [],
+    movimentacoes: [],
   };
   const ctx = formatarContextoJoao({ mensagens: [], dossie: dossieMinimo });
   assert(ctx.includes("Dossiê Mínimo"), "Título presente");
@@ -180,9 +192,13 @@ grupo("11. Título do dossiê preserva o formato padrão do João Outbound");
 {
   const dossieFormato: DossieContexto = {
     titulo: "[João Outbound] José da Silva — contato_solicitado",
+    resumo: null,
     missaoAtual: "Enviar proposta técnica",
+    proximaAcaoSugerida: null,
     score: 92,
     completude: 65,
+    evidencias: [],
+    movimentacoes: [],
   };
   const ctx = formatarContextoJoao({ mensagens: [], dossie: dossieFormato });
   assert(ctx.includes("[João Outbound] José da Silva — contato_solicitado"), "Título preservado integralmente");

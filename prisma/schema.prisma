@@ -2894,3 +2894,40 @@ model JoaoEnriquecimentoConsumo {
 
   @@index([grupoChave])
 }
+
+// ─── ACRESCENTADO (15/11/2026 — Fila Persistente Maria v1) ───────────────────
+// Fila persistente de mensagens por conversa para a Maria.
+// Serializa processamento por telefone: evita oportunidades duplicadas e
+// respostas duplicadas ao cliente em caso de mensagens simultâneas.
+// NÃO REQUER REMOÇÃO — apenas acrescentar a partir daqui.
+//
+// REQUER MIGRAÇÃO (executar APENAS com autorização de Horácio):
+//   npx prisma migrate dev --name add-fila-mensagem
+//
+model FilaMensagem {
+  id             String             @id @default(cuid())
+  telefone       String
+  nomeContato    String
+  texto          String             @db.Text
+  messageId      String?            @unique
+  messageType    String             @default("text")
+  status         StatusFilaMensagem @default(AGUARDANDO)
+  tentativas     Int                @default(0)
+  processandoAte DateTime?
+  concluidaEm    DateTime?
+  erroMsg        String?            @db.Text
+  rawPayload     Json?
+  referral       Json?
+  criadoEm       DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([telefone, status, criadoEm])
+  @@index([status, processandoAte])
+}
+
+enum StatusFilaMensagem {
+  AGUARDANDO
+  PROCESSANDO
+  CONCLUIDA
+  FALHOU
+}

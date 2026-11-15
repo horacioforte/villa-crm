@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/maria-fila-recovery",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/saude-comercial/joao",
       "schedule": "0 9 * * *"
     },

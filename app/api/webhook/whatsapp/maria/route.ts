@@ -14,8 +14,11 @@
 // nem um segundo efeito comercial. Falha na persistência adicional é sempre capturada
 // e logada, nunca interrompe o fluxo comercial (que já rodou e terminou com sucesso).
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { analisarMensagem, classificarTermometroLead } from "@/lib/agentes/maria/handler";
+// [ACRESCENTADO 15/11/2026 — Fila Persistente Maria v1]
+import { registrarNaFila, processarFilaParaTelefone } from "@/lib/agentes/maria/fila";
+import { processarMensagemMariaDaFila } from "@/lib/agentes/maria/handler-fila";
 import { getContextoConversa } from "@/lib/agentes/maria/contexto";
 import { isGestor, processarGestao } from "@/lib/agentes/maria/gestao";
 import {
@@ -112,6 +115,11 @@ export async function POST(request: NextRequest) {
 
   const entries = (body.entry as Record<string, unknown>[] | undefined) ?? [];
 
+  // [ACRESCENTADO 15/11/2026 — Fila Persistente v1]
+  // Coleta telefones de leads (não-gestão) que foram enfileirados neste payload.
+  // O after() abaixo processa cada telefone em background, após retornar HTTP 200.
+  const telefonesParaProcessar = new Set<string>();
+
   for (const entry of entries) {
     const changes = (entry.changes as Record<string, unknown>[] | undefined) ?? [];
 
@@ -169,12 +177,62 @@ export async function POST(request: NextRequest) {
         // ACRESCENTADO — captura referral da Meta (presente quando o contato veio de anúncio)
         const referral = (message.referral as Record<string, unknown> | undefined) ?? null;
 
-        // Aguarda o processamento antes de retornar (Vercel mata execução ao retornar 200)
-        await processarMensagemMaria({ telefone, nomeContato, texto, messageId, messageType, rawMessage: message, referral }).catch((err) => {
-          console.error("[maria/meta-webhook] Erro ao processar mensagem:", err);
-        });
+        // [ACRESCENTADO 15/11/2026 — Fila Persistente v1]
+        // Gestão (Horácio/Morgana) → síncrono (latência < 10s, resposta imediata).
+        // Leads regulares → FilaMensagem + after() (HTTP 200 imediato, processa em background).
+        // Fallback: se a FilaMensagem estiver indisponível, processa diretamente (mensagem nunca perdida).
+        if (isGestor(telefone)) {
+          // Mantém o comportamento síncrono existente para gestão
+          await processarMensagemMaria({ telefone, nomeContato, texto, messageId, messageType, rawMessage: message, referral }).catch((err) => {
+            console.error("[maria/meta-webhook] Erro ao processar mensagem (gestão):", err);
+          });
+        } else {
+          try {
+            const filaId = await registrarNaFila({
+              telefone, nomeContato, texto, messageId, messageType,
+              rawPayload: message, referral,
+            });
+            if (filaId) {
+              telefonesParaProcessar.add(telefone);
+              console.info("[maria/meta-webhook] Mensagem registrada na FilaMensagem:", { filaId, telefone, messageId });
+            } else {
+              // Duplicata Meta (mesmo messageId) — a fila já tem este registro
+              // Adiciona ao set mesmo assim: pode haver outros lotes aguardando para este telefone
+              telefonesParaProcessar.add(telefone);
+              console.info("[maria/meta-webhook] messageId duplicado na FilaMensagem — fila existente será processada:", { messageId, telefone });
+            }
+          } catch (filaErr) {
+            console.error("[maria/meta-webhook] Erro ao registrar na FilaMensagem — processando diretamente (fallback):", filaErr);
+            // Fallback: se a fila falhar, processa diretamente para não perder a mensagem
+            await processarMensagemMaria({ telefone, nomeContato, texto, messageId, messageType, rawMessage: message, referral }).catch((err) => {
+              console.error("[maria/meta-webhook] Erro ao processar mensagem (fallback direto):", err);
+            });
+          }
+        }
       }
     }
+  }
+
+  // [ACRESCENTADO 15/11/2026 — Fila Persistente v1]
+  // Processa fila de leads em background, após HTTP 200 ser enviado ao Meta.
+  //
+  // after() (next/server): executa dentro do mesmo maxDuration (90s) da requisição.
+  // O Meta não aguarda — já recebeu o 200. O Vercel mantém a função viva para after().
+  //
+  // Tempo médio por lote: ~8s (IA: 2-5s + WhatsApp: 1-2s + DB: 0.5s).
+  // Capacidade por after(): ~10 lotes de um único telefone, ou ~8 telefones diferentes.
+  //
+  // Se after() for interrompido (timeout 90s), processandoAte expira e as mensagens
+  // voltam para AGUARDANDO automaticamente. O cron /api/cron/maria-fila-recovery
+  // (a cada 5min) garante que nenhuma mensagem fique presa indefinidamente.
+  if (telefonesParaProcessar.size > 0) {
+    after(async () => {
+      for (const tel of telefonesParaProcessar) {
+        await processarFilaParaTelefone(tel, processarMensagemMariaDaFila).catch((err) => {
+          console.error("[maria/meta-webhook] Erro ao processar fila para", tel, err);
+        });
+      }
+    });
   }
 
   return NextResponse.json({ ok: true });

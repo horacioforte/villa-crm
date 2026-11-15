@@ -43,7 +43,8 @@ const oportunidade: OportunidadeContexto = {
 };
 
 const historicos: HistoricoContexto[] = [
-  { resumo: "WhatsApp de Carlos (5511999990000)", detalhes: "Mensagem: quero bomba\nResposta Maria: Olá!" },
+  // [ATUALIZADO 15/11/2026] dataContato agora é campo obrigatório do tipo
+  { resumo: "WhatsApp de Carlos (5511999990000)", detalhes: "Mensagem: quero bomba\nResposta Maria: Olá!", dataContato: null },
 ];
 
 // ─── 1. Contexto vazio ────────────────────────────────────────────────────────
@@ -136,10 +137,11 @@ grupo("8. Sem sessão — retorna apenas histórico CRM (backward compatible)");
 
 grupo("9. Histórico CRM: sessões passadas em ordem cronológica (antiga → recente)");
 {
+  // [ATUALIZADO 15/11/2026] dataContato agora é campo obrigatório do tipo
   const historicosMultiplos: HistoricoContexto[] = [
-    { resumo: "Contato mais antigo — sessão 1", detalhes: null },
-    { resumo: "Contato intermediário — sessão 2", detalhes: null },
-    { resumo: "Contato mais recente — sessão 3", detalhes: null },
+    { resumo: "Contato mais antigo — sessão 1", detalhes: null, dataContato: null },
+    { resumo: "Contato intermediário — sessão 2", detalhes: null, dataContato: null },
+    { resumo: "Contato mais recente — sessão 3", detalhes: null, dataContato: null },
   ];
   // A função recebe do banco em ordem DESC (recente primeiro) e reverte
   const ctx = formatarContextoMaria({ mensagensSessao: [], oportunidade: null, historicos: historicosMultiplos });

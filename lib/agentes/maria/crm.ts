@@ -1,6 +1,9 @@
 // ARQUIVO: lib/agentes/maria/crm.ts
 // REGRA: nunca remover. Apenas acrescentar.
 // Ações no CRM disparadas pela Maria: envio de WhatsApp, registro de leads e interações.
+// ACRESCENTADO (15/11/2026 — Memória de Longo Prazo v1):
+//   - buildMemoriaComercial(): gera bloco estruturado de memória comercial para HistoricoContato.detalhes.
+//     Permite que a Maria retome negociações após 30/90/180 dias sem depender de texto livre.
 
 import { prisma } from "@/lib/prisma";
 import { encontrarEmpresaExistente } from "@/lib/empresas/encontrar-existente";
@@ -123,6 +126,59 @@ export async function enviarWhatsappMeta({
   }
 }
 
+// ─── Memória comercial estruturada ───────────────────────────────────────────
+// [ACRESCENTADO 15/11/2026 — Memória de Longo Prazo v1]
+// Gera um bloco estruturado de memória comercial para o campo detalhes do HistoricoContato.
+// Facilita retomada de negociações após semanas/meses — a Maria extrai os dados chave
+// sem precisar interpretar texto livre.
+// REGRA: nunca remover. Apenas acrescentar campos novos se necessário.
+
+function buildMemoriaComercial({
+  nomeContato,
+  dados,
+  texto,
+}: {
+  nomeContato: string;
+  dados: MariaResponse;
+  texto: string;
+}): string {
+  const linhas: (string | null)[] = [
+    "=== MEMÓRIA COMERCIAL ===",
+    `Empresa/Contato: ${nomeContato}`,
+    `Equipamento: ${dados.tipoServico ?? "não informado"}`,
+    `Localização: ${dados.cidade ?? "não informada"}`,
+    `Volume: ${(dados as Record<string, unknown>).volume ?? "não informado"}`,
+    `Prazo: ${(dados as Record<string, unknown>).prazo ?? "não informado"}`,
+    `Temperatura: ${dados.temperatura ?? "não informada"}`,
+    dados.temperaturaMotivo
+      ? `Objeções/Observações: ${dados.temperaturaMotivo}`
+      : null,
+    "Próxima ação: Retornar WhatsApp",
+    "=== TRANSCRIÇÃO ===",
+    `Mensagem: ${texto}`,
+    `Resposta Maria: ${dados.resposta}`,
+  ];
+  return linhas.filter((l): l is string => l !== null).join("\n");
+}
+
+// ─── Advisory lock por telefone (PostgreSQL) ──────────────────────────────────
+// ACRESCENTADO (14/11/2026 — Race Condition v1):
+// Serializa operações de banco para o mesmo telefone usando pg_advisory_xact_lock.
+// - Escopo: transaction-level (liberado automaticamente ao fim da transação).
+// - Funciona com connection pooling/Neon (não usa session-level locks).
+// - Não requer migração — usa funcionalidade nativa do PostgreSQL.
+// - Bloqueia até que a transação concorrente do mesmo telefone conclua.
+// - Protege contra: oportunidades duplicadas e históricos duplicados por race condition.
+// LIMITAÇÃO DOCUMENTADA: o advisory lock cobre as operações de banco (read+write dentro
+// da transação). A chamada à IA e o envio do WhatsApp ocorrem fora da transação — em caso
+// de race condition, dois processos podem chamar a IA simultaneamente e ambos enviarem
+// respostas ao cliente. Para serialização completa do ciclo, ver PLANO DE MIGRAÇÃO em
+// docs/race-condition-plano.md (requer aprovação de Horácio antes de executar).
+async function acquirePhoneLock(tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], telefone: string): Promise<void> {
+  // hashtext(text) → int4; cast para bigint (pg_advisory_xact_lock aceita bigint)
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${telefone})::bigint)`;
+}
+
 // ─── Registro de interação parcial (lead em qualificação) ─────────────────────
 
 export async function registrarInteracaoParcial({
@@ -140,6 +196,9 @@ export async function registrarInteracaoParcial({
   const resumo = buildResumoOportunidade(dados);
 
   await prisma.$transaction(async (tx) => {
+    // [ACRESCENTADO 14/11/2026] Advisory lock: serializa operações de banco para este telefone.
+    // Evita HistoricoContato duplicado em caso de mensagens simultâneas do mesmo número.
+    await acquirePhoneLock(tx, telefone);
     let pessoa = await tx.pessoa.findFirst({
       where: {
         OR: [{ whatsapp: telefone }, { telefone }],
@@ -200,9 +259,10 @@ export async function registrarInteracaoParcial({
       data: {
         tipo: TipoContato.WHATSAPP,
         resumo: `WhatsApp em qualificacao de ${nomeContato} (${telefone})`,
+        // [ATUALIZADO 15/11/2026] Bloco de memória comercial estruturada no topo
+        // seguido do resumo da oportunidade — facilita retomada após meses
         detalhes: [
-          `Mensagem: ${texto}`,
-          `Resposta Maria: ${dados.resposta}`,
+          buildMemoriaComercial({ nomeContato, dados, texto }),
           "--- Resumo da oportunidade (em qualificação) ---",
           ...resumo.resumo,
         ]
@@ -250,6 +310,11 @@ export async function registrarLeadQualificado({
   }
 
   return prisma.$transaction(async (tx) => {
+    // [ACRESCENTADO 14/11/2026] Advisory lock: serializa operações de banco para este telefone.
+    // Evita oportunidades duplicadas em caso de duas mensagens qualificadoras simultâneas.
+    // O lock é liberado automaticamente ao fim desta transação.
+    await acquirePhoneLock(tx, telefone);
+
     let pessoa = await tx.pessoa.findFirst({
       where: {
         OR: [{ whatsapp: telefone }, { telefone }],
@@ -360,9 +425,10 @@ export async function registrarLeadQualificado({
       data: {
         tipo: TipoContato.WHATSAPP,
         resumo: `WhatsApp de ${nomeContato} (${telefone})`,
+        // [ATUALIZADO 15/11/2026] Bloco de memória comercial estruturada no topo
+        // seguido do resumo da oportunidade — facilita retomada após meses
         detalhes: [
-          `Mensagem: ${texto}`,
-          `Resposta Maria: ${dados.resposta}`,
+          buildMemoriaComercial({ nomeContato, dados, texto }),
           "--- Resumo da oportunidade ---",
           ...resumo.resumo,
           ...(resumo.interno.length ? ["--- Classificação interna (não exibir ao cliente) ---", ...resumo.interno] : []),

@@ -9,6 +9,11 @@
 //     e o comportamento é idêntico ao anterior.
 //   - Se a Pessoa não estiver no CRM mas a sessão tiver mensagens, retorna só o bloco de sessão.
 //   - Ordem do contexto: mensagens da sessão atual → oportunidade aberta → histórico CRM.
+// ACRESCENTADO (15/11/2026 — Memória de Longo Prazo v1):
+//   - HistoricoContexto agora inclui dataContato para exibir a data/tempo do histórico.
+//   - formatarDataHistorico(): formata data legível com referência relativa (ex: "3 meses atrás").
+//   - formatarContextoMaria() exibe data no cabeçalho de cada histórico antigo.
+//   - Query do banco já buscava dataContato — agora é passado para a camada de formatação.
 
 import { prisma } from "@/lib/prisma";
 import { TipoContato, StatusOportunidade } from "@/app/generated/prisma/client";
@@ -29,7 +34,36 @@ export type OportunidadeContexto = {
 export type HistoricoContexto = {
   resumo: string;
   detalhes: string | null;
+  // [ACRESCENTADO 15/11/2026 — Memória de Longo Prazo v1]
+  dataContato: Date | null;
 };
+
+// ─── Formatação de data relativa ─────────────────────────────────────────────
+// [ACRESCENTADO 15/11/2026 — Memória de Longo Prazo v1]
+
+/**
+ * Formata uma data de histórico com referência relativa legível.
+ * Ex: "[14/08/2026 — 3 meses atrás]", "[ontem]", "[14/11/2026 — hoje]"
+ * Permite que a Maria saiba imediatamente se é um contato recente ou antigo.
+ */
+export function formatarDataHistorico(dataContato: Date | null): string {
+  if (!dataContato) return "";
+  const data = dataContato.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const diasAtras = Math.floor(
+    (Date.now() - dataContato.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  if (diasAtras === 0) return `[${data} — hoje]`;
+  if (diasAtras === 1) return `[${data} — ontem]`;
+  if (diasAtras < 7) return `[${data} — ${diasAtras} dias atrás]`;
+  if (diasAtras < 30) return `[${data} — ${Math.floor(diasAtras / 7)} semana(s) atrás]`;
+  if (diasAtras < 60) return `[${data} — 1 mês atrás]`;
+  const meses = Math.floor(diasAtras / 30);
+  return `[${data} — ${meses} meses atrás]`;
+}
 
 // ─── Formatação pura (testável sem banco) ────────────────────────────────────
 
@@ -38,6 +72,7 @@ export type HistoricoContexto = {
  * Função pura: não acessa banco, não tem efeitos colaterais — testável diretamente.
  * Ordem: mensagens da sessão atual → oportunidade aberta → histórico CRM (antigas → novas).
  * Limite total: 3000 chars (preserva o comportamento original).
+ * [ATUALIZADO 15/11/2026] Histórico inclui data/tempo relativo para memória de longo prazo.
  */
 export function formatarContextoMaria({
   mensagensSessao,
@@ -70,17 +105,15 @@ export function formatarContextoMaria({
     : [];
 
   // Bloco 3 — histórico de sessões passadas (HistoricoContato, cronológico)
+  // [ATUALIZADO 15/11/2026] Inclui data/tempo relativo no cabeçalho de cada histórico
   const linhasHistorico: string[] = historicos
     .slice()
     .reverse()
-    .map((h) =>
-      [
-        `- ${h.resumo}`,
-        h.detalhes ?? null,
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    );
+    .map((h) => {
+      const dataLabel = formatarDataHistorico(h.dataContato);
+      const cabecalho = dataLabel ? `${dataLabel} ${h.resumo}` : `- ${h.resumo}`;
+      return [cabecalho, h.detalhes ?? null].filter(Boolean).join("\n");
+    });
 
   return [
     ...linhasSessao,
@@ -175,9 +208,11 @@ export async function getContextoConversa(telefone: string): Promise<string> {
   }
 
   const oportunidade = pessoa.oportunidades[0] ?? null;
+  // [ATUALIZADO 15/11/2026] dataContato já está na query (estava no select, agora também no tipo)
   const historicos: HistoricoContexto[] = pessoa.historicos.map((h) => ({
     resumo: h.resumo,
     detalhes: h.detalhes ?? null,
+    dataContato: h.dataContato ?? null,
   }));
 
   return formatarContextoMaria({ mensagensSessao, oportunidade, historicos });
